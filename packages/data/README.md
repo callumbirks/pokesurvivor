@@ -71,8 +71,10 @@ logic stay with that logic, to be ported (and, if useful, lifted into `tuning.js
   `bossScale()`.
 - `spawner.js`: `rate()`, the `hpK` curve, surge timing; `combat.js` damage resolution;
   `hazards.js`; `pathing.js`.
-- `interact.js`: spring heal/drain rates and trap damage per kind; `weather.js` chip damage and
-  snow slow; `events.js` and `rift.js` rewards.
+- (Ported in 2b and lifted into the data: `interact.js` spring rates and trap effects are
+  `world.json` `spring`/`traps`; `weather.js` chip damage, slow and fade are in `weather.json`;
+  the `rift.js`/`events.js` placement, reward and chance constants are in `tuning.json`. The rift
+  legendary's stat formulas and the thief's HP stay in `packages/sim/src/rift.ts`/`runevents.ts`.)
 
 The upgrade cost formula (`round(base · grow^level / 10) · 10`, documented on the schema) and the
 gacha rules (`poolNear` fallback, pity, ×10 guarantee, shiny re-pick) live in the server
