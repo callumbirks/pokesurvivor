@@ -1,5 +1,6 @@
 // Dev-only test page for the in-game client (/play.html, or /?play-solo and /?play-net).
-//   ?solo   (&t=<minutes> to start late, &god to be invulnerable, &seed=: dev runs, not credited)
+//   ?solo   (&t=<minutes> to start late, &god to be invulnerable, &seed=: dev runs, not credited;
+//           in those, F/V/H/J/K/T/B trigger a rift, the arena, events and weather)
 //           log in, then a solo run from your save's partner: loading, the run, the report to the
 //           server and the results; then again.
 //   ?net    log in, add a friend, make a room, invite, ready up and start: the run is played
@@ -111,6 +112,8 @@ async function loadSoloLoadout(): Promise<{
 }
 
 let handle: GameHandle | null = null;
+let devKeys: ((code: string) => void) | null = null;
+addEventListener('keydown', (e) => devKeys?.(e.code));
 
 async function playSolo(): Promise<void> {
   panel.style.display = 'none';
@@ -132,6 +135,19 @@ async function playSolo(): Promise<void> {
       invulnerable,
       api: skipMinutes || invulnerable ? offline : devApi,
     });
+    // Dev triggers, as in /?debug-sim: F rift · V arena · H horde · J golden hour · K lost Pokémon
+    // · T thief · B weather (runs with triggers aren't reported either).
+    const keys: Record<string, Parameters<typeof conn.devTrigger>[0]> = {
+      KeyF: 'rift',
+      KeyV: 'arena',
+      KeyH: 'horde',
+      KeyJ: 'gold',
+      KeyK: 'lost',
+      KeyT: 'thief',
+      KeyB: 'weather',
+    };
+    devKeys =
+      skipMinutes || invulnerable ? (code) => keys[code] && conn.devTrigger(keys[code]) : null;
     handle = mountGame(root, conn, {
       onExit: (results) => {
         handle?.dispose();

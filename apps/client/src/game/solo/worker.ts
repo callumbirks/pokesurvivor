@@ -11,6 +11,9 @@ interface WorkerScope {
 }
 const scope = self as unknown as WorkerScope;
 
+const WEATHERS = ['sun', 'rain', 'sand', 'snow', 'fog'] as const;
+let weatherIdx = 0;
+
 /** At most this much lag is caught up at once (a stalled tab doesn't fast-forward the run). */
 const MAX_CATCH_UP_MS = 250;
 
@@ -144,6 +147,16 @@ scope.onmessage = (ev) => {
         encoder?.reset();
         if (sim && running) sendFrame([]);
         return;
+      case 'debug': {
+        if (!sim) return;
+        const a = m.action;
+        if (a === 'rift') sim.debugOpenRift();
+        else if (a === 'arena') sim.debugStartArena();
+        else if (a === 'weather')
+          sim.debugStartWeather(WEATHERS[weatherIdx++ % WEATHERS.length]!, 40);
+        else sim.debugStartEvent(a);
+        return;
+      }
       case 'quit':
         if (!sim || ended) return;
         sim.removePlayer(playerId);

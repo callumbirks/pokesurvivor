@@ -15,7 +15,7 @@ import {
 import type { RunSummary } from '@pokesurvivor/protocol';
 import type { Intent, PlayerConfig } from '@pokesurvivor/sim';
 import type { RunReport } from '../../app/api.js';
-import type { FromWorker, ToWorker } from './messages.js';
+import type { DevAction, FromWorker, ToWorker } from './messages.js';
 
 /**
  * The server side of a solo run, bound to the player's session and partner by the shell
@@ -63,6 +63,8 @@ export interface SoloConnection extends RoomConnection {
   quit(): void;
   /** Stops the worker (when the game screen goes away). */
   close(): void;
+  /** Dev page only: trigger a rift, the arena, an event or weather. */
+  devTrigger(action: DevAction): void;
 }
 
 const REPORT_TRIES = 3;
@@ -193,6 +195,7 @@ export function createSoloConnection(opts: SoloOptions): SoloConnection {
   const solo = conn as unknown as SoloConnection;
   solo.setPaused = (paused: boolean) => post({ type: 'pause', paused });
   solo.quit = () => post({ type: 'quit' });
+  solo.devTrigger = (action) => post({ type: 'debug', action });
   solo.close = () => {
     closed = true;
     worker.terminate();

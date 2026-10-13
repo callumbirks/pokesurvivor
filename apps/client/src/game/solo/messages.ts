@@ -23,7 +23,11 @@ export type ToWorker =
   /** The client lost track of the deltas: the next snapshot is full. */
   | { type: 'resync' }
   /** The player gave up: the run ends now. */
-  | { type: 'quit' };
+  | { type: 'quit' }
+  /** Dev page only: trigger a rift, the arena, an event or weather (like /?debug-sim). */
+  | { type: 'debug'; action: DevAction };
+
+export type DevAction = 'rift' | 'arena' | 'horde' | 'gold' | 'lost' | 'thief' | 'weather';
 
 export type FromWorker =
   /** The run is built (its static info, roster included): load its assets. */
