@@ -17,8 +17,10 @@ export type ToWorker =
       invulnerable?: boolean;
       /** Resume a saved run: the sim at its last checkpoint (instead of a new run). */
       restore?: SimState;
-      /** Send a `checkpoint` every this many seconds of run time (none if unset). */
+      /** Send a reported `checkpoint` every this many seconds of run time (none if unset). */
       checkpointEveryS?: number;
+      /** Send a `checkpoint` to save locally as the run starts and every this many seconds. */
+      saveEveryS?: number;
     }
   /** Assets loaded: the run starts. */
   | { type: 'start' }
@@ -42,8 +44,11 @@ export type FromWorker =
   /** A snapshot frame (binary, like the server's). */
   | { type: 'frame'; data: Uint8Array }
   | { type: 'reply'; rid: number; result: ChoiceResult }
-  /** The run so far, to report as a checkpoint, and the sim's state, to save for a resume. */
-  | { type: 'checkpoint'; summary: RunSummary; state: SimState }
+  /**
+   * The run so far and the sim's state, to save for a resume; `report`: also report the summary
+   * to the server as a checkpoint.
+   */
+  | { type: 'checkpoint'; summary: RunSummary; state: SimState; report: boolean }
   /** The run is over: the player's results, to report. */
   | { type: 'ended'; reason: string; summary: ResultSummary }
   | { type: 'error'; message: string };

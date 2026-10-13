@@ -119,6 +119,28 @@ describe('solo connection checkpoints', () => {
     conn.close();
   });
 
+  it('saves locally as the run starts and every few seconds, between server checkpoints', async () => {
+    const api = fakeApi();
+    const store = memoryRunStore();
+    const saves: number[] = [];
+    const put = store.put.bind(store);
+    store.put = (run) => {
+      saves.push(run.summary.durationS);
+      return put(run);
+    };
+    const conn = await connect(api, store, { checkpointEveryS: 60, saveEveryS: 2 });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(saves).toEqual([0]);
+    await vi.advanceTimersByTimeAsync(4300);
+    expect(saves).toEqual([0, 2, 4]);
+    // Not reported: the server hears from the run once a minute.
+    expect(api.checkpointRun).not.toHaveBeenCalled();
+    const saved = await store.get('u1');
+    expect(saved?.runId).toBe('run-1');
+    expect(saved?.state?.time).toBeGreaterThanOrEqual(4);
+    conn.close();
+  });
+
   it('sends keep-alive checkpoints while the run is paused', async () => {
     const api = fakeApi();
     const conn = await connect(api, memoryRunStore(), { checkpointEveryS: 60, keepAliveMs: 1000 });
@@ -210,9 +232,12 @@ describe('solo connection checkpoints', () => {
       expect(durations(api)).toEqual([1]);
       expect((await store.get('u1'))?.summary.durationS).toBe(1);
 
+      // Closing: the latest summary goes out at once, without waiting for the worker (which a
+      // reload doesn't leave time for), then a fresh checkpoint if there's time.
       page.dispatchEvent(new Event('pagehide'));
+      expect(durations(api)).toEqual([1, 1]);
       await vi.advanceTimersByTimeAsync(0);
-      expect(api.checkpointRun).toHaveBeenCalledTimes(2);
+      expect(api.checkpointRun).toHaveBeenCalledTimes(3);
       conn.close();
     } finally {
       vi.unstubAllGlobals();

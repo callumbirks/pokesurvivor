@@ -33,8 +33,14 @@ export interface SoloApi {
   reportRun(runId: string, summary: RunSummary): Promise<RunReport>;
 }
 
-/** Run time between checkpoints. */
+/** Run time between checkpoints reported to the server. */
 export const CHECKPOINT_EVERY_S = 60;
+/**
+ * Run time between local saves (also one as the run starts). Much more often than the server
+ * checkpoints: a reload or a closed tab can't wait for the worker, so it resumes from the last
+ * of these.
+ */
+export const SAVE_EVERY_S = 5;
 /**
  * Wall-clock time after which an open run sends a checkpoint anyway (paused, or waiting on a
  * choice), well inside the server's timeout (`RUN_CHECKPOINT_TIMEOUT_S`, an hour by default).
@@ -70,6 +76,8 @@ export interface SoloOptions {
   store?: SoloRunStore;
   /** Run time between checkpoints (`CHECKPOINT_EVERY_S`; 0 for none). */
   checkpointEveryS?: number;
+  /** Run time between local saves (`SAVE_EVERY_S`; 0 for none but the checkpoints). */
+  saveEveryS?: number;
   /** Keep-alive checkpoints while the run doesn't advance (`KEEP_ALIVE_MS`). */
   keepAliveMs?: number;
 }
@@ -125,6 +133,9 @@ export function createSoloConnection(opts: SoloOptions): SoloConnection {
    */
   let closedBy: unknown = null;
   let lastCheckpoint = now();
+  /** The run id once known, and the latest run summary: sent as the page goes away. */
+  let knownRunId: string | null = null;
+  let latestSummary: RunSummary | null = null;
   // Store writes in order, so a late checkpoint save can't bring back a save the report cleared.
   let storeQueue: Promise<void> = Promise.resolve();
   const storeOp = (op: (store: SoloRunStore) => Promise<void>) => {
@@ -190,8 +201,8 @@ export function createSoloConnection(opts: SoloOptions): SoloConnection {
         pending.delete(m.rid);
         return;
       case 'checkpoint':
-        lastCheckpoint = now();
-        void checkpoint(m.summary, m.state);
+        if (m.report) lastCheckpoint = now();
+        void checkpoint(m.summary, m.state, m.report);
         return;
       case 'ended':
         ended = true;
@@ -204,10 +215,16 @@ export function createSoloConnection(opts: SoloOptions): SoloConnection {
   };
   worker.onerror = (ev) => console.error('[solo] worker failed:', ev.message);
 
-  async function checkpoint(summary: RunSummary, state: SavedSoloRun['state']): Promise<void> {
+  async function checkpoint(
+    summary: RunSummary,
+    state: SavedSoloRun['state'],
+    report: boolean,
+  ): Promise<void> {
     const id = await (runId ?? Promise.resolve(null));
     if (!id || closedBy || ended) return;
+    latestSummary = summary;
     void storeOp((store) => store.put(saved(id, summary, state)));
+    if (!report) return;
     try {
       await opts.api.checkpointRun(id, summary);
     } catch (err) {
@@ -223,6 +240,16 @@ export function createSoloConnection(opts: SoloOptions): SoloConnection {
   /** Asks the worker for a checkpoint now (keep-alive, page hidden or closing). */
   function requestCheckpoint(): void {
     if (!closed && !ended && !closedBy && conn.phase === 'running') post({ type: 'checkpoint' });
+  }
+
+  /**
+   * The page is going away (reload, closed tab, navigation): there's no time for the worker to
+   * answer, so report the latest summary (from the last local save) right now, with `keepalive`.
+   */
+  function onPageHide(): void {
+    if (closed || ended || closedBy || !knownRunId || !latestSummary) return;
+    opts.api.checkpointRun(knownRunId, latestSummary).catch(() => {});
+    requestCheckpoint();
   }
 
   /** The run is closed on the server: what the refusal says was credited, if anything. */
@@ -288,11 +315,12 @@ export function createSoloConnection(opts: SoloOptions): SoloConnection {
 
   // Start the run on the server (in parallel with building the sim and loading), or continue
   // the saved one.
+  if (resume) knownRunId = resume.runId;
   runId = resume
     ? Promise.resolve(resume.runId)
     : opts.api
         .startRun()
-        .then((r) => r.runId ?? null)
+        .then((r) => (knownRunId = r.runId ?? null))
         .catch((err: unknown) => {
           console.warn('[solo] the run will not be credited:', err);
           return null;
@@ -307,6 +335,7 @@ export function createSoloConnection(opts: SoloOptions): SoloConnection {
     invulnerable: opts.invulnerable,
     restore: resume?.state ?? undefined,
     checkpointEveryS: opts.checkpointEveryS ?? CHECKPOINT_EVERY_S,
+    saveEveryS: opts.saveEveryS ?? SAVE_EVERY_S,
   });
 
   // Keep-alive: an open run that doesn't advance (paused, choosing) still checkpoints.
@@ -316,15 +345,15 @@ export function createSoloConnection(opts: SoloOptions): SoloConnection {
     },
     Math.min(keepAliveMs, 30_000),
   );
-  // Hidden (a phone switching apps freezes the tab, timers and worker included) or closing:
-  // checkpoint and save now. The game screen pauses a hidden solo run too.
+  // Hidden (a phone switching apps freezes the tab, timers and worker included): checkpoint and
+  // save now; the game screen pauses a hidden solo run too. Closing: see `onPageHide`.
   const onVisibility = () => {
     if (document.visibilityState === 'hidden') requestCheckpoint();
   };
   const hasDocument = typeof document !== 'undefined';
   if (hasDocument) {
     document.addEventListener('visibilitychange', onVisibility);
-    addEventListener('pagehide', requestCheckpoint);
+    addEventListener('pagehide', onPageHide);
   }
 
   const solo = conn as unknown as SoloConnection;
@@ -336,7 +365,7 @@ export function createSoloConnection(opts: SoloOptions): SoloConnection {
     clearInterval(keepAlive);
     if (hasDocument) {
       document.removeEventListener('visibilitychange', onVisibility);
-      removeEventListener('pagehide', requestCheckpoint);
+      removeEventListener('pagehide', onPageHide);
     }
     worker.terminate();
     for (const resolve of pending.values()) resolve({ ok: false, error: 'closed' });

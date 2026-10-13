@@ -199,6 +199,8 @@ sends the run so far while it plays:
    (`ACTION_RATE_LIMIT_MAX`). The client sends one about every minute of run time, at least
    every 3 minutes of wall-clock time while the run is open (paused, or waiting on a choice), and
    when the page is hidden or closed (`fetch` with `keepalive`; a hidden solo run also pauses).
+   Locally it saves the run more often (as it starts and every 5 s of run time), so a reload at
+   any point can resume it, even before the first checkpoint reached the server.
 4. **Timeout credit.** If a run that has a checkpoint gets neither a checkpoint nor a final
    report for `RUN_CHECKPOINT_TIMEOUT_S` (default 3600 s), the server credits that last
    checkpoint as the run's result, exactly as a final report with those numbers would be, and

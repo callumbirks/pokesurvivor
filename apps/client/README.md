@@ -59,11 +59,13 @@ fn)` (spinner on the button, toast on error), loads through `loadInto(el, load, 
 - **Solo crash-safety.** About every minute of run time (`CHECKPOINT_EVERY_S`; and every 3
   minutes of wall-clock time while paused or choosing, and when the page is hidden or closed:
   the game screen also pauses a hidden solo run until the player continues) the worker sends a
-  checkpoint: the run so far and a copy of the sim state. Checkpoints use `fetch` `keepalive`,
-  so they survive the tab closing. The connection reports
-  it (`checkpointRun`, `POST /api/runs/checkpoint`: stored, not credited; the server credits it
-  after an hour without news) and saves it in IndexedDB (`solo/store.ts`, one save per
-  user). The save is dropped once the run is credited or the server says it's closed; if the
+  checkpoint: the run so far and a copy of the sim state. The connection reports it
+  (`checkpointRun`, `POST /api/runs/checkpoint`: stored, not credited; the server credits it
+  after an hour without news) and saves it in IndexedDB (`solo/store.ts`, one save per user).
+  Between those, the worker sends a checkpoint to save locally only as the run starts and every
+  5 s of run time (`SAVE_EVERY_S`): a reload or closed tab can't wait for the worker, so it
+  resumes from the latest of these, and `pagehide` reports that latest summary at once.
+  Checkpoints use `fetch` `keepalive`, so they survive the tab closing. The save is dropped once the run is credited or the server says it's closed; if the
   final report can't reach the server it keeps the final summary instead. The menu shows a saved
   run with **Resume** (a checkpoint first checks the run is still open; then `restoreSim` in the
   worker on the same `runId`) or **End run** (reports the saved summary as the final report). A
