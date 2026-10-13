@@ -141,6 +141,11 @@ describe('gacha', () => {
 
   it('spends each ticket once under concurrent pulls', async () => {
     const c = await withTickets(3);
+    // Achievements pay tickets (a first shiny gives 3, at a 1% shiny rate per pull), which
+    // would legitimately fund more pulls; mark them all unlocked so only the 3 tickets count.
+    await withLockedSave(t.db.db, c.userId, (save) => {
+      for (const a of getServerData().achievements.achievements) save.data.achievements[a.id] = 1;
+    });
     const results = await Promise.all(
       [1, 2, 3, 4, 5].map(() => c.post('/api/gacha/pull', { banner: 'hoenn', count: 1 })),
     );
