@@ -189,8 +189,10 @@ export class NetClient {
     return this.request({ type: 'room.invite', username }).then(() => undefined);
   }
   /** Accepts an invite: joins that room. */
-  join(roomId: string): Promise<RoomView> {
-    return this.request({ type: 'room.join', roomId }) as Promise<RoomView>;
+  async join(roomId: string): Promise<RoomView> {
+    const room = (await this.request({ type: 'room.join', roomId })) as RoomView;
+    this.invites.delete(roomId);
+    return room;
   }
   declineInvite(roomId: string): Promise<void> {
     this.invites.delete(roomId);
@@ -440,4 +442,9 @@ export class NetClient {
   private leftGame(): void {
     if (this.room && this.room.phase !== 'ended') this.room.setPhase('ended');
   }
+}
+
+/** The game server's WebSocket URL for a page at `location` (same origin, ws/wss to match). */
+export function socketUrl(location: { protocol: string; host: string }): string {
+  return `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/ws`;
 }

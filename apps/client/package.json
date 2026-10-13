@@ -8,10 +8,11 @@
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc",
-    "test": "vitest run"
+    "test": "vitest run --passWithNoTests"
   },
   "devDependencies": {
     "@pokesurvivor/data": "workspace:*",
+    "@pokesurvivor/netclient": "workspace:*",
     "@pokesurvivor/protocol": "workspace:*",
     "@pokesurvivor/sim": "workspace:*",
     "vite": "^8.3.4"

@@ -41,6 +41,9 @@ importers:
       '@pokesurvivor/data':
         specifier: workspace:*
         version: link:../../packages/data
+      '@pokesurvivor/netclient':
+        specifier: workspace:*
+        version: link:../../packages/netclient
       '@pokesurvivor/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
