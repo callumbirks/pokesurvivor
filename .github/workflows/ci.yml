@@ -42,6 +42,18 @@ jobs:
       - run: pnpm build
       - name: Apply migrations to an empty database
         run: pnpm db:migrate
+      - name: Install the Playwright browser
+        run: pnpm --filter @pokesurvivor/client exec playwright install --with-deps chromium
+      - name: Browser end-to-end tests (two players, busy blocks the start)
+        run: pnpm --filter @pokesurvivor/client e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            apps/client/playwright-report
+            apps/client/test-results
+          retention-days: 7
 
   docker:
     runs-on: ubuntu-latest

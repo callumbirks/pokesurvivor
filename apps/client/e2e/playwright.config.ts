@@ -10,12 +10,15 @@ const external = process.env.E2E_BASE_URL;
 export default defineConfig({
   testDir: '.',
   testMatch: '*.e2e.ts',
+  outputDir: '../test-results',
   timeout: 60_000,
   expect: { timeout: 10_000 },
   fullyParallel: false,
   workers: 1,
   retries: process.env.CI ? 1 : 0,
-  reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
+  reporter: process.env.CI
+    ? [['list'], ['html', { open: 'never', outputFolder: '../playwright-report' }]]
+    : 'list',
   use: {
     baseURL: external ?? `http://localhost:${clientPort}`,
     trace: 'retain-on-failure',
