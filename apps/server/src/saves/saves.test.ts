@@ -26,7 +26,7 @@ describe('saves', () => {
     const res = await c.get('/api/save');
     expect(res.statusCode).toBe(200);
     expect(res.json()).toMatchObject({
-      version: 1,
+      version: 2,
       coins: 500,
       tickets: { x1: 0, x10: 0 },
       partner: { dex: null, shiny: false },
@@ -55,7 +55,7 @@ describe('saves', () => {
     const c = await t.newUser();
     await grantPokemon(t.db, c.userId, [{ dex: 25 }, { dex: 7 }]);
     await withLockedSave(t.db.db, c.userId, (save) => {
-      save.data.achievements.first_run = Date.now();
+      save.data.achievements['runs-50'] = Date.now();
     });
 
     const tooMany = await c.patch('/api/save/profile', {
@@ -73,7 +73,12 @@ describe('saves', () => {
       ],
     });
     expect(dupes.json()).toMatchObject({ error: { code: 'duplicate_favourite' } });
-    const locked = await c.patch('/api/save/profile', { title: 'champion' });
+    const unknown = await c.patch('/api/save/profile', { title: 'champion' });
+    expect(unknown.json()).toMatchObject({ error: { code: 'unknown_title' } });
+    // own-10 exists but gives no title; survive-20 gives one but isn't unlocked.
+    const noTitle = await c.patch('/api/save/profile', { title: 'own-10' });
+    expect(noTitle.json()).toMatchObject({ error: { code: 'unknown_title' } });
+    const locked = await c.patch('/api/save/profile', { title: 'survive-20' });
     expect(locked.json()).toMatchObject({ error: { code: 'title_locked' } });
 
     const ok = await c.patch('/api/save/profile', {
@@ -81,7 +86,7 @@ describe('saves', () => {
         { dex: 7, shiny: false },
         { dex: 25, shiny: false },
       ],
-      title: 'first_run',
+      title: 'runs-50',
     });
     expect(ok.statusCode).toBe(200);
     expect(ok.json()).toMatchObject({
@@ -90,7 +95,7 @@ describe('saves', () => {
           { dex: 7, shiny: false },
           { dex: 25, shiny: false },
         ],
-        title: 'first_run',
+        title: 'runs-50',
       },
     });
     // Partial update: only the title changes.

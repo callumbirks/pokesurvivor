@@ -21,7 +21,7 @@ export interface Config {
   assetsDir: string;
   /** Mark the session cookie `Secure`. Defaults to on in production (served over TLS). */
   secureCookies: boolean;
-  /** Daily and weekly leaderboards reset at midnight in this IANA time zone. */
+  /** Daily and weekly leaderboards and missions reset at midnight in this IANA time zone. */
   leaderboardTimeZone: string;
   rateLimits: {
     /** Per IP, for each of login and register. */

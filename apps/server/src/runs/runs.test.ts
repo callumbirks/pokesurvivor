@@ -1,3 +1,4 @@
+import { emptyRunProgress } from '@pokesurvivor/protocol';
 import { eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { currencyLedger, runPlayers, runs } from '../db/schema.js';
@@ -27,13 +28,30 @@ const summary = (over: Partial<RunStats> = {}): RunStats => ({
   ticketsX1: 0,
   ticketsX10: 0,
   shiniesCaught: [],
+  progress: emptyRunProgress(),
   ...over,
 });
+
+const TZ = { timeZone: 'Europe/Madrid' };
 
 describe('capRunStats', () => {
   it('keeps a plausible run as is', () => {
     const claim = summary({ durationS: 600, level: 30, kills: 900, bosses: 3, coins: 800 });
     expect(capRunStats(claim, caps, 605)).toEqual({ stats: claim, capped: false });
+    const withProgress = summary({
+      durationS: 600,
+      kills: 900,
+      progress: {
+        defeatsByType: { fire: 100, water: 900 },
+        chestsOpened: 2,
+        itemsEquipped: ['leftovers'],
+        movesEvolved: ['tackle'],
+        riftWins: ['fire'],
+        legendariesDefeated: [146],
+        rescued: [16],
+      },
+    });
+    expect(capRunStats(withProgress, caps, 605)).toEqual({ stats: withProgress, capped: false });
   });
 
   it('caps the duration at the wall-clock time since start and the max duration', () => {
@@ -68,6 +86,40 @@ describe('capRunStats', () => {
       ticketsX1: Math.floor(caps.ticketsX1Flat + 2 * caps.ticketsX1PerMinute),
       ticketsX10: Math.floor(caps.ticketsX10Flat + 2 * caps.ticketsX10PerMinute),
       shiniesCaught: [1],
+      progress: emptyRunProgress(),
+    });
+  });
+
+  it('caps run progress per minute and drops what cannot happen', () => {
+    const { stats, capped } = capRunStats(
+      summary({
+        durationS: 120,
+        kills: 50,
+        progress: {
+          defeatsByType: { fire: 9999 },
+          chestsOpened: 99,
+          itemsEquipped: Array(20).fill('leftovers') as string[],
+          movesEvolved: Array(20).fill('tackle') as string[],
+          riftWins: ['fire', 'water', 'grass', 'ice'],
+          // Pidgey is not legendary; Mewtwo is.
+          legendariesDefeated: [16, 150, 150],
+          // Mewtwo can't be a lost Pokémon; Pidgey and Rattata can.
+          rescued: [150, 16, 19, 16, 20, 21],
+        },
+      }),
+      caps,
+      120,
+    );
+    expect(capped).toBe(true);
+    const limit = (flat: number, perMinute: number) => Math.floor(flat + perMinute * 2);
+    expect(stats.progress).toEqual({
+      defeatsByType: { fire: 50 },
+      chestsOpened: limit(caps.chestsFlat, caps.chestsPerMinute),
+      itemsEquipped: Array(limit(caps.itemsFlat, caps.itemsPerMinute)).fill('leftovers'),
+      movesEvolved: Array(limit(caps.evolutionsFlat, caps.evolutionsPerMinute)).fill('tackle'),
+      riftWins: ['fire'],
+      legendariesDefeated: [150],
+      rescued: [16],
     });
   });
 
@@ -139,8 +191,10 @@ describe('runs', () => {
     const body = res.json<FinishResponse>();
     expect(body).toMatchObject({ runId, capped: false, stats: { durationS: 590, coins: 450 } });
     expect(body.save).toMatchObject({
-      coins: 950,
-      tickets: { x1: 3, x10: 1 },
+      // The run's rewards, plus achievements: own-1 (100 coins), survive-5 (200 coins),
+      // level-15 (2 tickets), boss-1 (2 tickets) and shiny-1 (3 tickets).
+      coins: 500 + 450 + 100 + 200,
+      tickets: { x1: 3 + 2 + 2 + 3, x10: 1 },
       owned: { 133: { from: 'wild' } },
       shiny: { 133: { from: 'wild' } },
       stats: {
@@ -176,7 +230,8 @@ describe('runs', () => {
     expect(body.stats.durationS).toBeGreaterThanOrEqual(60);
     expect(body.stats.durationS).toBeLessThan(70);
     expect(body.stats.coins).toBeLessThanOrEqual(caps.coinsFlat + (70 / 60) * caps.coinsPerMinute);
-    expect(body.save.coins).toBe(500 + body.stats.coins);
+    // Plus 100 for the own-1 achievement.
+    expect(body.save.coins).toBe(500 + body.stats.coins + 100);
     expect(body.save.tickets.x10).toBe(0);
 
     const [row] = await t.db.db.select().from(runPlayers).where(eq(runPlayers.runId, runId));
@@ -211,13 +266,24 @@ describe('runs', () => {
       c.post('/api/runs', { ...body, runId: runId2 }),
     ]);
     expect(both.map((r) => r.statusCode).sort()).toEqual([200, 409]);
-    expect((await c.get('/api/save')).json()).toMatchObject({ coins: 520 });
+    expect((await c.get('/api/save')).json()).toMatchObject({ coins: 520 + 100 });
   });
 
   it('validates the summary', async () => {
     const c = await player();
     const runId = await start(c);
-    for (const bad of [{ coins: -5 }, { kills: 1.5 }, { shiniesCaught: [0] }])
+    const progress = emptyRunProgress();
+    for (const bad of [
+      { coins: -5 },
+      { kills: 1.5 },
+      { shiniesCaught: [0] },
+      { shiniesCaught: [5000] },
+      { progress: { ...progress, defeatsByType: { plasma: 3 } } },
+      { progress: { ...progress, itemsEquipped: ['excalibur'] } },
+      { progress: { ...progress, movesEvolved: ['hyper-beam-9000'] } },
+      { progress: { ...progress, riftWins: ['shadow'] } },
+      { progress: { ...progress, rescued: [99999] } },
+    ])
       expect((await c.post('/api/runs', { runId, ...summary(), ...bad })).statusCode).toBe(400);
     expect((await c.post('/api/runs', { ...summary(), runId: 'not-a-uuid' })).statusCode).toBe(400);
   });
@@ -226,30 +292,37 @@ describe('runs', () => {
     const a = await player();
     const b = await player([1]);
     const startedAt = new Date(Date.now() - 900_000);
-    const runId = await recordCoopRun(t.db.db, {
-      startedAt,
-      endedAt: new Date(),
-      durationS: 900,
-      players: [
-        {
-          ...summary({ level: 40, kills: 2000, coins: 700, ticketsX1: 2 }),
-          userId: a.userId,
-          pokemon: { dex: 25, shiny: false },
-        },
-        {
-          ...summary({ level: 35, kills: 1500, coins: 600 }),
-          userId: b.userId,
-          pokemon: { dex: 1, shiny: false },
-        },
-      ],
-    });
+    const runId = await recordCoopRun(
+      t.db.db,
+      {
+        startedAt,
+        endedAt: new Date(),
+        durationS: 900,
+        players: [
+          {
+            ...summary({ level: 40, kills: 2000, coins: 700, ticketsX1: 2 }),
+            userId: a.userId,
+            pokemon: { dex: 25, shiny: false },
+          },
+          {
+            ...summary({ level: 35, kills: 1500, coins: 600 }),
+            userId: b.userId,
+            pokemon: { dex: 1, shiny: false },
+          },
+        ],
+      },
+      TZ,
+    );
     const saveA = (await a.get('/api/save')).json<SaveView>();
     expect(saveA).toMatchObject({
-      coins: 1200,
-      tickets: { x1: 2 },
+      // Plus achievements: own-1 and survive-5 (coins); survive-10, level-15, defeat-1k and
+      // group-1 (tickets); survive-15 and level-30 (×10 tickets).
+      coins: 500 + 700 + 100 + 200,
+      tickets: { x1: 2 + 4 + 2 + 2 + 2, x10: 2 },
       stats: { runs: 1, groupRuns: 1, bestGroupTimeS: 900, bestTimeS: 900, bestLevel: 40 },
     });
-    expect((await b.get('/api/save')).json()).toMatchObject({ coins: 1100 });
+    expect(saveA.achievements).toHaveProperty('group-1');
+    expect((await b.get('/api/save')).json()).toMatchObject({ coins: 500 + 600 + 100 + 200 });
     const ledger = await t.db.db
       .select()
       .from(currencyLedger)
@@ -291,16 +364,20 @@ describe('leaderboard', () => {
   }
 
   async function coopRun(players: { userId: string }[], durationS: number, dex = 25) {
-    await recordCoopRun(t.db.db, {
-      startedAt: new Date(Date.now() - durationS * 1000),
-      endedAt: new Date(),
-      durationS,
-      players: players.map((p) => ({
-        ...summary(),
-        userId: p.userId,
-        pokemon: { dex, shiny: false },
-      })),
-    });
+    await recordCoopRun(
+      t.db.db,
+      {
+        startedAt: new Date(Date.now() - durationS * 1000),
+        endedAt: new Date(),
+        durationS,
+        players: players.map((p) => ({
+          ...summary(),
+          userId: p.userId,
+          pokemon: { dex, shiny: false },
+        })),
+      },
+      TZ,
+    );
   }
 
   async function befriend(

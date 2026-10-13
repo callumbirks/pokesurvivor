@@ -1,6 +1,6 @@
 /**
  * The boundary between friends (HTTP, this module) and live presence and invites (the
- * WebSocket server, phase 3b). The WebSocket server will implement `PresenceSource` from its
+ * WebSocket server, phase 3c). The WebSocket server will implement `PresenceSource` from its
  * connected sockets and rooms, and `FriendNotifier` to push friend changes to online users.
  * Until then the defaults report everyone offline and notify nobody.
  */

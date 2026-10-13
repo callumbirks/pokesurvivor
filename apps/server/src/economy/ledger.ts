@@ -12,6 +12,7 @@ export type LedgerReason =
   | 'gacha_pull'
   | 'gacha_refund'
   | 'mission_reward'
+  | 'achievement_reward'
   | 'admin_adjustment';
 
 export interface LedgerEntry {
