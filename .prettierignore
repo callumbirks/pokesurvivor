@@ -1,0 +1,6 @@
+legacy/
+pnpm-lock.yaml
+dist/
+coverage/
+apps/server/drizzle/meta/
+CREDITS.md

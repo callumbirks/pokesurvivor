@@ -1,0 +1,14 @@
+{
+  "name": "@pokesurvivor/protocol",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Client/server message types and encoding.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc",
+    "test": "vitest run"
+  }
+}

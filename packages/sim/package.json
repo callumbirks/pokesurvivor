@@ -1,0 +1,14 @@
+{
+  "name": "@pokesurvivor/sim",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Headless simulation. No DOM, Canvas or Audio: runs in Node and in a Web Worker.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc",
+    "test": "vitest run"
+  }
+}
