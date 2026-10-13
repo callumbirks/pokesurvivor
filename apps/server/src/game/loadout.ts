@@ -15,21 +15,32 @@ export function partnerOf(save: SaveView): Partner | null {
   return { dex, shiny: save.partner.shiny && ownsPokemon(save, dex, true) };
 }
 
+export interface Loadout {
+  config: PlayerConfig;
+  /** Pokémon the player owned at the start (a rescued one they own pays coins instead). */
+  owned: ReadonlySet<number>;
+}
+
 /**
  * What a player brings into a coop run, read from their server save (never from the client):
- * the partner, its permanent upgrades, move bindings and bans.
+ * the partner, its permanent upgrades, move bindings and bans, and the legendaries they have
+ * beaten (rifts favour the others).
  */
-export async function loadLoadout(db: Executor, userId: string): Promise<PlayerConfig | null> {
+export async function loadLoadout(db: Executor, userId: string): Promise<Loadout | null> {
   const save = await getSave(db, userId);
   const partner = partnerOf(save);
   if (!partner) return null;
   const key = String(partner.dex);
   return {
-    id: userId,
-    dex: partner.dex,
-    shiny: partner.shiny,
-    upgrades: save.upgrades[key] ?? {},
-    bannedMoves: save.moveBans[key] ?? [],
-    moveBindings: save.moveBindings[key] ?? [],
+    config: {
+      id: userId,
+      dex: partner.dex,
+      shiny: partner.shiny,
+      upgrades: save.upgrades[key] ?? {},
+      bannedMoves: save.moveBans[key] ?? [],
+      moveBindings: save.moveBindings[key] ?? [],
+      legendsBeaten: Object.keys(save.legendsBeaten).map(Number),
+    },
+    owned: new Set(Object.keys(save.owned).map(Number)),
   };
 }

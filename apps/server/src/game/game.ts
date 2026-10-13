@@ -13,6 +13,8 @@ export interface GamePlayerInfo {
   userId: string;
   username: string;
   loadout: PlayerConfig;
+  /** Pokémon they owned at the start (rescued ones they own pay coins instead). */
+  owned: ReadonlySet<number>;
 }
 
 export interface GameSettings {
@@ -271,9 +273,13 @@ export class Game {
   }
 
   private summaryOf(slot: Slot): ResultSummary {
+    const owns = (dex: number) => slot.owned.has(dex);
     return {
-      run: this.sim.runSummaryFor(slot.userId),
-      player: this.sim.summary().players.find((p) => p.playerId === slot.userId) ?? null,
+      run: this.sim.runSummaryFor(slot.userId, owns),
+      player:
+        this.sim
+          .summary((id, dex) => id === slot.userId && owns(dex))
+          .players.find((p) => p.playerId === slot.userId) ?? null,
     };
   }
 

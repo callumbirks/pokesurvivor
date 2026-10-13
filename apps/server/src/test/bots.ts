@@ -1,7 +1,7 @@
 // Headless bot clients for the game server tests: real WebSockets (the `ws` package) to a real
 // server on a random port, driven by @pokesurvivor/netclient, with injectable latency and jitter
 // (delivery stays in order, as over TCP), forced disconnects and offline periods.
-import { NetClient, type SocketLike } from '@pokesurvivor/netclient';
+import { NetClient, firstOption, type SocketLike } from '@pokesurvivor/netclient';
 import type { Snapshot } from '@pokesurvivor/netclient';
 import type { MoveInput } from '@pokesurvivor/sim';
 import type { FastifyInstance } from 'fastify';
@@ -205,9 +205,8 @@ export class Bot {
         setTimeout(() => {
           const room = this.client.room;
           if (!room) return;
-          void (c.kind === 'level-up'
-            ? room.intent({ type: 'pickCard', choiceId: c.id, cardId: c.options[0]?.id ?? '' })
-            : room.intent({ type: 'pickItem', choiceId: c.id, itemId: c.held }));
+          const intent = firstOption(c);
+          if (intent) void room.intent(intent);
         }, delayMs);
       }
     });

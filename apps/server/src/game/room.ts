@@ -14,8 +14,7 @@ import {
   type RoomPhase,
   type RoomView,
 } from '@pokesurvivor/protocol';
-import type { PlayerConfig } from '@pokesurvivor/sim';
-import { Game, type GameOutcome } from './game.js';
+import { Game, type GameOutcome, type GamePlayerInfo } from './game.js';
 import { loadLoadout, partnerOf, type Partner } from './loadout.js';
 import { GameError, type GameServer } from './server.js';
 import { getSave } from '../saves/service.js';
@@ -324,14 +323,19 @@ export class Room {
       throw new GameError('not_ready', `Waiting for: ${blockers.join(', ')}`, { blockers });
 
     this.starting = true;
-    let players: { userId: string; username: string; loadout: PlayerConfig }[];
+    let players: GamePlayerInfo[];
     try {
       // Loadouts come from the server saves, never from the clients.
       players = await Promise.all(
         [...this.members.values()].map(async (m) => {
           const loadout = await loadLoadout(this.server.db, m.userId);
           if (!loadout) throw new GameError('no_partner', `${m.username} has no partner`);
-          return { userId: m.userId, username: m.username, loadout };
+          return {
+            userId: m.userId,
+            username: m.username,
+            loadout: loadout.config,
+            owned: loadout.owned,
+          };
         }),
       );
     } finally {
