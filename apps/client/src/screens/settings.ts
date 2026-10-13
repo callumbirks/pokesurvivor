@@ -60,8 +60,22 @@ function slider(
   return h('span', { class: 'slider' }, input, out);
 }
 
-export function settingsScreen(app: App): Screen {
-  const box = screenBox(app, { id: 'settings', title: t('menu.settings'), wide: false });
+export interface SettingsOptions {
+  /** Opened from a run's pause menu: the back button calls this instead of going to the menu. */
+  onBack?: () => void;
+}
+
+export function settingsScreen(
+  app: App,
+  _params?: URLSearchParams,
+  opts: SettingsOptions = {},
+): Screen {
+  const box = screenBox(app, {
+    id: 'settings',
+    title: t('menu.settings'),
+    wide: false,
+    onBack: opts.onBack,
+  });
   const tabRow = h('div');
   const body = h('div', { class: 'set-body' });
   box.body.append(tabRow, body);
