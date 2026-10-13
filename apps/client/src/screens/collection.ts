@@ -5,6 +5,7 @@ import { audio } from '../audio.js';
 import type { App, Screen } from '../app/app.js';
 import {
   gameData,
+  boxFor,
   h,
   icon,
   rarityInfo,
@@ -150,11 +151,17 @@ export function collectionScreen(app: App, params: URLSearchParams): Screen {
                 : ownsShiny(p.dex)
                   ? h('span', { class: 'badge-r' }, icon('shiny', 12))
                   : null,
-              sprite(p.dex, {
-                scale: 1.5,
-                silhouette: !own,
-                shiny: isPartner && s.partner.shiny && ownsShiny(p.dex),
-              }),
+              h(
+                'span',
+                { class: 'cell-stage' },
+                sprite(p.dex, {
+                  scale: 1.5,
+                  silhouette: !own,
+                  shiny: isPartner && s.partner.shiny && ownsShiny(p.dex),
+                  fit: { width: 80, height: 58 },
+                  feet: true,
+                }),
+              ),
               h('b', null, own ? p.name : '???'),
               rarityBall(p.rarity, 12),
             );
@@ -221,7 +228,14 @@ export function collectionScreen(app: App, params: URLSearchParams): Screen {
             '--stage-c': !own ? '#5b83d6' : shown ? '#9ae6ff' : typeColor(p.types[0] ?? 'normal'),
           },
         },
-        sprite(p.dex, { scale: 3, lively: own, silhouette: !own, shiny: shown }),
+        sprite(p.dex, {
+          scale: 3,
+          lively: own,
+          silhouette: !own,
+          shiny: shown,
+          fit: boxFor({ width: 216, height: 150 }, { width: 130, height: 96 }),
+          feet: true,
+        }),
       ),
       hasShiny
         ? h(

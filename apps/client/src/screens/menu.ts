@@ -103,7 +103,13 @@ export function menuScreen(app: App): Screen {
             title: t('collection.chooseAsPartner', { 0: '' }),
             on: { click: () => app.go('collection', { dex: String(dex) }) },
           },
-          sprite(dex, { scale: 4, lively: true, shiny }),
+          sprite(dex, {
+            scale: 4,
+            lively: true,
+            shiny,
+            fit: { width: 256, height: 170 },
+            feet: true,
+          }),
         ),
         h(
           'div',

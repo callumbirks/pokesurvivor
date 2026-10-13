@@ -1063,7 +1063,7 @@ img.pix {
 .banner .feat {
   display: flex;
   align-items: flex-end;
-  justify-content: center;
+  justify-content: space-evenly;
   gap: 6px;
   margin: 8px -10px -16px;
   height: 170px;
@@ -1851,9 +1851,6 @@ input[type='range']::-moz-range-thumb {
     width: 88px;
     height: 76px;
   }
-  .pcard .pstage .sprite {
-    zoom: 0.6;
-  }
 }
 .detail .stage {
   width: 100%;
@@ -1905,4 +1902,38 @@ canvas.backdrop {
   .pcard.shiny {
     animation: none;
   }
+}
+.cell-stage {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  width: 100%;
+  height: 66px;
+  padding-bottom: 6px;
+  overflow: hidden;
+}
+/* Small sprites in list rows (leaderboard, friends): a fixed box, feet on its bottom edge. */
+.mini {
+  display: inline-flex;
+  align-items: flex-end;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 44px;
+  height: 40px;
+  padding-bottom: 3px;
+  overflow: hidden;
+}
+.banner .feat {
+  /* Room under the feet line for tails and legs drawn below it. */
+  padding-bottom: 22px;
+}
+.banner .feat .sprite {
+  flex-shrink: 0;
+}
+.leg-cell {
+  justify-content: flex-end;
+  min-height: 84px;
+}
+.leg-cell small {
+  position: relative;
 }

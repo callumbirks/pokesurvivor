@@ -345,3 +345,24 @@ export class Animator {
     ctx.globalAlpha = prev;
   }
 }
+
+export interface SpriteBox {
+  width: number;
+  height: number;
+}
+
+/**
+ * The pixel scale for a sprite frame to fit `box`: `scale` if it fits, else the largest whole
+ * scale that does (crisp pixels), or a fraction below 1 for the rare frame that doesn't fit even
+ * at 1. The height that counts is the body above the feet (`anchorY`); below them is empty.
+ */
+export function fitScale(
+  frame: { width: number; anchorY: number },
+  scale: number,
+  box?: SpriteBox,
+): number {
+  if (!box) return scale;
+  const max = Math.min(box.width / frame.width, box.height / frame.anchorY);
+  if (max >= scale) return scale;
+  return max >= 1 ? Math.floor(max) : max;
+}

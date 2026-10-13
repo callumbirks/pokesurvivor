@@ -106,7 +106,11 @@ export function renderResults(results: Results, o: ResultsOptions): HTMLElement 
               el(
                 'div',
                 null,
-                spriteEl(d, { shiny: true, scale: 2 }),
+                el(
+                  'span',
+                  { class: 'ps-caught-stage' },
+                  spriteEl(d, { shiny: true, scale: 2, fit: { width: 96, height: 72 } }),
+                ),
                 el(
                   'small',
                   null,

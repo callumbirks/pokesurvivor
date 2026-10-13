@@ -38,7 +38,18 @@ export function rankingScreen(app: App): Screen {
       h(
         'span',
         { class: 'mons' },
-        e.players.map((p) => sprite(p.pokemon.dex, { scale: 1, shiny: p.pokemon.shiny })),
+        e.players.map((p) =>
+          h(
+            'span',
+            { class: 'mini' },
+            sprite(p.pokemon.dex, {
+              scale: 1,
+              shiny: p.pokemon.shiny,
+              fit: { width: 44, height: 36 },
+              feet: true,
+            }),
+          ),
+        ),
       ),
       h(
         'span',

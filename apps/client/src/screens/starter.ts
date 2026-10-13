@@ -5,6 +5,7 @@ import { audio } from '../audio.js';
 import type { App, Screen } from '../app/app.js';
 import {
   gameData,
+  boxFor,
   h,
   icon,
   pokemonName,
@@ -108,7 +109,12 @@ export function starterScreen(app: App): Screen {
         h(
           'div',
           { class: 'stage', style: { '--stage-c': typeColor(mon?.types[0] ?? 'normal') } },
-          sprite(pick.dex, { scale: 4, lively: true }),
+          sprite(pick.dex, {
+            scale: 4,
+            lively: true,
+            fit: boxFor({ width: 216, height: 150 }, { width: 130, height: 96 }),
+            feet: true,
+          }),
         ),
         h('h3', null, pokemonName(pick.dex)),
         h(
@@ -157,7 +163,7 @@ export function starterScreen(app: App): Screen {
             },
           },
         },
-        sprite(s.dex, { scale: 2 }),
+        sprite(s.dex, { scale: 2, fit: { width: 80, height: 64 }, feet: true }),
         h('b', null, pokemonName(s.dex)),
       );
       return cell;

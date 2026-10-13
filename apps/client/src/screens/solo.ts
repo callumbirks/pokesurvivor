@@ -5,6 +5,7 @@ import type { App, Screen } from '../app/app.js';
 import { playSolo } from '../app/solo-runs.js';
 import {
   gameData,
+  boxFor,
   h,
   pokemonName,
   replace,
@@ -66,7 +67,13 @@ export function soloScreen(app: App): Screen {
               class: ['stage', shiny && 'shiny'],
               style: { '--stage-c': shiny ? '#9ae6ff' : typeColor(mon?.types[0] ?? 'normal') },
             },
-            sprite(dex, { scale: 4, lively: true, shiny }),
+            sprite(dex, {
+              scale: 4,
+              lively: true,
+              shiny,
+              fit: boxFor({ width: 216, height: 150 }, { width: 130, height: 96 }),
+              feet: true,
+            }),
           ),
           h('h3', { dataset: { testid: 'solo-partner' } }, pokemonName(dex), shiny ? ' ✦' : ''),
           h(
@@ -90,7 +97,7 @@ export function soloScreen(app: App): Screen {
               const cell = h(
                 'button',
                 { class: ['cell', d === dex && 'on'], dataset: { testid: `solo-pick-${d}` } },
-                sprite(d, { scale: 1.5 }),
+                sprite(d, { scale: 1.5, fit: { width: 76, height: 56 }, feet: true }),
                 h('b', null, pokemonName(d)),
               );
               cell.addEventListener('click', () => {

@@ -68,7 +68,7 @@ export function shopScreen(app: App): Screen {
           class: ['stage', 'small', shiny && 'shiny'],
           style: { '--stage-c': shiny ? '#9ae6ff' : typeColor(mon?.types[0] ?? 'normal') },
         },
-        sprite(dex, { scale: 2, lively: true, shiny }),
+        sprite(dex, { scale: 2, lively: true, shiny, fit: { width: 110, height: 74 }, feet: true }),
       ),
       h(
         'div',

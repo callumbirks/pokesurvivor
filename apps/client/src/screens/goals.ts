@@ -216,7 +216,14 @@ export function goalsScreen(app: App): Screen {
                 h(
                   'div',
                   { class: ['leg-cell', !!s.achievements[a.id] && 'ok'], title: a.description },
-                  a.dex ? sprite(a.dex, { scale: 1, silhouette: !s.achievements[a.id] }) : null,
+                  a.dex
+                    ? sprite(a.dex, {
+                        scale: 1,
+                        silhouette: !s.achievements[a.id],
+                        fit: { width: 68, height: 52 },
+                        feet: true,
+                      })
+                    : null,
                   h('small', null, a.dex ? pokemonName(a.dex) : a.name),
                 ),
               ),
@@ -337,7 +344,14 @@ export function goalsScreen(app: App): Screen {
           h(
             'label',
             { class: 'fav-slot' },
-            favs[i] ? sprite(favs[i].dex, { scale: 2, shiny: favs[i].shiny }) : null,
+            favs[i]
+              ? sprite(favs[i].dex, {
+                  scale: 2,
+                  shiny: favs[i].shiny,
+                  fit: { width: 130, height: 80 },
+                  feet: true,
+                })
+              : null,
             sel,
           ),
         ),

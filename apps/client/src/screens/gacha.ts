@@ -7,6 +7,7 @@ import type { App, Screen } from '../app/app.js';
 import type { GachaBanner, GachaInfo, PayWith, PullResponse, PullResult } from '../app/api.js';
 import {
   gameData,
+  boxFor,
   h,
   icon,
   num,
@@ -122,7 +123,15 @@ export function gachaScreen(app: App): Screen {
             h(
               'div',
               { class: 'feat' },
-              banner.featured.map((dex) => sprite(dex, { scale: 2, lively: true })),
+              banner.featured.map((dex) =>
+                sprite(dex, {
+                  scale: 2,
+                  lively: true,
+                  // Big legendaries (Eternatus, Rayquaza…) scale down to stay under the text.
+                  fit: boxFor({ width: 210, height: 144 }, { width: 104, height: 86 }),
+                  feet: true,
+                }),
+              ),
             ),
           ),
           h(
@@ -326,7 +335,13 @@ export function gachaScreen(app: App): Screen {
       h(
         'div',
         { class: 'pstage' },
-        sprite(r.dex, { scale: 2, shiny: r.shiny, lively: r.rarity >= 4 || r.shiny }),
+        sprite(r.dex, {
+          scale: 2,
+          shiny: r.shiny,
+          lively: r.rarity >= 4 || r.shiny,
+          fit: boxFor({ width: 128, height: 96 }, { width: 84, height: 60 }),
+          feet: true,
+        }),
       ),
       h('b', null, r.shiny ? [icon('shiny', 12), ' '] : null, pokemonName(r.dex)),
       h(

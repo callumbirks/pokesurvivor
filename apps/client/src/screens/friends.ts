@@ -168,7 +168,18 @@ export function friendsScreen(app: App): Screen {
           'div',
           { class: 'fr-row', dataset: { testid: `friend-${f.username}` } },
           h('span', { class: ['dot', dotClass(p)] }),
-          f.partner ? sprite(f.partner.dex, { scale: 1, shiny: f.partner.shiny }) : null,
+          f.partner
+            ? h(
+                'span',
+                { class: 'mini' },
+                sprite(f.partner.dex, {
+                  scale: 1,
+                  shiny: f.partner.shiny,
+                  fit: { width: 40, height: 34 },
+                  feet: true,
+                }),
+              )
+            : null,
           h(
             'div',
             { class: 'grow' },

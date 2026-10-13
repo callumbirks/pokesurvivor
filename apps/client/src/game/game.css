@@ -525,3 +525,13 @@
     top: 60px;
   }
 }
+/* A shiny caught in the run: a fixed stage, the sprite standing on its bottom edge. */
+.ps-caught-stage {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  width: 100px;
+  height: 84px;
+  padding-bottom: 6px;
+  overflow: hidden;
+}

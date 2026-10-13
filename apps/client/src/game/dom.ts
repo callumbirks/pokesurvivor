@@ -1,6 +1,6 @@
 // A minimal element builder for the game's overlays (choices, pause, results, toasts).
 import { iconImg } from '../icons.js';
-import { animMeta, initSprites, sheetUrl } from '../sprites.js';
+import { type SpriteBox, animMeta, fitScale, initSprites, sheetUrl } from '../sprites.js';
 
 type Child = Node | string | number | null | undefined | false;
 
@@ -48,17 +48,22 @@ export function clear(e: HTMLElement): void {
  * background stepped through its frames (legacy ui.js `spriteCanvas(…, { lively })`). Fills in
  * once the sprite manifest is loaded.
  */
-export function spriteEl(dex: number, opts: { shiny?: boolean; scale?: number } = {}): HTMLElement {
+export function spriteEl(
+  dex: number,
+  opts: { shiny?: boolean; scale?: number; fit?: SpriteBox } = {},
+): HTMLElement {
   const e = el('span', { class: 'ps-sprite', data: { dex: String(dex) } });
   const paint = () => {
     const anim = animMeta(dex, 'Idle', opts.shiny);
     const url = sheetUrl(dex, 'Idle', opts.shiny);
     if (!anim || !url) return;
-    const scale = opts.scale ?? 2;
+    // Giants scale down to the box, standing on its bottom edge (feet on the baseline).
+    const scale = fitScale(anim, opts.scale ?? 2, opts.fit);
     const w = anim.width * scale;
     const h = anim.height * scale;
     e.style.width = `${w}px`;
     e.style.height = `${h}px`;
+    if (opts.fit) e.style.marginBottom = `${-(anim.height - anim.anchorY) * scale}px`;
     e.style.backgroundImage = `url("${url}")`;
     e.style.backgroundSize = `${w * anim.frames}px ${h * anim.rows}px`;
     e.style.setProperty('--sheet-w', `-${w * anim.frames}px`);
