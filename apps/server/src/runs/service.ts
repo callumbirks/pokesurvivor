@@ -186,7 +186,15 @@ export interface CoopRunReport {
   startedAt: Date;
   endedAt: Date;
   durationS: number;
-  players: (Omit<RunStats, 'durationS'> & { userId: string; pokemon: RunPokemon })[];
+  /**
+   * Each player's stats. `leftAfterS`: a player who left before the end played this long (it
+   * counts for their best time and missions instead of the run's `durationS`).
+   */
+  players: (Omit<RunStats, 'durationS'> & {
+    userId: string;
+    pokemon: RunPokemon;
+    leftAfterS?: number;
+  })[];
 }
 
 /**
@@ -226,8 +234,8 @@ export async function recordCoopRun(
       })),
     );
     for (const player of players) {
-      const { userId, pokemon, ...rest } = player;
-      const stats = { ...rest, durationS: report.durationS };
+      const { userId, pokemon, leftAfterS, ...rest } = player;
+      const stats = { ...rest, durationS: leftAfterS ?? report.durationS };
       await withLockedSave(tx, userId, (save) =>
         applyRunToSave(
           save,
