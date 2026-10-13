@@ -1,5 +1,6 @@
 // The simulation: createSim() builds a run for 1–4 players; step() advances it one fixed tick.
 // The same code runs on the server (co-op rooms) and in a Web Worker (solo).
+import { offerBonds } from './bonds.js';
 import { BIOME_SECONDS, DT, TICK_HZ } from './constants.js';
 import {
   autoResolveFor,
@@ -15,6 +16,7 @@ import { simData } from './data.js';
 import { rebuildGrid, updateEnemies } from './enemies.js';
 import type { SimEvent } from './events.js';
 import { updateHazards } from './hazards.js';
+import { updateInteract } from './interact.js';
 import { maybeLevelUp } from './levelup.js';
 import { cycleSlot, setActive } from './moves.js';
 import { updatePaths, type PathField } from './pathing.js';
@@ -29,12 +31,16 @@ import {
 } from './players.js';
 import { clearOrbs, updateProjectiles } from './projectiles.js';
 import { makeRand, seedRng } from './rng.js';
+import { openRift, startArena, updateRift } from './rift.js';
+import { spawnThief, startEvent, updateRunEvents } from './runevents.js';
 import { rollRoster, updateSpawner } from './spawner.js';
 import { newTeam } from './team.js';
+import { startWeather, updateWeather } from './weather.js';
 import { createChunkCache } from './world.js';
-import type { PlayerId, PlayerState, SimState } from './state.js';
+import type { PlayerId, PlayerState, RunEventId, SimState } from './state.js';
+import type { PokemonType, WeatherId } from '@pokesurvivor/data';
 import { stateHash } from './hash.js';
-import { playerRunSummary, runSummary, type RunSummary } from './summary.js';
+import { playerRunSummary, runSummary, type OwnsPokemon, type RunSummary } from './summary.js';
 import type { RunSummary as ProtocolRunSummary } from '@pokesurvivor/protocol';
 
 export interface SimConfig {
@@ -63,6 +69,11 @@ export type Intent =
   /** Item swap: `itemId` is the item to hold (the current one or the one found). */
   | { type: 'pickItem'; choiceId: number; itemId: string }
   | { type: 'reroll'; choiceId: number }
+  /**
+   * Bond: the loose moves to fuse, from the choice's `loose`: two for `pair`, one for `add` (it
+   * joins the choice's `group`).
+   */
+  | { type: 'pickBond'; choiceId: number; moves: string[] }
   /** Next / previous move slot (Q / E). */
   | { type: 'cycleSlot'; dir: 1 | -1 };
 
@@ -116,6 +127,13 @@ export class Sim {
         const c = findChoice(this.ctx, playerId, intent.choiceId);
         if (!c || c.kind !== 'item') return { ok: false, error: 'no such item choice' };
         return resolveChoice(this.ctx, c, intent.itemId);
+      }
+      case 'pickBond': {
+        const c = findChoice(this.ctx, playerId, intent.choiceId);
+        if (!c || c.kind !== 'bond') return { ok: false, error: 'no such bond choice' };
+        if (!Array.isArray(intent.moves) || !intent.moves.every((m) => typeof m === 'string'))
+          return { ok: false, error: 'bad moves' };
+        return resolveChoice(this.ctx, c, intent.moves);
       }
       case 'reroll': {
         const c = findChoice(this.ctx, playerId, intent.choiceId);
@@ -177,18 +195,44 @@ export class Sim {
     return stateHash(this.state);
   }
 
-  summary(): RunSummary {
-    return runSummary(this.ctx);
+  /** `owns`: whether a player already owns a Pokémon (the 150-coin rescue consolation). */
+  summary(owns?: OwnsPokemon): RunSummary {
+    return runSummary(this.ctx, owns);
   }
 
-  /** One player's result in the protocol shape (`POST /api/runs`, `recordCoopRun`). */
-  runSummaryFor(playerId: PlayerId): ProtocolRunSummary {
-    return playerRunSummary(runSummary(this.ctx), playerId);
+  /**
+   * One player's result in the protocol shape (`POST /api/runs`, `recordCoopRun`). `owns`: whether
+   * this player already owns a Pokémon (rescued ones they own give coins instead).
+   */
+  runSummaryFor(playerId: PlayerId, owns?: (dex: number) => boolean): ProtocolRunSummary {
+    const byPlayer: OwnsPokemon | undefined = owns && ((id, dex) => id === playerId && owns(dex));
+    return playerRunSummary(runSummary(this.ctx, byPlayer), playerId);
   }
 
   /** Debug: the next `n` spawns are shiny. */
   debugForceShiny(n: number): void {
     this.state.spawner.forceShiny = n;
+  }
+
+  /** Debug: open a rift near a player now. */
+  debugOpenRift(): void {
+    openRift(this.ctx);
+  }
+
+  /** Debug: take the team to a legendary's arena now (optionally of one type). */
+  debugStartArena(type?: PokemonType): void {
+    startArena(this.ctx, type);
+  }
+
+  /** Debug: start an event now (`thief`: a treasure thief). */
+  debugStartEvent(id: RunEventId | 'thief'): void {
+    if (id === 'thief') spawnThief(this.ctx);
+    else if (!this.state.events.current) startEvent(this.ctx, id);
+  }
+
+  /** Debug: start a weather now. */
+  debugStartWeather(kind: WeatherId, seconds = 60): void {
+    startWeather(this.ctx, kind, seconds);
   }
 
   /** Advances one tick (1 / TICK_HZ s). */
@@ -203,8 +247,9 @@ export class Sim {
     }
     s.time += DT;
 
+    // (The biome waits while the team is in a rift arena.)
     const biome = Math.floor(s.time / BIOME_SECONDS);
-    if (biome !== s.world.biome) {
+    if (biome !== s.world.biome && !s.arena) {
       s.world.biome = biome;
       const list = ctx.d.game.biomes.runBiomes;
       const b = list[biome % list.length];
@@ -230,15 +275,20 @@ export class Sim {
     updateFields(ctx);
     updatePickups(ctx);
     updateHazards(ctx);
-    // 2b: interactables, rifts, events and weather update here.
+    updateInteract(ctx);
+    updateRift(ctx);
+    updateRunEvents(ctx);
+    updateWeather(ctx);
     maybeLevelUp(ctx);
+    offerBonds(ctx);
     this.checkAllDown();
   }
 
   private checkAllDown(): void {
     const s = this.state;
     const players = presentPlayers(s);
-    if (!players.length || !players.every((p) => p.dead)) {
+    // In a rift arena, going down only sends you back (rift.ts).
+    if (!players.length || !players.every((p) => p.dead) || s.arena) {
       s.allDownT = 0;
       return;
     }
@@ -269,12 +319,22 @@ export function createSim(config: SimConfig): Sim {
   if (new Set(config.players.map((p) => p.id)).size !== n) throw new Error('duplicate player id');
   const timeout = config.choiceTimeoutSeconds === undefined ? 30 : config.choiceTimeoutSeconds;
   const seed = Math.floor(Math.abs(config.seed)) % 2 ** 31 || 1;
+  const data = simData().game;
   const state: SimState = {
     tick: 0,
     time: 0,
     rng: seedRng(seed),
     nextId: 1,
-    world: { seed, biome: 0, broken: {}, propHp: {} },
+    world: {
+      seed,
+      biome: 0,
+      broken: {},
+      propHp: {},
+      arena: null,
+      altarsUsed: {},
+      springs: {},
+      chests: {},
+    },
     players: [],
     team: newTeam(),
     enemies: [],
@@ -290,6 +350,10 @@ export function createSim(config: SimConfig): Sim {
     pathOrigins: {},
     pathTimer: 0,
     allDownT: 0,
+    rift: { checkT: data.tuning.rift.checkEvery, misses: 0, opened: 0, open: null },
+    arena: null,
+    weather: { current: null, checkT: data.weather.checkEvery, chipT: 0 },
+    events: { nextT: 0, current: null, last: null, thiefT: 0, thieves: 0, lost: null },
     ended: null,
     config: {
       choiceTimeoutTicks: timeout === null ? null : Math.max(1, Math.round(timeout * TICK_HZ)),
@@ -300,6 +364,9 @@ export function createSim(config: SimConfig): Sim {
   const sim = new Sim(state, (ctx) => {
     state.roster = rollRoster(ctx);
     state.players = config.players.map((cfg, i): PlayerState => createPlayer(ctx, cfg, i, n));
+    const ev = data.tuning.events;
+    state.events.nextT = ctx.rand.range(ev.every[0], ev.every[1]);
+    state.events.thiefT = ctx.rand.range(ev.thiefFirst[0], ev.thiefFirst[1]);
   });
   sim.drainEvents();
   return sim;

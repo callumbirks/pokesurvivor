@@ -64,6 +64,8 @@ export const ArenaSchema = z.strictObject({
   }),
 });
 
+export type Arena = z.infer<typeof ArenaSchema>;
+
 export const BiomesFileSchema = z.strictObject({
   runBiomes: z.array(RunBiomeSchema).min(1),
   arenas: z.array(ArenaSchema).min(1),
@@ -111,7 +113,34 @@ export const WorldFileSchema = z.strictObject({
   ),
   /** Stand next to a locked chest this long to open it. */
   bigChestOpenSeconds: z.number().positive(),
+  /** Healing springs: heal while standing in one, draining it; they refill on their own. */
+  spring: z.strictObject({
+    /** Fraction of max HP healed per second. */
+    healPerSecond: z.number().positive(),
+    /** Charge (0–1) used per second of healing. */
+    drainPerSecond: z.number().positive(),
+    /** Seconds to refill from empty. */
+    refillSeconds: z.number().positive(),
+    /** How close to its centre you must stand. */
+    range: z.number().positive(),
+  }),
   trapRadius: z.number().positive(),
+  /** What each trap kind does to enemies and players within reach (by prop `kind`). */
+  traps: z.array(
+    z.strictObject({
+      id: IdSchema,
+      /** Enemies: damage (plus per team level), poison stacks, slow factor and seconds, push. */
+      enemyDamage: z.number().nonnegative(),
+      enemyDamagePerLevel: z.number().nonnegative(),
+      enemyPoison: z.number().nonnegative(),
+      enemySlow: z.number().nonnegative().max(1),
+      enemySlowSeconds: z.number().nonnegative(),
+      knockback: z.number().nonnegative(),
+      /** Players (within 70% of the radius): damage as a fraction of max HP, seconds stuck. */
+      playerMaxHpDamage: z.number().nonnegative(),
+      playerSlowSeconds: z.number().nonnegative(),
+    }),
+  ),
   /** Altars grant one of these powers for `altarPowerSeconds`. */
   altarPowerSeconds: z.number().positive(),
   altarPowers: z.array(
@@ -155,5 +184,20 @@ export const WeatherFileSchema = z.strictObject({
   checkEvery: z.number().positive(),
   chance: z.number().positive().max(1),
   durationRange: RangeSchema,
+  /** Seconds a weather takes to fade in and out (its effects scale with it). */
+  fadeSeconds: z.number().positive(),
+  /** Speed lost by non-ice Pokémon in weather that `slows`, at full strength. */
+  slow: z.number().positive().max(1),
+  /**
+   * Chip damage of weather with `immuneTypes`, every `every` s once over `minIntensity`: players
+   * lose `playerMaxHp` of their max HP (never below 1 HP); non-boss enemies `enemyMaxHp` + `enemyFlat`.
+   */
+  chip: z.strictObject({
+    every: z.number().positive(),
+    minIntensity: z.number().nonnegative().max(1),
+    playerMaxHp: z.number().positive(),
+    enemyMaxHp: z.number().positive(),
+    enemyFlat: z.number().nonnegative(),
+  }),
 });
 export type WeatherFile = z.infer<typeof WeatherFileSchema>;

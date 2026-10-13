@@ -1,13 +1,14 @@
 // Events: what happened this tick, for the client to turn into sound, VFX and text. They are
 // cosmetic or notifications only: gameplay never depends on them being delivered (everything that
 // matters is in the state). Text is an i18n key from packages/data/i18n/en.json plus params.
-import type { PickupKind, PlayerId, EntityId, BossSkill } from './state.js';
-import type { MoveKind, PokemonType, UiStringKey } from '@pokesurvivor/data';
+import type { PickupKind, PlayerId, EntityId, BossSkill, RunEventId } from './state.js';
+import type { MoveKind, PokemonType, UiStringKey, WeatherId } from '@pokesurvivor/data';
 
 /** 'super' / 'weak': type effectiveness; 'crit': critical hit. */
 export type HitLabel = 'super' | 'weak' | 'crit' | null;
 
-export type ProgressEventName = 'defeat' | 'chest' | 'item' | 'evolve' | 'rift-win' | 'run-end';
+export type ProgressEventName =
+  'defeat' | 'chest' | 'item' | 'evolve' | 'rift-win' | 'rescue' | 'run-end';
 
 export type SimEvent =
   /** A banner message. `playerId`: only for that player (otherwise everyone). */
@@ -54,9 +55,18 @@ export type SimEvent =
       x: number;
       y: number;
       boss: boolean;
+      /** The rift legendary (also `boss`). */
+      legend: boolean;
       shiny: boolean;
     }
-  | { type: 'enemy-spawned'; id: EntityId; dex: number; boss: boolean; shiny: boolean }
+  | {
+      type: 'enemy-spawned';
+      id: EntityId;
+      dex: number;
+      boss: boolean;
+      legend: boolean;
+      shiny: boolean;
+    }
   /** An enemy left without dying (straggler that found no room ahead). */
   | { type: 'enemy-removed'; id: EntityId }
   /** Enemy animation cues: an attack, a support skill, a boss skill wind-up. */
@@ -104,6 +114,46 @@ export type SimEvent =
       playerId: PlayerId | null;
       data: Record<string, unknown>;
     }
+  // --- rifts and the arena
+  | { type: 'rift-opened'; x: number; y: number; ttl: number }
+  | { type: 'rift-closed'; reason: 'expired' | 'entered' }
+  /** The team was taken to the arena (`x`, `y`: its centre; `seconds`: the time limit). */
+  | {
+      type: 'arena-entered';
+      dex: number;
+      shiny: boolean;
+      arenaType: PokemonType;
+      x: number;
+      y: number;
+      seconds: number;
+    }
+  /** The fight is over; the team goes back a few seconds later (`arena-left`). */
+  | { type: 'arena-ended'; result: 'won' | 'lost'; dex: number }
+  | { type: 'arena-left'; result: 'won' | 'lost' }
+  /** A bond fused moves into one slot (`moves`: the whole group now). */
+  | { type: 'bond-formed'; playerId: PlayerId; moves: string[] }
+  // --- weather, events, interactables
+  /** The weather changed (`kind` null: it cleared). */
+  | { type: 'weather'; kind: WeatherId | null; seconds: number }
+  | {
+      type: 'run-event';
+      id: RunEventId;
+      phase: 'start' | 'end';
+      /** Horde type; the lost Pokémon's dex. */
+      pokemonType?: PokemonType;
+      dex?: number;
+    }
+  | { type: 'thief'; id: EntityId; dex: number; loot: 'coins' | 'ticket10' }
+  /** The lost Pokémon: found (follows `playerId`), hurt, rescued (`joins` the collection), or gone. */
+  | {
+      type: 'lost-pokemon';
+      phase: 'found' | 'hurt' | 'rescued' | 'scared' | 'tired';
+      dex: number;
+      playerId?: PlayerId;
+      joins?: boolean;
+    }
+  | { type: 'altar'; playerId: PlayerId; key: string; powerId: string }
+  | { type: 'trap'; key: string; trap: string; x: number; y: number; r: number }
   | { type: 'choice-resolved'; playerId: PlayerId; choiceId: number; auto: boolean }
   | { type: 'run-ended'; reason: 'all-down' | 'everyone-left' };
 

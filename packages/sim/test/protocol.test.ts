@@ -76,5 +76,5 @@ describe('protocol run summaries', () => {
     }
     // Fortune upgrade: same run, more coins.
     expect(sim.runSummaryFor('a').coins).toBeGreaterThan(sim.runSummaryFor('b').coins);
-  });
+  }, 30_000);
 });

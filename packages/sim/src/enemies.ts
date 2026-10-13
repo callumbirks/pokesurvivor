@@ -14,7 +14,7 @@ import { attackOf } from './players.js';
 import { spawnProjectile } from './projectiles.js';
 import { aheadOfPlayer, spawnCap } from './spawner.js';
 import { weatherSpeedMult } from './weather.js';
-import { collide, isLiquid, rollItem } from './world.js';
+import { collide, isLiquid, liquidKind, rollItem } from './world.js';
 import type {
   BossAi,
   BossSkill,
@@ -117,6 +117,13 @@ export function createEnemy(
   };
 }
 
+/** Golden hour: double XP (and sometimes coins). Not bosses or thieves. */
+export function makeGolden(e: EnemyState): void {
+  if (e.golden || e.boss || e.behavior === 'thief') return;
+  e.golden = true;
+  e.xp *= 2;
+}
+
 /** Shiny: twice the HP and five times the XP. */
 export function makeShiny(e: EnemyState): void {
   e.shiny = true;
@@ -128,7 +135,14 @@ export function makeShiny(e: EnemyState): void {
 export function addEnemy(ctx: Ctx, e: EnemyState): EnemyState {
   ctx.s.enemies.push(e);
   ctx.enemyById.set(e.id, e);
-  emit(ctx, { type: 'enemy-spawned', id: e.id, dex: e.dex, boss: e.boss, shiny: e.shiny });
+  emit(ctx, {
+    type: 'enemy-spawned',
+    id: e.id,
+    dex: e.dex,
+    boss: e.boss,
+    legend: e.legend,
+    shiny: e.shiny,
+  });
   return e;
 }
 
@@ -288,6 +302,7 @@ export function killEnemy(ctx: Ctx, e: EnemyState): void {
     x: e.x,
     y: e.y,
     boss: e.boss,
+    legend: e.legend,
     shiny: e.shiny,
   });
   if (e.boss) {
@@ -299,7 +314,7 @@ export function killEnemy(ctx: Ctx, e: EnemyState): void {
   }
   dropXp(ctx, e.x, e.y, e.xp, e.boss, e.legend);
   if (e.golden && rand() < 0.35) dropPickup(ctx, 'coin', e.x + 6, e.y - 4, 3);
-  // Treasure thieves (2b events): Meowth drops coins; Gholdengo a ×10 ticket.
+  // Treasure thieves: Meowth drops coins; Gholdengo a ×10 ticket.
   if (e.behavior === 'thief') {
     const ticket = e.def.loot === 'ticket10';
     for (let i = 0; i < (ticket ? 6 : 20); i++) {
@@ -307,7 +322,22 @@ export function killEnemy(ctx: Ctx, e: EnemyState): void {
     }
     if (ticket) dropPickup(ctx, 'ticket10', e.x, e.y - 12, 1);
   }
-  // 2b: the rift legendary's tickets and coins drop here (`e.legend`).
+  // The rift legendary: loose tickets and coins (on top of a boss's loot; the ×10 is in dropXp).
+  if (e.legend) {
+    const R = ctx.d.game.tuning.rift;
+    for (let i = 0; i < R.rewardTickets; i++) {
+      dropPickup(ctx, 'ticket', e.x + rand.range(-30, 30), e.y + rand.range(-20, 20), 1);
+    }
+    for (let i = 0; i < R.rewardCoinDrops; i++) {
+      dropPickup(
+        ctx,
+        'coin',
+        e.x + rand.range(-50, 50),
+        e.y + rand.range(-35, 35),
+        R.rewardCoinValue,
+      );
+    }
+  }
   if (e.shiny) {
     ctx.s.team.shinies.push(e.dex);
     emit(ctx, { type: 'shiny-caught', dex: e.dex });
@@ -456,7 +486,7 @@ function updateEnemy(ctx: Ctx, e: EnemyState, pl: PlayerState): void {
   // --- terrain (the rift legendary is at home: its arena doesn't affect it) ---
   let terrainMul = 1;
   if (!e.flying && !e.legend && isLiquid(ctx, e.x, e.y)) {
-    const le = ctx.d.liquidEffect(ctx.s.world.biome, e.types);
+    const le = ctx.d.liquidEffect(liquidKind(ctx), e.types);
     if (le.damage) {
       e.lavaTick -= dt;
       if (e.lavaTick <= 0) {

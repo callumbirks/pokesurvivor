@@ -25,6 +25,7 @@
   },
   "hud": {
     "powerForS": "{0} power! {1} for {2} s",
+    "weatherStarts": "{0}: {1}",
     "fury": "Fury",
     "haste": "Haste",
     "sticky": "Sticky!",

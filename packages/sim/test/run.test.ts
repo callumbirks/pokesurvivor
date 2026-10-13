@@ -17,10 +17,13 @@ describe('full runs', () => {
     let bossesSpawned = 0;
     let maxEnemies = 0;
     const kinds = new Set<string>();
+    const runEvents = new Set<string>();
     while (sim.state.time < 20 * 60 && !sim.ended) {
       botStep(sim);
       for (const e of sim.drainEvents()) {
-        if (e.type === 'enemy-spawned' && e.boss) bossesSpawned++;
+        if (e.type === 'enemy-spawned' && e.boss && !e.legend) bossesSpawned++;
+        if (e.type === 'run-event') runEvents.add(e.id);
+        if (e.type === 'thief') runEvents.add('thief');
         kinds.add(e.type);
       }
       maxEnemies = Math.max(maxEnemies, sim.state.enemies.length);
@@ -45,9 +48,20 @@ describe('full runs', () => {
       'choice-resolved',
       'biome',
       'say',
+      // 2b
+      'rift-opened',
+      'rift-closed',
+      'weather',
+      'run-event',
+      'thief',
+      'trap',
     ]) {
       expect(kinds).toContain(k);
     }
+    // A rift at least every 150 s after its predecessor is over (see rift.test.ts): 20 minutes
+    // fit at least five.
+    expect(s.rift.opened).toBeGreaterThanOrEqual(5);
+    expect(runEvents.size).toBeGreaterThanOrEqual(2);
     const sum = sim.summary();
     expect(sum.players.length).toBe(4);
     expect(sum.players[0]!.rewardCoins).toBeGreaterThan(240); // ≥ 20 min / 5 s

@@ -1,7 +1,13 @@
 // The complete simulation state: plain JSON-compatible data (no classes, closures, Maps or Sets),
 // so it can be snapshotted, hashed and diffed. Derived caches (chunk data, spatial grid, path
 // fields) live outside it and are rebuilt from it.
-import type { EnemyBehavior, MoveKind, MoveStats, PokemonType } from '@pokesurvivor/data';
+import type {
+  EnemyBehavior,
+  MoveKind,
+  MoveStats,
+  PokemonType,
+  WeatherId,
+} from '@pokesurvivor/data';
 import type { RunProgress } from '@pokesurvivor/protocol';
 import type { RngState } from './rng.js';
 
@@ -40,6 +46,13 @@ export interface SimState {
   pathTimer: number;
   /** Seconds every remaining player has been down (the run ends after a short delay). */
   allDownT: number;
+  /** Rift schedule and the rift open on the map, if any. */
+  rift: RiftState;
+  /** The legendary's arena while the team is in it (null: on the map). */
+  arena: ArenaState | null;
+  weather: WeatherState;
+  /** Mid-run events (hordes, golden hour, lost Pokémon) and treasure thieves. */
+  events: EventsState;
   ended: RunEnd | null;
   config: SimSettings;
 }
@@ -69,6 +82,25 @@ export interface WorldState {
   broken: Record<string, 1>;
   /** Remaining HP of damaged (not yet broken) props, by tile key. */
   propHp: Record<string, number>;
+  /** The rift arena carved into the map while the team fights there (terrain depends on it). */
+  arena: ArenaGeometry | null;
+  /** Altars already used, by tile key. */
+  altarsUsed: Record<string, 1>;
+  /** Springs not full (charge 0–1), by tile key; missing = full. */
+  springs: Record<string, number>;
+  /** Locked chests being opened: seconds of progress, by tile key. */
+  chests: Record<string, number>;
+}
+
+/** A walled circle of `r` tiles around tile (tx, ty), themed after an arena type. */
+export interface ArenaGeometry {
+  tx: number;
+  ty: number;
+  r: number;
+  type: PokemonType;
+  /** The theme's density of 2×2 pillars and of pools (biomes.json arenas). */
+  pillars: number;
+  pools: number;
 }
 
 // ---------------------------------------------------------------- players
@@ -160,10 +192,12 @@ export interface PlayerState {
   slots: string[][];
   active: number;
   maxSlots: number;
-  /** Unused bonds (2b: legendary rewards that fuse moves into one slot). */
+  /** Unused bonds (a rift win each): fuse moves into one slot (see the `bond` choice). */
   bonds: number;
   /** Moves this player never gets offered (permanent "Ban" upgrade). */
   banned: string[];
+  /** Legendaries this player has beaten before the run (static; weights the rift's legendary). */
+  legendsBeaten: number[];
   /** Move id → preferred slot (permanent "Shortcuts" setting). */
   bind: Record<string, number>;
   rerollsUsed: number;
@@ -177,10 +211,16 @@ export interface PlayerState {
   sashAt: number | null;
   /** Shell Bell healing still to be applied. */
   bellHeal: number;
+  /** Attacking until this `state.time` (last cast + window; Life Orb drains while attacking). */
+  attackingUntil: number;
 
   invuln: number;
-  /** Seconds left stuck by a trap (2b): half speed. */
+  /** Seconds left stuck by a trap: half speed. */
   slowT: number;
+  /** Altar power in effect (its stat effect is applied while it lasts). */
+  power: { id: string; t: number } | null;
+  /** Spring healing not yet reported in a `player-healed` event. */
+  springHeal: number;
   inLiquid: boolean;
   lavaTick: number;
   dead: boolean;
@@ -249,7 +289,7 @@ export interface EnemyDef {
   /** Fans: shots per volley. Zoners: zones per cast. */
   fanCount?: number;
   zones?: number;
-  /** Treasure thieves (2b): what they drop. */
+  /** Treasure thieves: what they drop. */
   loot?: 'coins' | 'ticket10';
 }
 
@@ -320,10 +360,10 @@ export interface EnemyState {
   height: number;
   scale: number;
   boss: boolean;
-  /** Rift legendary (2b). */
+  /** Rift legendary. */
   legend: boolean;
   shiny: boolean;
-  /** Golden hour (2b): double XP. */
+  /** Golden hour: double XP. */
   golden: boolean;
   flying: boolean;
   types: PokemonType[];
@@ -370,7 +410,7 @@ export interface EnemyState {
   jump: JumpState | null;
   /** Seconds lagging behind out of everyone's view. */
   lagT: number;
-  /** Thief zig-zag phase and seconds left before escaping (2b; null: stays). */
+  /** Thief zig-zag phase and seconds left before escaping (null: stays). */
   zig: number;
   life: number | null;
   /** Line of sight to its target, re-checked every 0.2 s. */
@@ -540,4 +580,101 @@ export interface ItemChoice extends ChoiceBase {
   found: string;
 }
 
-export type PendingChoice = LevelUpChoice | ItemChoice;
+/**
+ * Spend a bond (rift win): `pair` fuses two loose moves (pick 2 of `loose`) into one slot; `add`
+ * adds one loose move (pick 1) to the bonded `group`, which grows up to `BOND_MAX` moves.
+ */
+export interface BondChoice extends ChoiceBase {
+  kind: 'bond';
+  mode: 'pair' | 'add';
+  /** The bonded slot that grows (`add`), as move ids; null for `pair`. */
+  group: string[] | null;
+  /** Move ids in slots of their own, in slot order. */
+  loose: string[];
+}
+
+export type PendingChoice = LevelUpChoice | ItemChoice | BondChoice;
+
+// ---------------------------------------------------------------- rifts and the arena
+
+export interface RiftState {
+  /** Seconds to the next roll (counts from `startAfter`, only while no rift or arena is up). */
+  checkT: number;
+  /** Rolls in a row without a rift: each raises the chance (0.2 × (1 + misses)). */
+  misses: number;
+  /** Rifts opened this run. */
+  opened: number;
+  /** The rift waiting on the map. Touch it to take the whole team to the arena. */
+  open: { x: number; y: number; ttl: number; t: number } | null;
+}
+
+export interface ArenaState extends ArenaGeometry {
+  /** The legendary. */
+  dex: number;
+  shiny: boolean;
+  /** World position of the arena's centre. */
+  x: number;
+  y: number;
+  /** Where each player was on the map (they go back there). */
+  back: Record<PlayerId, { x: number; y: number }>;
+  /** Seconds since the team arrived. */
+  t: number;
+  phase: 'fight' | 'won' | 'lost';
+  /** Seconds until the team returns (after `won` / `lost`). */
+  endT: number;
+  bossId: EntityId;
+  /** Seconds everyone has been down (the fight is lost after 1.4 s). */
+  downT: number;
+  /** The map's enemies, put away while the team is in the arena. */
+  stash: EnemyState[];
+}
+
+// ---------------------------------------------------------------- weather and events
+
+export interface WeatherState {
+  /** The weather now (null: clear). Effects fade in and out over `fadeSeconds`. */
+  current: { kind: WeatherId; t: number; dur: number } | null;
+  checkT: number;
+  chipT: number;
+}
+
+export type RunEventId = 'horde' | 'gold' | 'lost';
+
+export interface EventsState {
+  /** Seconds to the next event. */
+  nextT: number;
+  current: {
+    id: RunEventId;
+    t: number;
+    /** Seconds it lasts (null: until the lost Pokémon is home or gone). */
+    dur: number | null;
+    /** Horde type and the Pokémon that spawn during it. */
+    type: PokemonType | null;
+    defs: EnemyDef[];
+  } | null;
+  last: RunEventId | null;
+  thiefT: number;
+  thieves: number;
+  lost: LostPokemonState | null;
+}
+
+/** A lost Pokémon: touch it, it follows you; bring it to the marker (tx, ty) before it's hurt. */
+export interface LostPokemonState {
+  dex: number;
+  x: number;
+  y: number;
+  r: number;
+  hp: number;
+  maxHp: number;
+  phase: 'wait' | 'follow';
+  follow: PlayerId | null;
+  moving: boolean;
+  face: number;
+  /** The marker. */
+  tx: number;
+  ty: number;
+  t: number;
+  hitCd: number;
+  /** It joins the collection when brought home (rolled when it appears). */
+  joins: boolean;
+}

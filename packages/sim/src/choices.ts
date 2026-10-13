@@ -1,14 +1,17 @@
-// Pending choices (level-up cards, item swaps) are state, keyed by (playerId, choiceId): a client
+// Pending choices (level-up cards, item swaps, bonds) are state, keyed by (playerId, choiceId): a client
 // that misses a message sees them again in the next snapshot, so nothing can get stuck. While any
 // is pending the whole game is paused, as in legacy co-op. Each one auto-resolves to its first
 // option at its deadline, or straight away if its player disconnects or leaves.
+import { defaultBond, fuse, validBond } from './bonds.js';
 import { emit, playerById, type Ctx } from './ctx.js';
 import { applyCard, offerCards } from './levelup.js';
 import { resolveItemChoice } from './items.js';
-import type { ItemChoice, LevelUpChoice, PendingChoice, PlayerId } from './state.js';
+import type { BondChoice, ItemChoice, LevelUpChoice, PendingChoice, PlayerId } from './state.js';
 
 type NewChoice =
-  Omit<LevelUpChoice, 'id' | 'deadlineTick'> | Omit<ItemChoice, 'id' | 'deadlineTick'>;
+  | Omit<LevelUpChoice, 'id' | 'deadlineTick'>
+  | Omit<ItemChoice, 'id' | 'deadlineTick'>
+  | Omit<BondChoice, 'id' | 'deadlineTick'>;
 
 export type ChoiceResult = { ok: true } | { ok: false; error: string };
 
@@ -27,18 +30,34 @@ export function openChoice(ctx: Ctx, c: NewChoice): PendingChoice {
 }
 
 /** First option: the first card, or keeping the held item. */
-function defaultOption(c: PendingChoice): string | null {
+function defaultOption(c: LevelUpChoice | ItemChoice): string | null {
   return c.kind === 'level-up' ? (c.options[0]?.id ?? null) : c.held;
 }
 
-/** Applies an option (`null`: the default one) and removes the choice. */
-export function resolveChoice(ctx: Ctx, c: PendingChoice, optionId: string | null): ChoiceResult {
+/**
+ * Applies an option (`null`: the default one) and removes the choice. The option is a card id, an
+ * item id, or (bonds) the list of moves to fuse.
+ */
+export function resolveChoice(
+  ctx: Ctx,
+  c: PendingChoice,
+  option: string | readonly string[] | null,
+): ChoiceResult {
   const { s } = ctx;
   const i = s.pendingChoices.indexOf(c);
   if (i < 0) return { ok: false, error: 'no such choice' };
-  const auto = optionId === null;
-  const pick = optionId ?? defaultOption(c);
+  const auto = option === null;
   const p = playerById(s, c.playerId);
+  if (c.kind === 'bond') {
+    const moves = option === null ? defaultBond(c) : typeof option === 'string' ? [option] : option;
+    if (!validBond(c, moves)) return { ok: false, error: 'not an offered bond' };
+    s.pendingChoices.splice(i, 1);
+    if (p) fuse(ctx, p, moves, c.group);
+    emit(ctx, { type: 'choice-resolved', playerId: c.playerId, choiceId: c.id, auto });
+    return { ok: true };
+  }
+  if (option !== null && typeof option !== 'string') return { ok: false, error: 'bad option' };
+  const pick = option ?? defaultOption(c);
   if (c.kind === 'level-up') {
     const card = c.options.find((o) => o.id === pick);
     if (!card && c.options.length) return { ok: false, error: 'not an offered card' };

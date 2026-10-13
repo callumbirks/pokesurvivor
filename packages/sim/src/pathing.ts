@@ -73,6 +73,13 @@ function build(ctx: Ctx, px: number, py: number): PathField {
   return { ox, oy, dist, open };
 }
 
+/** The map changed under everyone (the arena): forget the fields, rebuild them next tick. */
+export function resetPaths(ctx: Ctx): void {
+  ctx.paths.clear();
+  ctx.s.pathOrigins = {};
+  ctx.s.pathTimer = 0;
+}
+
 /** Rebuilds the living players' fields every 0.35 s. */
 export function updatePaths(ctx: Ctx): void {
   const { s } = ctx;

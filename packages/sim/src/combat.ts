@@ -5,7 +5,7 @@ import { DT } from './constants.js';
 import { activePlayers, emit, nextId, playerById, type Ctx } from './ctx.js';
 import { applyStatus, hurtEnemy, queryEnemies } from './enemies.js';
 import type { SimEvent } from './events.js';
-import { lifeOrbCost, onDamageDealt } from './items.js';
+import { lifeOrbDrain, markAttacking, onDamageDealt } from './items.js';
 import { TAU, dist, dist2, inArc, norm, segDist2 } from './math.js';
 import { activeGroup } from './moves.js';
 import { addBuff, attackOf, hurtPlayer, nearestEnemy, targetPos, typeLabel } from './players.js';
@@ -94,8 +94,9 @@ function hit(
 export function tickCombat(ctx: Ctx): void {
   for (const p of activePlayers(ctx.s)) {
     if (p.dead) continue;
-    // Bonds (2b): every move of the active slot, each on its own cooldown.
+    // Bonds: every move of the active slot, each on its own cooldown.
     for (const m of activeGroup(p)) tickMove(ctx, p, m);
+    lifeOrbDrain(ctx, p);
   }
 }
 
@@ -115,7 +116,8 @@ function tickMove(ctx: Ctx, p: PlayerState, m: MoveState): void {
     }
   }
   m.t = Math.max(0.05, (m.stats.cooldown ?? 0) * p.cooldownMul);
-  if (m.kind !== 'trail') lifeOrbCost(ctx, p);
+  // Attacking, for Life Orb (legacy didn't charge trails or orbits either).
+  if (m.kind !== 'trail') markAttacking(ctx, p, m.t);
   m.castTick = ctx.s.tick;
   const x = p.x;
   const y = p.y;

@@ -65,9 +65,12 @@ export interface SimData {
   perks(levels: Readonly<Record<string, number>>): Perks;
   item(id: string): Item;
   statCard(id: string): StatCard;
-  liquidEffect(biome: number, types: readonly PokemonType[]): LiquidEffect;
-  /** Liquid of a biome hurts (lava, poison, sparks): walkers path around it. */
-  liquidHurts(biome: number): boolean;
+  /** The liquid of a run biome (by index, cycling). */
+  biomeLiquid(biome: number): string;
+  /** Effect of a liquid (`world.liquids` id) on a Pokémon of these types. */
+  liquidEffect(liquid: string, types: readonly PokemonType[]): LiquidEffect;
+  /** The liquid hurts (lava, poison, sparks): walkers path around it. */
+  liquidHurts(liquid: string): boolean;
   prop(type: string): PropDef;
   behaviorOf(p: Pokemon): EnemyBehavior;
   /** Wild Pokémon eligible for each spawn tier. */
@@ -133,11 +136,12 @@ export function simData(): SimData {
   };
 
   const runBiomes = game.biomes.runBiomes;
-  const liquidOf = (biome: number) => {
+  const biomeLiquid = (biome: number) => {
     const n = runBiomes.length;
-    const b = runBiomes[((biome % n) + n) % n];
-    return world.liquids[b?.liquid ?? 'water'] ?? world.liquids.water;
+    return runBiomes[((biome % n) + n) % n]?.liquid ?? 'water';
   };
+  const liquidOf = (liquid: string) =>
+    world.liquids[liquid as keyof typeof world.liquids] ?? world.liquids.water;
 
   const heal = new Set(enemies.fixedBehaviors.healer);
   const shield = new Set(enemies.fixedBehaviors.shielder);
@@ -324,13 +328,14 @@ export function simData(): SimData {
       if (!c) throw new Error(`unknown stat card ${id}`);
       return c;
     },
-    liquidEffect(biome, ts) {
-      const e = liquidOf(biome);
+    biomeLiquid,
+    liquidEffect(liquid, ts) {
+      const e = liquidOf(liquid);
       if (e.immune && ts.some((t) => e.immune?.includes(t))) return {};
       return e;
     },
-    liquidHurts(biome) {
-      return !!liquidOf(biome).damage;
+    liquidHurts(liquid) {
+      return !!liquidOf(liquid).damage;
     },
     prop(type) {
       const p = world.props[type as keyof typeof world.props];

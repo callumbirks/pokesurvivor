@@ -1,6 +1,7 @@
 // Held items (legacy data/items.js and game.js offerItem): one per player. Stat effects from
 // items.json apply while held; the reactive ones (Focus Sash, Shell Bell, Life Orb, Rocky Helmet,
 // Choice Band) are checked where they trigger.
+import { DT } from './constants.js';
 import { emit, type Ctx } from './ctx.js';
 import { openChoice } from './choices.js';
 import type { StatEffect } from '@pokesurvivor/data';
@@ -70,14 +71,28 @@ export function resolveItemChoice(ctx: Ctx, p: PlayerState, c: ItemChoice, keep:
   if (keep === c.found) takeItem(ctx, p, c.found);
 }
 
-/** Life Orb: every cast costs a little HP (never knocks you out). Legacy behaviour, see §4. */
-export function lifeOrbCost(ctx: Ctx, p: PlayerState): void {
-  if (p.item !== 'life-orb') return;
+/**
+ * Life Orb: while attacking, HP drains at `drainPerSecond` × max HP per second, but never below
+ * `drainFloor` × max HP. Per second, not per cast, so fast moves and bonds cost the same as slow
+ * ones (legacy charged 1% per cast and pinned them at 1 HP).
+ */
+export function lifeOrbDrain(ctx: Ctx, p: PlayerState): void {
+  if (p.item !== 'life-orb' || ctx.s.time >= p.attackingUntil) return;
+  // Not during the arena's win/lose banner (the fight is over).
+  if (ctx.s.arena && ctx.s.arena.phase !== 'fight') return;
   const params = ctx.d.item('life-orb').params ?? {};
-  p.hp = Math.max(
-    1,
-    p.hp - Math.max(params.minHpCost ?? 1, p.maxHp * (params.hpCostPerCast ?? 0.01)),
-  );
+  const floor = p.maxHp * (params.drainFloor ?? 0.3);
+  if (p.hp <= floor) return;
+  p.hp = Math.max(floor, p.hp - p.maxHp * (params.drainPerSecond ?? 0.015) * DT);
+}
+
+/**
+ * A cast keeps the player "attacking" for `attackingWindowS`, or until just after the move's next
+ * cast if its cooldown is longer (so slow moves drain continuously too).
+ */
+export function markAttacking(ctx: Ctx, p: PlayerState, cooldown: number): void {
+  const window = ctx.d.item('life-orb').params?.attackingWindowS ?? 1;
+  p.attackingUntil = Math.max(p.attackingUntil, ctx.s.time + Math.max(window, cooldown + 0.1));
 }
 
 /** Shell Bell: heal a share of the damage dealt (banked, applied at up to 4 HP/s). */

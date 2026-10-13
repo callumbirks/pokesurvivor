@@ -10,6 +10,9 @@ export function pickFirst(sim: Sim): void {
         choiceId: c.id,
         cardId: c.options[0]?.id ?? '',
       });
+    } else if (c.kind === 'bond') {
+      const moves = c.mode === 'add' ? c.loose.slice(0, 1) : c.loose.slice(0, 2);
+      sim.submitIntent(c.playerId, { type: 'pickBond', choiceId: c.id, moves });
     } else sim.submitIntent(c.playerId, { type: 'pickItem', choiceId: c.id, itemId: c.found });
   }
 }

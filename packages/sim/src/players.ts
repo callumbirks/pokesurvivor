@@ -7,7 +7,7 @@ import { clamp, damp, dist, dist2 } from './math.js';
 import { activeGroup, addMove, setActive } from './moves.js';
 import { clearOrbs } from './projectiles.js';
 import { weatherDamageMult, weatherSpeedMult } from './weather.js';
-import { collide, isLiquid, nearestBreakable } from './world.js';
+import { collide, isLiquid, liquidKind, nearestBreakable } from './world.js';
 import type { HitLabel } from './events.js';
 import type { BuffStat, EnemyState, PlayerId, PlayerState } from './state.js';
 
@@ -23,6 +23,8 @@ export interface PlayerConfig {
   bannedMoves?: readonly string[];
   /** Preferred slot per move ("Shortcuts"): `moveBindings[slot] = moveId`. */
   moveBindings?: readonly (string | null)[];
+  /** Dex numbers of the legendaries this player has beaten (unbeaten ones come up more in rifts). */
+  legendsBeaten?: readonly number[];
 }
 
 /** Seconds a teammate must stand next to you to revive you. */
@@ -88,6 +90,7 @@ export function createPlayer(
     maxSlots: d.game.levelUp.maxMoveSlots,
     bonds: 0,
     banned: (cfg.bannedMoves ?? []).slice(0, perks.bans),
+    legendsBeaten: [...(cfg.legendsBeaten ?? [])],
     bind: {},
     rerollsUsed: 0,
     rerollBonus: perks.rerolls,
@@ -96,8 +99,11 @@ export function createPlayer(
     itemRegen: 0,
     sashAt: null,
     bellHeal: 0,
+    attackingUntil: 0,
     invuln: 0,
     slowT: 0,
+    power: null,
+    springHeal: 0,
     inLiquid: false,
     lavaTick: 0,
     dead: false,
@@ -140,7 +146,7 @@ export function speedOf(ctx: Ctx, p: PlayerState): number {
     p.speedMul *
     (1 + p.buffs.speed.n * p.buffs.speed.amount) *
     (p.slowT > 0 ? 0.5 : 1);
-  const liquid = p.inLiquid ? (ctx.d.liquidEffect(ctx.s.world.biome, p.types).slow ?? 1) : 1;
+  const liquid = p.inLiquid ? (ctx.d.liquidEffect(liquidKind(ctx), p.types).slow ?? 1) : 1;
   return s * liquid * weatherSpeedMult(ctx, p.types);
 }
 
@@ -284,7 +290,7 @@ export function updatePlayer(ctx: Ctx, p: PlayerState): void {
   p.walking = ax !== 0 || ay !== 0;
   const s = speedOf(ctx, p);
   // Ice: you slide (velocity changes slowly).
-  const slide = p.inLiquid && ctx.d.liquidEffect(ctx.s.world.biome, p.types).slide;
+  const slide = p.inLiquid && ctx.d.liquidEffect(liquidKind(ctx), p.types).slide;
   p.vx = slide ? damp(p.vx, ax * s * 1.15, 1.6, dt) : ax * s;
   p.vy = slide ? damp(p.vy, ay * s * 1.15, 1.6, dt) : ay * s;
   p.x += p.vx * dt;
@@ -295,7 +301,7 @@ export function updatePlayer(ctx: Ctx, p: PlayerState): void {
   // --- liquid ---
   p.inLiquid = isLiquid(ctx, p.x, p.y);
   if (p.inLiquid) {
-    const le = ctx.d.liquidEffect(ctx.s.world.biome, p.types);
+    const le = ctx.d.liquidEffect(liquidKind(ctx), p.types);
     if (le.damage) {
       p.lavaTick -= dt;
       if (p.lavaTick <= 0) {

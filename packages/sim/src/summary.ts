@@ -1,7 +1,7 @@
 // What a run leaves behind, per player: for coin rewards, records, missions and achievements.
 import type { RunSummary as ProtocolRunSummary } from '@pokesurvivor/protocol';
 import type { Ctx } from './ctx.js';
-import type { ProgressTotals, RunEnd, TeamState } from './state.js';
+import type { PlayerState, ProgressTotals, RunEnd, TeamState } from './state.js';
 
 /** Deep copy of plain state data. */
 const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
@@ -23,11 +23,19 @@ export interface PlayerSummary {
   shinies: number[];
   /**
    * End-of-run coins as legacy computed them: (seconds / 5 + defeated / 4 + 80 per boss + coins
-   * picked up) × this player's coin multiplier (Fortune upgrade, Amulet Coin).
+   * picked up + 150 per rescued Pokémon already owned) × this player's coin multiplier (Fortune
+   * upgrade, Amulet Coin).
    */
   rewardCoins: number;
   /** Breakdown of `rewardCoins` before the multiplier. */
-  rewardParts: { time: number; defeated: number; bosses: number; collected: number };
+  rewardParts: {
+    time: number;
+    defeated: number;
+    bosses: number;
+    collected: number;
+    /** The consolation for rescued Pokémon the player already owned (`owns`). */
+    rescues: number;
+  };
   coinMul: number;
   moves: { id: string; level: number; evolved: boolean }[];
   item: string | null;
@@ -48,7 +56,13 @@ export interface RunSummary {
   players: PlayerSummary[];
 }
 
-export function runSummary(ctx: Ctx): RunSummary {
+/**
+ * Does this player already own this Pokémon? The sim doesn't know collections: the caller (the
+ * server for co-op, the client for solo) passes this for the rescue consolation.
+ */
+export type OwnsPokemon = (playerId: string, dex: number) => boolean;
+
+export function runSummary(ctx: Ctx, owns?: OwnsPokemon): RunSummary {
   const { s } = ctx;
   const team = s.team;
   const parts = {
@@ -58,6 +72,15 @@ export function runSummary(ctx: Ctx): RunSummary {
     collected: team.coins,
   };
   const base = parts.time + parts.defeated + parts.bosses + parts.collected;
+  const rescueCoins = ctx.d.game.tuning.events.rescueOwnedCoins;
+  const reward = (p: PlayerState) => {
+    const owned = owns ? p.stats.progress.rescued.filter((dex) => owns(p.id, dex)).length : 0;
+    const rescues = owned * rescueCoins;
+    return {
+      rewardCoins: Math.round((base + rescues) * p.coinMul),
+      rewardParts: { ...parts, rescues },
+    };
+  };
   return {
     time: s.time,
     ended: s.ended,
@@ -75,8 +98,7 @@ export function runSummary(ctx: Ctx): RunSummary {
       tickets: team.tickets,
       tickets10: team.tickets10,
       shinies: [...team.shinies],
-      rewardCoins: Math.round(base * p.coinMul),
-      rewardParts: { ...parts },
+      ...reward(p),
       coinMul: p.coinMul,
       moves: p.moves.map((m) => ({ id: m.id, level: m.level, evolved: m.evolved })),
       item: p.item,

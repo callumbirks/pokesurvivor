@@ -2,11 +2,13 @@
 // shapes, for eyeballing behaviour. Not the game renderer.
 //   WASD / arrows  move player 1        1-4 / Q / E  switch move (or pick a card / item)
 //   R reroll cards   G god mode   P peaceful (no spawns)   +/- sim speed   N new run
+//   F open a rift   V arena now   H horde   J golden hour   K lost Pokémon   T thief   B weather
 // URL params: players=1..4 (the others are simple bots), seed=, dex=, t=<minutes to skip ahead>.
 import { t } from '@pokesurvivor/data';
 import {
   createSim,
   drainTicks,
+  liquidKind,
   propHp,
   propsInRect,
   terrainRaw,
@@ -76,6 +78,10 @@ export function startDebugSim(canvas: HTMLCanvasElement, ctx: CanvasRenderingCon
   let last = performance.now();
   let stepMs = 0;
   const banners: { text: string; until: number }[] = [];
+  /** Bond choice (pair): the first move picked. */
+  let bondFirst: string | null = null;
+  const WEATHERS = ['sun', 'rain', 'sand', 'snow', 'fog'] as const;
+  let weatherIdx = 0;
 
   function newRun(seed: number): Sim {
     const players = Array.from({ length: count }, (_, i) => ({
@@ -104,6 +110,14 @@ export function startDebugSim(canvas: HTMLCanvasElement, ctx: CanvasRenderingCon
           choiceId: mine.id,
           itemId: i ? mine.found : mine.held,
         });
+      } else if (mine.kind === 'bond' && mine.loose[i]) {
+        const m = mine.loose[i];
+        if (mine.mode === 'pair' && !bondFirst) bondFirst = m;
+        else if (m !== bondFirst) {
+          const moves = mine.mode === 'pair' && bondFirst ? [bondFirst, m] : [m];
+          sim.submitIntent('you', { type: 'pickBond', choiceId: mine.id, moves });
+          bondFirst = null;
+        }
       }
     } else if (digit) sim.setInput('you', { ...move(), slot: Number(digit[1]) - 1 });
     if (e.code === 'KeyR' && mine) sim.submitIntent('you', { type: 'reroll', choiceId: mine.id });
@@ -114,6 +128,13 @@ export function startDebugSim(canvas: HTMLCanvasElement, ctx: CanvasRenderingCon
     if (e.key === '+' || e.key === '=') speed = Math.min(8, speed * 2);
     if (e.key === '-') speed = Math.max(0.25, speed / 2);
     if (e.code === 'KeyN') sim = newRun(Math.floor(Math.random() * 1e6));
+    if (e.code === 'KeyF') sim.debugOpenRift();
+    if (e.code === 'KeyV') sim.debugStartArena();
+    if (e.code === 'KeyH') sim.debugStartEvent('horde');
+    if (e.code === 'KeyJ') sim.debugStartEvent('gold');
+    if (e.code === 'KeyK') sim.debugStartEvent('lost');
+    if (e.code === 'KeyT') sim.debugStartEvent('thief');
+    if (e.code === 'KeyB') sim.debugStartWeather(WEATHERS[weatherIdx++ % WEATHERS.length]!, 30);
   });
   addEventListener('keyup', (e) => keys.delete(e.code));
 
@@ -137,7 +158,14 @@ export function startDebugSim(canvas: HTMLCanvasElement, ctx: CanvasRenderingCon
           choiceId: c.id,
           cardId: c.options[0]?.id ?? '',
         });
-      else s.submitIntent(c.playerId, { type: 'pickItem', choiceId: c.id, itemId: c.held });
+      else if (c.kind === 'item')
+        s.submitIntent(c.playerId, { type: 'pickItem', choiceId: c.id, itemId: c.held });
+      else
+        s.submitIntent(c.playerId, {
+          type: 'pickBond',
+          choiceId: c.id,
+          moves: c.loose.slice(0, c.mode === 'add' ? 1 : 2),
+        });
     }
     s.state.players.forEach((p, i) => {
       if (i === 0 && !all) return;
@@ -190,18 +218,40 @@ export function startDebugSim(canvas: HTMLCanvasElement, ctx: CanvasRenderingCon
     ctx.fillRect(left, top, vw, vh);
     for (let ty = Math.floor(top / TILE); ty <= Math.floor((top + vh) / TILE); ty++) {
       for (let tx = Math.floor(left / TILE); tx <= Math.floor((left + vw) / TILE); tx++) {
-        const tt = terrainRaw(s.world.seed, tx, ty);
+        const tt = terrainRaw(s.world.seed, tx, ty, s.world.arena);
         if (tt === WALL) ctx.fillStyle = '#555c66';
         else if (tt === LIQUID)
-          ctx.fillStyle = sim.ctx.d.liquidHurts(s.world.biome) ? '#b9401a' : '#2c64a6';
+          ctx.fillStyle = sim.ctx.d.liquidHurts(liquidKind(sim.ctx)) ? '#b9401a' : '#2c64a6';
         else continue;
         ctx.fillRect(tx * TILE, ty * TILE, TILE, TILE);
       }
     }
+    const wd = s.world;
     for (const p of propsInRect(sim.ctx, left - 40, top - 40, left + vw + 40, top + vh + 40)) {
+      ctx.globalAlpha = p.type === 'altar' && wd.altarsUsed[p.key] ? 0.3 : 1;
       circle(p.x, p.y, p.r, PROP_COLORS[p.type] ?? '#fff', p.type !== 'grass');
+      ctx.globalAlpha = 1;
       if (p.destructible && propHp(sim.ctx, p) < p.maxHp)
         bar(p.x, p.y - p.r - 4, 20, propHp(sim.ctx, p) / p.maxHp, '#ccc');
+      if (p.type === 'spring') bar(p.x, p.y - p.r - 4, 24, wd.springs[p.key] ?? 1, '#5fd4ff');
+      if (p.type === 'big-chest' && wd.chests[p.key])
+        bar(p.x, p.y - p.r - 4, 24, (wd.chests[p.key] ?? 0) / 3.5, '#f2c443');
+      if (p.type === 'altar' || p.type === 'trap' || p.type === 'big-chest' || p.type === 'spring')
+        label(p.type, p.x, p.y + p.r + 9, '#eee');
+    }
+    const rift = s.rift.open;
+    if (rift) {
+      circle(rift.x, rift.y - 10, 30, '#b48aff', false);
+      circle(rift.x, rift.y - 10, 14, '#7b3cff', true);
+      label(`RIFT ${Math.ceil(rift.ttl)}s`, rift.x, rift.y - 46, '#d9c2ff');
+    }
+    const lost = s.events.lost;
+    if (lost) {
+      circle(lost.tx, lost.ty, 56, '#7dffb0', false);
+      label('marker', lost.tx, lost.ty, '#7dffb0');
+      circle(lost.x, lost.y, lost.r, '#7dffb0', true);
+      bar(lost.x, lost.y - lost.r - 6, 24, lost.hp / lost.maxHp, '#5fe08a');
+      label(lost.phase === 'wait' ? '!' : 'lost', lost.x, lost.y + lost.r + 9, '#7dffb0');
     }
     for (const f of s.fields) {
       ctx.globalAlpha = f.kind === 'patch' ? 0.35 : 0.8;
@@ -239,6 +289,8 @@ export function startDebugSim(canvas: HTMLCanvasElement, ctx: CanvasRenderingCon
         true,
       );
       if (e.boss) circle(e.x, e.y, e.r + 3, e.ai?.fury ? '#ff4a4a' : '#ffd95e', false);
+      if (e.legend) circle(e.x, e.y, e.r + 6, '#c9a6ff', false);
+      if (e.golden || e.behavior === 'thief') circle(e.x, e.y, e.r + 2, '#ffd23f', false);
       if (e.shield > 0) circle(e.x, e.y, e.r + 5, '#9fd8ff', false);
       if (e.burn > 0 || e.poison > 0)
         circle(e.x, e.y, e.r * 0.5, e.burn ? '#ff8a3d' : '#c86bdc', true);
@@ -276,7 +328,12 @@ export function startDebugSim(canvas: HTMLCanvasElement, ctx: CanvasRenderingCon
       `t ${Math.floor(s.time / 60)}:${String(Math.floor(s.time % 60)).padStart(2, '0')}  tick ${s.tick}  ×${speed}  step ${stepMs.toFixed(2)} ms (budget ${TICK_MS.toFixed(1)})`,
       `level ${s.team.level}  xp ${Math.floor(s.team.xp)}/${s.team.xpNext}  kills ${s.team.kills}  bosses ${s.team.bosses}  coins ${s.team.coins}  tickets ${s.team.tickets}/${s.team.tickets10}`,
       `enemies ${s.enemies.length}  projectiles ${s.projectiles.length}  pickups ${s.pickups.length}  fields ${s.fields.length}  hazards ${s.hazards.length}  biome ${s.world.biome}`,
-      `HP ${Math.ceil(me.hp)}/${Math.round(me.maxHp)}  item ${me.item ?? '-'}  ${s.config.invulnerable ? 'GOD ' : ''}${s.config.noSpawns ? 'PEACEFUL' : ''}`,
+      `HP ${Math.ceil(me.hp)}/${Math.round(me.maxHp)}  item ${me.item ?? '-'}  power ${me.power ? `${me.power.id} ${Math.ceil(me.power.t)}s` : '-'}  bonds ${me.bonds}  ${s.config.invulnerable ? 'GOD ' : ''}${s.config.noSpawns ? 'PEACEFUL' : ''}`,
+      `rift ${s.rift.open ? `open ${Math.ceil(s.rift.open.ttl)}s` : `next roll ${Math.ceil(s.rift.checkT)}s (misses ${s.rift.misses})`}  opened ${s.rift.opened}` +
+        (s.arena
+          ? `  ARENA ${s.arena.type} vs #${s.arena.dex}${s.arena.shiny ? ' shiny' : ''} ${s.arena.phase} ${Math.max(0, Math.ceil(sim.ctx.d.game.tuning.rift.arenaTime - s.arena.t))}s`
+          : ''),
+      `weather ${s.weather.current ? `${s.weather.current.kind} ${Math.ceil(s.weather.current.dur - s.weather.current.t)}s` : '-'}  event ${s.events.current ? `${s.events.current.id}${s.events.current.type ? ' ' + s.events.current.type : ''}${s.events.current.dur !== null ? ' ' + Math.ceil(s.events.current.dur - s.events.current.t) + 's' : ''}` : `- (next ${Math.ceil(s.events.nextT)}s)`}  thieves ${s.events.thieves}`,
       'moves: ' +
         me.slots
           .map(
@@ -300,6 +357,15 @@ export function startDebugSim(canvas: HTMLCanvasElement, ctx: CanvasRenderingCon
       );
     } else if (mine?.kind === 'item') {
       lines.push(`ITEM: 1 keep ${mine.held}   2 switch to ${mine.found}`);
+    } else if (mine?.kind === 'bond') {
+      lines.push(
+        mine.mode === 'add'
+          ? `BOND: pick the move that joins ${mine.group?.join('+') ?? ''}`
+          : bondFirst
+            ? `BOND: bond ${bondFirst} with…`
+            : 'BOND: pick the first move to bond',
+      );
+      mine.loose.forEach((m, i) => lines.push(`  ${i + 1}. ${m}`));
     } else if (s.pendingChoices.length) {
       lines.push(
         `paused: waiting for ${[...new Set(s.pendingChoices.map((c) => c.playerId))].join(', ')}`,
@@ -326,7 +392,7 @@ export function startDebugSim(canvas: HTMLCanvasElement, ctx: CanvasRenderingCon
     ctx.fillStyle = '#aaa';
     ctx.font = '12px ui-monospace, monospace';
     ctx.fillText(
-      'WASD move · 1-4/Q/E moves or choices · R reroll · G god · P peaceful · +/- speed · N new run',
+      'WASD move · 1-4/Q/E moves or choices · R reroll · G god · P peaceful · +/- speed · N new run · F rift · V arena · H/J/K/T events · B weather',
       10,
       h - 10,
     );

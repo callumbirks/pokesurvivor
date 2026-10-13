@@ -61,5 +61,14 @@
   "startAfter": 120,
   "checkEvery": 60,
   "chance": 0.18,
-  "durationRange": [55, 75]
+  "durationRange": [55, 75],
+  "fadeSeconds": 3,
+  "slow": 0.1,
+  "chip": {
+    "every": 2,
+    "minIntensity": 0.5,
+    "playerMaxHp": 0.012,
+    "enemyMaxHp": 0.02,
+    "enemyFlat": 1
+  }
 }
