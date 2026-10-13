@@ -20,7 +20,8 @@ export async function buildApp({ config, db }: AppOptions): Promise<FastifyInsta
     trustProxy: true,
   });
 
-  app.get('/healthz', async () => {
+  // Health checks hit this every few seconds; keep them out of the request log.
+  app.get('/healthz', { logLevel: 'warn' }, async () => {
     let database: 'up' | 'down' | 'disabled' = 'disabled';
     if (db) {
       try {

@@ -3,6 +3,10 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "files": [
+    "dist",
+    "drizzle"
+  ],
   "scripts": {
     "dev": "tsx watch --clear-screen=false src/main.ts",
     "build": "node scripts/build.js",
