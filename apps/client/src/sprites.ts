@@ -94,7 +94,7 @@ function sheet(dex: number, anim: AnimationName, shiny = false): Sheet | null {
     return sh;
   }
   if (sheets.size >= MAX_SHEETS) evict(now);
-  const src = `${manifest.basePath}/${dex}/${s ? 's/' : ''}${anim}.png?v=${m.hash}`;
+  const src = sheetUrl(dex, anim, s)!;
   const created: Sheet = {
     img: new Image(),
     ready: false,
@@ -140,6 +140,13 @@ export async function preloadSprites(
     };
     check();
   });
+}
+
+/** The URL of an animation's sheet (null until the manifest is loaded, or for an unknown dex). */
+export function sheetUrl(dex: number, anim: AnimationName, shiny = false): string | null {
+  const m = meta(dex);
+  if (!m || !manifest) return null;
+  return `${manifest.basePath}/${dex}/${shiny && m.shiny ? 's/' : ''}${anim}.png?v=${m.hash}`;
 }
 
 /** Screen angle (atan2(dy, dx)) → direction row 0–7. */

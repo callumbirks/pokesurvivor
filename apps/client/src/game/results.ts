@@ -5,7 +5,7 @@
 import { loadGameData, t } from '@pokesurvivor/data';
 import type { Results } from '@pokesurvivor/netclient';
 import { audio } from '../audio.js';
-import { el, icon } from './dom.js';
+import { el, icon, spriteEl } from './dom.js';
 import { pokemonName } from './scene/entities.js';
 import { isSoloResults } from './solo/connection.js';
 import { itemName, mmss, moveName } from './text.js';
@@ -16,6 +16,8 @@ export interface ResultsOptions {
   dead: boolean;
   /** The player's best time before this run (for "new record"), if known. */
   bestTimeS: number | null;
+  /** Did the player own this shiny before the run (null: unknown)? Marks the new ones. */
+  ownedShiny?(dex: number): boolean | null;
   onBack(): void;
 }
 
@@ -87,18 +89,34 @@ export function renderResults(results: Results, o: ResultsOptions): HTMLElement 
     if (ps?.item)
       cell(t('game.heldItem'), el('span', null, icon(ps.item, 18), ` ${itemName(ps.item)}`), true);
     if (run.shiniesCaught.length)
-      cell(
-        t('pause.shiniesCaught', { 0: run.shiniesCaught.length }),
+      stats.append(
         el(
-          'span',
-          null,
-          ...run.shiniesCaught.map((d, i) => [
-            i ? ' · ' : '',
+          'div',
+          { class: 'ps-caught', data: { testid: 'results-shinies' } },
+          el(
+            'span',
+            null,
             icon('shiny', 12),
-            ` ${pokemonName(d)}`,
-          ]),
+            ` ${t('pause.shiniesCaught', { 0: run.shiniesCaught.length })}`,
+          ),
+          el(
+            'div',
+            { class: 'ps-caught-row' },
+            run.shiniesCaught.map((d) =>
+              el(
+                'div',
+                null,
+                spriteEl(d, { shiny: true, scale: 2 }),
+                el(
+                  'small',
+                  null,
+                  pokemonName(d),
+                  o.ownedShiny?.(d) === false ? ` · ${t('game.newShiny')}` : '',
+                ),
+              ),
+            ),
+          ),
         ),
-        true,
       );
     if (o.bestTimeS !== null && run.durationS > o.bestTimeS && o.bestTimeS > 0)
       stats.append(

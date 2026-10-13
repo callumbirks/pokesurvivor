@@ -234,6 +234,7 @@ class GameScreen {
       selfId: this.conn.selfId,
       dead: r.reason === 'all-down',
       bestTimeS: this.save?.stats.bestTimeS ?? null,
+      ownedShiny: (dex) => (this.save ? this.save.shiny[String(dex)] !== undefined : null),
       onBack: () => this.exit(r),
     });
     this.layer.append(view);

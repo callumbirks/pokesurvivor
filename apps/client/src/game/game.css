@@ -387,6 +387,42 @@
   font-size: 15px;
 }
 .ps-team-results,
+.ps-caught {
+  grid-column: 1 / -1;
+}
+.ps-caught-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 4px;
+}
+.ps-caught-row > div {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 90px;
+  min-height: 72px;
+}
+.ps-caught-row small {
+  display: block;
+  font-size: 12px;
+  color: #c9f3ff;
+}
+.ps-sprite {
+  display: inline-block;
+  background-repeat: no-repeat;
+  background-position: 0 0;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  animation: ps-sprite-play var(--dur, 1s) steps(var(--frames, 1)) infinite;
+}
+@keyframes ps-sprite-play {
+  to {
+    background-position-x: var(--sheet-w);
+  }
+}
 .ps-achievements {
   display: grid;
   gap: 4px;
