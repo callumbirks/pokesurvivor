@@ -2,6 +2,7 @@
 // but our own Pokémon, which is predicted (see net/predict.ts). The renderer and the HUD read this.
 import {
   interpolateList,
+  maxStep,
   type BufferSample,
   type Game,
   type NetPickup,
@@ -79,7 +80,13 @@ export function buildFrame(
     players,
     enemies: v.enemies,
     projectiles,
-    pickups: interpolateList(sample.from.pickups, sample.to.pickups, sample.alpha),
+    pickups: interpolateList(
+      sample.from.pickups,
+      sample.to.pickups,
+      sample.alpha,
+      [],
+      maxStep(sample.to.tick - sample.from.tick),
+    ),
     fields: interpolateFields(sample.from.fields, sample.to.fields, sample.alpha),
     hazards: sample.to.hazards,
     self: players.find((p) => p.id === selfId) ?? null,
