@@ -1,6 +1,7 @@
 // @pokesurvivor/sim: the headless game simulation (see README.md).
 export {
   CHUNK,
+  CHUNK_TILES,
   DT,
   OUTER_RADIUS,
   TICK_HZ,
