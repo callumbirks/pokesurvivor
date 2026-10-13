@@ -2,6 +2,7 @@
 // pity counter, the rates, and the reveal. Every number comes from the server (`GET /api/gacha`
 // and the pull's response): the client never rolls or computes a result.
 import { t } from '@pokesurvivor/data';
+import { audio } from '../audio.js';
 import type { App, Screen } from '../app/app.js';
 import type { GachaBanner, GachaInfo, PayWith, PullResponse, PullResult } from '../app/api.js';
 import { gameData, h, num, pokemonName, replace, sprite } from '../app/dom.js';
@@ -46,7 +47,12 @@ export function gachaScreen(app: App): Screen {
     ) => {
       const b = h(
         'button',
-        { class: ['btn', 'grow', gold && 'gold'], disabled: !affordable, dataset: { testid } },
+        {
+          class: ['btn', 'grow', gold && 'gold'],
+          disabled: !affordable,
+          // The pull plays its own sounds (legacy gacha-ui.js and slots.js).
+          dataset: { testid, sfx: 'none' },
+        },
         `${label} · `,
         price,
       );
@@ -252,6 +258,7 @@ export function gachaScreen(app: App): Screen {
     overlay.onclick = () => (fast = true);
     overlay.title = t('gacha.clickToSpeedUp');
 
+    audio.sfx('ball');
     await wait(550);
     ball.classList.replace('drop', 'shake');
     if (big) {
@@ -263,13 +270,21 @@ export function gachaScreen(app: App): Screen {
       led.style.color = color(best);
       ball.classList.add('frenzy');
     }
-    await wait(big ? 2000 : 1350);
+    // Three shakes, like a Poké Ball (legacy: one per slot reel).
+    for (let i = 0; i < 3; i++) {
+      audio.sfx('shake');
+      await wait((big ? 2000 : 1350) / 3);
+    }
     ball.classList.replace('shake', 'burst');
+    audio.sfx('burst', { rarity: best.rarity });
+    if (best.rarity === 5) audio.sfx('legend');
+    if (best.shiny) audio.sfx('shiny');
     await wait(400);
     ball.remove();
     led.remove();
     for (const r of res.results) {
       cards.append(card(r));
+      audio.sfx('reveal', { rarity: r.rarity });
       await wait(res.results.length > 1 ? 150 : 0);
     }
     close.classList.remove('hidden');

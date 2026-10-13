@@ -11,6 +11,7 @@ import {
   type RoomConnection,
 } from '@pokesurvivor/netclient';
 import { CloseCode, type NoticeCode } from '@pokesurvivor/protocol';
+import { audio } from '../audio.js';
 import { settings, SYNCED_KEYS } from '../settings.js';
 import {
   Api,
@@ -415,6 +416,9 @@ export class App {
     this.routeName = name;
     this.busy.setBusyScreen(!!route.busy);
     this.screen = route.create(this, params);
+    // Menu music everywhere outside a run (it starts on the first click or key); the game plays
+    // its own.
+    if (name !== 'play') audio.music('village');
     this.main.replaceChildren(this.screen.el);
     this.main.dataset.screen = name;
     // The game shows its own sticky notices (connection, server updating) over the canvas.

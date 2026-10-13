@@ -578,7 +578,6 @@ class Run {
       input.step = '0.05';
       input.value = String(s[key]);
       input.addEventListener('input', () => settings.set({ [key]: Number(input.value) }));
-      input.addEventListener('change', () => audio.sfx('click'));
       return el('label', { class: 'ps-slider' }, el('span', null, label), input);
     };
     const mute = el('input', { type: 'checkbox' });

@@ -35,7 +35,7 @@ export function screenBox(
           'button',
           {
             class: 'btn small ghost',
-            dataset: { testid: 'back' },
+            dataset: { testid: 'back', back: '' },
             on: { click: () => (opts.onBack ? opts.onBack() : app.go(opts.back ?? 'menu')) },
           },
           t('collection.back'),

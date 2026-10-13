@@ -1,6 +1,7 @@
 // The collection (legacy "Pokémon" screen): generation tabs, filters, the grid, and a detail
 // panel to choose the partner (normal or shiny) and set its move slots and banned moves.
 import { t, type Pokemon } from '@pokesurvivor/data';
+import { audio } from '../audio.js';
 import type { App, Screen } from '../app/app.js';
 import {
   gameData,
@@ -181,7 +182,11 @@ export function collectionScreen(app: App, params: URLSearchParams): Screen {
       );
     const pick = h(
       'button',
-      { class: 'btn gold wide-btn', disabled: usingThis, dataset: { testid: 'choose-partner' } },
+      {
+        class: 'btn gold wide-btn',
+        disabled: usingThis,
+        dataset: { testid: 'choose-partner', sfx: 'none' },
+      },
       usingThis
         ? t('collection.itSYourPartner')
         : t('collection.chooseAsPartner', { 0: viewShiny ? ` (${t('app.shiny')})` : '' }),
@@ -189,6 +194,7 @@ export function collectionScreen(app: App, params: URLSearchParams): Screen {
     pick.addEventListener('click', () => {
       void app.act(pick, async () => {
         app.setSave(await app.api.setPartner(p.dex, viewShiny));
+        audio.sfx('confirm');
         toast(
           t(viewShiny ? 'collection.shinyIsNowYourPartner' : 'collection.isNowYourPartner', {
             0: p.name,
@@ -350,7 +356,7 @@ function moveSettings(app: App, p: Pokemon, rerender: () => void): HTMLElement {
           'button',
           {
             class: ['chip', bans.has(m.id) && 'ban'],
-            dataset: { testid: `ban-${m.id}` },
+            dataset: { testid: `ban-${m.id}`, sfx: 'select' },
             disabled: maxBans === 0,
             on: {
               click: () => {

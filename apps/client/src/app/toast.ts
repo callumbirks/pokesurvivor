@@ -2,6 +2,7 @@
 // notices (connection lost, server updating) that stay until cleared.
 import { t } from '@pokesurvivor/data';
 import { h, replace } from './dom.js';
+import { audio } from '../audio.js';
 import { ApiError } from './api.js';
 import type { UiStringKey } from '@pokesurvivor/data';
 
@@ -66,5 +67,6 @@ export function errorText(err: unknown): string {
 }
 
 export function toastError(err: unknown): void {
+  audio.sfx('error');
   toast(errorText(err), 'error', 4500);
 }
