@@ -174,7 +174,19 @@ export function lobbyScreen(app: App): Screen {
         Array.from({ length: room.maxMembers }, (_, i) => memberCard(room, i)),
       ),
       room.phase !== 'lobby'
-        ? h('p', { class: 'note gold' }, t('app.gameInProgress'))
+        ? h(
+            'p',
+            { class: 'note gold' },
+            t('app.gameInProgress'),
+            ' ',
+            app.game
+              ? h(
+                  'button',
+                  { class: 'btn small gold', on: { click: () => app.go('play') } },
+                  t('app.backToGame'),
+                )
+              : null,
+          )
         : blockers.length
           ? h(
               'p',

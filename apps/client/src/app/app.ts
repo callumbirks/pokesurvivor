@@ -2,10 +2,15 @@
 // session check on load, the save cache, the WebSocket connection with reconnect feedback, the
 // top bar, invites, toasts and notices. Screens are plain functions that build a DOM subtree.
 import { t, type UiStringKey } from '@pokesurvivor/data';
-import { NetClient, socketUrl, type ConnectionState, type Invite } from '@pokesurvivor/netclient';
+import {
+  Emitter,
+  NetClient,
+  socketUrl,
+  type ConnectionState,
+  type Invite,
+  type RoomConnection,
+} from '@pokesurvivor/netclient';
 import { CloseCode, type NoticeCode } from '@pokesurvivor/protocol';
-import type { RoomConnection, Results } from '@pokesurvivor/netclient';
-import { Emitter } from '@pokesurvivor/netclient';
 import { settings, SYNCED_KEYS } from '../settings.js';
 import {
   Api,
@@ -155,7 +160,6 @@ export class App {
     this.game = null;
     if (message) toast(message, 'error');
     this.go('login');
-    this.render();
   }
 
   setSave(save: Save): void {
@@ -260,7 +264,8 @@ export class App {
     if (!net) return;
     if (state === 'open') {
       notice('connection', null);
-      if (net.draining) notice('draining', t('app.serverUpdating'), 'gold');
+      // A new server instance after a deploy isn't draining: clear the old notice.
+      notice('draining', net.draining ? t('app.serverUpdating') : null, 'gold');
     } else if (state === 'reconnecting') {
       notice('connection', t('app.reconnecting'), 'error');
     } else if (state === 'failed') {
@@ -359,10 +364,9 @@ export class App {
   }
 
   /** The play screen calls this when the player leaves the run or closes its results. */
-  endGame(results?: Results): void {
+  endGame(): void {
     const kind = this.game?.kind;
     this.game = null;
-    void results;
     void this.refreshSave();
     this.go(kind === 'coop' && this.net?.roomView ? 'lobby' : 'menu');
   }

@@ -54,6 +54,16 @@ body {
 }
 body.debug {
   background: #111;
+  font: revert;
+  -webkit-font-smoothing: auto;
+}
+body.debug button,
+body.debug input {
+  font: revert;
+  color: revert;
+}
+body.debug #app {
+  display: none;
 }
 body.debug canvas#game {
   display: block;
@@ -657,7 +667,7 @@ button.stage {
 }
 .notices {
   position: fixed;
-  top: 0;
+  top: 54px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 70;

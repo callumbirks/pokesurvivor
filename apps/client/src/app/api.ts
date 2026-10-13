@@ -1,7 +1,6 @@
 // The HTTP API (docs/api.md), typed for the client. The server owns every value here: the
 // client shows them and sends intents (pull, buy, claim), never computed results.
-import type { RunSummary } from '@pokesurvivor/protocol';
-import type { PresenceStatus } from '@pokesurvivor/protocol';
+import type { PresenceStatus, RunSummary } from '@pokesurvivor/protocol';
 import type { SyncedSettings } from '../settings.js';
 
 export interface User {

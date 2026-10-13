@@ -37,7 +37,7 @@ export function playScreen(app: App): Screen {
       void app.net.leaveRoom().catch(() => {});
       toast(t('app.leftTheGame'));
     }
-    app.endGame(results);
+    app.endGame();
   };
 
   const handle = mountGame(stage, conn, { onExit: exit });
