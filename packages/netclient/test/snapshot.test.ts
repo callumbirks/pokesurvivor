@@ -1,4 +1,4 @@
-import type { SimEvent } from '@pokesurvivor/sim';
+import { createSim, isAttacking, type FieldState, type SimEvent } from '@pokesurvivor/sim';
 import { describe, expect, it } from 'vitest';
 import { SnapshotBuffer, interpolate } from '../src/buffer.js';
 import { EventDecoder, EventEncoder, isRelevant } from '../src/events.js';
@@ -6,6 +6,7 @@ import {
   INTEREST_RADIUS,
   SnapshotDecoder,
   SnapshotEncoder,
+  type NetField,
   type Snapshot,
 } from '../src/snapshot.js';
 import { botStep, lateGame } from './late-game.js';
@@ -55,6 +56,11 @@ describe('snapshots', () => {
       expect(Math.hypot(e.x - me.x, e.y - me.y)).toBeLessThanOrEqual(INTEREST_RADIUS + 150);
     }
     expect(snap!.team.level).toBe(s.team.level);
+    // Who's attacking (they face their aim: `facingOf`).
+    expect(snap!.players.map((p) => p.attacking)).toEqual(
+      s.players.map((p) => isAttacking(s.time, p)),
+    );
+    expect(s.players.some((p) => isAttacking(s.time, p))).toBe(true);
     expect(snap!.details.p1?.moves.map((m) => m.id)).toEqual(me.moves.map((m) => m.id));
     expect(snap!.details.p1?.buffs).toEqual([
       me.buffs.attack.n,
@@ -235,5 +241,83 @@ describe('snapshot buffer', () => {
     buffer.push(snap(0, 0), 0);
     buffer.push(snap(2, 10), 66);
     expect(interpolate(buffer.sample(5000)!).players[0]!.x).toBe(10);
+  });
+});
+
+describe('fields', () => {
+  /** A field as the sim's `meteors()` / `mines()` leave it. */
+  const field = (
+    id: number,
+    kind: 'meteor' | 'mine',
+    ownerId: string,
+    t: number,
+    arm: number,
+    life: number,
+  ): FieldState => ({
+    id,
+    kind,
+    ownerId,
+    moveId: kind === 'meteor' ? 'rock-slide' : 'spikes',
+    type: kind === 'meteor' ? 'rock' : 'ground',
+    x: 300,
+    y: 300,
+    t,
+    life,
+    r: 46,
+    damage: 10,
+    arm,
+    shotT: 0,
+    range: 0,
+    rate: 0,
+    speed: 0,
+    size: 0,
+    pierce: 0,
+    gone: false,
+    burn: 0,
+    poison: 0,
+    slow: 0,
+    knockback: 0,
+  });
+
+  it('carry what the client needs to draw a meteor falling and a mine arming', () => {
+    const sim = createSim({ seed: 3, players: [{ id: 'me', dex: 25 }], debug: { noSpawns: true } });
+    // A volley of two (the second staggered, as the sim does) and a mine.
+    sim.state.fields.push(
+      field(9001, 'meteor', 'me', 0, 0.5, 0),
+      field(9002, 'meteor', 'me', -0.09, 0.5, 0),
+      field(9003, 'mine', 'me', 0, 0.35, 7),
+    );
+    const enc = new SnapshotEncoder({ viewerId: 'me' });
+    const dec = new SnapshotDecoder(['me']);
+    const seen: { tick: number; fields: NetField[]; events: SimEvent[] }[] = [];
+    for (let i = 0; i < 20; i++) {
+      sim.step();
+      const s = dec.decode(enc.encode(sim.state, sim.drainEvents(), i + 1, 0));
+      seen.push({ tick: s.tick, fields: s.fields, events: s.events });
+    }
+    const meteor = seen
+      .map((s) => s.fields.find((f) => f.id === 9001))
+      .filter(Boolean) as NetField[];
+    // It falls: progress climbs from 0 towards 1 and the time left to land counts down.
+    expect(meteor.length).toBeGreaterThan(10);
+    for (let i = 1; i < meteor.length; i++) {
+      expect(meteor[i]!.progress).toBeGreaterThan(meteor[i - 1]!.progress);
+      expect(meteor[i]!.arm).toBeLessThanOrEqual(meteor[i - 1]!.arm);
+    }
+    expect(meteor[0]!.progress).toBeLessThan(0.1);
+    expect(meteor.at(-1)!.progress).toBeGreaterThan(0.85);
+    // The staggered one waits (below 0) before it falls.
+    expect(seen[0]!.fields.find((f) => f.id === 9002)!.progress).toBeLessThan(
+      seen[0]!.fields.find((f) => f.id === 9001)!.progress,
+    );
+    // It lands: gone from the snapshot, with a blast event the client draws.
+    const landed = seen.findIndex((s) => !s.fields.some((f) => f.id === 9001));
+    expect(landed).toBeGreaterThan(0);
+    expect(seen[landed]!.events.some((e) => e.type === 'field-blast' && e.id === 9001)).toBe(true);
+    // The mine arms after its delay (arm reaches 0) while its life goes on.
+    const mine = seen.map((s) => s.fields.find((f) => f.id === 9003)!);
+    expect(mine[0]!.arm).toBeGreaterThan(0.2);
+    expect(mine.at(-1)!.arm).toBe(0);
+    expect(mine.at(-1)!.progress).toBeGreaterThan(mine[0]!.progress);
   });
 });

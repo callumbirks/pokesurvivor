@@ -67,6 +67,9 @@ export interface SoloOptions {
   skipMinutes?: number;
   /** Dev and perf tests only: the player can't be hurt. */
   invulnerable?: boolean;
+  /** Dev page only: replace the player's moves (one slot each). */
+  devMoves?: string[];
+  devMoveLevel?: number;
   /**
    * Continue a locally saved run (its `state`) on the same `runId` instead of starting one; its
    * seed, loadout and `owned` are used. The shell checks with the server first that it's open.
@@ -334,6 +337,8 @@ export function createSoloConnection(opts: SoloOptions): SoloConnection {
     owned,
     skipMinutes: opts.skipMinutes,
     invulnerable: opts.invulnerable,
+    devMoves: opts.devMoves,
+    devMoveLevel: opts.devMoveLevel,
     restore: resume?.state ?? undefined,
     checkpointEveryS: opts.checkpointEveryS ?? CHECKPOINT_EVERY_S,
     saveEveryS: opts.saveEveryS ?? SAVE_EVERY_S,

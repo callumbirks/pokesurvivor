@@ -81,6 +81,17 @@ export function hurtColor(e: Pick<EnemyHurt, 'shielded' | 'label'> & { moveType?
 export class EventEffects {
   constructor(private readonly k: EventSinks) {}
 
+  /** Fields seen recently: a field leaves the snapshot in the frame its blast event plays. */
+  private fields = new Map<number, { kind: string; type: string; seen: number }>();
+
+  /** Remembers the frame's fields (call every frame, before `play`). */
+  trackFields(frame: Frame): void {
+    for (const f of frame.fields)
+      this.fields.set(f.id, { kind: f.kind, type: f.type, seen: frame.time });
+    if (this.fields.size > 200)
+      for (const [id, f] of this.fields) if (frame.time - f.seen > 5) this.fields.delete(id);
+  }
+
   /** Plays the events of one snapshot, as the rendered view reaches it. */
   play(events: readonly SimEvent[], frame: Frame): void {
     for (const e of events) {
@@ -311,13 +322,16 @@ export class EventEffects {
         return;
       }
       case 'field-blast': {
-        const f = frame.fields.find((x) => x.id === e.id);
+        // A meteor landing, a mine going off, or a trail pool's tick (legacy combat.js).
+        const f = this.fields.get(e.id) ?? frame.fields.find((x) => x.id === e.id);
         const col = typeColor(f?.type ?? 'normal');
-        fx.ring(e.x, e.y, 4, e.r, col, 0.32, 4);
-        fx.burst(e.x, e.y - 6, col, 10, 160);
+        if (f?.kind === 'patch') return; // pools hurt every half second without a flash
+        const meteor = f?.kind === 'meteor';
+        fx.ring(e.x, e.y, 4, e.r, col, meteor ? 0.35 : 0.3, 4);
+        fx.burst(e.x, e.y - 6, col, meteor ? 12 : 10, meteor ? 170 : 150);
         if (this.near(frame, e.x, e.y, 40)) {
           this.sfx('break');
-          if (f?.kind === 'meteor') camera.kick(0.12);
+          if (meteor) camera.kick(0.12);
         }
         return;
       }

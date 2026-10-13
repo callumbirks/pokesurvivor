@@ -58,6 +58,17 @@ export function buildFrame(
         }
       : own;
   });
+  // Our orbs circle our Pokémon: they move with its predicted position, not ~100 ms behind it.
+  const drawn = players.find((p) => p.id === selfId);
+  const past = v.players.find((p) => p.id === selfId);
+  const dx = drawn && past ? drawn.x - past.x : 0;
+  const dy = drawn && past ? drawn.y - past.y : 0;
+  const projectiles =
+    drawn && (dx || dy)
+      ? v.projectiles.map((pr) =>
+          pr.orb && pr.ownerIndex === drawn.index ? { ...pr, x: pr.x + dx, y: pr.y + dy } : pr,
+        )
+      : v.projectiles;
   return {
     game,
     selfId,
@@ -67,11 +78,26 @@ export function buildFrame(
     snap: latest,
     players,
     enemies: v.enemies,
-    projectiles: v.projectiles,
+    projectiles,
     pickups: interpolateList(sample.from.pickups, sample.to.pickups, sample.alpha),
-    fields: sample.to.fields,
+    fields: interpolateFields(sample.from.fields, sample.to.fields, sample.alpha),
     hazards: sample.to.hazards,
     self: players.find((p) => p.id === selfId) ?? null,
     selfDetail: latest.details[selfId] ?? null,
   };
+}
+
+/** Fields stay put; their timers (a meteor's fall, a mine's arming) are interpolated. */
+function interpolateFields(from: readonly NetField[], to: readonly NetField[], alpha: number) {
+  if (from === to || alpha === 0) return [...to];
+  const before = new Map(from.map((f) => [f.id, f]));
+  return to.map((f) => {
+    const a = before.get(f.id);
+    if (!a) return f;
+    return {
+      ...f,
+      arm: a.arm + (f.arm - a.arm) * alpha,
+      progress: a.progress + (f.progress - a.progress) * alpha,
+    };
+  });
 }

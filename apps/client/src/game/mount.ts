@@ -743,6 +743,7 @@ class Run {
       };
     }
     const frame = buildFrame(this.game, conn.selfId, sample, latest, this.time, dt, selfPos);
+    this.effects.trackFields(frame);
     // Events play as the interpolated view reaches their snapshot.
     while (this.queue[0] && this.queue[0].tick <= sample.to.tick) {
       const q = this.queue.shift()!;
@@ -755,6 +756,7 @@ class Run {
     if (this.queue.length > 60) this.queue.splice(0, this.queue.length - 60);
 
     this.entities.update(frame);
+    this.entities.trackShots(frame, (x, y) => this.world.terrainAt(x, y) === 'wall');
     this.world.update(dt);
     this.fx.update(dt);
     this.weather.update(latest.misc.weather, dt);
@@ -830,7 +832,7 @@ class Run {
     items.push(...this.entities.drawables(frame));
     items.sort((a, b) => a.y - b.y);
     for (const it of items) it.draw(ctx);
-    this.entities.drawProjectiles(ctx, frame.projectiles, now);
+    this.entities.drawProjectiles(ctx, frame);
     this.entities.drawAirFields(ctx, frame.fields, now);
     this.fx.draw(ctx, now);
     ctx.restore();

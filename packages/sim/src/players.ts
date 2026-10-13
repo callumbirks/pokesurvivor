@@ -367,6 +367,26 @@ export function updatePlayer(ctx: Ctx, p: PlayerState): void {
   }
 }
 
+/**
+ * Is the player attacking? A cast keeps it attacking until just after the move's next cast
+ * (`markAttacking`), so a run of casts is one attack. Trail pools and orbits don't count.
+ */
+export const isAttacking = (time: number, p: Pick<PlayerState, 'attackingUntil'>): boolean =>
+  time < p.attackingUntil;
+
+/**
+ * Where a player's Pokémon faces (legacy player.js): its target while attacking, else where it
+ * walks; standing still, its aim. Renderers use this so the sprite doesn't flip between casts.
+ */
+export function facingOf(p: {
+  attacking: boolean;
+  walking: boolean;
+  aim: number;
+  moveAngle: number;
+}): number {
+  return p.attacking || !p.walking ? p.aim : p.moveAngle;
+}
+
 /** Smoothed velocity of each player (enemies lead their target; stragglers come back ahead). */
 export function trackVelocities(ctx: Ctx): void {
   const dt = DT;

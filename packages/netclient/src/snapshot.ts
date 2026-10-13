@@ -19,7 +19,7 @@ import {
   writeFrame,
   type Reader,
 } from '@pokesurvivor/protocol';
-import { playerMoveSpeed } from '@pokesurvivor/sim';
+import { isAttacking, playerMoveSpeed } from '@pokesurvivor/sim';
 import type {
   ArenaState,
   LostPokemonState,
@@ -69,6 +69,8 @@ export interface NetPlayer {
   inLiquid: boolean;
   /** Stuck in a trap (half speed). */
   trapped: boolean;
+  /** Attacking (casting, until just after the next cast): it faces its aim (`facingOf`). */
+  attacking: boolean;
   /** Revive progress while down, in seconds. */
   reviveT: number;
   active: number;
@@ -135,9 +137,12 @@ export interface NetField {
   type: string;
   ownerIndex: number;
   moveId: string;
-  /** Mines: seconds before armed; meteors: seconds to land. */
+  /** Mines: seconds left before armed (0: armed); meteors: seconds left to land. */
   arm: number;
-  /** 0–1 through its life (0 if it has none). */
+  /**
+   * 0–1 through its life (mines, turrets, trail pools). Meteors: through their fall, below 0
+   * while a staggered one of a volley hasn't started falling yet.
+   */
   progress: number;
 }
 
@@ -368,7 +373,7 @@ export class SnapshotEncoder {
     const owner = (id: string | null) => (id === null ? 0 : (indexOf.get(id) ?? -1) + 1);
 
     const rows = WIDTHS.map(() => new Map<number, number[]>());
-    for (const p of s.players) rows[T.players]!.set(p.index, playerRow(p));
+    for (const p of s.players) rows[T.players]!.set(p.index, playerRow(p, s.time));
     for (const e of s.enemies)
       if (near(e.id, e.x, e.y)) rows[T.enemies]!.set(e.id, this.enemyRow(e));
     for (const pr of s.projectiles)
@@ -517,8 +522,10 @@ export class SnapshotEncoder {
       Math.round(f.r),
       this.str(f.type),
       owner(f.ownerId),
-      q(Math.max(0, f.arm), 10),
-      f.life > 0 ? Math.round((100 * f.t) / f.life) : 0,
+      // In the sim, `arm` is a duration (mines: arming delay; meteors: fall time) and `t`
+      // counts up from the cast (meteors of a volley start below 0, staggered).
+      q(Math.max(0, f.arm - f.t), 10),
+      fieldProgress(f),
       this.str(f.moveId),
     ];
   }
@@ -574,6 +581,13 @@ export class SnapshotEncoder {
       if (changed) (extra.world ??= {})[name] = changes;
     }
   }
+}
+
+/** A field's `progress`, in hundredths (see `NetField.progress`). */
+function fieldProgress(f: FieldState): number {
+  if (f.kind === 'meteor')
+    return f.arm > 0 ? Math.round((100 * Math.min(f.t, f.arm)) / f.arm) : 100;
+  return f.life > 0 ? Math.round((100 * f.t) / f.life) : 0;
 }
 
 function isNumberRecord(v: unknown): v is Record<string, number> {
@@ -633,7 +647,7 @@ function miscOf(s: SimState): NetMisc {
 
 const NO_MISC: NetMisc = { rift: null, arena: null, weather: null, event: null, lost: null };
 
-function playerRow(p: PlayerState): number[] {
+function playerRow(p: PlayerState, time: number): number[] {
   return [
     q(p.x, PLAYER_POS),
     q(p.y, PLAYER_POS),
@@ -643,7 +657,16 @@ function playerRow(p: PlayerState): number[] {
     q(p.moveAngle, ANGLE),
     Math.ceil(Math.max(0, p.hp)),
     Math.round(p.maxHp),
-    flags(p.dead, p.connected, p.left, p.walking, p.invuln > 0, p.inLiquid, p.slowT > 0),
+    flags(
+      p.dead,
+      p.connected,
+      p.left,
+      p.walking,
+      p.invuln > 0,
+      p.inLiquid,
+      p.slowT > 0,
+      isAttacking(time, p),
+    ),
     q(p.reviveT, 10),
     p.active,
   ];
@@ -824,6 +847,7 @@ export class SnapshotDecoder {
       invulnerable: bit(fl, 4),
       inLiquid: bit(fl, 5),
       trapped: bit(fl, 6),
+      attacking: bit(fl, 7),
       reviveT: (v[9] ?? 0) / 10,
       active: v[10] ?? 0,
     };

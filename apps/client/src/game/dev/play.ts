@@ -134,12 +134,17 @@ async function playSolo(): Promise<void> {
     };
     // ?god: can't be hurt (perf tests); not credited either.
     const invulnerable = params.has('god');
+    // &moves=rock-slide,hail&level=5: play with these moves (to check each move's visuals).
+    const devMoves = params.get('moves')?.split(',').filter(Boolean);
+    const devMoveLevel = Number(params.get('level')) || 1;
     const conn = createSoloConnection({
       ...opts,
       seed,
       skipMinutes,
       invulnerable,
-      api: skipMinutes || invulnerable ? offline : devApi,
+      devMoves,
+      devMoveLevel,
+      api: skipMinutes || invulnerable || devMoves ? offline : devApi,
     });
     // Dev triggers, as in /?debug-sim: F rift · V arena · H horde · J golden hour · K lost Pokémon
     // · T thief · B weather (runs with triggers aren't reported either).
