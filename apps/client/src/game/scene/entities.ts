@@ -3,7 +3,7 @@
 // client keeps an animator per Pokémon and plays one-shot animations from events (casts, hits,
 // enemy actions) and a fading Faint for the defeated.
 import { loadGameData, type AnimationName } from '@pokesurvivor/data';
-import { REVIVE_SECONDS, moveStatsAt } from '@pokesurvivor/sim';
+import { REVIVE_SECONDS, facingOf, moveStatsAt } from '@pokesurvivor/sim';
 import type {
   NetEnemy,
   NetField,
@@ -15,7 +15,7 @@ import type {
   PlayerDetail,
 } from '@pokesurvivor/netclient';
 import { drawIcon, typeColor } from '../../icons.js';
-import { Animator, PX, bodyHeight, dirFromAngle, drawShadow } from '../../sprites.js';
+import { Animator, PX, bodyHeight, drawShadow, stableDir } from '../../sprites.js';
 import type { Frame } from '../frame.js';
 import type { Camera } from './camera.js';
 import type { FX } from './fx.js';
@@ -99,7 +99,6 @@ function ellipse(ctx: CanvasRenderingContext2D, x: number, y: number, rx: number
 interface PlayerVis {
   anim: Animator;
   flash: number;
-  attackFace: number;
   dead: boolean;
   hp: number;
 }
@@ -149,7 +148,6 @@ export class EntityLayer {
       v = {
         anim: new Animator(info?.dex ?? 25, 1, info?.shiny ?? false),
         flash: 0,
-        attackFace: 0,
         dead: p.dead,
         hp: p.hp,
       };
@@ -193,7 +191,6 @@ export class EntityLayer {
       moveStatsAt(moveId, m?.level ?? 1, m?.evolved ?? false).cooldown ?? 0.5,
     );
     v.anim.play(anim, { speed: Math.max(1, len / (cd * 0.9)) });
-    v.attackFace = 0.35;
   }
 
   onPlayerHurt(playerId: string): void {
@@ -238,15 +235,15 @@ export class EntityLayer {
       const v = this.playerVis(p, frame);
       v.anim.update(dt);
       if (v.flash > 0) v.flash -= dt;
-      if (v.attackFace > 0) v.attackFace -= dt;
       if (p.hp < v.hp - 0.5 && !p.dead && p.id !== frame.selfId) v.flash = 0.14;
       v.hp = p.hp;
       if (p.dead && !v.dead) v.anim.play('Faint', { hold: true });
       else if (!p.dead && v.dead) v.anim.loop('Idle');
       v.dead = p.dead;
       if (p.dead) continue;
-      const face = v.attackFace > 0 || !p.walking ? p.aim : p.moveAngle;
-      v.anim.dir = dirFromAngle(face);
+      // The sim's rule: its target while attacking (a run of casts is one attack), else where it
+      // walks. Ours walks as predicted; whether it attacks and at what comes from the server.
+      v.anim.dir = stableDir(v.anim.dir, facingOf(p));
       v.anim.loop(p.walking ? 'Walk' : 'Idle');
     }
     const live = new Set<number>();
@@ -262,7 +259,7 @@ export class EntityLayer {
       v.moving = speed > (v.moving ? 5 : 12);
       v.x = e.x;
       v.y = e.y;
-      v.anim.dir = dirFromAngle(e.face);
+      v.anim.dir = stableDir(v.anim.dir, e.face);
       v.anim.loop(v.moving || e.phase === 'dash' ? 'Walk' : 'Idle', v.moving ? 1.2 : 1);
       if (e.shiny && seen) {
         v.sparkT -= dt;
@@ -321,7 +318,7 @@ export class EntityLayer {
         lo.x += (L.x - lo.x) * k;
         lo.y += (L.y - lo.y) * k;
       }
-      lo.anim.dir = dirFromAngle(L.face);
+      lo.anim.dir = stableDir(lo.anim.dir, L.face);
       lo.anim.loop(L.moving ? 'Walk' : 'Idle');
       lo.anim.update(dt);
       if (lo.flash > 0) lo.flash -= dt;
@@ -410,7 +407,8 @@ export class EntityLayer {
       ctx.globalAlpha = 1;
       drawVfx(ctx, vis.proj, vis.pal, f.x, f.y - 4, { scale: 1, alpha: blink ? 1 : 0.75 });
     } else if (f.kind === 'meteor') {
-      const k = clamp01(1 - f.arm / 0.5);
+      // The shadow grows as the rock falls (a volley's later ones wait, small).
+      const k = clamp01(f.progress);
       ctx.globalAlpha = 0.2 + k * 0.3;
       ctx.fillStyle = '#000';
       ellipse(ctx, f.x, f.y, f.r * (0.3 + k * 0.7), f.r * 0.6 * (0.3 + k * 0.7));
@@ -757,8 +755,45 @@ export class EntityLayer {
     ctx.fillRect(lo.x - w / 2, y, w * clamp01(L.hp / Math.max(1, L.maxHp)), 3.4);
   }
 
+  /**
+   * Follows the shots between frames: when each was first seen (its age, for the fade at the end
+   * of its life), and where friendly ones were last, to burst where they hit something.
+   */
+  private shots = new Map<
+    number,
+    { born: number; x: number; y: number; type: string; seen: number }
+  >();
+
+  /** Projectiles' ages and their bursts (call once per frame, before drawing). */
+  trackShots(frame: Frame, blocked: (x: number, y: number) => boolean): void {
+    const now = frame.time;
+    for (const p of frame.projectiles) {
+      const s = this.shots.get(p.id);
+      if (s) {
+        s.x = p.x;
+        s.y = p.y;
+        s.seen = now;
+      } else if (p.friendly && !p.orb)
+        this.shots.set(p.id, { born: now, x: p.x, y: p.y, type: p.type ?? 'normal', seen: now });
+      else this.shots.set(p.id, { born: now, x: p.x, y: p.y, type: '', seen: now });
+    }
+    for (const [id, s] of this.shots) {
+      if (s.seen === now) continue;
+      this.shots.delete(id);
+      // A friendly shot that stopped on an enemy or a wall bursts there (legacy combat.js);
+      // one that just ran out of life or range fades.
+      if (!s.type || !this.camera.sees(s.x, s.y, 20)) continue;
+      const hit =
+        blocked(s.x, s.y) ||
+        frame.enemies.some((e) => (e.x - s.x) ** 2 + (e.y - s.y) ** 2 < (e.r + 14) ** 2);
+      if (hit) this.fx.burst(s.x, s.y - LIFT, typeColor(s.type), 5, 80);
+    }
+  }
+
   /** Shots in flight (above the sorted pass), with their shadows. */
-  drawProjectiles(ctx: CanvasRenderingContext2D, list: readonly NetProjectile[], now: number) {
+  drawProjectiles(ctx: CanvasRenderingContext2D, frame: Frame) {
+    const list = frame.projectiles;
+    const now = frame.time;
     ctx.fillStyle = 'rgba(0,0,0,.25)';
     for (const p of list) {
       if (!this.camera.sees(p.x, p.y, 40)) continue;
@@ -779,15 +814,31 @@ export class EntityLayer {
           ? vfxForMove(p.moveId, p.type ?? 'normal')
           : vfxForType(p.type ?? 'normal');
       const shape = v.proj;
+      const age = now - (this.shots.get(p.id)?.born ?? now);
       let angle = 0;
-      if (vfxIsDir(shape)) angle = p.orb ? p.angle + Math.PI / 2 : p.angle;
-      else if (vfxSpins(shape)) angle = now * 9 + p.id;
+      if (vfxIsDir(shape)) {
+        // Orbs face along their circle (legacy: orbit angle + 90°); shots along their flight.
+        const owner = p.orb ? frame.players.find((q) => q.index === p.ownerIndex) : undefined;
+        angle = owner ? Math.atan2((p.y - owner.y) / 0.7, p.x - owner.x) + Math.PI / 2 : p.angle;
+      } else if (vfxSpins(shape)) angle = age * 9 + p.id;
       drawVfx(ctx, shape, v.pal, p.x, p.y - LIFT, {
         angle,
+        alpha: this.shotAlpha(p, age, frame),
         scale: p.r >= 8 ? 1.5 : 1,
-        frame: Math.floor(now * 12 + p.id),
+        frame: Math.floor(age * 12 + p.id),
       });
     }
+  }
+
+  /** Shots fade over the last quarter second of their life (legacy projectile.js). */
+  private shotAlpha(p: NetProjectile, age: number, frame: Frame): number {
+    if (p.orb || !p.friendly || !p.moveId || p.returning) return 1;
+    const owner = frame.game.players.find((q) => q.index === p.ownerIndex);
+    const m = owner
+      ? frame.snap.details[owner.id]?.moves.find((x) => x.id === p.moveId)
+      : undefined;
+    const life = moveStatsAt(p.moveId, m?.level ?? 1, m?.evolved ?? false).lifetime;
+    return life ? clamp01((life - age) * 4) : 1;
   }
 
   /** Falling meteors and turrets (above everything on the ground). */
@@ -796,7 +847,9 @@ export class EntityLayer {
       if (!this.camera.sees(f.x, f.y, 200)) continue;
       const vis = vfxForMove(f.moveId, f.type);
       if (f.kind === 'meteor') {
-        const k = clamp01(1 - f.arm / 0.5);
+        // Falls from up and to the right onto its shadow (legacy combat.js `drawAirFields`).
+        if (f.progress <= 0) continue;
+        const k = clamp01(f.progress);
         drawVfx(ctx, vis.proj, vis.pal, f.x + (1 - k) * 40, f.y - (1 - k) * 170 - 6, {
           scale: 1.5,
           angle: Math.atan2(170, -40),

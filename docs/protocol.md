@@ -187,7 +187,11 @@ player index. For each client, the encoder remembers what it last sent and write
 
 Values are quantized: positions to ½ unit (players to ⅛), angles to 1/64 rad, HP to whole
 points, flags as bit sets. Strings such as pickup kinds, move ids and types go through a string
-table per connection: a new string is sent once in the JSON part, then referred to by index.
+table per connection: a new string is sent once in the JSON part, then referred to by index. A player's flags include `attacking` (casting,
+until just after its next cast), so clients face it towards its aim (the sim's `facingOf`).
+Fields carry their timers as seen by a client: `arm` is the seconds left before a mine arms or a
+meteor lands, and `progress` is 0–1 through the field's life, or for a meteor through its fall
+(below 0 while a staggered one of a volley hasn't started).
 
 **Reliability.** WebSockets are reliable and ordered, so the frame the server last sent is the
 one the client has. No acks are needed for the deltas. Each delta names the frame it is based on

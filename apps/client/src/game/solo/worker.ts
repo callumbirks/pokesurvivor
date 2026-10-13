@@ -6,7 +6,16 @@
 // as the run starts and every `saveEveryS` of run time (saved only), every `checkpointEveryS`
 // (saved and reported), and on request.
 import { SnapshotEncoder, firstOption } from '@pokesurvivor/netclient';
-import { TICK_HZ, TICK_MS, createSim, drainTicks, restoreSim, type Sim } from '@pokesurvivor/sim';
+import { loadGameData } from '@pokesurvivor/data';
+import {
+  TICK_HZ,
+  TICK_MS,
+  createSim,
+  drainTicks,
+  moveStatsAt,
+  restoreSim,
+  type Sim,
+} from '@pokesurvivor/sim';
 import type { FromWorker, ToWorker } from './messages.js';
 
 interface WorkerScope {
@@ -98,6 +107,21 @@ function loop(): void {
 }
 
 /** Dev and perf tests: plays the first minutes for you (circling, invulnerable, first cards). */
+function setDevMoves(s: Sim, ids: string[], level: number): void {
+  const p = s.state.players[0];
+  const data = loadGameData();
+  const moves = ids.filter((id) => data.moveById.has(id)).slice(0, 4);
+  if (!p || !moves.length) return;
+  p.moves = moves.map((id) => {
+    const def = data.moveById.get(id)!;
+    const stats = moveStatsAt(id, level, false);
+    return { id, kind: def.kind, type: def.type, level, evolved: false, stats, t: 0, castTick: -1 };
+  });
+  p.slots = moves.map((id) => [id]);
+  p.maxSlots = Math.max(p.maxSlots, moves.length);
+  p.active = 0;
+}
+
 function skipAhead(s: Sim, seconds: number): void {
   const cfg = s.state.config;
   while (s.state.time < seconds && !s.ended) {
@@ -133,6 +157,7 @@ scope.onmessage = (ev) => {
             });
         encoder = new SnapshotEncoder({ viewerId: playerId });
         if (m.skipMinutes && !m.restore) skipAhead(sim, m.skipMinutes * 60);
+        if (m.devMoves?.length && !m.restore) setDevMoves(sim, m.devMoves, m.devMoveLevel ?? 1);
         checkpointEveryS = m.checkpointEveryS ?? 0;
         saveEveryS = m.saveEveryS ?? 0;
         scheduleCheckpoints(sim);

@@ -14,7 +14,7 @@ export {
 export { MAX_PLAYERS, Sim, createSim, restoreSim } from './sim.js';
 export type { Intent, MoveInput, SimConfig } from './sim.js';
 export type { PlayerConfig } from './players.js';
-export { REVIVE_RANGE, REVIVE_SECONDS, moveSpeedOf } from './players.js';
+export { REVIVE_RANGE, REVIVE_SECONDS, facingOf, isAttacking, moveSpeedOf } from './players.js';
 export type { MovingBody } from './players.js';
 export { WorldView, moveStatsAt, playerMoveSpeed } from './view.js';
 export { hash2 } from './math.js';

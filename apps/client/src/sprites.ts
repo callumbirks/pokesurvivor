@@ -154,6 +154,18 @@ export function dirFromAngle(a: number): number {
   return ((Math.round((Math.PI / 2 - a) / (Math.PI / 4)) % 8) + 8) % 8;
 }
 
+/**
+ * `dirFromAngle`, but keeping the current row until the angle is clearly in another one, so an
+ * angle on a boundary between two directions (an aim or a heading that wobbles) doesn't flicker.
+ */
+export function stableDir(cur: number, a: number, margin = 0.15): number {
+  const next = dirFromAngle(a);
+  if (next === cur) return cur;
+  const center = Math.PI / 2 - (cur * Math.PI) / 4;
+  const gap = Math.abs(Math.atan2(Math.sin(a - center), Math.cos(a - center)));
+  return gap > Math.PI / 8 + margin ? next : cur;
+}
+
 /** Visual height (for health bars and damage numbers). */
 export function bodyHeight(dex: number, scale = 1): number {
   return (animMeta(dex, 'Idle')?.anchorY ?? 24) * PX * scale;

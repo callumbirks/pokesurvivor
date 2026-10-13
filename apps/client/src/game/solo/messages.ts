@@ -15,6 +15,9 @@ export type ToWorker =
       skipMinutes?: number;
       /** Dev and perf tests only: the player can't be hurt. */
       invulnerable?: boolean;
+      /** Dev page only: replace the player's moves (one slot each), at `devMoveLevel`. */
+      devMoves?: string[];
+      devMoveLevel?: number;
       /** Resume a saved run: the sim at its last checkpoint (instead of a new run). */
       restore?: SimState;
       /** Send a reported `checkpoint` every this many seconds of run time (none if unset). */
