@@ -16,23 +16,41 @@ import type { RunSummary } from '@pokesurvivor/protocol';
 import type { Intent, PlayerConfig } from '@pokesurvivor/sim';
 import type { FromWorker, ToWorker } from './messages.js';
 
+/** The shell's HTTP API for solo runs (its `api.ts` `Api` fits as it is). */
+export interface SoloApi {
+  /** `POST /api/runs/start`: before the run (the Pokémon must be owned). */
+  startRun(pokemon: { dex: number; shiny: boolean }): Promise<{ runId: string; startedAt: string }>;
+  /** `POST /api/runs`: the run's summary when it ends; the server caps and credits it. */
+  reportRun(runId: string, summary: RunSummary): Promise<RunReport>;
+}
+
+/** The server's answer to a reported run (`POST /api/runs`, docs/api.md). */
+export interface RunReport {
+  runId: string;
+  /** What was credited (the claim, capped). */
+  stats: unknown;
+  capped: boolean;
+  achievements: { id: string; reward: unknown; title: string | null }[];
+}
+
 export interface SoloOptions {
   /** The player's partner and its upgrades, bindings and bans, from their save. */
   loadout: PlayerConfig;
   /** Pokémon the player owns (a rescued one they own pays coins instead). */
   owned: readonly number[];
   username: string;
+  /** Starts and reports the run on the server. */
+  api: SoloApi;
   /** Run seed (random by default). */
   seed?: number;
-  /** For tests and tools: `fetch` and the worker. */
-  fetch?: typeof fetch;
+  /** For tests and tools: the sim's worker. */
   createWorker?: () => Worker;
 }
 
 /** What the server said about a reported solo run (`POST /api/runs`), on top of `Results`. */
 export interface SoloReport {
   /** Achievements the run unlocked: `{ id, reward, title }`. */
-  achievements: { id: string; reward: Record<string, number>; title: string | null }[];
+  achievements: RunReport['achievements'];
   /** The server capped the claim (numbers above its per-minute allowances). */
   capped: boolean;
   /** Why the run wasn't credited (offline, refused). */
@@ -51,7 +69,6 @@ export interface SoloConnection extends RoomConnection {
 const REPORT_TRIES = 3;
 
 export function createSoloConnection(opts: SoloOptions): SoloConnection {
-  const doFetch = opts.fetch ?? ((...a: Parameters<typeof fetch>) => fetch(...a));
   const worker =
     opts.createWorker?.() ??
     new Worker(new URL('./worker.ts', import.meta.url), { type: 'module', name: 'solo-sim' });
@@ -115,21 +132,6 @@ export function createSoloConnection(opts: SoloOptions): SoloConnection {
   };
   worker.onerror = (ev) => console.error('[solo] worker failed:', ev.message);
 
-  async function api(method: string, url: string, body: unknown): Promise<unknown> {
-    const res = await doFetch(url, {
-      method,
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(body),
-      credentials: 'same-origin',
-    });
-    const data: unknown = await res.json().catch(() => null);
-    if (!res.ok) {
-      const code = (data as { error?: { code?: string } } | null)?.error?.code;
-      throw new Error(code ?? `HTTP ${res.status}`);
-    }
-    return data;
-  }
-
   async function report(reason: string, summary: ResultSummary): Promise<void> {
     const id = await (runId ?? Promise.resolve(null));
     const solo: SoloReport = { achievements: [], capped: false, error: null };
@@ -138,19 +140,15 @@ export function createSoloConnection(opts: SoloOptions): SoloConnection {
     else {
       for (let i = 0; i < REPORT_TRIES; i++) {
         try {
-          const r = (await api('POST', '/api/runs', { runId: id, ...summary.run })) as {
-            stats?: RunSummary;
-            capped?: boolean;
-            achievements?: SoloReport['achievements'];
-          };
+          const r = await opts.api.reportRun(id, summary.run);
           // What was credited (the server may have capped the claim).
-          if (r.stats) run = { ...summary.run, ...r.stats };
+          if (isRunSummary(r.stats)) run = { ...summary.run, ...r.stats };
           solo.capped = !!r.capped;
           solo.achievements = r.achievements ?? [];
           solo.error = null;
           break;
         } catch (err) {
-          solo.error = err instanceof Error ? err.message : String(err);
+          solo.error = errorCode(err);
           // Refusals won't change on retry; network errors might.
           if (solo.error === 'run_already_finished' || solo.error === 'run_not_found') break;
           await new Promise((r) => setTimeout(r, 800 * 2 ** i));
@@ -176,10 +174,9 @@ export function createSoloConnection(opts: SoloOptions): SoloConnection {
   }
 
   // Start the run on the server (in parallel with building the sim and loading).
-  runId = api('POST', '/api/runs/start', {
-    pokemon: { dex: opts.loadout.dex, shiny: !!opts.loadout.shiny },
-  })
-    .then((r) => (r as { runId?: string }).runId ?? null)
+  runId = opts.api
+    .startRun({ dex: opts.loadout.dex, shiny: !!opts.loadout.shiny })
+    .then((r) => r.runId ?? null)
     .catch((err: unknown) => {
       console.warn('[solo] the run will not be credited:', err);
       return null;
@@ -209,42 +206,13 @@ export function isSoloResults(r: Results): r is SoloResults {
   return 'solo' in r;
 }
 
-/**
- * The solo loadout from the player's save (`GET /api/save` and `/api/auth/me`), as the server
- * builds co-op loadouts (`apps/server/src/game/loadout.ts`).
- */
-export async function loadSoloLoadout(
-  doFetch: typeof fetch = (...a) => fetch(...a),
-): Promise<Pick<SoloOptions, 'loadout' | 'owned' | 'username'>> {
-  const get = async (url: string) => {
-    const res = await doFetch(url, { credentials: 'same-origin' });
-    if (!res.ok) throw new Error(`${url}: HTTP ${res.status}`);
-    return (await res.json()) as unknown;
-  };
-  const me = (await get('/api/auth/me')) as { user: { id: string; username: string } };
-  const save = (await get('/api/save')) as {
-    partner: { dex: number | null; shiny: boolean };
-    owned: Record<string, unknown>;
-    shiny: Record<string, unknown>;
-    upgrades: Record<string, Record<string, number>>;
-    moveBans: Record<string, string[]>;
-    moveBindings: Record<string, (string | null)[]>;
-    legendsBeaten: Record<string, unknown>;
-  };
-  const dex = save.partner.dex;
-  if (dex === null || save.owned[String(dex)] === undefined) throw new Error('no partner chosen');
-  const key = String(dex);
-  return {
-    username: me.user.username,
-    owned: Object.keys(save.owned).map(Number),
-    loadout: {
-      id: me.user.id,
-      dex,
-      shiny: save.partner.shiny && save.shiny[key] !== undefined,
-      upgrades: save.upgrades[key] ?? {},
-      bannedMoves: save.moveBans[key] ?? [],
-      moveBindings: save.moveBindings[key] ?? [],
-      legendsBeaten: Object.keys(save.legendsBeaten).map(Number),
-    },
-  };
+function isRunSummary(v: unknown): v is RunSummary {
+  return !!v && typeof v === 'object' && typeof (v as RunSummary).durationS === 'number';
+}
+
+/** An API error's stable code (the shell's `ApiError.code`), or its message. */
+function errorCode(err: unknown): string {
+  const code = (err as { code?: unknown } | null)?.code;
+  if (typeof code === 'string') return code;
+  return err instanceof Error ? err.message : String(err);
 }

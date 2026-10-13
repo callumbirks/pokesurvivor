@@ -159,7 +159,7 @@ export function renderResults(results: Results, o: ResultsOptions): HTMLElement 
       {
         class: 'btn gold',
         type: 'button',
-        data: { testid: 'results-back' },
+        data: { testid: 'game-exit' },
         on: {
           click: () => {
             audio.sfx('back');

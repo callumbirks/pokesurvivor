@@ -5,7 +5,9 @@
 //           through mountGame (use a private window or 127.0.0.1 for the second account).
 // Like the other debug views, this page isn't part of the app (the app shell is 4b's).
 import { NetClient, socketUrl, type NetRoomConnection } from '@pokesurvivor/netclient';
-import { createSoloConnection, loadSoloLoadout, mountGame, type GameHandle } from '../index.js';
+import type { PlayerConfig } from '@pokesurvivor/sim';
+import type { RunSummary } from '@pokesurvivor/protocol';
+import { createSoloConnection, mountGame, type GameHandle, type SoloApi } from '../index.js';
 
 const root = document.querySelector<HTMLElement>('#play')!;
 const params = new URLSearchParams(location.search);
@@ -54,6 +56,57 @@ function login(then: () => void): void {
 
 // ---------------------------------------------------------------- solo
 
+/** The app shell passes its `api.ts`; this page has its own small one. */
+const devApi: SoloApi = {
+  async startRun(pokemon) {
+    const { ok, data } = await api('POST', '/api/runs/start', { pokemon });
+    if (!ok) throw Object.assign(new Error('start failed'), { code: errorCode(data) });
+    return data as { runId: string; startedAt: string };
+  },
+  async reportRun(runId: string, summary: RunSummary) {
+    const { ok, data } = await api('POST', '/api/runs', { ...summary, runId });
+    if (!ok) throw Object.assign(new Error('report failed'), { code: errorCode(data) });
+    return data as Awaited<ReturnType<SoloApi['reportRun']>>;
+  },
+};
+
+const errorCode = (data: unknown) =>
+  (data as { error?: { code?: string } } | null)?.error?.code ?? 'error';
+
+/** The loadout from the save, as the server builds co-op ones (apps/server/src/game/loadout.ts). */
+async function loadSoloLoadout(): Promise<{
+  loadout: PlayerConfig;
+  owned: number[];
+  username: string;
+}> {
+  const me = (await api('GET', '/api/auth/me')).data as { user: { id: string; username: string } };
+  const save = (await api('GET', '/api/save')).data as {
+    partner: { dex: number | null; shiny: boolean };
+    owned: Record<string, unknown>;
+    shiny: Record<string, unknown>;
+    upgrades: Record<string, Record<string, number>>;
+    moveBans: Record<string, string[]>;
+    moveBindings: Record<string, (string | null)[]>;
+    legendsBeaten: Record<string, unknown>;
+  };
+  const dex = save.partner.dex;
+  if (dex === null) throw new Error('no partner chosen');
+  const key = String(dex);
+  return {
+    username: me.user.username,
+    owned: Object.keys(save.owned).map(Number),
+    loadout: {
+      id: me.user.id,
+      dex,
+      shiny: save.partner.shiny && save.shiny[key] !== undefined,
+      upgrades: save.upgrades[key] ?? {},
+      bannedMoves: save.moveBans[key] ?? [],
+      moveBindings: save.moveBindings[key] ?? [],
+      legendsBeaten: Object.keys(save.legendsBeaten).map(Number),
+    },
+  };
+}
+
 let handle: GameHandle | null = null;
 
 async function playSolo(): Promise<void> {
@@ -61,7 +114,7 @@ async function playSolo(): Promise<void> {
   try {
     const opts = await loadSoloLoadout();
     const seed = Number(params.get('seed')) || undefined;
-    const conn = createSoloConnection({ ...opts, seed });
+    const conn = createSoloConnection({ ...opts, seed, api: devApi });
     handle = mountGame(root, conn, {
       onExit: (results) => {
         handle?.dispose();

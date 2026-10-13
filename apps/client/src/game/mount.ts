@@ -89,6 +89,10 @@ class GameScreen {
     this.root = el('div', { class: 'ps-game', data: { testid: 'game' } }, this.canvas, this.layer);
     host.append(this.root);
     this.toasts = new Toasts(this.root);
+    // For end-to-end tests: the connection's phase (loading / running / ended), hidden.
+    const phase = el('span', { class: 'hidden', data: { testid: 'game-phase' } }, conn.phase);
+    this.root.append(phase);
+    this.offs.push(conn.on('phase', (p) => (phase.textContent = p)));
     this.save = opts.save ?? null;
     if (opts.save === undefined) void this.fetchSave();
 
@@ -541,7 +545,7 @@ class Run {
             {
               class: 'btn',
               type: 'button',
-              data: { testid: 'quit' },
+              data: { testid: 'game-exit' },
               on: {
                 click: () => {
                   this.closePause();
