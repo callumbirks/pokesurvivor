@@ -67,7 +67,7 @@ export interface RoomConnection {
 /** What `NetRoomConnection` needs from the client that owns the socket. */
 export interface RoomTransport {
   send(message: InputMessage | { type: 'game.loaded' | 'game.resync'; gameId: string }): boolean;
-  request(message: { type: 'intent'; intent: Intent }): Promise<unknown>;
+  request(message: { type: 'intent'; gameId: string; intent: Intent }): Promise<unknown>;
   now(): number;
 }
 
@@ -132,7 +132,14 @@ export class NetRoomConnection implements RoomConnection {
   sendInput(input: MoveInput): number {
     const seq = ++this.seq;
     const slot = input.slot ?? null;
-    const message: InputMessage = { type: 'input', seq, moveX: input.moveX, moveY: input.moveY };
+    if (!this.game || this.phase !== 'running') return seq;
+    const message: InputMessage = {
+      type: 'input',
+      gameId: this.game.gameId,
+      seq,
+      moveX: input.moveX,
+      moveY: input.moveY,
+    };
     if (slot !== null) message.slot = slot;
     if (this.transport.send(message)) {
       this.unacked.push({
@@ -147,16 +154,25 @@ export class NetRoomConnection implements RoomConnection {
     return seq;
   }
 
+  /** Stops by itself when this game ends: a finished game's loop never outlives it. */
   startInputLoop(read: () => MoveInput): () => void {
     const timer = timers.setInterval(() => {
       if (this.phase === 'running') this.sendInput(read());
     }, TICK_MS);
-    return () => timers.clearInterval(timer);
+    const stop = () => {
+      timers.clearInterval(timer);
+      off();
+    };
+    const off = this.emitter.on('phase', (phase) => {
+      if (phase === 'ended') stop();
+    });
+    return stop;
   }
 
   async intent(intent: Intent): Promise<IntentResult> {
     try {
-      await this.transport.request({ type: 'intent', intent });
+      if (!this.game) return { ok: false, error: 'no game' };
+      await this.transport.request({ type: 'intent', gameId: this.game.gameId, intent });
       return { ok: true };
     } catch (err) {
       return { ok: false, error: err instanceof Error ? err.message : String(err) };

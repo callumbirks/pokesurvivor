@@ -358,3 +358,81 @@ describe('deploys', () => {
     }
   });
 });
+
+describe('a second game on the same sockets', () => {
+  /** Plays a game for `seconds` with inputs, then ends it; everyone is back in the lobby. */
+  async function playAndEnd(t: GameTestServer, bots: Bot[], seconds: number): Promise<void> {
+    await startGame(bots);
+    for (const b of bots) b.wander();
+    const game = serverGame(t, bots[0]!);
+    await bots[0]!.until((s) => s.time > seconds && s.ackSeq > seconds * 20, 20_000);
+    const results = bots.map((b) => withTimeout(b.client.next('results'), 15_000, 'results'));
+    wipe(game);
+    await Promise.all(results);
+    for (const b of bots) b.stop();
+    await waitFor(
+      () => bots.every((b) => b.client.roomView?.phase === 'lobby'),
+      'everyone back in the lobby',
+    );
+  }
+
+  /** Starts the next game and checks every player moves on the server within a second. */
+  async function everyoneMoves(t: GameTestServer, bots: Bot[]): Promise<void> {
+    await Promise.all(bots.map((b) => b.client.setStatus('ready')));
+    await waitFor(() => bots[0]!.client.roomView?.blockers.length === 0, 'everyone ready');
+    await startGame(bots);
+    const game = serverGame(t, bots[0]!);
+    const start = new Map(game.sim.state.players.map((p) => [p.id, { x: p.x, y: p.y }]));
+    // A late input from the previous game (huge seq) is ignored, so it can't block this one's.
+    for (const b of bots)
+      game.input(b.userId, {
+        type: 'input',
+        gameId: 'previous-game',
+        seq: 1e9,
+        moveX: 1,
+        moveY: 0,
+      });
+    for (const b of bots) b.wander();
+    await sleep(1000);
+    for (const b of bots) {
+      const p = game.sim.state.players.find((x) => x.id === b.userId)!;
+      const from = start.get(b.userId)!;
+      expect(Math.hypot(p.x - from.x, p.y - from.y), `${b.username} moved`).toBeGreaterThan(20);
+      // Acks count this game's inputs, and the client's queue of unacked inputs drains.
+      expect(b.latest!.ackSeq).toBeGreaterThan(0);
+      expect(b.latest!.ackSeq).toBeLessThan(60);
+      expect(b.client.room!.unackedInputs().length).toBeLessThan(20);
+    }
+    for (const b of bots) await b.client.leaveRoom();
+  }
+
+  let t: GameTestServer;
+  beforeAll(async () => {
+    t = await createGameTestServer();
+  });
+  afterAll(() => t.close());
+
+  it('applies inputs from the start of game 2 (2 players, same sockets)', async () => {
+    const bots = await t.party(2, laggy);
+    await lobby(bots);
+    await playAndEnd(t, bots, 3);
+    await everyoneMoves(t, bots);
+  });
+
+  it('applies inputs from the start of game 2 when one player reconnected in between', async () => {
+    const bots = await t.party(2, laggy);
+    await lobby(bots);
+    await playAndEnd(t, bots, 3);
+    const back = bots[1]!.client.next('welcome');
+    bots[1]!.drop({ offlineMs: 300 });
+    await withTimeout(back, 8000, 'reconnect');
+    await everyoneMoves(t, bots);
+  });
+
+  it('applies inputs from the start of game 2 (3 players)', async () => {
+    const bots = await t.party(3, laggy);
+    await lobby(bots);
+    await playAndEnd(t, bots, 3);
+    await everyoneMoves(t, bots);
+  });
+});

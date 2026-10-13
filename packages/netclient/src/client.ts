@@ -431,7 +431,8 @@ export class NetClient {
       {
         send: (message: InputMessage | { type: 'game.loaded' | 'game.resync'; gameId: string }) =>
           this.sendRaw(message),
-        request: (message: { type: 'intent'; intent: Intent }) => this.request(message),
+        request: (message: { type: 'intent'; gameId: string; intent: Intent }) =>
+          this.request(message),
         now: () => this.opts.now(),
       },
       this.opts.buffer,

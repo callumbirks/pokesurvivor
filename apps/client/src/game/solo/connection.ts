@@ -162,7 +162,8 @@ export function createSoloConnection(opts: SoloOptions): SoloConnection {
         } else if (message.type === 'game.resync') post({ type: 'resync' });
         return true;
       },
-      request(message: { type: 'intent'; intent: Intent }) {
+      // One game per worker: `gameId` needs no check here.
+      request(message: { type: 'intent'; gameId: string; intent: Intent }) {
         return new Promise((resolve, reject) => {
           const rid = nextRid++;
           pending.set(rid, (r) => (r.ok ? resolve(undefined) : reject(new Error(r.error))));

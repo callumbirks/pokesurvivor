@@ -19,14 +19,25 @@ describe('client messages', () => {
     for (const m of [
       { type: 'hello', protocolVersion: 2 },
       { type: 'ping', id: 7, sentAt: 123.5 },
-      { type: 'input', seq: 3, moveX: 0.5, moveY: -1, slot: 2 },
+      { type: 'input', gameId: 'g', seq: 3, moveX: 0.5, moveY: -1, slot: 2 },
       { type: 'room.create', rid: 1 },
       { type: 'room.invite', rid: 2, username: 'misty' },
       { type: 'room.status', rid: 3, status: 'busy' },
-      { type: 'intent', rid: 4, intent: { type: 'pickCard', choiceId: 3, cardId: 'new:ember' } },
-      { type: 'intent', rid: 5, intent: { type: 'someFutureIntent', flag: true, n: null } },
       {
         type: 'intent',
+        gameId: 'g',
+        rid: 4,
+        intent: { type: 'pickCard', choiceId: 3, cardId: 'new:ember' },
+      },
+      {
+        type: 'intent',
+        gameId: 'g',
+        rid: 5,
+        intent: { type: 'someFutureIntent', flag: true, n: null },
+      },
+      {
+        type: 'intent',
+        gameId: 'g',
         rid: 6,
         intent: { type: 'pickBond', choiceId: 2, moves: ['ember', 'tackle'] },
       },
@@ -36,7 +47,9 @@ describe('client messages', () => {
   });
 
   it('clamps movement', () => {
-    const d = decodeClientMessage(encode({ type: 'input', seq: 1, moveX: 5, moveY: -9 }));
+    const d = decodeClientMessage(
+      encode({ type: 'input', gameId: 'g', seq: 1, moveX: 5, moveY: -9 }),
+    );
     expect(d).toMatchObject({ ok: true, message: { moveX: 1, moveY: -1 } });
   });
 
@@ -45,19 +58,21 @@ describe('client messages', () => {
     expect(decodeClientMessage('{"type":"ping"}')).toMatchObject({ ok: false });
     expect(decodeClientMessage('{"type":"room.create"}')).toMatchObject({ ok: false, rid: null });
     for (const bad of [
+      { type: 'intent', rid: 9, intent: { type: 'pickCard', choiceId: 1, cardId: 'x' } },
       { type: 'room.status', rid: 9, status: 'afk' },
       { type: 'room.invite', rid: 9, username: '' },
       { type: 'room.create', rid: 9, extra: 1 },
       { type: 'nope', rid: 9 },
-      { type: 'intent', rid: 9, intent: { type: 'pickCard', cardId: { nested: 1 } } },
-      { type: 'intent', rid: 9, intent: { choiceId: 1 } },
+      { type: 'intent', gameId: 'g', rid: 9, intent: { type: 'pickCard', cardId: { nested: 1 } } },
+      { type: 'intent', gameId: 'g', rid: 9, intent: { choiceId: 1 } },
     ]) {
       expect(decodeClientMessage(encode(bad))).toMatchObject({ ok: false, rid: 9 });
     }
     for (const bad of [
-      { type: 'input', seq: -1, moveX: 0, moveY: 0 },
-      { type: 'input', seq: 1, moveX: 'a', moveY: 0 },
-      { type: 'input', seq: 1, moveX: 0, moveY: 0, slot: 1.5 },
+      { type: 'input', seq: 1, moveX: 0, moveY: 0 },
+      { type: 'input', gameId: 'g', seq: -1, moveX: 0, moveY: 0 },
+      { type: 'input', gameId: 'g', seq: 1, moveX: 'a', moveY: 0 },
+      { type: 'input', gameId: 'g', seq: 1, moveX: 0, moveY: 0, slot: 1.5 },
     ]) {
       expect(decodeClientMessage(encode(bad)).ok).toBe(false);
     }

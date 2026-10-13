@@ -210,10 +210,15 @@ export class Game {
     this.events = [];
   }
 
-  input(userId: string, session: Session, m: InputMessage): void {
+  /**
+   * The latest input wins. Order is tracked per player of this game (`slot.lastSeq`, reset when
+   * they reconnect), never per socket: a socket outlives games, and each game's inputs count
+   * from 1 again.
+   */
+  input(userId: string, m: InputMessage): void {
     const slot = this.slots.get(userId);
-    if (!slot || slot.left || m.seq <= session.inputSeq) return;
-    session.inputSeq = m.seq;
+    if (this.phase !== 'running' || m.gameId !== this.id) return;
+    if (!slot || slot.left || m.seq <= slot.lastSeq) return;
     slot.lastSeq = m.seq;
     slot.moveX = m.moveX;
     slot.moveY = m.moveY;
