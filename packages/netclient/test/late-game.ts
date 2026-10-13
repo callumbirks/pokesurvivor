@@ -1,17 +1,13 @@
 // A 4-player late game for measuring snapshots: scripted bots that stay together (the worst case
 // for interest management: every enemy is near every player) and pick the first card.
 import { createSim, type Sim } from '@pokesurvivor/sim';
+import { firstOption } from '../src/choices.js';
 
 export function botStep(sim: Sim): void {
   const s = sim.state;
   for (const c of s.pendingChoices.slice()) {
-    if (c.kind === 'level-up')
-      sim.submitIntent(c.playerId, {
-        type: 'pickCard',
-        choiceId: c.id,
-        cardId: c.options[0]?.id ?? '',
-      });
-    else sim.submitIntent(c.playerId, { type: 'pickItem', choiceId: c.id, itemId: c.found });
+    const intent = firstOption(c);
+    if (intent) sim.submitIntent(c.playerId, intent);
   }
   const alive = s.players.filter((p) => !p.left);
   const cx = alive.reduce((a, p) => a + p.x, 0) / (alive.length || 1);

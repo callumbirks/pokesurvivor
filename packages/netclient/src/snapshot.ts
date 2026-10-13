@@ -20,6 +20,8 @@ import {
   type Reader,
 } from '@pokesurvivor/protocol';
 import type {
+  ArenaState,
+  LostPokemonState,
   EnemyState,
   FieldState,
   HazardState,
@@ -64,6 +66,8 @@ export interface NetPlayer {
   walking: boolean;
   invulnerable: boolean;
   inLiquid: boolean;
+  /** Stuck in a trap (half speed). */
+  trapped: boolean;
   /** Revive progress while down, in seconds. */
   reviveT: number;
   active: number;
@@ -173,6 +177,8 @@ export interface PlayerDetail {
   types: string[];
   /** Pickup radius. */
   magnet: number;
+  /** Altar power in effect. */
+  power: { id: string; t: number } | null;
 }
 
 /** Who a pending choice waits for (every choice, anyone's). */
@@ -209,7 +215,28 @@ export interface Snapshot {
   events: SimEvent[];
   /** Latest details per player id. */
   details: Record<string, PlayerDetail>;
-  world: { broken: Record<string, 1>; propHp: Record<string, number> };
+  /**
+   * Every keyed record of `state.world` (tile key → number): `broken`, `propHp`, `altarsUsed`,
+   * `springs`, `chests`, and any the sim adds. Sent as changes.
+   */
+  world: Record<string, Record<string, number>>;
+  /** Rifts, the arena, weather and run events (`NetMisc`). */
+  misc: NetMisc;
+}
+
+/**
+ * What the HUD and renderer need of the rift, the arena, the weather and run events. Timers are
+ * whole seconds, so this changes about once a second; it's sent when it changes.
+ */
+export interface NetMisc {
+  /** The rift waiting on the map. */
+  rift: { x: number; y: number; ttl: number; t: number } | null;
+  /** The arena while the team is in it (`terrainRaw` needs the geometry). */
+  arena: (Omit<ArenaState, 'stash' | 'back' | 'endT' | 'downT' | 't'> & { t: number }) | null;
+  weather: { kind: string; t: number; dur: number } | null;
+  event: { id: string; t: number; dur: number | null; type: string | null } | null;
+  /** The lost Pokémon (moves while following someone). */
+  lost: Omit<LostPokemonState, 't' | 'hitCd' | 'joins'> | null;
 }
 
 // ------------------------------------------------------------------ tables
@@ -238,9 +265,9 @@ interface Extra {
   /** New event shapes (the events themselves follow the JSON part, binary). */
   shapes?: Record<number, Shape>;
   details?: Record<string, PlayerDetail>;
-  broken?: string[];
-  unbroken?: string[];
-  propHp?: Record<string, number | null>;
+  /** World record changes: record → key → value (null: removed). */
+  world?: Record<string, Record<string, number | null>>;
+  misc?: NetMisc;
   shinies?: number[];
   ended?: RunEnd | null;
 }
@@ -260,8 +287,8 @@ export class SnapshotEncoder {
   private newStrings: Record<number, string> = {};
   private visible = new Set<number>();
   private details = new Map<string, string>();
-  private broken = new Set<string>();
-  private propHp = new Map<string, number>();
+  private world = new Map<string, Map<string, number>>();
+  private misc = '';
   private shinies = '';
   private ended: string | null = null;
   private full = true;
@@ -284,8 +311,8 @@ export class SnapshotEncoder {
     this.newStrings = {};
     this.visible.clear();
     this.details.clear();
-    this.broken.clear();
-    this.propHp.clear();
+    this.world.clear();
+    this.misc = '';
     this.shinies = '';
     this.ended = null;
     this.events.reset();
@@ -372,6 +399,12 @@ export class SnapshotEncoder {
     extra.shapes = this.events.write(eventWriter, relevant);
     this.addDetails(s, extra);
     this.addWorld(s, extra);
+    const misc = miscOf(s);
+    const miscJson = JSON.stringify(misc);
+    if (miscJson !== this.misc) {
+      this.misc = miscJson;
+      extra.misc = misc;
+    }
     const shinies = JSON.stringify(t.shinies);
     if (shinies !== this.shinies) {
       this.shinies = shinies;
@@ -497,33 +530,90 @@ export class SnapshotEncoder {
     }
   }
 
+  /** Diffs every keyed numeric record of `state.world` against what this client has. */
   private addWorld(s: SimState, extra: Extra): void {
-    const broken = Object.keys(s.world.broken);
-    for (const key of broken) {
-      if (this.broken.has(key)) continue;
-      this.broken.add(key);
-      (extra.broken ??= []).push(key);
-    }
-    if (this.broken.size > broken.length) {
-      for (const key of this.broken) {
-        if (s.world.broken[key]) continue;
-        this.broken.delete(key);
-        (extra.unbroken ??= []).push(key);
+    for (const [name, value] of Object.entries(s.world)) {
+      if (!isNumberRecord(value)) continue;
+      let sent = this.world.get(name);
+      if (!sent) this.world.set(name, (sent = new Map<string, number>()));
+      const changes: Record<string, number | null> = {};
+      let changed = false;
+      for (const [key, v] of Object.entries(value)) {
+        const rounded = Math.round(v * 100) / 100;
+        if (sent.get(key) === rounded) continue;
+        sent.set(key, rounded);
+        changes[key] = rounded;
+        changed = true;
       }
-    }
-    for (const [key, hp] of Object.entries(s.world.propHp)) {
-      const rounded = Math.ceil(hp);
-      if (this.propHp.get(key) === rounded) continue;
-      this.propHp.set(key, rounded);
-      (extra.propHp ??= {})[key] = rounded;
-    }
-    for (const key of this.propHp.keys()) {
-      if (key in s.world.propHp) continue;
-      this.propHp.delete(key);
-      (extra.propHp ??= {})[key] = null;
+      if (sent.size > Object.keys(value).length || changed) {
+        for (const key of sent.keys()) {
+          if (key in value) continue;
+          sent.delete(key);
+          changes[key] = null;
+          changed = true;
+        }
+      }
+      if (changed) (extra.world ??= {})[name] = changes;
     }
   }
 }
+
+function isNumberRecord(v: unknown): v is Record<string, number> {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return false;
+  for (const x of Object.values(v)) if (typeof x !== 'number') return false;
+  return true;
+}
+
+function miscOf(s: SimState): NetMisc {
+  const whole = (x: number) => Math.floor(x);
+  const open = s.rift?.open;
+  const arena = s.arena;
+  const weather = s.weather?.current;
+  const event = s.events?.current;
+  const lost = s.events?.lost;
+  return {
+    rift: open
+      ? { x: Math.round(open.x), y: Math.round(open.y), ttl: whole(open.ttl), t: whole(open.t) }
+      : null,
+    arena: arena
+      ? {
+          tx: arena.tx,
+          ty: arena.ty,
+          r: arena.r,
+          type: arena.type,
+          pillars: arena.pillars,
+          pools: arena.pools,
+          dex: arena.dex,
+          shiny: arena.shiny,
+          x: arena.x,
+          y: arena.y,
+          phase: arena.phase,
+          bossId: arena.bossId,
+          t: whole(arena.t),
+        }
+      : null,
+    weather: weather ? { kind: weather.kind, t: whole(weather.t), dur: weather.dur } : null,
+    event: event ? { id: event.id, t: whole(event.t), dur: event.dur, type: event.type } : null,
+    lost: lost
+      ? {
+          dex: lost.dex,
+          x: Math.round(lost.x),
+          y: Math.round(lost.y),
+          r: lost.r,
+          hp: Math.ceil(lost.hp),
+          maxHp: lost.maxHp,
+          phase: lost.phase,
+          follow: lost.follow,
+          moving: lost.moving,
+          face: Math.round(lost.face * 10) / 10,
+          tx: lost.tx,
+          ty: lost.ty,
+        }
+      : null,
+  };
+}
+
+const NO_MISC: NetMisc = { rift: null, arena: null, weather: null, event: null, lost: null };
 
 function playerRow(p: PlayerState): number[] {
   return [
@@ -535,7 +625,7 @@ function playerRow(p: PlayerState): number[] {
     q(p.moveAngle, ANGLE),
     Math.ceil(Math.max(0, p.hp)),
     Math.round(p.maxHp),
-    flags(p.dead, p.connected, p.left, p.walking, p.invuln > 0, p.inLiquid),
+    flags(p.dead, p.connected, p.left, p.walking, p.invuln > 0, p.inLiquid, p.slowT > 0),
     q(p.reviveT, 10),
     p.active,
   ];
@@ -557,6 +647,7 @@ function playerDetail(p: PlayerState): PlayerDetail {
     rerollsLeft: Math.max(0, 1 + p.rerollBonus - p.rerollsUsed),
     types: [...p.types],
     magnet: Math.round(p.magnet),
+    power: p.power ? { id: p.power.id, t: Math.ceil(p.power.t) } : null,
   };
 }
 
@@ -588,8 +679,8 @@ export class SnapshotDecoder {
   private readonly tables = WIDTHS.map((w) => new TableDecoder(w));
   private strings = new Map<number, string>();
   private details: Record<string, PlayerDetail> = {};
-  private broken: Record<string, 1> = {};
-  private propHp: Record<string, number> = {};
+  private world: Record<string, Record<string, number>> = {};
+  private misc: NetMisc = NO_MISC;
   private shinies: number[] = [];
   private ended: RunEnd | null = null;
   private readonly events = new EventDecoder();
@@ -615,12 +706,14 @@ export class SnapshotDecoder {
     const extra = JSON.parse(frame.json) as Extra;
     for (const [i, s] of Object.entries(extra.strings ?? {})) this.strings.set(Number(i), s);
     Object.assign(this.details, extra.details);
-    for (const key of extra.broken ?? []) this.broken[key] = 1;
-    for (const key of extra.unbroken ?? []) delete this.broken[key];
-    for (const [key, hp] of Object.entries(extra.propHp ?? {})) {
-      if (hp === null) delete this.propHp[key];
-      else this.propHp[key] = hp;
+    for (const [name, changes] of Object.entries(extra.world ?? {})) {
+      const record = (this.world[name] ??= {});
+      for (const [key, v] of Object.entries(changes)) {
+        if (v === null) delete record[key];
+        else record[key] = v;
+      }
     }
+    if (extra.misc) this.misc = extra.misc;
     if (extra.shinies) this.shinies = extra.shinies;
     if (extra.ended !== undefined) this.ended = extra.ended;
     this.events.addShapes(extra.shapes);
@@ -653,7 +746,8 @@ export class SnapshotDecoder {
       waiting: extra.waiting,
       events,
       details: { ...this.details },
-      world: { broken: { ...this.broken }, propHp: { ...this.propHp } },
+      world: Object.fromEntries(Object.entries(this.world).map(([k, v]) => [k, { ...v }])),
+      misc: this.misc,
     };
   }
 
@@ -661,8 +755,8 @@ export class SnapshotDecoder {
     for (const t of this.tables) t.reset();
     this.strings.clear();
     this.details = {};
-    this.broken = {};
-    this.propHp = {};
+    this.world = {};
+    this.misc = NO_MISC;
     this.shinies = [];
     this.ended = null;
     this.events.reset();
@@ -697,6 +791,7 @@ export class SnapshotDecoder {
       walking: bit(fl, 3),
       invulnerable: bit(fl, 4),
       inLiquid: bit(fl, 5),
+      trapped: bit(fl, 6),
       reviveT: (v[9] ?? 0) / 10,
       active: v[10] ?? 0,
     };

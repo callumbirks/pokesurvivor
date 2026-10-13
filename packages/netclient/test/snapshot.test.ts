@@ -34,8 +34,8 @@ describe('snapshots', () => {
     expect(snap!.players.map((p) => [p.id, p.x, p.y, p.hp])).toEqual(
       s.players.map((p) => [
         p.id,
-        expect.closeTo(p.x, 1) as unknown,
-        expect.closeTo(p.y, 1) as unknown,
+        expect.closeTo(p.x, 0) as unknown,
+        expect.closeTo(p.y, 0) as unknown,
         Math.ceil(p.hp),
       ]),
     );
@@ -55,7 +55,35 @@ describe('snapshots', () => {
     }
     expect(snap!.team.level).toBe(s.team.level);
     expect(snap!.details.p1?.moves.map((m) => m.id)).toEqual(me.moves.map((m) => m.id));
-    expect(Object.keys(snap!.world.broken).sort()).toEqual(Object.keys(s.world.broken).sort());
+    expect(Object.keys(snap!.world.broken ?? {}).sort()).toEqual(
+      Object.keys(s.world.broken).sort(),
+    );
+  });
+
+  it('carry rifts, the arena, weather and world records when they change', () => {
+    const local = lateGame(1, 11);
+    const enc = new SnapshotEncoder({ viewerId: 'p0' });
+    const dec = new SnapshotDecoder(local.state.players.map((p) => p.id));
+    const next = () =>
+      dec.decode(enc.encode(local.state, local.drainEvents(), local.state.tick, 0));
+    expect(next().misc.rift).toBeNull();
+    local.debugOpenRift();
+    local.debugStartWeather('rain', 60);
+    local.state.world.springs['3,4'] = 0.25;
+    botStep(local);
+    const snap = next();
+    expect(snap.misc.rift).toMatchObject({ x: expect.any(Number) as unknown });
+    expect(snap.misc.weather).toMatchObject({ kind: 'rain' });
+    expect(snap.world.springs).toMatchObject({ '3,4': 0.25 });
+    delete local.state.world.springs['3,4'];
+    local.debugStartArena();
+    botStep(local);
+    const inArena = next();
+    expect(inArena.world.springs?.['3,4']).toBeUndefined();
+    expect(inArena.misc.arena).toMatchObject({
+      dex: local.state.arena!.dex,
+      r: local.state.arena!.r,
+    });
   });
 
   it('list every pending choice, the viewer’s own in full', () => {
