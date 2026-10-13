@@ -1,25 +1,51 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
+import fastifyCookie from '@fastify/cookie';
+import fastifyRateLimit from '@fastify/rate-limit';
 import fastifyStatic from '@fastify/static';
 import fastifyWebsocket from '@fastify/websocket';
 import { PROTOCOL_VERSION, decodeClientMessage, encode } from '@pokesurvivor/protocol';
 import { TICK_HZ } from '@pokesurvivor/sim';
 import Fastify, { type FastifyInstance } from 'fastify';
+import { authRoutes } from './auth/routes.js';
 import type { Config } from './config.js';
 import type { Db } from './db/index.js';
+import { DEFAULT_ECONOMY } from './economy/config.js';
+import type { EconomyConfig } from './economy/config.js';
+import { offlinePresence, silentNotifier } from './friends/presence.js';
+import type { FriendNotifier, PresenceSource } from './friends/presence.js';
+import { friendRoutes } from './friends/routes.js';
+import { registerErrorHandler } from './http/errors.js';
+import { runRoutes } from './runs/routes.js';
+import { saveRoutes } from './saves/routes.js';
 
 export interface AppOptions {
   config: Config;
-  /** Absent in tests that don't need Postgres. */
-  db?: Pick<Db, 'ping'>;
+  /** Without it, only health, info, the WebSocket and static files are served. */
+  db?: Db;
+  economy?: EconomyConfig;
+  /** Live presence for the friends list; the WebSocket server provides it (phase 3b). */
+  presence?: PresenceSource;
+  /** Pushes friend changes to online users; the WebSocket server provides it (phase 3b). */
+  friendNotifier?: FriendNotifier;
 }
 
-export async function buildApp({ config, db }: AppOptions): Promise<FastifyInstance> {
+export async function buildApp({
+  config,
+  db,
+  economy = DEFAULT_ECONOMY,
+  presence = offlinePresence,
+  friendNotifier = silentNotifier,
+}: AppOptions): Promise<FastifyInstance> {
   const app = Fastify({
     logger: { level: config.logLevel },
     // Dokploy puts Traefik in front of us.
     trustProxy: true,
   });
+  registerErrorHandler(app);
+  await app.register(fastifyCookie);
+  // Limits are opted into per route (`config.rateLimit`).
+  await app.register(fastifyRateLimit, { global: false });
 
   // Health checks hit this every few seconds; keep them out of the request log.
   app.get('/healthz', { logLevel: 'warn' }, async () => {
@@ -38,6 +64,28 @@ export async function buildApp({ config, db }: AppOptions): Promise<FastifyInsta
   });
 
   app.get('/api/info', () => ({ protocolVersion: PROTOCOL_VERSION, tickHz: TICK_HZ }));
+
+  if (db) {
+    const common = { db: db.db, secureCookies: config.secureCookies };
+    authRoutes(app, {
+      ...common,
+      startingCoins: economy.startingCoins,
+      rateLimit: config.rateLimits.auth,
+    });
+    saveRoutes(app, { ...common, economy });
+    runRoutes(app, {
+      ...common,
+      runCaps: economy.runCaps,
+      leaderboardTimeZone: config.leaderboardTimeZone,
+      rateLimit: config.rateLimits.actions,
+    });
+    friendRoutes(app, {
+      ...common,
+      presence,
+      notifier: friendNotifier,
+      rateLimit: config.rateLimits.actions,
+    });
+  }
 
   await app.register(fastifyWebsocket, { options: { maxPayload: 64 * 1024 } });
   app.get('/ws', { websocket: true }, (socket) => {
