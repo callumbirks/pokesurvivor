@@ -1,0 +1,20 @@
+# Local development database. The app itself runs on the host with `pnpm dev`.
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: pokesurvivor
+      POSTGRES_PASSWORD: pokesurvivor
+      POSTGRES_DB: pokesurvivor
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U pokesurvivor']
+      interval: 2s
+      timeout: 5s
+      retries: 15
+
+volumes:
+  postgres-data:

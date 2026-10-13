@@ -1,0 +1,35 @@
+{
+  "name": "@pokesurvivor/server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "files": [
+    "dist",
+    "drizzle"
+  ],
+  "scripts": {
+    "dev": "tsx watch --clear-screen=false --env-file-if-exists=../../.env src/main.ts",
+    "build": "node scripts/build.js",
+    "start": "node dist/main.js",
+    "typecheck": "tsc",
+    "test": "vitest run",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx --env-file-if-exists=../../.env src/db/migrate-cli.ts"
+  },
+  "dependencies": {
+    "@fastify/static": "^10.1.6",
+    "@fastify/websocket": "^11.3.4",
+    "drizzle-orm": "^0.45.4",
+    "fastify": "^5.12.5",
+    "postgres": "^3.4.9"
+  },
+  "devDependencies": {
+    "@pokesurvivor/data": "workspace:*",
+    "@pokesurvivor/protocol": "workspace:*",
+    "@pokesurvivor/sim": "workspace:*",
+    "@types/ws": "^8.18.2",
+    "drizzle-kit": "^0.31.11",
+    "esbuild": "^0.28.2",
+    "tsx": "^4.23.15"
+  }
+}

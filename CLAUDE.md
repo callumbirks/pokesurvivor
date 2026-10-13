@@ -1,30 +1,56 @@
-# PokéSurvivor — cómo se trabaja y se publica
+# PokéSurvivor — working notes
 
-Normas fijas del dueño del proyecto. Se aplican SIEMPRE.
+A fork of pokesurvivor.com being rebuilt as a TypeScript monorepo with an authoritative game
+server. The agreed plan (architecture, phases, decisions) is in the project file
+`plans/rebuild-architecture.md` (in the borkcode project files, not in this repo); read it
+before larger changes.
 
-## Publicar una versión
-1. Se edita `dev.html` (nunca `index.html`, que se genera).
-2. `node tools/build.js && node tools/export_data.js && python tools/make_seo_pages.py`
-   - `build.js` genera `index.html`, `js/app.min.js` y **`version.json`** (la huella de esta versión).
-3. Commit (sin "Co-Authored-By" ni ninguna firma de IA) y `git push origin main` sólo cuando el dueño lo pida.
+## Layout
 
-## Actualización automática de los jugadores (obligatorio)
-Al publicar, todos los jugadores deben pasar a la versión nueva sin perder nada
-(`js/core/updater.js`, mira `version.json` cada 5 min):
-- **Fuera de partida** (menú, sala de cooperativo incluida): aviso de 5 s y la página se recarga.
-  Si está en el gacha, la tienda de mejoras, los ajustes o escribiendo en un campo, espera a que termine.
-- **En partida**: no se toca. Al acabar, la run se guarda como siempre y, al volver al menú, se recarga.
-- Antes de recargar se sube a la nube lo pendiente.
-No quitar `updater.js` ni la escritura de `version.json` en `tools/build.js`.
+- `packages/data` — game data (JSON) + zod schemas.
+- `packages/sim` — headless simulation (world, entities, combat, …). Runs in Node and in a Web
+  Worker. **No DOM, Canvas, Audio or browser globals** (ESLint enforces the globals).
+- `packages/protocol` — client/server message types, encoding, `PROTOCOL_VERSION`.
+- `apps/server` — Fastify HTTP API, WebSocket game server (`/ws`), Postgres via Drizzle.
+  Also serves the built client at `/` and `legacy/` at `/legacy/`.
+- `apps/client` — Vite + Canvas 2D client.
+- `legacy/` — the original vanilla-JS game. **Read-only reference**: don't edit it (except to
+  keep it servable) and don't import from it. Its own `CLAUDE.md`/README describe the old
+  Firebase/GitHub Pages workflow, which no longer applies.
 
-## Novedades (changelog)
-Cada cambio de juego o arreglo de fallos va también en `js/data/changelog.js`
-(español e inglés, en `new` / `chg` / `fix` de la fecha de hoy). Los cambios de
-servidores, base de datos o costes NO van ahí.
+Workspace packages export TypeScript source (`"exports": "./src/index.ts"`); there is no
+per-package build. Vite, Vitest and tsx compile them, and the server build bundles them with
+esbuild (`apps/server/scripts/build.js`). Runtime npm dependencies of the server must be in its
+`dependencies` (they stay external); workspace packages go in `devDependencies`.
 
-## Servidores
-- Firebase: proyecto **pokesurvivor-free** (autenticación normal: cuentas gratis sin límite).
-  **Nunca** activar "Identity Platform" ni nada que lo active (funciones de bloqueo, MFA,
-  "Actualizar para habilitar"): cobra por usuario. El proyecto viejo pokesurvivor-jpter se apaga a final de octubre de 2026.
-- Cloudflare (Worker `cloudflare/turn-worker.js`, plan de 5 $): no debe pasar de 5 $ al mes (el TURN tiene tope).
-- Mantenimiento: `MAINTENANCE` en `js/main.js` (con `?dev` se puede entrar para probar).
+## Commands
+
+```sh
+pnpm install
+docker compose up -d     # local Postgres
+pnpm dev                 # server :3000 + client :5173 (proxies /ws, /api, /healthz, /legacy)
+pnpm lint                # ESLint + Prettier check; `pnpm format` fixes formatting
+pnpm typecheck
+pnpm test
+pnpm build
+pnpm db:generate --name <change>   # after editing apps/server/src/db/schema.ts
+pnpm db:migrate                    # also runs automatically on server start
+docker build .
+```
+
+Run `pnpm lint && pnpm typecheck && pnpm test` before committing.
+
+## Conventions
+
+- **English only**: identifiers, comments, docs, commit messages and UI text. UI strings will
+  live in one `en.json`; don't hard-code user-facing text in logic.
+- **TypeScript strict** everywhere (`tsconfig.base.json`, incl. `noUncheckedIndexedAccess`). No
+  `any` escape hatches without a comment saying why.
+- **Game logic lives only in `packages/sim`.** The client renders, plays audio and collects
+  input; it never decides outcomes.
+- **The server is authoritative.** Clients send inputs and intents; the server owns game state,
+  room state, saves, gacha rolls and the economy. Never trust values computed on the client.
+- Wire-format changes go through `packages/protocol` and bump `PROTOCOL_VERSION` when breaking.
+- Schema changes go through Drizzle migrations; never edit a migration that has been merged.
+- Config comes from environment variables (`apps/server/src/config.ts`, `.env.example`).
+- Deployment: see `docs/deploy.md` (Dokploy, one Docker image, Postgres service).
