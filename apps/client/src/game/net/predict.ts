@@ -13,6 +13,11 @@
 //
 // While the game is paused, or the player is down or disconnected, nothing is predicted: the
 // server position is used as is.
+//
+// Guard: if the prediction stays far from the server for over a second (the server isn't applying
+// our inputs), we stop predicting and show the server position, with a warning in the console,
+// until they agree again. A server-side input problem then looks like rubber-banding instead of
+// a ghost walking around while the real Pokémon stands still.
 import { TICK_MS, type MovingBody, type WorldView } from '@pokesurvivor/sim';
 
 export interface ServerBody {
@@ -49,6 +54,10 @@ export interface PredictionFrame {
 const SNAP_DISTANCE = 96;
 /** How fast a correction fades (1/s). */
 const CORRECTION_RATE = 12;
+/** Prediction this far from the server… */
+const DIVERGE_DISTANCE = 48;
+/** …for this long means the server isn't applying our inputs. */
+const DIVERGE_MS = 1000;
 
 type Mover = Pick<WorldView, 'move'>;
 
@@ -93,6 +102,10 @@ export class Predictor {
   /** Predicted position after each input seq, as of the previous frame. */
   private prev: Map<number, { x: number; y: number }> | null = null;
   private lastNow = 0;
+  /** When the prediction last started disagreeing with the server (null: it agrees). */
+  private divergedSince: number | null = null;
+  /** Showing the server position until the prediction agrees again. */
+  fallback = false;
 
   constructor(
     private readonly world: Mover,
@@ -104,6 +117,8 @@ export class Predictor {
   reset(): void {
     this.prev = null;
     this.offX = this.offY = 0;
+    this.divergedSince = null;
+    this.fallback = false;
   }
 
   update(f: PredictionFrame): void {
@@ -150,5 +165,28 @@ export class Predictor {
     this.x = x + this.offX;
     this.y = y + this.offY;
     this.walking = walking;
+    this.guard(f, x, y);
+  }
+
+  private guard(f: PredictionFrame, x: number, y: number): void {
+    const s = f.server;
+    if (!f.active || Math.hypot(x - s.x, y - s.y) <= DIVERGE_DISTANCE) {
+      this.divergedSince = null;
+      this.fallback = false;
+      return;
+    }
+    this.divergedSince ??= f.now;
+    if (!this.fallback && f.now - this.divergedSince > DIVERGE_MS) {
+      this.fallback = true;
+      console.warn(
+        `prediction: ${Math.round(Math.hypot(x - s.x, y - s.y))} units from the server for over ` +
+          `${DIVERGE_MS} ms (ack ${f.ackSeq}, ${f.unacked.length} unacked inputs); showing the server position`,
+      );
+    }
+    if (this.fallback) {
+      this.x = s.x;
+      this.y = s.y;
+      this.offX = this.offY = 0;
+    }
   }
 }

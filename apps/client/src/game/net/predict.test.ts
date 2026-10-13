@@ -192,3 +192,34 @@ describe('client-side prediction', () => {
     expect(p.x).toBeGreaterThan(10);
   });
 });
+
+describe('prediction guard', () => {
+  it('snaps to the server when it ignores our inputs for over a second, and warns', () => {
+    const sim = createSim({ seed: 3, players: [{ id: 'me', dex: 25 }], debug: { noSpawns: true } });
+    const me = sim.state.players[0]!;
+    const predictor = new Predictor(new WorldView(sim.state.world.seed), me.r, me.types);
+    const server: ServerBody = { x: me.x, y: me.y, vx: 0, vy: 0, inLiquid: false };
+    const speed = playerMoveSpeed(sim.state, me);
+    const warnings: unknown[] = [];
+    const warn = console.warn;
+    console.warn = (...args: unknown[]) => void warnings.push(args);
+    try {
+      // The server never acks (the stuck-at-spawn bug): inputs pile up, the prediction walks off.
+      const unacked: PendingInput[] = [];
+      let now = 0;
+      for (let i = 1; i <= 75; i++, now += TICK_MS) {
+        unacked.push({ seq: i, moveX: 1, moveY: 0, sentAt: now });
+        predictor.update({ server, ackSeq: 0, unacked, speed, now, active: true });
+        if (now < 900) expect(predictor.fallback).toBe(false);
+      }
+      expect(predictor.fallback).toBe(true);
+      expect(predictor.x).toBe(server.x);
+      expect(warnings).toHaveLength(1);
+      // Inputs get applied again: prediction resumes.
+      predictor.update({ server, ackSeq: 75, unacked: [], speed, now, active: true });
+      expect(predictor.fallback).toBe(false);
+    } finally {
+      console.warn = warn;
+    }
+  });
+});
