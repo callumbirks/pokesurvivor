@@ -35,11 +35,23 @@ new ones.
 | `missions.json`     | Daily and weekly mission templates (event, filter, value, goals, reward, text with `{count}`/`{type}`)                      |
 | `achievements.json` | Categories and achievements (metric, goal, reward, title), including one per legendary                                      |
 | `music.json`        | Synth scores for the menu, the three biomes, bosses and rifts                                                               |
-| `gacha.json`        | Costs, rarity weights, hard pity, ×10 guarantee, shiny rate, duplicate refunds, rarities, banners                           |
+| `gacha.json`        | Costs, rarity weights, soft and hard pity, ×10 guarantee, shiny rate, duplicate refunds, rarities, banners                  |
 | `biomes.json`       | Run biomes (palette, liquid, music) and the 18 rift arenas (palette, terrain, weather)                                      |
 | `world.json`        | Map props, liquid effects, locked-chest/trap/altar constants and altar powers                                               |
 | `weather.json`      | Weather kinds (multipliers, immune types, slow), weights per biome, schedule                                                |
 | `tuning.json`       | Named constants from the legacy spawner, rifts, events, combat and pickups                                                  |
+
+### Rebalanced after the port
+
+These values differ from legacy (the converter emits the new ones):
+
+- `gacha.json`: 5★ weight 0.6 (legacy 1.5, the difference moved to 1★: 45.9), soft pity from the
+  74th pull (+6 points of 5★ chance per pull; legacy had none) and hard pity 90 (legacy 70).
+- `tuning.json` `pickups`: a boss drops a ×10 ticket with `bossTicket10Chance` 0.1 (legacy 1/3),
+  a rift legendary with `legendaryTicket10Chance` 0.2 (legacy 0.5).
+- `tuning.json` `events.goldThiefChance`: the chance a treasure thief is Gholdengo, who drops a
+  ×10 ticket, instead of Meowth, who drops coins: 0.125 (hard-coded 0.25 in legacy
+  `events.js` `spawnThief()`). The sim's event port reads it.
 
 Display text in data files is English. Text for screens (buttons, toasts, HUD) goes in
 `i18n/en.json`, never in code. `test/english.test.ts` fails if anything Spanish appears.

@@ -34,6 +34,7 @@ export function gachaInfo(pity: SaveData['pity'] | null) {
   return {
     cost: gacha.cost,
     rates: gacha.rates,
+    softPity: gacha.softPity,
     hardPity: gacha.hardPity,
     multiGuaranteeMinRarity: gacha.multiGuaranteeMinRarity,
     shinyRate: gacha.shinyRate,

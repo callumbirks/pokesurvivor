@@ -18,6 +18,7 @@ interface PullResponse {
 }
 
 interface GachaInfo {
+  softPity: { from: number; stepPerPull: number };
   hardPity: number;
   rates: { rarity: number; weight: number }[];
   banners: { id: string; featured: number[]; pity: number | null; poolSize: object }[];
@@ -42,7 +43,11 @@ describe('gacha', () => {
   it('lists the banners, rates and featured Pokémon, with pity when logged in', async () => {
     const anon = (await t.client().get('/api/gacha')).json<GachaInfo>();
     const { gacha } = getServerData();
-    expect(anon).toMatchObject({ hardPity: gacha.hardPity, rates: gacha.rates });
+    expect(anon).toMatchObject({
+      softPity: { from: 74, stepPerPull: 0.06 },
+      hardPity: 90,
+      rates: gacha.rates,
+    });
     expect(anon.banners.map((b) => b.id)).toEqual(gacha.banners.map((b) => b.id));
     expect(anon.banners[0]).toMatchObject({ id: 'kanto', pity: null });
     expect(anon.banners[0]?.featured).toContain(150);
