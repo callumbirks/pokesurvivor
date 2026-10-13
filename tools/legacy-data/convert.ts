@@ -900,7 +900,45 @@ emit('world.json', WorldFileSchema, {
     }),
   ),
   bigChestOpenSeconds: constant('systems/interact.js', 'CHEST_TIME'),
+  // Inline in systems/interact.js spring(): 14% max HP/s, 0.09 charge/s, refills in 45 s, 26 units.
+  spring: { healPerSecond: 0.14, drainPerSecond: 0.09, refillSeconds: 45, range: 26 },
   trapRadius: constant('systems/interact.js', 'TRAP_R'),
+  // Inline in systems/interact.js trapEffect(), by trap kind.
+  traps: [
+    {
+      id: 'poison',
+      enemyDamage: 14,
+      enemyDamagePerLevel: 3,
+      enemyPoison: 5,
+      enemySlow: 0,
+      enemySlowSeconds: 0,
+      knockback: 0,
+      playerMaxHpDamage: 0.1,
+      playerSlowSeconds: 0,
+    },
+    {
+      id: 'sticky',
+      enemyDamage: 4,
+      enemyDamagePerLevel: 0,
+      enemyPoison: 0,
+      enemySlow: 0.65,
+      enemySlowSeconds: 4.5,
+      knockback: 0,
+      playerMaxHpDamage: 0,
+      playerSlowSeconds: 3.5,
+    },
+    {
+      id: 'explosive',
+      enemyDamage: 90,
+      enemyDamagePerLevel: 18,
+      enemyPoison: 0,
+      enemySlow: 0,
+      enemySlowSeconds: 0,
+      knockback: 220,
+      playerMaxHpDamage: 0.2,
+      playerSlowSeconds: 0,
+    },
+  ],
   altarPowerSeconds: constant('systems/interact.js', 'POWER_TIME'),
   altarPowers: constant('systems/interact.js', 'POWERS').map((pw: Legacy) => {
     const [id, name] = POWER_IDS[pw.id] ?? fail(`altar power ${pw.id}`);
@@ -929,6 +967,10 @@ emit('weather.json', WeatherFileSchema, {
   chance: constant('systems/weather.js', 'CHANCE'),
   // systems/weather.js update(): round(rand(55, 75)).
   durationRange: [55, 75],
+  // Inline in systems/weather.js level(), speedFor() and update().
+  fadeSeconds: 3,
+  slow: 0.1,
+  chip: { every: 2, minIntensity: 0.5, playerMaxHp: 0.012, enemyMaxHp: 0.02, enemyFlat: 1 },
 });
 
 // ---------------------------------------------------------------- tuning
@@ -949,6 +991,15 @@ emit('tuning.json', TuningFileSchema, {
     ttl: constant('systems/rift.js', 'TTL'),
     arenaRadius: constant('systems/rift.js', 'ARENA_R'),
     arenaTime: constant('systems/rift.js', 'ARENA_TIME'),
+    // Inline in systems/rift.js open(), start(), won()/lost() and entities/enemy.js die().
+    distance: [380, 560],
+    shinyChance: 1 / 512,
+    unbeatenWeight: 4,
+    rewardTickets: 3,
+    rewardCoinDrops: 10,
+    rewardCoinValue: 8,
+    returnAfterWin: 5,
+    returnAfterLoss: 1.2,
   },
   events: {
     every: [...constant('systems/events.js', 'EVERY')],
@@ -959,6 +1010,10 @@ emit('tuning.json', TuningFileSchema, {
     thiefLife: constant('systems/events.js', 'THIEF_LIFE'),
     // Inline in spawnThief() (legacy 0.25); rebalanced after the port.
     goldThiefChance: 0.125,
+    // Inline in events.js start(), spawnLost() and game.js onRescue().
+    hordeBurst: 6,
+    lostJoinChance: 0.2,
+    rescueOwnedCoins: 150,
   },
   combat: { critMultiplier: constant('systems/combat.js', 'CRIT_MUL') },
   pickups: {

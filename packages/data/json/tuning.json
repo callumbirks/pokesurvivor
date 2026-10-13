@@ -13,7 +13,15 @@
     "startAfter": 75,
     "ttl": 45,
     "arenaRadius": 11,
-    "arenaTime": 120
+    "arenaTime": 120,
+    "distance": [380, 560],
+    "shinyChance": 0.001953125,
+    "unbeatenWeight": 4,
+    "rewardTickets": 3,
+    "rewardCoinDrops": 10,
+    "rewardCoinValue": 8,
+    "returnAfterWin": 5,
+    "returnAfterLoss": 1.2
   },
   "events": {
     "every": [240, 300],
@@ -22,7 +30,10 @@
     "thiefFirst": [120, 240],
     "thiefNext": [240, 360],
     "thiefLife": 15,
-    "goldThiefChance": 0.125
+    "goldThiefChance": 0.125,
+    "hordeBurst": 6,
+    "lostJoinChance": 0.2,
+    "rescueOwnedCoins": 150
   },
   "combat": { "critMultiplier": 1.5 },
   "pickups": {

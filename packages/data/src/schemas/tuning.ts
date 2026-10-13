@@ -27,6 +27,19 @@ export const TuningFileSchema = z.strictObject({
     /** Arena radius in tiles and time limit of the legendary fight. */
     arenaRadius: z.number().int().positive(),
     arenaTime: Seconds,
+    /** Distance from a player a rift opens at (before the placement fallbacks). */
+    distance: RangeSchema,
+    /** Chance the legendary is shiny (if it has shiny sprites). */
+    shinyChance: Chance,
+    /** Legendaries not yet beaten (by the players) are this many times likelier. */
+    unbeatenWeight: z.number().positive(),
+    /** The legendary drops this many tickets and coin piles of `rewardCoinValue` (plus a boss's). */
+    rewardTickets: z.number().int().nonnegative(),
+    rewardCoinDrops: z.number().int().nonnegative(),
+    rewardCoinValue: z.number().int().positive(),
+    /** Seconds before the team is sent back to the map after a win / a loss. */
+    returnAfterWin: Seconds,
+    returnAfterLoss: Seconds,
   }),
   events: z.strictObject({
     /** A mid-run event (horde, golden hour, lost Pokémon) every `every` s. */
@@ -40,6 +53,11 @@ export const TuningFileSchema = z.strictObject({
     thiefLife: Seconds,
     /** Chance a treasure thief is Gholdengo (drops a ×10 ticket) instead of Meowth (coins). */
     goldThiefChance: Chance,
+    /** Enemies a typed horde starts with (× the co-op spawn rate). */
+    hordeBurst: z.number().int().positive(),
+    /** Chance a rescued lost Pokémon joins the collection; coins if it was already owned. */
+    lostJoinChance: Chance,
+    rescueOwnedCoins: z.number().int().nonnegative(),
   }),
   combat: z.strictObject({ critMultiplier: z.number().positive() }),
   pickups: z.strictObject({

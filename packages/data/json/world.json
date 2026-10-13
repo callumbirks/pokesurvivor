@@ -30,7 +30,43 @@
     "ice": { "slide": true, "immune": ["ice"] }
   },
   "bigChestOpenSeconds": 3.5,
+  "spring": { "healPerSecond": 0.14, "drainPerSecond": 0.09, "refillSeconds": 45, "range": 26 },
   "trapRadius": 74,
+  "traps": [
+    {
+      "id": "poison",
+      "enemyDamage": 14,
+      "enemyDamagePerLevel": 3,
+      "enemyPoison": 5,
+      "enemySlow": 0,
+      "enemySlowSeconds": 0,
+      "knockback": 0,
+      "playerMaxHpDamage": 0.1,
+      "playerSlowSeconds": 0
+    },
+    {
+      "id": "sticky",
+      "enemyDamage": 4,
+      "enemyDamagePerLevel": 0,
+      "enemyPoison": 0,
+      "enemySlow": 0.65,
+      "enemySlowSeconds": 4.5,
+      "knockback": 0,
+      "playerMaxHpDamage": 0,
+      "playerSlowSeconds": 3.5
+    },
+    {
+      "id": "explosive",
+      "enemyDamage": 90,
+      "enemyDamagePerLevel": 18,
+      "enemyPoison": 0,
+      "enemySlow": 0,
+      "enemySlowSeconds": 0,
+      "knockback": 220,
+      "playerMaxHpDamage": 0.2,
+      "playerSlowSeconds": 0
+    }
+  ],
   "altarPowerSeconds": 25,
   "altarPowers": [
     {
