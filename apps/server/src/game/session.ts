@@ -11,8 +11,6 @@ let nextSessionId = 1;
 export class Session {
   readonly id = nextSessionId++;
   lastHeard = Date.now();
-  /** Last input `seq` accepted on this socket (a new socket starts again from 0). */
-  inputSeq = 0;
   closed = false;
 
   constructor(

@@ -98,7 +98,7 @@ describe('game sessions', () => {
     await flood.opened;
     flood.ws.send(encode({ type: 'hello', protocolVersion: PROTOCOL_VERSION }));
     for (let i = 0; i < 600; i++)
-      flood.ws.send(encode({ type: 'input', seq: i + 1, moveX: 0, moveY: 0 }));
+      flood.ws.send(encode({ type: 'input', gameId: 'none', seq: i + 1, moveX: 0, moveY: 0 }));
     expect((await withTimeout(flood.closed, 5000, 'close')).code).toBe(CloseCode.rateLimited);
   });
 

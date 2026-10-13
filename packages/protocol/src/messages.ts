@@ -7,7 +7,7 @@
 // events pass through unchanged.
 
 /** Bumped on every breaking change to the wire format. */
-export const PROTOCOL_VERSION = 3;
+export const PROTOCOL_VERSION = 4;
 
 /** Largest client message the server accepts, in bytes. */
 export const MAX_CLIENT_MESSAGE_BYTES = 4096;
@@ -132,6 +132,11 @@ export type NoticeCode =
 /** Input sent every tick while playing. `seq` increases by one per message. */
 export interface InputMessage {
   type: 'input';
+  /**
+   * The game it's for: inputs for any other game (a previous one, or before the next one has
+   * started) are ignored. `seq` counts from 1 per game, and per socket within a game.
+   */
+  gameId: string;
   seq: number;
   moveX: number;
   moveY: number;
@@ -160,7 +165,8 @@ export type ClientRequest<Intent = WireIntent> =
   | { type: 'room.kick'; userId: string }
   | { type: 'room.status'; status: MemberStatus }
   | { type: 'room.start' }
-  | { type: 'intent'; intent: Intent };
+  /** `gameId`: intents for any other game are rejected (choice ids restart in every game). */
+  | { type: 'intent'; gameId: string; intent: Intent };
 
 export type ClientMessage<Intent = WireIntent> =
   | { type: 'hello'; protocolVersion: number }

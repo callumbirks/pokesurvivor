@@ -334,12 +334,14 @@ export class GameServer implements PresenceSource, FriendNotifier {
     if (m.type === 'hello') return this.hello(conn, m.protocolVersion);
     if (!conn.session) return this.protocolError(conn, 'say hello first');
     const session = conn.session;
+    // A superseded socket that is still delivering: only the user's current socket counts.
+    if (this.sessions.get(session.userId) !== session) return;
     switch (m.type) {
       case 'ping':
         session.send({ type: 'pong', id: m.id, sentAt: m.sentAt, serverTime: Date.now() });
         return;
       case 'input':
-        this.roomOf.get(session.userId)?.game?.input(session.userId, session, m);
+        this.roomOf.get(session.userId)?.game?.input(session.userId, m);
         return;
       case 'game.loaded':
         this.roomOf.get(session.userId)?.loaded(session.userId, m.gameId);
@@ -547,7 +549,7 @@ export class GameServer implements PresenceSource, FriendNotifier {
         return undefined;
       case 'intent': {
         const game = this.inRoom(userId).game;
-        if (!game) throw new GameError('not_playing', 'No game running');
+        if (!game || game.id !== m.gameId) throw new GameError('not_playing', 'Not in that game');
         const result = game.intent(userId, m.intent);
         if (!result.ok) throw new GameError('intent_rejected', result.error);
         return undefined;

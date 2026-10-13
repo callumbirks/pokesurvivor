@@ -97,7 +97,9 @@ function request(m: Obj, rid: number): ClientMessage | string {
         : 'bad status';
     case 'intent': {
       const intent = validateIntent(m.intent);
-      return intent && onlyKeys(m, ['intent']) ? { type: 'intent', rid, intent } : 'bad intent';
+      return intent && isStr(m.gameId, 64) && onlyKeys(m, ['gameId', 'intent'])
+        ? { type: 'intent', rid, gameId: m.gameId, intent }
+        : 'bad intent';
     }
     default:
       return 'unknown message type';
@@ -126,11 +128,12 @@ export function decodeClientMessage(raw: string): Decoded<ClientMessage> {
       const slot = m.slot;
       const slotOk = slot === undefined || slot === null || (isUint(slot) && slot < 16);
       if (
+        !isStr(m.gameId, 64) ||
         !isUint(m.seq) ||
         !isFinite(m.moveX) ||
         !isFinite(m.moveY) ||
         !slotOk ||
-        !onlyKeys(m, ['seq', 'moveX', 'moveY', 'slot'])
+        !onlyKeys(m, ['gameId', 'seq', 'moveX', 'moveY', 'slot'])
       )
         return fail('bad input');
       const clamp = (v: number) => Math.max(-1, Math.min(1, v));
@@ -138,6 +141,7 @@ export function decodeClientMessage(raw: string): Decoded<ClientMessage> {
         ok: true,
         message: {
           type: 'input',
+          gameId: m.gameId,
           seq: m.seq,
           moveX: clamp(m.moveX),
           moveY: clamp(m.moveY),
