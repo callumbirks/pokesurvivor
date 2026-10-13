@@ -53,9 +53,19 @@ fn)` (spinner on the button, toast on error), loads through `loadInto(el, load, 
   session and partner (they also update the save, toast unlocked achievements and errors). The
   **connection** owns the run on the server: it calls `startRun` before the run starts and
   `reportRun` as soon as the sim ends, then emits `results` with what was credited, so the
-  results screen shows it and a tab closed on that screen still counts (phase 4c's checkpoints
-  report from the same place). `onExit(results?)` only goes back to the menu and refreshes the
-  save.
+  results screen shows it and a tab closed on that screen still counts. `onExit(results?)` only
+  goes back to the menu and refreshes the save. `src/app/solo-runs.ts` builds the `SoloApi` and
+  starts, resumes and ends runs.
+- **Solo crash-safety.** About every minute of run time (`CHECKPOINT_EVERY_S`; and every 3
+  minutes of wall-clock time while paused or choosing, so an open tab never times out) the
+  worker sends a checkpoint: the run so far and a copy of the sim state. The connection reports
+  it (`checkpointRun`, `POST /api/runs/checkpoint`: stored, not credited; the server credits it
+  after 10 minutes without news) and saves it in IndexedDB (`solo/store.ts`, one save per
+  user). The save is dropped once the run is credited or the server says it's closed; if the
+  final report can't reach the server it keeps the final summary instead. The menu shows a saved
+  run with **Resume** (a checkpoint first checks the run is still open; then `restoreSim` in the
+  worker on the same `runId`) or **End run** (reports the saved summary as the final report). A
+  run the server already credited by timeout can't be resumed (`docs/api.md`).
 
 ## The in-game client (`src/game/`)
 
@@ -92,15 +102,22 @@ fn)` (spinner on the button, toast on error), loads through `loadInto(el, load, 
 Dev pages (`play.html`, dev server only): `/?play-solo` plays a solo run from your save
 (`&t=<minutes>` starts late, `&god` is invulnerable, F/V/H/J/K/T/B then trigger a rift, the
 arena, events and weather; such runs aren't reported), `/?play-net` a co-op run with a minimal
-lobby. Dev builds expose `window.__psFrames` (per-frame cost) and `window.__psCounts`.
+lobby. Dev builds expose `window.__psFrames` (per-frame cost) and `window.__psCounts`, and
+read `localStorage['ps.dev.checkpointS']`: solo checkpoints every that many seconds of run time
+instead of 60 (the e2e tests use 2).
 
 ## Tests
 
 - `pnpm --filter @pokesurvivor/client test`: Vitest (`BusyStatus`, the routes, prediction and
-  reconciliation against a real sim behind latency, the choice state, achievement notices).
+  reconciliation against a real sim behind latency, the choice state, achievement notices, the
+  solo connection with its real worker run inline on fake timers: checkpoint cadence, keep-alive,
+  the local save through reports, refusals and offline, resume; and the run store's save and
+  restore round trip, in IndexedDB through `fake-indexeddb`).
 - `pnpm --filter @pokesurvivor/client e2e`: Playwright. Starts the game server (on
   `DATABASE_URL`, default the docker compose Postgres) on port 3101 and Vite on 5181, or tests a
   running client with `E2E_BASE_URL`. `coop.e2e.ts` is the phase 4 exit test: two browsers,
   friends, invite, both ready, one opens the gacha and the start is blocked, both play.
-  `screens.e2e.ts` covers the single-player screens. Install the browser once with
+  `screens.e2e.ts` covers the single-player screens. `solo-resume.e2e.ts` plays a solo run past
+  a checkpoint, reloads, and resumes and finishes it (or ends it from the menu), checking it was
+  credited once. Install the browser once with
   `pnpm --filter @pokesurvivor/client exec playwright install chromium`.

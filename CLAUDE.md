@@ -20,7 +20,9 @@ before larger changes.
   server shares (`SnapshotEncoder`).
 - `apps/server` — Fastify HTTP API, WebSocket game server (`/ws`, `src/game/`: sessions,
   presence, rooms, the authoritative loop), Postgres via Drizzle. `src/test/bots.ts` is the bot
-  harness for game tests.
+  harness for game tests. Solo runs are client-simulated: the server caps their reports, stores
+  checkpoints and credits the last one if the final report never comes (`src/runs/`; see
+  `docs/api.md`, "Checkpoints and the timeout credit").
   Also serves the built client at `/` and `legacy/` at `/legacy/`.
 - `apps/client` — Vite + Canvas 2D client; see its README. `src/app/` is the app shell (hash
   routes, session, save cache, WebSocket lifecycle, toasts, the typed HTTP API, `BusyStatus`),
