@@ -2,8 +2,8 @@
 // `RoomConnection` (the game server's, or the solo Web Worker's). It owns the canvas, the render
 // loop, input, the HUD and the overlays (choices, pause, toasts, results); the connection owns the
 // game. Contract with the app shell (4b):
-//   mountGame(el, conn, { onExit(results?), onLeave?, client?, save? }) → { dispose() }
-import { loadGameData, t, type UiStringKey } from '@pokesurvivor/data';
+//   mountGame(el, conn, { onExit(results?), onLeave?, client?, save?, openSettings? }) → { dispose() }
+import { loadGameData, t } from '@pokesurvivor/data';
 import type { Game, NetClient, Results, RoomConnection, Snapshot } from '@pokesurvivor/netclient';
 import type { SimEvent } from '@pokesurvivor/sim';
 import { audio, biomeMusic } from '../audio.js';
@@ -12,12 +12,14 @@ import { preloadSprites } from '../sprites.js';
 import { AchievementTracker, type AchievementSave } from './achievements.js';
 import { ChoiceOverlay } from './choice-ui.js';
 import { ChoiceState } from './choices.js';
-import { clear, el } from './dom.js';
+import { clear, el, icon } from './dom.js';
 import { EventEffects } from './events.js';
 import { buildFrame, type Frame } from './frame.js';
 import { Hud } from './hud.js';
 import { Input } from './input.js';
 import { Predictor } from './net/predict.js';
+import { NOTICE_TEXT } from './notices.js';
+import { PauseFlow, type PauseView } from './pause.js';
 import { renderResults } from './results.js';
 import { Camera } from './scene/camera.js';
 import { EntityLayer } from './scene/entities.js';
@@ -34,24 +36,26 @@ export interface MountGameOptions {
   onExit(results?: Results): void;
   /** Multiplayer: the pause menu's "Leave the game" (the shell leaves the room). */
   onLeave?(): void | Promise<void>;
-  /** Multiplayer: the socket, for notices (owner changed, server updating) and reconnects. */
-  client?: Pick<NetClient, 'on' | 'state'>;
+  /**
+   * Multiplayer: the socket, for notices (owner changed, server updating) and reconnects. The
+   * shell doesn't show the `GAME_NOTICES` itself while the game has it.
+   */
+  client?: GameClient;
   /** The player's save (`GET /api/save`), for achievement notices; fetched if not given. */
   save?: AchievementSave | null;
+  /**
+   * Opens the full settings screen over the game (the pause menu's "Settings"); without it there's
+   * no button. `onClose` is called when the player closes them; the returned function closes them
+   * from the game's side (Esc, the run ended) without calling `onClose`.
+   */
+  openSettings?(onClose: () => void): () => void;
 }
+
+export type GameClient = Pick<NetClient, 'on' | 'state'> & { readonly draining?: boolean };
 
 export interface GameHandle {
   dispose(): void;
 }
-
-const NOTICES: Partial<Record<string, UiStringKey>> = {
-  'owner-changed': 'game.noticeOwnerChanged',
-  'server-draining': 'game.noticeDraining',
-  'game-cancelled': 'game.noticeCancelled',
-  kicked: 'game.noticeKicked',
-  'player-removed': 'game.noticeRemoved',
-  'dropped-at-loading': 'game.noticeDropped',
-};
 
 export function mountGame(
   el: HTMLElement,
@@ -124,10 +128,14 @@ class GameScreen {
     }
   }
 
-  private watchClient(client: Pick<NetClient, 'on' | 'state'>): void {
+  private watchClient(client: GameClient): void {
+    // Already updating or reconnecting when the game opened (the shell hides its own notices here).
+    if (client.draining) this.toasts.set('draining', t('game.noticeDraining'), 'warn');
+    if (client.state === 'reconnecting')
+      this.toasts.set('connection', t('game.reconnecting'), 'warn');
     this.offs.push(
       client.on('notice', (n) => {
-        const key = NOTICES[n.code];
+        const key = NOTICE_TEXT[n.code];
         if (!key) return;
         const text = t(key, { 0: n.usernames?.join(', ') ?? '' });
         if (n.code === 'server-draining') this.toasts.set('draining', text, 'warn');
@@ -137,6 +145,8 @@ class GameScreen {
         if (s === 'reconnecting') this.toasts.set('connection', t('game.reconnecting'), 'warn');
         else if (s === 'open') {
           this.toasts.clear('connection');
+          // A new server instance after a deploy isn't draining.
+          if (!client.draining) this.toasts.clear('draining');
         } else if (s === 'failed' || s === 'closed')
           this.toasts.set('connection', t('game.connectionLost'), 'warn');
       }),
@@ -234,9 +244,20 @@ class GameScreen {
       selfId: this.conn.selfId,
       dead: r.reason === 'all-down',
       bestTimeS: this.save?.stats.bestTimeS ?? null,
+      ownedShiny: (dex) => (this.save ? this.save.shiny[String(dex)] !== undefined : null),
       onBack: () => this.exit(r),
     });
     this.layer.append(view);
+  }
+
+  /** Does the shell have a settings screen to open (see `MountGameOptions.openSettings`)? */
+  get hasSettings(): boolean {
+    return !!this.opts.openSettings;
+  }
+
+  /** Opens it; returns the function that closes it. */
+  openSettings(onClose: () => void): (() => void) | null {
+    return this.opts.openSettings?.(onClose) ?? null;
   }
 
   exit(results: Results | undefined): void {
@@ -348,8 +369,11 @@ class Run {
   private flashT = 0;
   private flashDur = 1;
   private flashCol = '#fff';
+  private readonly pause: PauseFlow;
   private pauseEl: HTMLElement | null = null;
-  private paused = false;
+  private closeSettings: (() => void) | null = null;
+  private rotateEl: HTMLElement | null = null;
+  private portrait = false;
   private fps = 60;
   private fpsAcc = 0;
   private fpsN = 0;
@@ -397,8 +421,15 @@ class Run {
     this.touch = new TouchControls(canvas, () => this.canMove());
     this.tracker = save ? new AchievementTracker(save, conn.selfId) : null;
     this.offs.push(conn.on('snapshot', (s) => this.onSnapshot(s)));
+    this.pause = new PauseFlow({
+      solo: this.isSolo(),
+      setPaused: (p) => this.setPaused(p),
+      render: (view, prev) => this.renderPause(view, prev),
+    });
     const vis = () => {
-      if (document.hidden && this.isSolo()) this.setPaused(true);
+      if (!document.hidden || this.results || this.stopped) return;
+      this.touch.reset();
+      this.pause.autoPause();
     };
     document.addEventListener('visibilitychange', vis);
     this.offs.push(() => document.removeEventListener('visibilitychange', vis));
@@ -435,7 +466,13 @@ class Run {
   }
 
   private canMove(): boolean {
-    return !this.stopped && !this.overlay.isOpen && !this.pauseEl && this.conn.phase === 'running';
+    return (
+      !this.stopped &&
+      !this.overlay.isOpen &&
+      this.pause.view === 'playing' &&
+      !this.portrait &&
+      this.conn.phase === 'running'
+    );
   }
 
   private onSnapshot(s: Snapshot): void {
@@ -463,12 +500,18 @@ class Run {
 
   private key(code: string): boolean {
     if (this.results || this.stopped) return false;
+    if (this.pause.view === 'settings') {
+      // Esc is the settings' back button; the rest is for the settings, not the game.
+      if (code !== 'Escape') return false;
+      this.pause.toggle();
+      return true;
+    }
     if (this.overlay.key(code)) return true;
     if (code === 'Escape' || code === 'KeyP') {
       this.togglePause();
       return true;
     }
-    if (this.pauseEl) return false;
+    if (this.pause.view !== 'playing') return false;
     const digit = /^(?:Digit|Numpad)([1-4])$/.exec(code);
     if (digit) {
       this.setSlot(Number(digit[1]) - 1);
@@ -492,27 +535,41 @@ class Run {
   // ---------------------------------------------------------------- pause
 
   togglePause(): void {
-    if (this.pauseEl) this.closePause();
-    else this.openPause();
+    if (this.results) return;
+    this.pause.toggle();
   }
 
+  /** Solo: the worker's sim waits while paused. */
   private setPaused(p: boolean): void {
-    if (p && !this.pauseEl) this.openPause();
-    else if (!p && this.pauseEl) this.closePause();
-  }
-
-  private openPause(): void {
-    if (this.pauseEl || this.results) return;
-    audio.sfx('pause');
-    this.touch.reset();
-    const solo = this.isSolo();
-    if (solo) {
-      this.conn.setPaused?.(true);
-      this.paused = true;
+    this.conn.setPaused?.(p);
+    if (p) {
       // Inputs aren't acked while the worker waits: stop sending them.
       this.stopInput?.();
       this.stopInput = null;
+    } else if (!this.stopped) this.startInput();
+  }
+
+  private renderPause(view: PauseView, prev: PauseView): void {
+    if (prev === 'menu') {
+      this.pauseEl?.remove();
+      this.pauseEl = null;
+    } else if (prev === 'settings') {
+      this.closeSettings?.();
+      this.closeSettings = null;
     }
+    if (view === 'menu') {
+      if (prev === 'playing') audio.sfx('pause');
+      this.touch.reset();
+      this.pauseEl = this.pauseMenu();
+      this.layer.append(this.pauseEl);
+    } else if (view === 'settings') {
+      this.touch.reset();
+      this.closeSettings = this.screen.openSettings(() => this.pause.closeSettings());
+    }
+  }
+
+  private pauseMenu(): HTMLElement {
+    const solo = this.isSolo();
     const s = settings.get();
     const slider = (label: string, key: 'musicVolume' | 'sfxVolume') => {
       const input = el('input', { type: 'range' });
@@ -526,7 +583,7 @@ class Run {
     const mute = el('input', { type: 'checkbox' });
     mute.checked = s.muted;
     mute.addEventListener('change', () => settings.set({ muted: mute.checked }));
-    this.pauseEl = el(
+    return el(
       'div',
       { class: 'ps-screen', data: { testid: 'pause' } },
       el(
@@ -555,19 +612,31 @@ class Run {
               class: 'btn gold',
               type: 'button',
               data: { testid: 'resume' },
-              on: { click: () => this.closePause() },
+              on: { click: () => this.pause.resume() },
             },
             t('pause.continue'),
           ),
+          this.screen.hasSettings
+            ? el(
+                'button',
+                {
+                  class: 'btn',
+                  type: 'button',
+                  data: { testid: 'pause-settings' },
+                  on: { click: () => this.pause.openSettings() },
+                },
+                t('menu.settings'),
+              )
+            : null,
           el(
             'button',
             {
               class: 'btn',
               type: 'button',
-              data: { testid: 'game-exit' },
+              data: { testid: 'game-exit', back: '' },
               on: {
                 click: () => {
-                  this.closePause();
+                  this.pause.resume();
                   void this.screen.leave();
                 },
               },
@@ -577,23 +646,35 @@ class Run {
         ),
       ),
     );
-    this.layer.append(this.pauseEl);
   }
 
-  private closePause(): void {
-    if (!this.pauseEl) return;
-    this.pauseEl.remove();
-    this.pauseEl = null;
-    if (this.paused) {
-      this.paused = false;
-      this.conn.setPaused?.(false);
-      if (!this.stopped) this.startInput();
-    }
+  /** Phones upright: "rotate your phone" over the game, and solo runs pause (legacy game.js). */
+  private checkOrientation(w: number, h: number): void {
+    const portrait = this.touch.active && h > w && !this.results;
+    if (portrait === this.portrait) return;
+    this.portrait = portrait;
+    if (portrait) {
+      this.touch.reset();
+      this.pause.autoPause();
+      this.rotateEl ??= el(
+        'div',
+        { class: 'ps-screen ps-rotate', data: { testid: 'rotate' } },
+        el(
+          'div',
+          { class: 'ps-box' },
+          el('div', { class: 'ps-rotate-ico' }, icon('phone', 48)),
+          el('h2', null, t('settings.rotateYourPhone')),
+          el('p', { class: 'sub' }, t('settings.pokesurvivorIsPlayedInLandscape')),
+        ),
+      );
+      this.layer.append(this.rotateEl);
+    } else this.rotateEl?.remove();
   }
 
   closeOverlays(): void {
-    this.pauseEl?.remove();
-    this.pauseEl = null;
+    this.pause.close();
+    this.rotateEl?.remove();
+    this.portrait = false;
     this.overlay.root.classList.add('hidden');
     clear(this.overlay.root);
   }
@@ -626,6 +707,7 @@ class Run {
     const latest = conn.latest;
     const { w, h, dpr } = this.screen.size;
     this.camera.resize(w, h, dpr);
+    this.checkOrientation(w, h);
     if (!sample || !latest) {
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.fillStyle = '#0b1020';
@@ -643,7 +725,7 @@ class Run {
         !latest.ended &&
         !serverSelf.dead &&
         serverSelf.connected &&
-        !this.paused &&
+        !this.pause.isPaused &&
         !this.stopped;
       this.predictor.update({
         server: serverSelf,
@@ -803,6 +885,8 @@ class Run {
 
   dispose(): void {
     this.stop();
+    this.closeSettings?.();
+    this.closeSettings = null;
     for (const off of this.offs) off();
     this.input.dispose();
     this.touch.dispose();

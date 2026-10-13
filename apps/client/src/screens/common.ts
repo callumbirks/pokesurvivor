@@ -13,10 +13,20 @@ export interface ScreenBox {
   header: HTMLElement;
 }
 
-/** A full-screen layer with a box, a title and (by default) a back button to the menu. */
+/**
+ * A full-screen layer with a box, a title and (by default) a back button to the menu (`back`: to
+ * that route instead, null: none; `onBack`: calls it instead of navigating).
+ */
 export function screenBox(
   app: App,
-  opts: { id: string; title: string | Node; wide?: boolean; back?: string | null; extra?: Node[] },
+  opts: {
+    id: string;
+    title: string | Node;
+    wide?: boolean;
+    back?: string | null;
+    onBack?: () => void;
+    extra?: Node[];
+  },
 ): ScreenBox {
   const back =
     opts.back === null
@@ -25,8 +35,8 @@ export function screenBox(
           'button',
           {
             class: 'btn small ghost',
-            dataset: { testid: 'back' },
-            on: { click: () => app.go(opts.back ?? 'menu') },
+            dataset: { testid: 'back', back: '' },
+            on: { click: () => (opts.onBack ? opts.onBack() : app.go(opts.back ?? 'menu')) },
           },
           t('collection.back'),
         );

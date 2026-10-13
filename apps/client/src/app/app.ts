@@ -11,6 +11,7 @@ import {
   type RoomConnection,
 } from '@pokesurvivor/netclient';
 import { CloseCode, type NoticeCode } from '@pokesurvivor/protocol';
+import { audio } from '../audio.js';
 import { settings, SYNCED_KEYS } from '../settings.js';
 import {
   Api,
@@ -21,6 +22,7 @@ import {
   type User,
 } from './api.js';
 import { BusyStatus } from './busy.js';
+import { shellShowsNotice } from './notices.js';
 import { gameData, h, loadSprites, num, pokemonName, replace } from './dom.js';
 import { mountToasts, notice, toast, toastError } from './toast.js';
 
@@ -74,7 +76,7 @@ export class App {
   private settingsTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
-    root: HTMLElement,
+    private readonly root: HTMLElement,
     private readonly routes: Record<string, Route>,
   ) {
     this.main = h('main', { class: 'screens' });
@@ -288,11 +290,18 @@ export class App {
     this.renderTopbar();
   }
 
+  /** A multiplayer game is on screen: it shows room and connection notices itself. */
+  get gameShowsNotices(): boolean {
+    return this.routeName === 'play' && this.game?.kind === 'coop';
+  }
+
   private roomNotice(code: NoticeCode, usernames: string[]): void {
     if (code === 'server-draining') {
+      // Sticky: kept (hidden during a game) so it's still there after it.
       notice('draining', t('app.serverUpdating'), 'gold');
       return;
     }
+    if (!shellShowsNotice(code, this.gameShowsNotices)) return;
     const key = `notices.${code}` as UiStringKey;
     const text = t(key, { 0: usernames.join(', ') });
     if (text !== key)
@@ -407,8 +416,13 @@ export class App {
     this.routeName = name;
     this.busy.setBusyScreen(!!route.busy);
     this.screen = route.create(this, params);
+    // Menu music everywhere outside a run (it starts on the first click or key); the game plays
+    // its own.
+    if (name !== 'play') audio.music('village');
     this.main.replaceChildren(this.screen.el);
     this.main.dataset.screen = name;
+    // The game shows its own sticky notices (connection, server updating) over the canvas.
+    this.root.classList.toggle('game-notices', this.gameShowsNotices);
     this.topbar.classList.toggle('hidden', !route.topbar);
     this.renderTopbar();
     this.renderInvite();

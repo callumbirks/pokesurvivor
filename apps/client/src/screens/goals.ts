@@ -2,6 +2,7 @@
 // (favourite Pokémon and title). Progress and rewards are the server's; the achievement bars
 // are only a display of the save's counters.
 import { formatText, t, type Achievement, type Reward } from '@pokesurvivor/data';
+import { audio } from '../audio.js';
 import type { App, Screen } from '../app/app.js';
 import type { MissionState, Missions, Save } from '../app/api.js';
 import { gameData, h, mmss, num, pokemonName, replace, sprite } from '../app/dom.js';
@@ -120,13 +121,14 @@ export function goalsScreen(app: App): Screen {
             {
               class: ['btn', 'small', done && !m.claimed && 'gold'],
               disabled: !done || m.claimed,
-              dataset: { testid: `claim-${kind}-${index}` },
+              dataset: { testid: `claim-${kind}-${index}`, sfx: 'none' },
             },
             m.claimed ? t('profile.claimed') : done ? t('profile.claim') : t('profile.inProgress'),
           );
           claim.addEventListener('click', () => {
             void app.act(claim, async () => {
               const res = await app.api.claimMission(kind, index);
+              audio.sfx('buy');
               app.setSave(res.save);
               app.achievements(res.achievements);
               toast(t('profile.rewardClaimed'), 'good');

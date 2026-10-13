@@ -214,7 +214,10 @@ for that client.
 The filter works on the events' shape, not on a list of types. Events are encoded by shape: the
 first time a connection sees a type with a given set of keys, the shape goes in the JSON part;
 after that, an event is its shape index plus one tagged value per key. Numbers are rounded to
-0.1, and nested values fall back to JSON. Events that 2b or later phases add need no changes.
+0.1, and nested values fall back to JSON. Events that 2b or later phases add need no changes,
+and neither do new keys on an event: a new key is a new shape, and clients ignore keys they don't
+know (so they aren't breaking changes). For example, `enemy-hurt.moveType` (the damage number's
+colour) added ~0.1 KB/s in the measurement below: a string-table index per hit.
 
 **Bandwidth.** Measured with `pnpm --filter @pokesurvivor/netclient bandwidth` in a 4-player game
 18 minutes in, with the bots kept together so every enemy is near every player (the worst case

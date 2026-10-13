@@ -58,6 +58,28 @@ test('shop, moves, settings, solo and login again', async ({ page }) => {
   await expect(page.getByTestId('game-phase')).toHaveText('running');
   await page.keyboard.press('Escape');
   await expect(page.getByTestId('pause')).toBeVisible();
+  // The pause menu opens the full settings over the game (the route stays: leaving it would end
+  // the run). The run stays paused in them, and their back button returns to the pause menu.
+  const simTime = () =>
+    page.evaluate(
+      () => (window as unknown as { __psCounts?: { time: number } }).__psCounts?.time ?? -1,
+    );
+  await page.getByTestId('pause-settings').click();
+  await expect(page.getByTestId('screen-settings')).toBeVisible();
+  expect(page.url()).toMatch(/#play$/);
+  const pausedAt = await simTime();
+  await page.waitForTimeout(800);
+  expect(await simTime()).toBe(pausedAt);
+  await page.getByTestId('back').click();
+  await expect(page.getByTestId('screen-settings')).toHaveCount(0);
+  await expect(page.getByTestId('pause')).toBeVisible();
+  expect(await simTime()).toBe(pausedAt);
+  // Esc closes them too.
+  await page.getByTestId('pause-settings').click();
+  await expect(page.getByTestId('screen-settings')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('screen-settings')).toHaveCount(0);
+  await expect(page.getByTestId('pause')).toBeVisible();
   await page.getByTestId('game-exit').click();
   await expect(page.getByTestId('results')).toBeVisible();
   await expect(page.getByTestId('game-phase')).toHaveText('ended');

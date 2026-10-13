@@ -73,6 +73,29 @@
   background: radial-gradient(circle at 50% 40%, rgba(10, 20, 50, 0.55), rgba(3, 6, 16, 0.88));
   animation: ps-fade 0.2s ease-out;
 }
+/* Phones upright: covers everything in the game, the pause menu included. */
+.ps-rotate {
+  z-index: 10;
+  background: rgba(5, 10, 30, 0.94);
+  text-align: center;
+}
+.ps-rotate .ps-box {
+  max-width: 320px;
+}
+.ps-rotate-ico {
+  display: inline-block;
+  animation: ps-rot-hint 1.6s steps(4) infinite;
+}
+@keyframes ps-rot-hint {
+  0%,
+  30% {
+    transform: rotate(0deg);
+  }
+  60%,
+  100% {
+    transform: rotate(90deg);
+  }
+}
 @keyframes ps-fade {
   from {
     opacity: 0;
@@ -387,6 +410,42 @@
   font-size: 15px;
 }
 .ps-team-results,
+.ps-caught {
+  grid-column: 1 / -1;
+}
+.ps-caught-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 4px;
+}
+.ps-caught-row > div {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 90px;
+  min-height: 72px;
+}
+.ps-caught-row small {
+  display: block;
+  font-size: 12px;
+  color: #c9f3ff;
+}
+.ps-sprite {
+  display: inline-block;
+  background-repeat: no-repeat;
+  background-position: 0 0;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  animation: ps-sprite-play var(--dur, 1s) steps(var(--frames, 1)) infinite;
+}
+@keyframes ps-sprite-play {
+  to {
+    background-position-x: var(--sheet-w);
+  }
+}
 .ps-achievements {
   display: grid;
   gap: 4px;

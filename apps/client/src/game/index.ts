@@ -5,7 +5,8 @@
 //     sim in a Web Worker; `api.startRun` before the run, `api.checkpointRun` about once a minute
 //     (saved to `store` too), `api.reportRun` when it ends; `resume` continues a saved run)
 export { mountGame } from './mount.js';
-export type { GameHandle, MountGameOptions } from './mount.js';
+export type { GameClient, GameHandle, MountGameOptions } from './mount.js';
+export { GAME_NOTICES } from './notices.js';
 export { createSoloConnection, isRunClosed, isSoloResults } from './solo/connection.js';
 export { indexedDbRunStore, memoryRunStore } from './solo/store.js';
 export type { SavedSoloRun, SoloRunStore } from './solo/store.js';

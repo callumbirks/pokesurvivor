@@ -1,6 +1,7 @@
 // The first Pokémon: the personality test suggests a starter; the player accepts it or picks
 // any other (legacy test.js). The server grants it and stores the personality from the answers.
 import { bestStarters, personalityScores, t, topTrait } from '@pokesurvivor/data';
+import { audio } from '../audio.js';
 import type { App, Screen } from '../app/app.js';
 import { gameData, h, pokemonName, replace, sprite, typeChip, typeColor } from '../app/dom.js';
 import { toast } from '../app/toast.js';
@@ -23,6 +24,7 @@ export function starterScreen(app: App): Screen {
         dex,
         answers.length === test.length ? answers : undefined,
       );
+      audio.sfx('confirm');
       app.setSave(res.save);
       app.achievements(res.achievements);
       toast(t('login.joinsYou', { 0: pokemonName(dex) }), 'good');
@@ -82,7 +84,7 @@ export function starterScreen(app: App): Screen {
     const mon = gameData().pokemonByDex.get(pick.dex);
     const ok = h(
       'button',
-      { class: 'btn gold', dataset: { testid: 'starter-accept' } },
+      { class: 'btn gold', dataset: { testid: 'starter-accept', sfx: 'none' } },
       t('login.letSGoTogether'),
     );
     ok.addEventListener('click', () => choose(pick.dex, ok));
@@ -115,7 +117,11 @@ export function starterScreen(app: App): Screen {
     const info = h('span', { class: 'grow muted' });
     const ok = h(
       'button',
-      { class: 'btn gold', disabled: picked === null, dataset: { testid: 'starter-ok' } },
+      {
+        class: 'btn gold',
+        disabled: picked === null,
+        dataset: { testid: 'starter-ok', sfx: 'none' },
+      },
       t('login.choose'),
     );
     ok.addEventListener('click', () => picked !== null && choose(picked, ok));

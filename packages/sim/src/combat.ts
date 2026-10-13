@@ -83,7 +83,7 @@ function hit(
   const crit = isCrit(ctx, p);
   dmg *= k * (crit ? ctx.d.game.tuning.combat.critMultiplier : 1);
   const label: HitLabel = crit ? 'crit' : typeLabel(ctx.d.typeMult(type, e.types));
-  hurtEnemy(ctx, e, dmg, { dirX, dirY, knockback, label, by: p.id });
+  hurtEnemy(ctx, e, dmg, { dirX, dirY, knockback, label, by: p.id, type });
   onDamageDealt(ctx, p, dmg);
   p.stats.damageDealt += dmg;
   applyStatus(e, status);

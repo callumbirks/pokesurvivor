@@ -5,6 +5,7 @@
 // water and burn in lava.
 import { DT, OUTER_RADIUS } from './constants.js';
 import { activePlayers, emit, nextId, presentPlayers, seenByAny, type Ctx } from './ctx.js';
+import type { PokemonType } from '@pokesurvivor/data';
 import type { HitLabel } from './events.js';
 import { addHazard } from './hazards.js';
 import { TAU, clamp, dist, dist2, hash2, norm } from './math.js';
@@ -227,12 +228,15 @@ export interface HurtOptions {
   knockback?: number;
   label?: HitLabel;
   by?: PlayerId;
+  /** The attack's type, for the client's damage number colour. */
+  type?: PokemonType | null;
 }
 
 export function hurtEnemy(ctx: Ctx, e: EnemyState, amount: number, o: HurtOptions = {}): void {
   if (e.dead) return;
   const d = Math.max(1, Math.round(amount));
   const by = o.by ?? null;
+  const moveType = o.type ?? null;
   // The shield absorbs first.
   if (e.shield > 0) {
     const a = Math.min(e.shield, d);
@@ -247,6 +251,7 @@ export function hurtEnemy(ctx: Ctx, e: EnemyState, amount: number, o: HurtOption
         label: null,
         shielded: true,
         byPlayer: by,
+        moveType,
       });
       return;
     }
@@ -262,6 +267,7 @@ export function hurtEnemy(ctx: Ctx, e: EnemyState, amount: number, o: HurtOption
     label: o.label ?? null,
     shielded: false,
     byPlayer: by,
+    moveType,
   });
   const knock = o.knockback ?? 0;
   if (knock > 0 && !e.boss) {
@@ -468,7 +474,7 @@ function updateEnemy(ctx: Ctx, e: EnemyState, pl: PlayerState): void {
     e.burnTick -= dt;
     if (e.burnTick <= 0) {
       e.burnTick = 0.5;
-      hurtEnemy(ctx, e, 1.6 * e.burn * (1 + ctx.s.team.level * 0.06));
+      hurtEnemy(ctx, e, 1.6 * e.burn * (1 + ctx.s.team.level * 0.06), { type: 'fire' });
     }
     if (e.burnT <= 0) e.burn = 0;
   }
@@ -477,7 +483,7 @@ function updateEnemy(ctx: Ctx, e: EnemyState, pl: PlayerState): void {
     e.poisonTick -= dt;
     if (e.poisonTick <= 0) {
       e.poisonTick = 0.6;
-      hurtEnemy(ctx, e, e.maxHp * 0.012 * e.poison + 1);
+      hurtEnemy(ctx, e, e.maxHp * 0.012 * e.poison + 1, { type: 'poison' });
     }
     if (e.poisonT <= 0) e.poison = 0;
   }

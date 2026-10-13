@@ -77,4 +77,32 @@ test('two players: invite, ready, busy blocks the start, then both play', async 
     await expect(page.getByTestId('screen-play')).toBeVisible();
     await expect(page.getByTestId('game-phase')).toHaveText('running', { timeout: 20_000 });
   }
+
+  // B opens the settings from the pause menu: the run keeps going (multiplayer never pauses), and
+  // closing them goes straight back to the game.
+  const simTime = () =>
+    pb.evaluate(
+      () => (window as unknown as { __psCounts?: { time: number } }).__psCounts?.time ?? -1,
+    );
+  await pb.keyboard.press('Escape');
+  await pb.getByTestId('pause-settings').click();
+  await expect(pb.getByTestId('screen-settings')).toBeVisible();
+  const before = await simTime();
+  await expect.poll(simTime).toBeGreaterThan(before + 0.5);
+  await pb.getByTestId('back').click();
+  await expect(pb.getByTestId('screen-settings')).toHaveCount(0);
+  await expect(pb.getByTestId('pause')).toHaveCount(0);
+  await expect(pb.getByTestId('game-phase')).toHaveText('running');
+
+  // A (the owner) leaves the game: B is told in the game, once (not also by the shell).
+  await pa.keyboard.press('Escape');
+  await pa.getByTestId('game-exit').click();
+  await expect(pb.getByTestId('toasts')).toContainText(`${b} now owns the room`);
+  await expect(pb.getByTestId('toasts')).toContainText(`${a} left the game`);
+  if (process.env.E2E_SHOTS)
+    await pb.screenshot({ path: `${process.env.E2E_SHOTS}/game-notices.png` });
+  // The shell's toasts ("… is the room host now", "… left") stay quiet.
+  await pb.waitForTimeout(500);
+  await expect(pb.locator('.toasts')).not.toContainText('host now');
+  await expect(pb.locator('.toasts')).not.toContainText(`${a} left`);
 });
