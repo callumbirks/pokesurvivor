@@ -1,4 +1,4 @@
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, lt, sql } from 'drizzle-orm';
 import { pokemonOf } from '../data.js';
 import type { Executor } from '../db/index.js';
 import { runPlayers, runs } from '../db/schema.js';
@@ -137,9 +137,70 @@ export async function startSoloRun(
   });
 }
 
+/** Locks a solo run of this player for an update; it must still be open (`started`). */
+async function lockOpenSoloRun(tx: Executor, userId: string, runId: string) {
+  const [run] = await tx
+    .select({
+      status: runs.status,
+      timedOut: runs.timedOut,
+      pokemonDex: runPlayers.pokemonDex,
+      pokemonShiny: runPlayers.pokemonShiny,
+      elapsedS: sql<number>`extract(epoch from now() - ${runs.startedAt})::float8`,
+    })
+    .from(runs)
+    .innerJoin(runPlayers, eq(runPlayers.runId, runs.id))
+    .where(and(eq(runs.id, runId), eq(runs.mode, 'solo'), eq(runPlayers.userId, userId)))
+    .for('update', { of: runs });
+  if (!run) throw new ApiError(404, 'run_not_found', `No solo run ${runId} for this user`);
+  if (run.timedOut)
+    throw new ApiError(
+      409,
+      'run_credited_by_timeout',
+      `Run ${runId} was already credited from its last checkpoint`,
+    );
+  if (run.status !== 'started')
+    throw new ApiError(409, 'run_already_finished', `Run ${runId} was already reported`);
+  return run;
+}
+
+/** A stored checkpoint: what the timeout sweep would credit. */
+export interface RunCheckpoint {
+  runId: string;
+  stats: RunStats;
+  capped: boolean;
+}
+
+/**
+ * Stores a solo run's run-so-far summary as its latest checkpoint, capped like a final report
+ * for the time since start. Nothing is credited: `creditTimedOutRuns` credits it if the final
+ * report doesn't come within the timeout.
+ */
+export async function checkpointSoloRun(
+  db: Executor,
+  userId: string,
+  runId: string,
+  claim: RunStats,
+  caps: RunCaps,
+): Promise<RunCheckpoint> {
+  return db.transaction(async (tx) => {
+    const run = await lockOpenSoloRun(tx, userId, runId);
+    const { stats, capped } = capRunStats(claim, caps, run.elapsedS);
+    await tx
+      .update(runs)
+      .set({ checkpointAt: sql`now()` })
+      .where(eq(runs.id, runId));
+    await tx
+      .update(runPlayers)
+      .set({ checkpoint: stats, claimed: capped ? claim : null })
+      .where(and(eq(runPlayers.runId, runId), eq(runPlayers.userId, userId)));
+    return { runId, stats, capped };
+  });
+}
+
 /**
  * Finishes a solo run from the client's summary: caps it (see `capRunStats`), stores it and
- * credits the capped rewards. A run can be finished once.
+ * credits the capped rewards. A run is credited once: a second report, or one after the
+ * timeout sweep credited the run's last checkpoint, is refused (409).
  */
 export async function finishSoloRun(
   db: Executor,
@@ -150,21 +211,7 @@ export async function finishSoloRun(
   opts: ProgressOptions,
 ): Promise<RunResult> {
   return db.transaction(async (tx) => {
-    const [run] = await tx
-      .select({
-        status: runs.status,
-        pokemonDex: runPlayers.pokemonDex,
-        pokemonShiny: runPlayers.pokemonShiny,
-        elapsedS: sql<number>`extract(epoch from now() - ${runs.startedAt})::float8`,
-      })
-      .from(runs)
-      .innerJoin(runPlayers, eq(runPlayers.runId, runs.id))
-      .where(and(eq(runs.id, runId), eq(runs.mode, 'solo'), eq(runPlayers.userId, userId)))
-      .for('update', { of: runs });
-    if (!run) throw new ApiError(404, 'run_not_found', `No solo run ${runId} for this user`);
-    if (run.status !== 'started')
-      throw new ApiError(409, 'run_already_finished', `Run ${runId} was already reported`);
-
+    const run = await lockOpenSoloRun(tx, userId, runId);
     const { stats, capped } = capRunStats(claim, caps, run.elapsedS);
     await tx
       .update(runs)
@@ -180,6 +227,65 @@ export async function finishSoloRun(
     );
     return { runId, stats, capped, achievements };
   });
+}
+
+/**
+ * Credits every open solo run whose last checkpoint is older than `timeoutMs` (the final report
+ * never came: a closed tab, a crash) from that checkpoint, and closes it (`timedOut`). Runs
+ * without a checkpoint are left open. Safe to run from several places at once: each run is
+ * claimed under a row lock (`skip locked`) and re-checked, so it is credited once, and never
+ * after a final report. Returns the ids credited.
+ */
+export async function creditTimedOutRuns(
+  db: Executor,
+  timeoutMs: number,
+  opts: ProgressOptions,
+): Promise<string[]> {
+  const credited: string[] = [];
+  for (;;) {
+    const runId = await db.transaction(async (tx) => {
+      const [run] = await tx
+        .select({
+          id: runs.id,
+          checkpointAt: runs.checkpointAt,
+          userId: runPlayers.userId,
+          pokemonDex: runPlayers.pokemonDex,
+          pokemonShiny: runPlayers.pokemonShiny,
+          checkpoint: runPlayers.checkpoint,
+        })
+        .from(runs)
+        .innerJoin(runPlayers, eq(runPlayers.runId, runs.id))
+        .where(
+          and(
+            eq(runs.mode, 'solo'),
+            eq(runs.status, 'started'),
+            lt(runs.checkpointAt, sql`now() - make_interval(secs => ${timeoutMs / 1000})`),
+          ),
+        )
+        .orderBy(runs.checkpointAt)
+        .limit(1)
+        .for('update', { of: runs, skipLocked: true });
+      if (!run?.checkpointAt) return null;
+      // Written by `checkpointSoloRun`, already capped.
+      const stats = run.checkpoint as RunStats;
+      const endedAt = run.checkpointAt;
+      await tx
+        .update(runs)
+        .set({ status: 'finished', timedOut: true, endedAt, durationS: stats.durationS })
+        .where(eq(runs.id, run.id));
+      await tx
+        .update(runPlayers)
+        .set(playerColumns(stats))
+        .where(and(eq(runPlayers.runId, run.id), eq(runPlayers.userId, run.userId)));
+      const pokemon = { dex: run.pokemonDex, shiny: run.pokemonShiny };
+      await withLockedSave(tx, run.userId, (save) =>
+        applyRunToSave(save, { runId: run.id, mode: 'solo', stats, pokemon, endedAt }, opts),
+      );
+      return run.id;
+    });
+    if (!runId) return credited;
+    credited.push(runId);
+  }
 }
 
 export interface CoopRunReport {

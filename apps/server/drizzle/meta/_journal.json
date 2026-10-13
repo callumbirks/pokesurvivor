@@ -22,6 +22,13 @@
       "when": 1791890695666,
       "tag": "0002_gacha_pulls_run_progress",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791903689933,
+      "tag": "0003_solo_run_checkpoints",
+      "breakpoints": true
     }
   ]
 }

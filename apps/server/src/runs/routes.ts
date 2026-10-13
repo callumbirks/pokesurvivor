@@ -8,7 +8,7 @@ import type { RunCaps } from '../economy/config.js';
 import { ApiError, parseBody } from '../http/errors.js';
 import { getSave } from '../saves/service.js';
 import { getLeaderboard } from './leaderboard.js';
-import { finishSoloRun, startSoloRun } from './service.js';
+import { checkpointSoloRun, finishSoloRun, startSoloRun } from './service.js';
 
 export interface RunRoutesOptions {
   db: Database;
@@ -75,6 +75,15 @@ export function runRoutes(app: FastifyInstance, opts: RunRoutesOptions): void {
       const { pokemon } = parseBody(startBody, request.body);
       const run = await startSoloRun(db, currentUser(request).id, pokemon);
       return reply.status(201).send({ runId: run.runId, startedAt: run.startedAt.toISOString() });
+    },
+  );
+
+  app.post(
+    '/api/runs/checkpoint',
+    { preHandler: requireUser, config: { rateLimit } },
+    async (request) => {
+      const { runId, ...claim } = parseBody(finishBody, request.body);
+      return checkpointSoloRun(db, currentUser(request).id, runId, claim, runCaps);
     },
   );
 

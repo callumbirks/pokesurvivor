@@ -45,6 +45,11 @@ export async function createTestDatabase(): Promise<TestDatabase> {
 
 export interface TestAppOptions {
   env?: Record<string, string>;
+  /**
+   * Run on this database instead of a fresh one (it is not dropped on close): to test a server
+   * restart, close one app and build another on the same database.
+   */
+  database?: TestDatabase;
   economy?: Partial<EconomyConfig>;
   presence?: AppOptions['presence'];
   friendNotifier?: AppOptions['friendNotifier'];
@@ -67,7 +72,7 @@ export function uniqueUsername(prefix = 'user'): string {
 }
 
 export async function createTestApp(options: TestAppOptions = {}): Promise<TestApp> {
-  const database = await createTestDatabase();
+  const database = options.database ?? (await createTestDatabase());
   const config = loadConfig({
     LOG_LEVEL: 'silent',
     DATABASE_URL: database.url,
@@ -94,7 +99,7 @@ export async function createTestApp(options: TestAppOptions = {}): Promise<TestA
     client,
     async close() {
       await app.close();
-      await database.drop();
+      if (!options.database) await database.drop();
     },
     async newUser(username = uniqueUsername()) {
       const c = client();

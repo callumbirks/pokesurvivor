@@ -24,6 +24,7 @@ export interface Config {
   /** Daily and weekly leaderboards and missions reset at midnight in this IANA time zone. */
   leaderboardTimeZone: string;
   game: GameConfig;
+  soloRuns: SoloRunConfig;
   rateLimits: {
     /** Per IP, for each of login and register. */
     auth: RateLimit;
@@ -47,6 +48,14 @@ export interface GameConfig {
   heartbeatMs: number;
   /** On SIGTERM, running games may finish for this long before they're ended (and credited). */
   drainTimeoutMs: number;
+}
+
+/** Solo runs (client-simulated): checkpoints and the timeout that credits them. */
+export interface SoloRunConfig {
+  /** A started run with no checkpoint or report for this long is credited from its last checkpoint. */
+  checkpointTimeoutMs: number;
+  /** How often the server looks for such runs (also once at start). */
+  sweepIntervalMs: number;
 }
 
 export interface RateLimit {
@@ -101,6 +110,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       inviteTtlMs: 120_000,
       heartbeatMs: 2000,
       drainTimeoutMs: positiveInt('DRAIN_TIMEOUT_S', env.DRAIN_TIMEOUT_S, 900) * 1000,
+    },
+    soloRuns: {
+      checkpointTimeoutMs:
+        positiveInt('RUN_CHECKPOINT_TIMEOUT_S', env.RUN_CHECKPOINT_TIMEOUT_S, 600) * 1000,
+      sweepIntervalMs: positiveInt('RUN_SWEEP_INTERVAL_S', env.RUN_SWEEP_INTERVAL_S, 60) * 1000,
     },
     rateLimits: {
       auth: {

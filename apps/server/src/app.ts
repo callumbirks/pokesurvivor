@@ -21,6 +21,7 @@ import type { GameServerOptions } from './game/server.js';
 import { registerErrorHandler } from './http/errors.js';
 import { missionRoutes } from './progress/routes.js';
 import { runRoutes } from './runs/routes.js';
+import { RunSweeper } from './runs/sweeper.js';
 import { saveRoutes } from './saves/routes.js';
 
 export interface AppOptions {
@@ -40,6 +41,8 @@ declare module 'fastify' {
   interface FastifyInstance {
     /** The WebSocket game server (null without a database: nobody can log in). */
     game: GameServer | null;
+    /** Credits solo runs whose final report never came (null without a database). */
+    runSweeper: RunSweeper | null;
   }
 }
 
@@ -89,6 +92,21 @@ export async function buildApp({
       })
     : null;
   app.decorate('game', game);
+
+  const runSweeper = db
+    ? new RunSweeper({
+        db: db.db,
+        log: app.log.child({ module: 'runs' }),
+        timeZone: config.leaderboardTimeZone,
+        ...config.soloRuns,
+      })
+    : null;
+  app.decorate('runSweeper', runSweeper);
+  app.addHook('onReady', (done) => {
+    runSweeper?.start();
+    done();
+  });
+  app.addHook('preClose', async () => runSweeper?.stop());
   // Sockets close before Fastify waits for connections to end.
   app.addHook('preClose', () => game?.close());
 
