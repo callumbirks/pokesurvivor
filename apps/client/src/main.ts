@@ -3,9 +3,14 @@ import './styles.css';
 // Dev-only views (excluded from production builds): /?debug-sim runs the sim locally,
 // /?debug-net plays over the network against the game server. Everything else is the app.
 const params = new URLSearchParams(location.search);
+// Dev-only: /?play-solo and /?play-net open the in-game client's test page (play.html).
+const play = import.meta.env.DEV && (params.has('play-solo') || params.has('play-net'));
+if (play) location.replace(`/play.html${location.search}`);
 const debug = import.meta.env.DEV && (params.has('debug-sim') || params.has('debug-net'));
 
-if (debug) {
+if (play) {
+  // Redirecting.
+} else if (debug) {
   document.body.classList.add('debug');
   const canvas = document.createElement('canvas');
   canvas.id = 'game';

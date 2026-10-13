@@ -1,0 +1,468 @@
+/* The game screen (canvas and overlays), ported from legacy/css/style.css (PMD boxes, level-up
+ * cards, the results grid). Everything is scoped under .ps-game so it doesn't touch the menus. */
+@font-face {
+  font-family: 'Pixelify';
+  src: url('/fonts/PixelifyPS-400.ttf') format('truetype');
+  font-weight: 400 550;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Pixelify';
+  src: url('/fonts/PixelifyPS-700.ttf') format('truetype');
+  font-weight: 551 900;
+  font-display: swap;
+}
+
+.ps-game {
+  --ps-ink: #fff;
+  --ps-muted: #b9cbf0;
+  --ps-box1: #2c519f;
+  --ps-box2: #1a3170;
+  --ps-edge: #f4f8ff;
+  --ps-edge-in: #5b83d6;
+  --ps-edge-out: #0b1838;
+  --ps-gold: #ffd23f;
+  --ps-shadow: #0a1430;
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: #0b1020;
+  color: var(--ps-ink);
+  font:
+    16px/1.35 'Pixelify',
+    'Segoe UI',
+    system-ui,
+    sans-serif;
+  -webkit-font-smoothing: none;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+.ps-game * {
+  box-sizing: border-box;
+}
+.ps-game .hidden {
+  display: none !important;
+}
+.ps-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  image-rendering: pixelated;
+}
+.ps-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.ps-layer > * {
+  pointer-events: auto;
+}
+
+/* ---------- full-screen overlays ---------- */
+.ps-screen,
+.ps-choice {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: radial-gradient(circle at 50% 40%, rgba(10, 20, 50, 0.55), rgba(3, 6, 16, 0.88));
+  animation: ps-fade 0.2s ease-out;
+}
+@keyframes ps-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes ps-pop {
+  from {
+    transform: scale(0.94);
+    opacity: 0;
+  }
+}
+.ps-box {
+  position: relative;
+  width: min(600px, 100%);
+  max-height: 100%;
+  overflow: auto;
+  text-align: center;
+  background: linear-gradient(180deg, var(--ps-box1), var(--ps-box2));
+  border: 3px solid var(--ps-edge);
+  border-radius: 12px;
+  box-shadow:
+    0 0 0 3px var(--ps-edge-out),
+    inset 0 0 0 2px var(--ps-edge-in),
+    0 18px 50px rgba(0, 0, 0, 0.55);
+  padding: 20px 22px;
+  text-shadow: 2px 2px 0 var(--ps-shadow);
+  animation: ps-pop 0.22s ease-out;
+}
+.ps-box h2,
+.ps-box h3 {
+  margin: 0 0 6px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+.ps-box h2 {
+  font-size: 26px;
+}
+.ps-box h3 {
+  font-size: 18px;
+  margin-top: 12px;
+}
+.ps-game .sub {
+  color: var(--ps-muted);
+  margin: 0 0 14px;
+  font-size: 15px;
+}
+.ps-game .note {
+  color: var(--ps-muted);
+  font-size: 13px;
+  margin: 12px 0 0;
+}
+.ps-game .note.warn {
+  color: #ffb0b8;
+}
+.ps-game .muted {
+  color: var(--ps-muted);
+  font-size: 12px;
+}
+.ps-game .gold {
+  color: var(--ps-gold);
+}
+.ps-game .row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+.ps-game kbd {
+  display: inline-block;
+  padding: 0 6px;
+  border: 2px solid rgba(244, 248, 255, 0.4);
+  border-bottom-width: 3px;
+  border-radius: 5px;
+  font: inherit;
+  font-size: 13px;
+}
+.ps-game img.pix {
+  image-rendering: pixelated;
+  vertical-align: middle;
+}
+
+/* ---------- buttons ---------- */
+.ps-game .btn {
+  appearance: none;
+  cursor: pointer;
+  padding: 10px 20px;
+  border: 3px solid var(--ps-edge);
+  border-radius: 9px;
+  background: linear-gradient(180deg, #3d67c0, #26468f);
+  box-shadow:
+    0 0 0 2px var(--ps-edge-out),
+    0 4px 0 var(--ps-edge-out);
+  color: var(--ps-ink);
+  font: inherit;
+  font-size: 17px;
+  font-weight: 700;
+  text-shadow: 2px 2px 0 var(--ps-shadow);
+  transition:
+    transform 0.06s,
+    filter 0.12s;
+}
+.ps-game .btn:hover {
+  filter: brightness(1.15);
+}
+.ps-game .btn:active {
+  transform: translateY(2px);
+}
+.ps-game .btn.gold {
+  background: linear-gradient(180deg, #ffe37a, #f0a31e);
+  color: #3a2300;
+  text-shadow: 1px 1px 0 rgba(255, 255, 255, 0.4);
+  border-color: #fff7d6;
+}
+.ps-game .btn.ghost {
+  background: transparent;
+  box-shadow: none;
+  border-color: rgba(244, 248, 255, 0.35);
+}
+.ps-game .btn.small {
+  padding: 6px 12px;
+  font-size: 14px;
+  margin-top: 10px;
+}
+
+/* ---------- choice cards ---------- */
+.ps-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(560px, 100%);
+  margin: 0 auto;
+}
+.ps-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  text-shadow: inherit;
+  background: rgba(0, 0, 0, 0.2);
+  border: 2px solid rgba(244, 248, 255, 0.3);
+  border-radius: 12px;
+  padding: 12px 14px;
+  transition:
+    transform 0.08s,
+    background 0.12s,
+    border-color 0.12s,
+    opacity 0.12s;
+}
+.ps-card:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--ps-edge);
+  transform: translateX(4px);
+}
+.ps-card.evo {
+  border-color: var(--ps-gold);
+  background: rgba(255, 210, 63, 0.12);
+}
+.ps-card.bond {
+  border-color: #ff8ad8;
+  background: rgba(255, 138, 216, 0.12);
+}
+.ps-cards.done .ps-card {
+  opacity: 0.45;
+  pointer-events: none;
+}
+.ps-cards.done .ps-card.picked {
+  opacity: 1;
+  border-color: var(--ps-gold);
+  background: rgba(255, 210, 63, 0.18);
+}
+.ps-card .ico {
+  flex: 0 0 46px;
+  height: 46px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+}
+.ps-card .txt {
+  flex: 1;
+}
+.ps-card .nm {
+  font-weight: 700;
+  font-size: 18px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.ps-card .ds {
+  color: var(--ps-muted);
+  font-size: 14px;
+}
+.ps-card .key {
+  font-size: 13px;
+  color: var(--ps-muted);
+  border: 2px solid rgba(244, 248, 255, 0.3);
+  border-radius: 6px;
+  padding: 2px 8px;
+}
+.ps-game .tag-chip {
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: 5px;
+  color: #10131a;
+  text-shadow: none;
+  font-weight: 700;
+}
+.ps-deadline {
+  display: inline-block;
+  margin: -4px 0 10px;
+  padding: 2px 10px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--ps-muted);
+  font-size: 14px;
+}
+.ps-deadline.soon {
+  color: #ff8a96;
+}
+.bond-title {
+  color: #ff8ad8;
+}
+/* Paused for someone else's choice. */
+.ps-wait {
+  position: absolute;
+  top: 92px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 16px;
+  border-radius: 10px;
+  background: rgba(10, 16, 28, 0.82);
+  border: 2px solid rgba(244, 248, 255, 0.3);
+  text-shadow: 2px 2px 0 var(--ps-shadow);
+  pointer-events: none;
+}
+.ps-wait .note {
+  margin: 0;
+  color: #ffd23f;
+}
+
+/* ---------- loading, pause ---------- */
+.ps-loading .progress {
+  height: 10px;
+  margin-top: 14px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+}
+.ps-loading .progress i {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--ps-gold);
+  transition: width 0.2s;
+}
+.ps-sound {
+  display: grid;
+  gap: 8px;
+  margin: 12px auto 4px;
+  width: min(320px, 100%);
+  text-align: left;
+}
+.ps-slider {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  align-items: center;
+  gap: 10px;
+  color: var(--ps-muted);
+  font-size: 14px;
+}
+.ps-slider input {
+  width: 100%;
+  accent-color: var(--ps-gold);
+}
+.ps-check {
+  color: var(--ps-muted);
+  font-size: 14px;
+}
+
+/* ---------- results ---------- */
+.ps-results {
+  width: min(500px, 100%);
+}
+.ps-game .stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 10px 0 14px;
+  text-align: left;
+}
+.ps-game .stats > div {
+  background: rgba(0, 0, 0, 0.22);
+  border-radius: 9px;
+  padding: 8px 10px;
+}
+.ps-game .stats > div > span:first-child {
+  display: block;
+  color: var(--ps-muted);
+  font-size: 12px;
+  text-transform: uppercase;
+}
+.ps-game .stats b {
+  font-size: 22px;
+}
+.ps-game .stats .moves {
+  font-size: 15px;
+}
+.ps-team-results,
+.ps-achievements {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 12px;
+  font-size: 15px;
+}
+.ps-team-results .left {
+  opacity: 0.7;
+}
+
+/* ---------- toasts ---------- */
+.ps-toasts {
+  position: absolute;
+  top: 96px;
+  right: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  pointer-events: none;
+  max-width: min(360px, 70vw);
+}
+.ps-toast {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border-radius: 9px;
+  background: rgba(10, 16, 28, 0.88);
+  border: 2px solid rgba(244, 248, 255, 0.35);
+  font-size: 14px;
+  text-shadow: 2px 2px 0 var(--ps-shadow);
+  animation: ps-slide 0.25s ease-out;
+  transition: opacity 0.4s;
+}
+.ps-toast.out {
+  opacity: 0;
+}
+.ps-toast.good {
+  border-color: #5fe08a;
+}
+.ps-toast.warn {
+  border-color: #ffb0b8;
+}
+.ps-toast.achievement {
+  border-color: var(--ps-gold);
+  color: var(--ps-gold);
+}
+@keyframes ps-slide {
+  from {
+    transform: translateX(30px);
+    opacity: 0;
+  }
+}
+
+@media (max-height: 520px) {
+  .ps-box {
+    padding: 12px 14px;
+  }
+  .ps-box h2 {
+    font-size: 20px;
+  }
+  .ps-card {
+    padding: 7px 10px;
+  }
+  .ps-card .ico {
+    flex-basis: 36px;
+    height: 36px;
+  }
+  .ps-card .nm {
+    font-size: 15px;
+  }
+  .ps-card .ds {
+    font-size: 12px;
+  }
+  .ps-toasts {
+    top: 60px;
+  }
+}

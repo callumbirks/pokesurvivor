@@ -19,6 +19,7 @@ import {
   writeFrame,
   type Reader,
 } from '@pokesurvivor/protocol';
+import { playerMoveSpeed } from '@pokesurvivor/sim';
 import type {
   ArenaState,
   LostPokemonState,
@@ -98,6 +99,8 @@ export interface NetEnemy {
   height: number;
   /** 0–1 through a jump, or null. */
   jump: number | null;
+  /** `chase`, `shooter`, `healer`, `thief`, … (the HUD marks supports and thieves). */
+  behavior: string;
 }
 
 export interface NetProjectile {
@@ -179,6 +182,16 @@ export interface PlayerDetail {
   magnet: number;
   /** Altar power in effect. */
   power: { id: string; t: number } | null;
+  /** Buff stacks: attack, speed, defense, regen. */
+  buffs: [number, number, number, number];
+}
+
+/** What only the viewer gets about its own Pokémon, in every snapshot. */
+export interface SelfState {
+  /** Per move (in `PlayerDetail.moves` order): cooldown left, 0–1 of the full cooldown. */
+  cooldowns: number[];
+  /** Speed before liquids (`moveSpeedOf`): client-side prediction moves at this. */
+  speed: number;
 }
 
 /** Who a pending choice waits for (every choice, anyone's). */
@@ -222,6 +235,8 @@ export interface Snapshot {
   world: Record<string, Record<string, number>>;
   /** Rifts, the arena, weather and run events (`NetMisc`). */
   misc: NetMisc;
+  /** The viewer's own cooldowns and speed (null if it isn't a player). */
+  self: SelfState | null;
 }
 
 /**
@@ -242,7 +257,7 @@ export interface NetMisc {
 // ------------------------------------------------------------------ tables
 
 const T = { players: 0, enemies: 1, projectiles: 2, pickups: 3, fields: 4, hazards: 5, team: 6 };
-const WIDTHS = [11, 12, 8, 4, 9, 10, 9];
+const WIDTHS = [11, 13, 8, 4, 9, 10, 9];
 
 /**
  * Header: seq, tick, time (ms), ackSeq, flags (full, paused), and the seq of the frame this one
@@ -270,6 +285,7 @@ interface Extra {
   misc?: NetMisc;
   shinies?: number[];
   ended?: RunEnd | null;
+  self?: SelfState;
 }
 
 export type SnapshotFormat = 'binary' | 'json';
@@ -386,6 +402,7 @@ export class SnapshotEncoder {
       choices: s.pendingChoices.filter((c) => c.playerId === this.viewerId),
       waiting: s.pendingChoices.map(choiceRef),
     };
+    if (viewer) extra.self = selfState(s, viewer);
     const relevant = filterEvents(events, {
       viewerId: this.viewerId,
       x: cx,
@@ -475,6 +492,7 @@ export class SnapshotEncoder {
       q(e.scale, 100),
       Math.round(e.height),
       e.jump ? Math.round((100 * e.jump.t) / (e.jump.dur || 1)) : 0,
+      this.str(e.behavior),
     ];
   }
 
@@ -648,6 +666,19 @@ function playerDetail(p: PlayerState): PlayerDetail {
     types: [...p.types],
     magnet: Math.round(p.magnet),
     power: p.power ? { id: p.power.id, t: Math.ceil(p.power.t) } : null,
+    buffs: [p.buffs.attack.n, p.buffs.speed.n, p.buffs.defense.n, p.buffs.regen.n],
+  };
+}
+
+/** Cooldowns in 1/50 steps (enough for the HUD's fill), speed in 1/10 units. */
+function selfState(s: SimState, p: PlayerState): SelfState {
+  const speed = playerMoveSpeed(s, p);
+  return {
+    cooldowns: p.moves.map((m) => {
+      const full = (m.stats.cooldown ?? 0) * p.cooldownMul;
+      return m.kind === 'orbit' || full <= 0 ? 0 : Math.round(Math.min(1, m.t / full) * 50) / 50;
+    }),
+    speed: Math.round(speed * 10) / 10,
   };
 }
 
@@ -748,6 +779,7 @@ export class SnapshotDecoder {
       details: { ...this.details },
       world: Object.fromEntries(Object.entries(this.world).map(([k, v]) => [k, { ...v }])),
       misc: this.misc,
+      self: extra.self ?? null,
     };
   }
 
@@ -823,6 +855,7 @@ export class SnapshotDecoder {
       scale: (v[9] ?? 100) / 100,
       height: v[10] ?? 0,
       jump: bit(fl, 10) ? (v[11] ?? 0) / 100 : null,
+      behavior: this.s(v[12]) ?? 'chase',
     };
   }
 

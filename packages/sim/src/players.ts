@@ -141,13 +141,57 @@ export const attackOf = (p: PlayerState): number =>
   p.baseAttack * p.attackMul * (1 + p.buffs.attack.n * p.buffs.attack.amount);
 
 export function speedOf(ctx: Ctx, p: PlayerState): number {
-  const s =
+  return moveSpeedOf(ctx, p) * liquidSpeedMult(ctx, p);
+}
+
+/**
+ * Movement speed before the liquid underfoot: stats, buffs, traps and the weather. Snapshots send
+ * it to the player's own client, which predicts its movement with `moveBody`.
+ */
+export function moveSpeedOf(ctx: Ctx, p: PlayerState): number {
+  return (
     p.baseSpeed *
     p.speedMul *
     (1 + p.buffs.speed.n * p.buffs.speed.amount) *
-    (p.slowT > 0 ? 0.5 : 1);
-  const liquid = p.inLiquid ? (ctx.d.liquidEffect(liquidKind(ctx), p.types).slow ?? 1) : 1;
-  return s * liquid * weatherSpeedMult(ctx, p.types);
+    (p.slowT > 0 ? 0.5 : 1) *
+    weatherSpeedMult(ctx, p.types)
+  );
+}
+
+/** The slow of the liquid a body stands in (1 out of it, or immune). */
+export function liquidSpeedMult(ctx: Ctx, b: Pick<MovingBody, 'inLiquid' | 'types'>): number {
+  return b.inLiquid ? (ctx.d.liquidEffect(liquidKind(ctx), b.types).slow ?? 1) : 1;
+}
+
+/** What `moveBody` moves: a player, or a client's prediction of its own player. */
+export type MovingBody = Pick<
+  PlayerState,
+  'x' | 'y' | 'r' | 'vx' | 'vy' | 'types' | 'inLiquid' | 'walking' | 'moveAngle'
+>;
+
+/**
+ * One tick of walking: input (clamped to length 1) at `speed` (`speedOf`), ice slides, walls and
+ * solid props, then whether the body ended up in liquid. Shared by the sim and client prediction.
+ */
+export function moveBody(ctx: Ctx, p: MovingBody, moveX: number, moveY: number, speed: number) {
+  const dt = DT;
+  let ax = moveX;
+  let ay = moveY;
+  const len = Math.hypot(ax, ay);
+  if (len > 1) {
+    ax /= len;
+    ay /= len;
+  }
+  p.walking = ax !== 0 || ay !== 0;
+  // Ice: you slide (velocity changes slowly).
+  const slide = p.inLiquid && ctx.d.liquidEffect(liquidKind(ctx), p.types).slide;
+  p.vx = slide ? damp(p.vx, ax * speed * 1.15, 1.6, dt) : ax * speed;
+  p.vy = slide ? damp(p.vy, ay * speed * 1.15, 1.6, dt) : ay * speed;
+  p.x += p.vx * dt;
+  p.y += p.vy * dt;
+  collide(ctx, p);
+  if (p.walking) p.moveAngle = Math.atan2(ay, ax);
+  p.inLiquid = isLiquid(ctx, p.x, p.y);
 }
 
 export const reductionOf = (p: PlayerState): number =>
@@ -281,25 +325,10 @@ export function updatePlayer(ctx: Ctx, p: PlayerState): void {
   if (regen > 0) p.hp = Math.min(p.maxHp, p.hp + regen * dt);
 
   // --- movement with collisions (disconnected players stand still) ---
-  let [ax, ay] = p.connected ? [p.input.moveX, p.input.moveY] : [0, 0];
-  const len = Math.hypot(ax, ay);
-  if (len > 1) {
-    ax /= len;
-    ay /= len;
-  }
-  p.walking = ax !== 0 || ay !== 0;
-  const s = speedOf(ctx, p);
-  // Ice: you slide (velocity changes slowly).
-  const slide = p.inLiquid && ctx.d.liquidEffect(liquidKind(ctx), p.types).slide;
-  p.vx = slide ? damp(p.vx, ax * s * 1.15, 1.6, dt) : ax * s;
-  p.vy = slide ? damp(p.vy, ay * s * 1.15, 1.6, dt) : ay * s;
-  p.x += p.vx * dt;
-  p.y += p.vy * dt;
-  collide(ctx, p);
-  if (p.walking) p.moveAngle = Math.atan2(ay, ax);
+  const [ax, ay] = p.connected ? [p.input.moveX, p.input.moveY] : [0, 0];
+  moveBody(ctx, p, ax, ay, speedOf(ctx, p));
 
   // --- liquid ---
-  p.inLiquid = isLiquid(ctx, p.x, p.y);
   if (p.inLiquid) {
     const le = ctx.d.liquidEffect(liquidKind(ctx), p.types);
     if (le.damage) {

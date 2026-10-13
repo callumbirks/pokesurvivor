@@ -7,7 +7,8 @@ host browser.
 
 The types are in `packages/protocol` (`messages.ts`, `validate.ts`, `tables.ts`, `wire.ts`). The
 client side is `packages/netclient`, which the browser and the bot tests share. The server is in
-`apps/server/src/game/`. `PROTOCOL_VERSION` is **2**.
+`apps/server/src/game/`. `PROTOCOL_VERSION` is **3** (3 added the enemies' behaviour column, buff stacks in `details` and
+the viewer's `self`).
 
 ## Connection
 
@@ -192,8 +193,11 @@ for that client.
 **JSON part.** It holds:
 
 - `choices` and `waiting`;
-- `details`: a player's moves, slots, item, bonds, rerolls left, magnet and altar power, sent when
-  they change;
+- `details`: a player's moves, slots, item, bonds, rerolls left, magnet, altar power and buff
+  stacks (attack, speed, defense, regen), sent when they change;
+- `self`, in every snapshot: the viewer's move cooldowns (0–1 of the full cooldown, per move, in
+  1/50 steps) for the HUD, and its speed before liquids (`moveSpeedOf`) for client-side
+  prediction;
 - `world`: changes to every keyed record of `state.world` (`broken`, `propHp`, `altarsUsed`,
   `springs`, `chests`, and any the sim adds);
 - `misc`: the rift on the map, the arena (geometry for `terrainRaw`), the weather, the run event
@@ -290,6 +294,10 @@ still credited when it ends. See [deploy.md](deploy.md) for the stop grace perio
   `delayMs` (100 ms) behind. `sample(now)` returns the two snapshots around that time, and
   `interpolate()` lerps players, enemies and projectiles.
 - **`firstOption(choice)`**: the intent that picks a choice's first option.
+- **`RoomConnection` extras** for the game client: a `loading` event (`{ game }`), `now()` (the
+  clock snapshots were stamped with), and, solo only, `setPaused(paused)` and `quit()`. Client-side
+  prediction (`apps/client/src/game/net/predict.ts`) uses `ackedInputSeq`, `unackedInputs()`,
+  `serverSelf` and the snapshot's `self.speed`.
 
 ## Testing
 

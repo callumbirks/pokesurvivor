@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>PokéSurvivor · play (dev)</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #0b1020;
+        color: #eee;
+        overflow: hidden;
+      }
+      #play {
+        position: fixed;
+        inset: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Dev-only test page for the in-game client (Vite serves it in dev; builds skip it):
+         /play.html?solo plays a solo run, /play.html?net a multiplayer one. -->
+    <div id="play"></div>
+    <script type="module" src="/src/game/dev/play.ts"></script>
+  </body>
+</html>

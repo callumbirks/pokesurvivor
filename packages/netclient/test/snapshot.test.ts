@@ -47,6 +47,7 @@ describe('snapshots', () => {
       expect(n!.dex).toBe(e.dex);
       expect(Math.abs(n!.x - e.x)).toBeLessThanOrEqual(0.25);
       expect(n!.boss).toBe(e.boss);
+      expect(n!.behavior).toBe(e.behavior);
     }
     // Nothing far away (beyond the hysteresis band).
     for (const n of snap!.enemies) {
@@ -55,6 +56,16 @@ describe('snapshots', () => {
     }
     expect(snap!.team.level).toBe(s.team.level);
     expect(snap!.details.p1?.moves.map((m) => m.id)).toEqual(me.moves.map((m) => m.id));
+    expect(snap!.details.p1?.buffs).toEqual([
+      me.buffs.attack.n,
+      me.buffs.speed.n,
+      me.buffs.defense.n,
+      me.buffs.regen.n,
+    ]);
+    // The viewer's own cooldowns (one per move, 0–1) and its speed for prediction.
+    expect(snap!.self?.cooldowns).toHaveLength(me.moves.length);
+    for (const c of snap!.self!.cooldowns) expect(c >= 0 && c <= 1).toBe(true);
+    expect(snap!.self?.speed).toBeCloseTo(me.baseSpeed * me.speedMul, -1);
     expect(Object.keys(snap!.world.broken ?? {}).sort()).toEqual(
       Object.keys(s.world.broken).sort(),
     );

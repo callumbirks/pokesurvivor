@@ -13,6 +13,8 @@ import type { Game, IntentResult, Results } from './types.js';
 export type RoomConnectionPhase = 'loading' | 'running' | 'ended';
 
 export interface RoomConnectionEvents extends Record<string, unknown> {
+  /** A game is loading (`game` is set): load its assets, then call `loaded()`. */
+  loading: { game: Game };
   /** A game started or was resumed (a full snapshot follows). */
   start: { game: Game; resumed: boolean };
   snapshot: Snapshot;
@@ -50,6 +52,12 @@ export interface RoomConnection {
   /** Samples `read` every tick and sends it while the game runs. Returns a stop function. */
   startInputLoop(read: () => MoveInput): () => void;
   intent(intent: Intent): Promise<IntentResult>;
+  /** The clock snapshots were stamped with (sample `buffer` with it). Default `Date.now`. */
+  now?(): number;
+  /** Solo only: stop or resume the run (multiplayer runs never pause for one player). */
+  setPaused?(paused: boolean): void;
+  /** Solo only: give up the run (it ends and is reported). Multiplayer leaves the room instead. */
+  quit?(): void;
   on<K extends keyof RoomConnectionEvents>(
     event: K,
     handler: (payload: RoomConnectionEvents[K]) => void,
@@ -87,6 +95,10 @@ export class NetRoomConnection implements RoomConnection {
 
   get latest(): Snapshot | null {
     return this.buffer.latest;
+  }
+
+  now(): number {
+    return this.transport.now();
   }
 
   get serverSelf(): NetPlayer | null {
@@ -157,6 +169,7 @@ export class NetRoomConnection implements RoomConnection {
   handleLoading(game: Game): void {
     this.game = game;
     this.setPhase('loading');
+    this.emitter.emit('loading', { game });
     // A reconnect during loading: ack again if the app already loaded this game.
     if (this.loadedGameId === game.gameId)
       this.transport.send({ type: 'game.loaded', gameId: game.gameId });

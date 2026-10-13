@@ -1,6 +1,7 @@
 // @pokesurvivor/sim: the headless game simulation (see README.md).
 export {
   CHUNK,
+  CHUNK_TILES,
   DT,
   OUTER_RADIUS,
   TICK_HZ,
@@ -13,7 +14,10 @@ export {
 export { MAX_PLAYERS, Sim, createSim, restoreSim } from './sim.js';
 export type { Intent, MoveInput, SimConfig } from './sim.js';
 export type { PlayerConfig } from './players.js';
-export { REVIVE_RANGE, REVIVE_SECONDS } from './players.js';
+export { REVIVE_RANGE, REVIVE_SECONDS, moveSpeedOf } from './players.js';
+export type { MovingBody } from './players.js';
+export { WorldView, moveStatsAt, playerMoveSpeed } from './view.js';
+export { hash2 } from './math.js';
 export { rerollsLeft } from './choices.js';
 export type { ChoiceResult } from './choices.js';
 export type { HitLabel, ProgressEventName, SimEvent, SimEventType } from './events.js';
