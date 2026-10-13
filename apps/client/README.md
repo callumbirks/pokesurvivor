@@ -13,7 +13,9 @@ look (blue Mystery Dungeon boxes, the Pixelify Sans font in `public/fonts/`, OFL
 | `src/app/api.ts`                                 | The HTTP API (`docs/api.md`), typed; errors are `ApiError` with the server's `code`            |
 | `src/app/busy.ts`                                | `BusyStatus`: `busy` in the room while on a busy screen, then the previous status back         |
 | `src/app/toast.ts`                               | Toasts, sticky notices, and `errorText()` (error code → `errors.<code>` in `en.json`)          |
-| `src/app/dom.ts`                                 | `h()`, sprites (CSS background from the sprite sheet), stars, type chips                       |
+| `src/app/dom.ts`                                 | `h()`, pixel icons (`icon()`, rarity Poké Balls, `tNodes()`), sprites with `fit`/`feet`        |
+| `src/app/slots.ts`                               | The gacha's pixel-art slot machine (port of legacy `slots.js`)                                 |
+| `src/app/backdrop.ts`                            | The living world behind the menus (port of legacy's `Backdrop`)                                |
 | `src/app/game.ts`                                | `mountGame` / `createSoloConnection`: the shell's view of `src/game/`                          |
 | `src/game/`                                      | The in-game client: renderer, prediction, HUD, choices, results, solo worker (below)           |
 | `src/icons.ts`, `src/sprites.ts`, `src/audio.ts` | Pixel icons, Pokémon sprite sheets and animator, the Web Audio synth (shared)                  |
@@ -37,6 +39,25 @@ fn)` (spinner on the button, toast on error), loads through `loadInto(el, load, 
 - **The server decides.** Pulls, purchases, claims and starter grants send intents and show the
   save the server returns. Gacha rates, pity, costs and upgrade prices come from the server.
 
+## The legacy look
+
+- **Icons** are the pixel-art set in `src/icons.ts` (port of legacy `icons.js`), as `<img>` via
+  `icon(name, size)` or inside UI strings with `tNodes()` (`{ticket}` placeholders). Rarity is a
+  Poké Ball (`rarityBall`: Poké, Great, Ultra, Luxury, Master), as in legacy. `--ico-cursor`
+  and friends are CSS variables for the stylesheet (the menu's pixel cursor).
+- **Sprites in fixed boxes** take `fit` (the box) and `feet`: `fitScale()` keeps the view's
+  pixel scale when the frame fits and otherwise the largest whole scale that does, measured from
+  the real frame (width, and the body above the feet: `anchorY`), so giants like Eternatus
+  never overflow a banner, card or stage. With `feet`, the frame's space below the feet hangs
+  under the container's edge, so a row of Pokémon shares one baseline. `sprite-fit.test.ts`
+  checks every Pokémon against each box.
+- **Gacha reveal**: the slot machine (lever, reels, suspense on epic/legendary/shiny, the tray),
+  click to speed up; it plays the `ball`, `shake`, `reveal`, `legend` and `shiny` sounds on its
+  beats, then the burst and a card per pull.
+- **Backdrop**: the run map with 20 wandering Pokémon and a drifting camera, a biome change
+  every 30 s, drawn with `src/game/scene/` and moved with the sim's `WorldView.move`. Shown on
+  every screen but `#play`. Calm mode and `prefers-reduced-motion` keep it still.
+
 ## Rooms and games
 
 - The lobby (`#lobby`) shows the `RoomView`; the start button is the owner's, disabled while
@@ -47,7 +68,8 @@ fn)` (spinner on the button, toast on error), loads through `loadInto(el, load, 
 - When a game loads (`game.loading`, or `game.start` after a reload) the app opens `#play`,
   which calls `mountGame(el, conn, { onExit })` and shows who has loaded until the deadline.
   Quitting mid-run leaves the room (the server credits what was earned).
-- **Solo** (`#solo`): the shell builds the loadout from the save (as the server builds coop
+- **Solo** (`#solo`) is off while in a room: the menu entry and Play are disabled with the
+  reason, and the server refuses `POST /api/runs/start` with `409 in_room`. The shell builds the loadout from the save (as the server builds coop
   ones) and calls `createSoloConnection({ loadout, owned, username, api })`, then `mountGame`.
   `api` (`SoloApi`) is `startRun()` and `reportRun(runId, summary)`, bound to the player's
   session and partner (they also update the save, toast unlocked achievements and errors). The
