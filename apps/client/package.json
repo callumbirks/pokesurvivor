@@ -7,10 +7,12 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "typecheck": "tsc",
-    "test": "vitest run --passWithNoTests"
+    "typecheck": "tsc && tsc -p e2e",
+    "test": "vitest run --passWithNoTests",
+    "e2e": "playwright test -c e2e/playwright.config.ts"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.0",
     "@pokesurvivor/data": "workspace:*",
     "@pokesurvivor/netclient": "workspace:*",
     "@pokesurvivor/protocol": "workspace:*",

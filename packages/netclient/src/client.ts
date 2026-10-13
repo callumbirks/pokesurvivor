@@ -204,7 +204,7 @@ export class NetClient {
   kick(userId: string): Promise<void> {
     return this.request({ type: 'room.kick', userId }).then(() => undefined);
   }
-  /** `busy` while in the gacha, shop or settings; the owner can only start when all are ready. */
+  /** `busy` while in the gacha, shop, collection or settings; the owner can only start when all are ready. */
   setStatus(status: MemberStatus): Promise<void> {
     return this.request({ type: 'room.status', status }).then(() => undefined);
   }

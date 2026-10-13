@@ -1,0 +1,331 @@
+// The HTTP API (docs/api.md), typed for the client. The server owns every value here: the
+// client shows them and sends intents (pull, buy, claim), never computed results.
+import type { PresenceStatus, RunSummary } from '@pokesurvivor/protocol';
+import type { SyncedSettings } from '../settings.js';
+
+export interface User {
+  id: string;
+  username: string;
+}
+
+export interface Acquisition {
+  at: number;
+  from: 'starter' | 'gacha' | 'wild' | 'rescue' | 'reward';
+}
+
+export interface MissionState {
+  id: string;
+  goal: number;
+  param: string | null;
+  progress: number;
+  claimed: boolean;
+}
+
+export interface MissionSet {
+  period: string | null;
+  rerolled: boolean;
+  missions: MissionState[];
+}
+
+export interface Missions {
+  daily: MissionSet;
+  weekly: MissionSet;
+}
+
+export interface PokemonRef {
+  dex: number;
+  shiny: boolean;
+}
+
+export interface Save {
+  version: number;
+  coins: number;
+  tickets: { x1: number; x10: number };
+  partner: { dex: number | null; shiny: boolean };
+  owned: Record<string, Acquisition>;
+  shiny: Record<string, Acquisition>;
+  starter: number | null;
+  personality: { trait: string; scores: Record<string, number> } | null;
+  upgrades: Record<string, Record<string, number>>;
+  moveBindings: Record<string, (string | null)[]>;
+  moveBans: Record<string, string[]>;
+  pity: Record<string, number>;
+  stats: {
+    runs: number;
+    groupRuns: number;
+    bestTimeS: number;
+    bestGroupTimeS: number;
+    bestLevel: number;
+    totalKills: number;
+    bossesTotal: number;
+    coinsEarned: number;
+    shinies: number;
+    pulls: number;
+    riftWins: number;
+    evolutions: number;
+    missionsDone: number;
+  };
+  achievements: Record<string, number>;
+  legendsBeaten: Record<string, number>;
+  arenasWon: Record<string, number>;
+  itemsFound: Record<string, number>;
+  movesEvolved: Record<string, number>;
+  missions: Missions;
+  profile: { favourites: PokemonRef[]; title: string | null };
+  settings: SyncedSettings;
+  updatedAt: string;
+}
+
+export interface UnlockedAchievement {
+  id: string;
+  reward: { coins?: number; tickets?: number; tickets10?: number };
+  title: string | null;
+}
+
+export interface GachaBanner {
+  id: string;
+  gen: number;
+  name: string;
+  colors: string[];
+  featured: number[];
+  poolSize: Record<string, number>;
+  pity: number | null;
+}
+
+export interface GachaInfo {
+  cost: { single: number; multi: number; multiCount: number; multiTickets10: number };
+  rates: { rarity: number; weight: number }[];
+  softPity: { from: number; stepPerPull: number };
+  hardPity: number;
+  multiGuaranteeMinRarity: number;
+  shinyRate: number;
+  duplicateRefund: { rarity: number; coins: number }[];
+  shinyDuplicateMultiplier: number;
+  rarities: { rarity: number; name: string; color: string }[];
+  banners: GachaBanner[];
+}
+
+export interface PullResult {
+  dex: number;
+  rarity: number;
+  shiny: boolean;
+  isNew: boolean;
+  refund: number;
+}
+
+export interface PullResponse {
+  pullId: string;
+  banner: string;
+  results: PullResult[];
+  pity: number;
+  achievements: UnlockedAchievement[];
+  save: Save;
+}
+
+export type PayWith = 'tickets' | 'tickets10';
+
+export interface FriendBase {
+  username: string;
+  partner: PokemonRef | null;
+  favourites: PokemonRef[];
+  title: string | null;
+}
+export interface Friend extends FriendBase {
+  since: string;
+  presence: PresenceStatus;
+}
+export interface FriendRequest extends FriendBase {
+  sentAt: string;
+}
+export interface FriendsList {
+  friends: Friend[];
+  incoming: FriendRequest[];
+  outgoing: FriendRequest[];
+}
+
+export type LeaderboardMode = 'solo' | 'group';
+export type LeaderboardPeriod = 'daily' | 'weekly' | 'all';
+export interface LeaderboardEntry {
+  rank: number;
+  durationS: number;
+  endedAt: string;
+  players: { username: string; pokemon: PokemonRef; level: number; kills: number }[];
+}
+export interface Leaderboard {
+  mode: LeaderboardMode;
+  period: LeaderboardPeriod;
+  entries: LeaderboardEntry[];
+  me: LeaderboardEntry | null;
+}
+
+export interface RunReport {
+  runId: string;
+  stats: unknown;
+  capped: boolean;
+  achievements: UnlockedAchievement[];
+  save: Save;
+}
+
+/** An API error: `code` is stable and maps to a UI string (`errors.<code>` in en.json). */
+export class ApiError extends Error {
+  constructor(
+    readonly status: number,
+    readonly code: string,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
+type Fetch = typeof fetch;
+
+export class Api {
+  /** Called on every 401 from an endpoint that needs a login (the session expired). */
+  onUnauthenticated: (() => void) | null = null;
+
+  constructor(private readonly fetcher: Fetch = (...args) => fetch(...args)) {}
+
+  async request<T>(method: string, path: string, body?: unknown): Promise<T> {
+    let res: Response;
+    try {
+      res = await this.fetcher(path, {
+        method,
+        headers: body === undefined ? {} : { 'content-type': 'application/json' },
+        body: body === undefined ? undefined : JSON.stringify(body),
+        credentials: 'same-origin',
+      });
+    } catch (err) {
+      throw new ApiError(0, 'network', err instanceof Error ? err.message : String(err));
+    }
+    if (res.status === 204) return undefined as T;
+    const data: unknown = await res.json().catch(() => null);
+    if (!res.ok) {
+      const error = (data as { error?: { code?: string; message?: string } } | null)?.error;
+      const code = error?.code ?? (res.status >= 500 ? 'server_error' : 'unknown');
+      if (res.status === 401 && code === 'unauthenticated') this.onUnauthenticated?.();
+      throw new ApiError(res.status, code, error?.message ?? res.statusText);
+    }
+    return data as T;
+  }
+
+  // ---------------------------------------------------------------- auth
+
+  me() {
+    return this.request<{ user: User }>('GET', '/api/auth/me');
+  }
+  login(username: string, password: string) {
+    return this.request<{ user: User }>('POST', '/api/auth/login', { username, password });
+  }
+  register(username: string, password: string) {
+    return this.request<{ user: User }>('POST', '/api/auth/register', { username, password });
+  }
+  logout() {
+    return this.request<void>('POST', '/api/auth/logout');
+  }
+  info() {
+    return this.request<{ protocolVersion: number; tickHz: number }>('GET', '/api/info');
+  }
+
+  // ---------------------------------------------------------------- save
+
+  save() {
+    return this.request<Save>('GET', '/api/save');
+  }
+  setPartner(dex: number, shiny: boolean) {
+    return this.request<Save>('PUT', '/api/save/partner', { dex, shiny });
+  }
+  setProfile(profile: { favourites?: PokemonRef[]; title?: string | null }) {
+    return this.request<Save>('PATCH', '/api/save/profile', profile);
+  }
+  setSettings(settings: Partial<SyncedSettings>) {
+    return this.request<Save>('PATCH', '/api/save/settings', settings);
+  }
+  chooseStarter(dex: number, answers?: number[]) {
+    return this.request<{ achievements: UnlockedAchievement[]; save: Save }>(
+      'POST',
+      '/api/save/starter',
+      answers ? { dex, answers } : { dex },
+    );
+  }
+  setMoves(dex: number, moves: { bindings?: (string | null)[]; bans?: string[] }) {
+    return this.request<Save>('PUT', `/api/save/moves/${dex}`, moves);
+  }
+  buyUpgrade(dex: number, upgradeId: string) {
+    return this.request<Save>('POST', '/api/save/upgrades', { dex, upgradeId });
+  }
+
+  // ---------------------------------------------------------------- gacha
+
+  gacha() {
+    return this.request<GachaInfo>('GET', '/api/gacha');
+  }
+  pull(banner: string, count: number, payWith: PayWith) {
+    return this.request<PullResponse>('POST', '/api/gacha/pull', { banner, count, payWith });
+  }
+
+  // ---------------------------------------------------------------- missions
+
+  missions() {
+    return this.request<Missions>('GET', '/api/missions');
+  }
+  claimMission(kind: 'daily' | 'weekly', index: number) {
+    return this.request<{ missions: Missions; achievements: UnlockedAchievement[]; save: Save }>(
+      'POST',
+      `/api/missions/${kind}/${index}/claim`,
+    );
+  }
+  rerollMission(index: number) {
+    return this.request<Missions>('POST', `/api/missions/daily/${index}/reroll`);
+  }
+
+  // ---------------------------------------------------------------- leaderboard
+
+  leaderboard(q: {
+    mode: LeaderboardMode;
+    period: LeaderboardPeriod;
+    friends?: boolean;
+    pokemon?: number;
+  }) {
+    const params = new URLSearchParams({ mode: q.mode, period: q.period });
+    if (q.friends) params.set('friends', 'true');
+    if (q.pokemon) params.set('pokemon', String(q.pokemon));
+    return this.request<Leaderboard>('GET', `/api/leaderboard?${params}`);
+  }
+
+  // ---------------------------------------------------------------- friends
+
+  friends() {
+    return this.request<FriendsList>('GET', '/api/friends');
+  }
+  addFriend(username: string) {
+    return this.request<{ status: 'pending' | 'accepted' }>('POST', '/api/friends/requests', {
+      username,
+    });
+  }
+  acceptFriend(username: string) {
+    return this.request<{ status: 'accepted' }>(
+      'POST',
+      `/api/friends/requests/${encodeURIComponent(username)}/accept`,
+    );
+  }
+  declineFriend(username: string) {
+    return this.request<void>(
+      'POST',
+      `/api/friends/requests/${encodeURIComponent(username)}/decline`,
+    );
+  }
+  removeFriend(username: string) {
+    return this.request<void>('DELETE', `/api/friends/${encodeURIComponent(username)}`);
+  }
+
+  // ---------------------------------------------------------------- solo runs
+
+  startRun(pokemon: PokemonRef) {
+    return this.request<{ runId: string; startedAt: string }>('POST', '/api/runs/start', {
+      pokemon,
+    });
+  }
+  reportRun(runId: string, summary: RunSummary) {
+    return this.request<RunReport>('POST', '/api/runs', { ...summary, runId });
+  }
+}

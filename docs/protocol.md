@@ -62,7 +62,7 @@ after 20 invalid messages the socket is closed with 4400.
 | `invite.decline {rid, roomId}`     | the owner gets `invite.declined`                                                                                                            |
 | `room.leave {rid}`                 | mid-run too: you leave the game and are credited for what you earned                                                                        |
 | `room.kick {rid, userId}`          | owner only                                                                                                                                  |
-| `room.status {rid, status}`        | `ready` / `not-ready` / `busy` (set `busy` in the gacha, shop or settings)                                                                  |
+| `room.status {rid, status}`        | `ready` / `not-ready` / `busy` (set `busy` in the gacha, shop, collection or settings)                                                      |
 | `room.start {rid}`                 | owner only, when every member is ready                                                                                                      |
 | `intent {rid, intent}`             | the sim's `Intent` (`pickCard`, `pickItem`, `pickBond`, `reroll`, `cycleSlot`, …)                                                           |
 
@@ -119,7 +119,7 @@ lobby ──room.start (owner; everyone ready)──▶ loading ──everyone l
 - **Members** (up to 4) join by accepting an invite. You can only invite friends who are online.
   If the owner leaves, the owner role passes to the next member who is still connected.
 - **Ready check.** The owner can start only when every member is `ready`, connected, and has a
-  partner. Clients set `busy` while in the gacha, shop or settings, so a member in the gacha
+  partner. Clients set `busy` while in the gacha, shop, collection or settings, so a member in the gacha
   blocks the start and everyone sees who it is. This fixes the legacy bug where the game
   started without them and still showed them as playing.
 - **Loadouts** come from each member's server save, never from the client: their partner (dex,

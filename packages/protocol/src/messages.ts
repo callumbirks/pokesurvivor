@@ -39,7 +39,7 @@ export const FINAL_CLOSE_CODES: readonly number[] = [
 ];
 
 export type PresenceStatus = 'offline' | 'online' | 'in_lobby' | 'in_game';
-/** `busy`: in the gacha, shop or settings. The owner can only start when everyone is `ready`. */
+/** `busy`: in the gacha, shop, collection or settings. The owner can only start when everyone is `ready`. */
 export type MemberStatus = 'ready' | 'not-ready' | 'busy';
 export type RoomPhase = 'lobby' | 'loading' | 'running' | 'ended';
 
