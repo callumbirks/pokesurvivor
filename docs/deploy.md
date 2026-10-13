@@ -23,12 +23,16 @@ In the Dokploy project: **Create Service → Database → PostgreSQL**.
 - **Build type:** `Dockerfile`, Dockerfile path `Dockerfile`, build context `.` (the repo root).
 - **Environment:**
 
-  | Variable           | Value                                   | Notes                                              |
-  | ------------------ | --------------------------------------- | -------------------------------------------------- |
-  | `DATABASE_URL`     | the internal connection URL from step 1 | required                                           |
-  | `PORT`             | `3000`                                  | optional, it's the default                         |
-  | `LOG_LEVEL`        | `info`                                  | optional                                           |
-  | `MIGRATE_ON_START` | `true`                                  | optional; migrations run on every start by default |
+  | Variable                | Value                                   | Notes                                                                     |
+  | ----------------------- | --------------------------------------- | ------------------------------------------------------------------------- |
+  | `DATABASE_URL`          | the internal connection URL from step 1 | required                                                                  |
+  | `PORT`                  | `3000`                                  | optional, it's the default                                                |
+  | `LOG_LEVEL`             | `info`                                  | optional                                                                  |
+  | `MIGRATE_ON_START`      | `true`                                  | optional; migrations run on every start by default                        |
+  | `LEADERBOARD_TIME_ZONE` | `Europe/Madrid`                         | optional; when daily/weekly leaderboards reset                            |
+  | `AUTH_RATE_LIMIT_MAX`   | `10`                                    | optional; login and register attempts per IP per minute                   |
+  | `ACTION_RATE_LIMIT_MAX` | `60`                                    | optional; run starts and friend requests per IP per minute                |
+  | `COOKIE_SECURE`         | `true`                                  | optional; defaults to true when `NODE_ENV=production` (the image sets it) |
 
   `NODE_ENV=production` is already set in the image.
 
