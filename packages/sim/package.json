@@ -9,9 +9,13 @@
   },
   "scripts": {
     "typecheck": "tsc && tsc -p test",
-    "test": "vitest run"
+    "test": "vitest run",
+    "bench": "tsx test/bench.ts"
   },
   "dependencies": {
     "@pokesurvivor/data": "workspace:*"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.15"
   }
 }
