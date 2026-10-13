@@ -467,8 +467,16 @@ select.field {
   animation: sprite-play var(--dur, 1s) steps(var(--frames, 1)) infinite;
 }
 @keyframes sprite-play {
+  /* Two layers when standing: the sheet steps, the ground shadow stays. */
+  from {
+    background-position:
+      0 0,
+      0 0;
+  }
   to {
-    background-position-x: var(--sheet-w);
+    background-position:
+      var(--sheet-w) 0,
+      0 0;
   }
 }
 .sprite.silhouette {
@@ -1756,14 +1764,14 @@ input[type='range']::-moz-range-thumb {
   .stage.big {
     width: 160px;
     min-height: 0;
-    padding: 4px 0;
+    padding: 4px 0 8px;
   }
   .stage.big .sprite {
     zoom: 0.55;
   }
   .stage {
     min-height: 0;
-    padding: 4px 0;
+    padding: 4px 0 8px;
   }
   /* Collection on a phone in landscape: list on the left, details on the right, both
      scrolling inside the screen (legacy did the same). */
@@ -1924,8 +1932,8 @@ canvas.backdrop {
   overflow: hidden;
 }
 .banner .feat {
-  /* Room under the feet line for tails and legs drawn below it. */
-  padding-bottom: 22px;
+  /* The lowest pixel (art or shadow) stands this far above the banner's edge. */
+  padding-bottom: 16px;
 }
 .banner .feat .sprite {
   flex-shrink: 0;
@@ -1946,4 +1954,9 @@ canvas.backdrop {
 }
 .menu-item.play:disabled small {
   color: var(--gold);
+}
+.filters .chip > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
 }

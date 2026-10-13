@@ -1,6 +1,14 @@
 // A minimal element builder for the game's overlays (choices, pause, results, toasts).
 import { iconImg } from '../icons.js';
-import { type SpriteBox, animMeta, fitScale, initSprites, sheetUrl } from '../sprites.js';
+import {
+  type SpriteBox,
+  animMeta,
+  initSprites,
+  shadowRadii,
+  shadowSizeOf,
+  sheetUrl,
+  spriteLayout,
+} from '../sprites.js';
 
 type Child = Node | string | number | null | undefined | false;
 
@@ -57,15 +65,30 @@ export function spriteEl(
     const anim = animMeta(dex, 'Idle', opts.shiny);
     const url = sheetUrl(dex, 'Idle', opts.shiny);
     if (!anim || !url) return;
-    // Giants scale down to the box, standing on its bottom edge (feet on the baseline).
-    const scale = fitScale(anim, opts.scale ?? 2, opts.fit);
-    const w = anim.width * scale;
-    const h = anim.height * scale;
+    // Giants scale down to the box; with a box it stands on the bottom edge (its lowest pixel,
+    // shadow included) with the game's ground shadow, as the menu sprites do.
+    const shadowSize = opts.fit ? (shadowSizeOf(dex) ?? 1) : null;
+    const lay = spriteLayout(anim, {
+      scale: opts.scale ?? 2,
+      box: opts.fit,
+      shadowSize,
+      feet: !!opts.fit,
+    });
+    const k = lay.scale;
+    const w = lay.width;
+    const h = lay.height;
     e.style.width = `${w}px`;
     e.style.height = `${h}px`;
-    if (opts.fit) e.style.marginBottom = `${-(anim.height - anim.anchorY) * scale}px`;
-    e.style.backgroundImage = `url("${url}")`;
-    e.style.backgroundSize = `${w * anim.frames}px ${h * anim.rows}px`;
+    if (opts.fit) e.style.marginBottom = `${lay.marginBottom}px`;
+    const sheet = `${w * anim.frames}px ${h * anim.rows}px`;
+    if (shadowSize !== null) {
+      const { rx, ry } = shadowRadii(shadowSize);
+      e.style.backgroundImage = `url("${url}"), radial-gradient(ellipse ${rx * k}px ${ry * k}px at ${anim.anchorX * k}px ${anim.anchorY * k}px, rgba(0, 0, 0, 0.34) 96%, transparent 100%)`;
+      e.style.backgroundSize = `${sheet}, 100% 100%`;
+    } else {
+      e.style.backgroundImage = `url("${url}")`;
+      e.style.backgroundSize = sheet;
+    }
     e.style.setProperty('--sheet-w', `-${w * anim.frames}px`);
     e.style.setProperty('--frames', String(anim.frames));
     // Durations are in 1/60 s ticks (SpriteCollab AnimData).
