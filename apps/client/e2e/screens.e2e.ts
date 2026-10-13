@@ -53,6 +53,8 @@ test('shop, moves, settings, solo and login again', async ({ page }) => {
   await page.goto('/#solo');
   await page.getByTestId('solo-start').click();
   await expect(page.getByTestId('screen-play')).toBeVisible();
+  // The connection starts the run on the server (POST /api/runs/start) before it runs.
+  await expect(page.getByTestId('game-phase')).toHaveText('running');
   await page.getByTestId('game-exit').click();
   await expect(page.getByTestId('screen-menu')).toBeVisible();
 

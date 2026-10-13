@@ -1,9 +1,9 @@
 // Stand-in for the phase 4a game client (`apps/client/src/game/`), with the agreed signatures:
 //   mountGame(el, conn, { onExit(results?) }) → { dispose() }
-//   createSoloConnection({ loadout, ... }) → RoomConnection
+//   createSoloConnection({ loadout, owned, username, api }) → RoomConnection
 // It acks loading, shows the run's phase and the results, and has a leave button. The solo
-// connection runs no simulation: it starts and ends without results. Delete this file when 4a
-// lands (see game.ts).
+// connection calls `api.startRun()` before the run starts but runs no simulation, so it never
+// ends on its own and never calls `api.reportRun`. Delete this file when 4a lands (see game.ts).
 import { t } from '@pokesurvivor/data';
 import {
   Emitter,
@@ -13,7 +13,9 @@ import {
   type RoomConnectionEvents,
   type RoomConnectionPhase,
 } from '@pokesurvivor/netclient';
+import type { RunSummary } from '@pokesurvivor/protocol';
 import type { PlayerConfig } from '@pokesurvivor/sim';
+import type { RunReport } from './api.js';
 import { h, replace } from './dom.js';
 
 export interface MountGameOptions {
@@ -31,6 +33,20 @@ export interface SoloOptions {
   /** Pokémon the player owns (a rescued one they own pays coins instead). */
   owned: readonly number[];
   username: string;
+  /** The server side of a solo run, bound to the player's session and partner by the shell. */
+  api: SoloApi;
+}
+
+/**
+ * Solo runs are simulated in the browser and credited by the server (`docs/api.md`, Runs). The
+ * connection owns this: `startRun` before the run starts (the server caps the results by the
+ * time since then), `reportRun` as soon as the sim ends, then it emits `results` with what was
+ * credited. Reporting lives next to the sim so a closed tab on the results screen still counts,
+ * and so checkpoints (phase 4c) can report from the same place.
+ */
+export interface SoloApi {
+  startRun(): Promise<{ runId: string; startedAt: string }>;
+  reportRun(runId: string, summary: RunSummary): Promise<RunReport>;
 }
 
 export function mountGame(
@@ -89,6 +105,7 @@ export function mountGame(
 export function createSoloConnection(opts: SoloOptions): RoomConnection {
   const emitter = new Emitter<RoomConnectionEvents>();
   let phase: RoomConnectionPhase = 'loading';
+  let loadedOnce = false;
   const setPhase = (p: RoomConnectionPhase) => {
     phase = p;
     emitter.emit('phase', p);
@@ -105,7 +122,16 @@ export function createSoloConnection(opts: SoloOptions): RoomConnection {
     serverSelf: null,
     unackedInputs: () => [],
     loaded() {
-      if (phase === 'loading') setTimeout(() => setPhase('running'), 0);
+      if (phase !== 'loading' || loadedOnce) return;
+      loadedOnce = true;
+      // The run starts once the server has recorded its start.
+      opts.api.startRun().then(
+        () => setPhase('running'),
+        (err: unknown) => {
+          console.error('startRun failed', err);
+          setPhase('ended');
+        },
+      );
     },
     sendInput: () => 0,
     startInputLoop: () => () => {},

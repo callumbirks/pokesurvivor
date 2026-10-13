@@ -45,9 +45,15 @@ fn)` (spinner on the button, toast on error), loads through `loadInto(el, load, 
 - When a game loads (`game.loading`, or `game.start` after a reload) the app opens `#play`,
   which calls `mountGame(el, conn, { onExit })` and shows who has loaded until the deadline.
   Quitting mid-run leaves the room (the server credits what was earned).
-- **Solo** (`#solo`): `POST /api/runs/start`, then `createSoloConnection({ loadout, owned,
-username })` with the loadout built from the save as the server builds coop ones, then
-  `mountGame`. On exit with results, the run's `RunSummary` is reported to `POST /api/runs`.
+- **Solo** (`#solo`): the shell builds the loadout from the save (as the server builds coop
+  ones) and calls `createSoloConnection({ loadout, owned, username, api })`, then `mountGame`.
+  `api` (`SoloApi`) is `startRun()` and `reportRun(runId, summary)`, bound to the player's
+  session and partner (they also update the save, toast unlocked achievements and errors). The
+  **connection** owns the run on the server: it calls `startRun` before the run starts and
+  `reportRun` as soon as the sim ends, then emits `results` with what was credited, so the
+  results screen shows it and a tab closed on that screen still counts (phase 4c's checkpoints
+  report from the same place). `onExit(results?)` only goes back to the menu and refreshes the
+  save.
 
 ## Tests
 

@@ -47,8 +47,6 @@ export interface Route {
 export interface GameSession {
   conn: RoomConnection;
   kind: 'coop' | 'solo';
-  /** Solo: the run id from `POST /api/runs/start`, to report the results to. */
-  runId?: string;
 }
 
 export interface AppEvents extends Record<string, unknown> {
@@ -363,7 +361,10 @@ export class App {
     else this.go('play');
   }
 
-  /** The play screen calls this when the player leaves the run or closes its results. */
+  /**
+   * The play screen calls this when the player leaves the run or closes its results: back to
+   * the lobby (coop, still in the room) or the menu, with the save refreshed.
+   */
   endGame(): void {
     const kind = this.game?.kind;
     this.game = null;

@@ -1,12 +1,11 @@
 // The play screen hosts a run: it hands the RoomConnection to the game client (`mountGame`),
 // shows the coop loading countdown over it (who has loaded, until the server's deadline), and
-// on exit reports a solo run's results or leaves a coop game that's still running.
+// on exit goes back (leaving a coop game that's still running). Solo runs report themselves.
 import { t } from '@pokesurvivor/data';
-import type { Results } from '@pokesurvivor/netclient';
 import type { App, Screen } from '../app/app.js';
 import { mountGame } from '../app/game.js';
 import { h, replace } from '../app/dom.js';
-import { toast, toastError } from '../app/toast.js';
+import { toast } from '../app/toast.js';
 
 export function playScreen(app: App): Screen {
   const session = app.game;
@@ -18,21 +17,11 @@ export function playScreen(app: App): Screen {
   el.append(stage, loading);
   let exited = false;
 
-  const exit = (results?: Results) => {
+  const exit = () => {
     if (exited) return;
     exited = true;
-    if (session.kind === 'solo') {
-      const run = results?.players.find((p) => p.userId === conn.selfId)?.summary.run;
-      if (run && session.runId) {
-        void app.api.reportRun(session.runId, run).then(
-          (res) => {
-            app.setSave(res.save);
-            app.achievements(res.achievements);
-          },
-          (err: unknown) => toastError(err),
-        );
-      }
-    } else if (conn.phase !== 'ended' && app.net?.roomView) {
+    // Solo runs are reported by their connection when the sim ends, not here.
+    if (session.kind === 'coop' && conn.phase !== 'ended' && app.net?.roomView) {
       // Quitting a coop run mid-game: leave the room (the server credits what was earned).
       void app.net.leaveRoom().catch(() => {});
       toast(t('app.leftTheGame'));
