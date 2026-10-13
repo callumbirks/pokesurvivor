@@ -99,6 +99,8 @@ test('two players: invite, ready, busy blocks the start, then both play', async 
   await pa.getByTestId('game-exit').click();
   await expect(pb.getByTestId('toasts')).toContainText(`${b} now owns the room`);
   await expect(pb.getByTestId('toasts')).toContainText(`${a} left the game`);
+  if (process.env.E2E_SHOTS)
+    await pb.screenshot({ path: `${process.env.E2E_SHOTS}/game-notices.png` });
   // The shell's toasts ("… is the room host now", "… left") stay quiet.
   await pb.waitForTimeout(500);
   await expect(pb.locator('.toasts')).not.toContainText('host now');
