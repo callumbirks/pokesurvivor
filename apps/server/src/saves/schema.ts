@@ -5,9 +5,12 @@ import { z } from 'zod';
  * `newSave()`). Balances and the partner live in typed columns instead. Bump
  * `SAVE_DATA_VERSION` and add a step to `migrateSaveData` when the layout changes.
  */
-export const SAVE_DATA_VERSION = 1;
+export const SAVE_DATA_VERSION = 2;
 
-/** National dex number. Checked against the pokedex once `packages/data` has it. */
+/**
+ * National dex number. Stored saves only check the range, so a Pokémon removed from the data
+ * doesn't make saves unreadable; request bodies use `knownDexSchema` (`data.ts`) instead.
+ */
 export const dexSchema = z.number().int().min(1).max(9999);
 /** JSON object keys are strings, so dex-keyed records use the dex number as a string. */
 const dexKey = z.string().regex(/^[1-9]\d{0,3}$/);
@@ -39,15 +42,30 @@ export const statsSchema = z.object({
 export type Stats = z.infer<typeof statsSchema>;
 
 const missionSchema = z.object({
+  /** Mission template id in `missions.json`. */
   id: z.string().max(64),
+  /** The goal rolled from the template's `goals`. */
+  goal: z.number().int().positive(),
+  /** The Pokémon type rolled for templates with `param: "type"`, else null. */
+  param: z.string().max(16).nullable(),
   progress: z.number().nonnegative(),
   claimed: z.boolean(),
 });
+export type MissionState = z.infer<typeof missionSchema>;
+
 const missionSetSchema = z.object({
   /** The day (`2026-10-13`) or ISO week (`2026-W42`) the missions belong to. */
   period: z.string().max(16).nullable(),
+  /** Whether a mission was swapped this period (once a day, dailies only). */
+  rerolled: z.boolean(),
   missions: z.array(missionSchema).max(16),
 });
+export type MissionSet = z.infer<typeof missionSetSchema>;
+
+/** Up to 4 move slots; each holds a move id or null (legacy `pbind`). */
+export const MOVE_SLOTS = 4;
+/** Most moves a Pokémon can ban (the `ban` upgrade's max level decides how many are usable). */
+export const MAX_MOVE_BANS = 3;
 
 export const MAX_FAVOURITES = 3;
 
@@ -82,10 +100,21 @@ export type Settings = z.infer<typeof settingsSchema>;
 export const saveDataSchema = z.object({
   owned: z.record(dexKey, acquisitionSchema),
   shiny: z.record(dexKey, acquisitionSchema),
-  /** The Pokémon the personality test gave, if it has been taken. */
+  /** The starter chosen after the personality test (or picked directly). */
   starter: dexSchema.nullable(),
+  /** The personality test result, if it was taken: top trait and points per trait. */
+  personality: z
+    .object({
+      trait: z.string().max(32),
+      scores: z.record(z.string().max(32), z.number().int().nonnegative()),
+    })
+    .nullable(),
   /** dex -> upgrade id -> level bought. */
   upgrades: z.record(dexKey, z.record(z.string().max(32), z.number().int().nonnegative())),
+  /** dex -> move id fixed in each of the 4 slots, or null (legacy `pbind`). */
+  moveBindings: z.record(dexKey, z.array(z.string().max(32).nullable()).length(MOVE_SLOTS)),
+  /** dex -> moves that never show up in level-up cards (legacy `pban`, `ban` upgrade). */
+  moveBans: z.record(dexKey, z.array(z.string().max(32)).max(MAX_MOVE_BANS)),
   /** Gacha banner id -> pulls since the last 5★. */
   pity: z.record(z.string().max(32), z.number().int().nonnegative()),
   stats: statsSchema,
@@ -117,7 +146,10 @@ export function newSaveData(): SaveData {
     owned: {},
     shiny: {},
     starter: null,
+    personality: null,
     upgrades: {},
+    moveBindings: {},
+    moveBans: {},
     pity: {},
     stats: {
       runs: 0,
@@ -140,11 +172,45 @@ export function newSaveData(): SaveData {
     itemsFound: {},
     movesEvolved: {},
     missions: {
-      daily: { period: null, missions: [] },
-      weekly: { period: null, missions: [] },
+      daily: { period: null, rerolled: false, missions: [] },
+      weekly: { period: null, rerolled: false, missions: [] },
     },
     profile: { favourites: [], title: null },
     settings: { ...DEFAULT_SETTINGS },
+  };
+}
+
+/** Legacy upgrade ids (used by save version 1) -> the ids in `upgrades.json`. */
+const V1_UPGRADE_IDS: Record<string, string> = {
+  hp: 'max-hp',
+  atk: 'attack',
+  spd: 'speed',
+  cd: 'cooldown',
+  def: 'defense',
+  xp: 'experience',
+  moves: 'extra-move',
+};
+
+/**
+ * Version 1 -> 2: upgrade ids switch to the `upgrades.json` ids; missions gain a rolled goal and
+ * type (v1 never rolled any, so they reset); personality, move bindings and bans are added.
+ */
+function migrateV1(data: Record<string, unknown>): Record<string, unknown> {
+  const upgrades = (data.upgrades ?? {}) as Record<string, Record<string, number>>;
+  const renamed = Object.fromEntries(
+    Object.entries(upgrades).map(([dex, levels]) => [
+      dex,
+      Object.fromEntries(Object.entries(levels).map(([id, l]) => [V1_UPGRADE_IDS[id] ?? id, l])),
+    ]),
+  );
+  const fresh = newSaveData();
+  return {
+    ...data,
+    upgrades: renamed,
+    personality: null,
+    moveBindings: {},
+    moveBans: {},
+    missions: fresh.missions,
   };
 }
 
@@ -152,6 +218,7 @@ export function newSaveData(): SaveData {
 export function migrateSaveData(version: number, data: unknown): SaveData {
   if (version > SAVE_DATA_VERSION)
     throw new Error(`Save data version ${version} is newer than this server`);
-  // No migrations yet: version 1 is the first layout.
-  return saveDataSchema.parse(data);
+  let current = data as Record<string, unknown>;
+  if (version < 2) current = migrateV1(current);
+  return saveDataSchema.parse(current);
 }

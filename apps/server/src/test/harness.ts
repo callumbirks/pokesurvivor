@@ -141,7 +141,7 @@ export class TestClient {
   }
 }
 
-/** Gives a user Pokémon directly (there is no gacha or starter endpoint yet). */
+/** Gives a user Pokémon directly, skipping the starter, gacha and achievements. */
 export async function grantPokemon(
   db: Db,
   userId: string,
