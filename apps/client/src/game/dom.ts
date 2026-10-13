@@ -1,5 +1,6 @@
 // A minimal element builder for the game's overlays (choices, pause, results, toasts).
 import { iconImg } from '../icons.js';
+import { animMeta, initSprites, sheetUrl } from '../sprites.js';
 
 type Child = Node | string | number | null | undefined | false;
 
@@ -40,4 +41,31 @@ export const icon = (name: string, size = 20): HTMLImageElement => iconImg(name,
 
 export function clear(e: HTMLElement): void {
   while (e.firstChild) e.firstChild.remove();
+}
+
+/**
+ * A Pokémon playing its idle animation (facing down), scaled without smoothing: the sheet as a CSS
+ * background stepped through its frames (legacy ui.js `spriteCanvas(…, { lively })`). Fills in
+ * once the sprite manifest is loaded.
+ */
+export function spriteEl(dex: number, opts: { shiny?: boolean; scale?: number } = {}): HTMLElement {
+  const e = el('span', { class: 'ps-sprite', data: { dex: String(dex) } });
+  const paint = () => {
+    const anim = animMeta(dex, 'Idle', opts.shiny);
+    const url = sheetUrl(dex, 'Idle', opts.shiny);
+    if (!anim || !url) return;
+    const scale = opts.scale ?? 2;
+    const w = anim.width * scale;
+    const h = anim.height * scale;
+    e.style.width = `${w}px`;
+    e.style.height = `${h}px`;
+    e.style.backgroundImage = `url("${url}")`;
+    e.style.backgroundSize = `${w * anim.frames}px ${h * anim.rows}px`;
+    e.style.setProperty('--sheet-w', `-${w * anim.frames}px`);
+    e.style.setProperty('--frames', String(anim.frames));
+    // Durations are in 1/60 s ticks (SpriteCollab AnimData).
+    e.style.setProperty('--dur', `${anim.durations.reduce((a, b) => a + b, 0) / 60}s`);
+  };
+  void initSprites().then(paint);
+  return e;
 }

@@ -176,7 +176,7 @@ export class ChoiceOverlay {
             {
               class: 'btn small ghost',
               type: 'button',
-              data: { testid: 'reroll' },
+              data: { testid: 'reroll', sfx: 'none' },
               on: {
                 click: () => {
                   if (this.state.reroll()) audio.sfx('select');

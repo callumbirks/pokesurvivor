@@ -21,12 +21,15 @@ if (play) {
     void import('./debug-sim.js').then((m) => m.startDebugSim(canvas, ctx));
   else void import('./debug-net.js').then((m) => m.startDebugNet(canvas, ctx));
 } else {
-  void Promise.all([import('./app/app.js'), import('./screens/index.js')]).then(
-    ([{ App }, { routes }]) => {
-      const root = document.querySelector<HTMLElement>('#app');
-      if (!root) throw new Error('#app is missing');
-      const app = new App(root, routes);
-      void app.boot();
-    },
-  );
+  void Promise.all([
+    import('./app/app.js'),
+    import('./screens/index.js'),
+    import('./app/ui-sounds.js'),
+  ]).then(([{ App }, { routes }, { wireUiSounds }]) => {
+    const root = document.querySelector<HTMLElement>('#app');
+    if (!root) throw new Error('#app is missing');
+    wireUiSounds();
+    const app = new App(root, routes);
+    void app.boot();
+  });
 }

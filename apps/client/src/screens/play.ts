@@ -6,6 +6,7 @@ import type { App, Screen } from '../app/app.js';
 import { mountGame } from '../app/game.js';
 import { h, replace } from '../app/dom.js';
 import { toast } from '../app/toast.js';
+import { settingsScreen } from './settings.js';
 
 export function playScreen(app: App): Screen {
   const session = app.game;
@@ -29,7 +30,30 @@ export function playScreen(app: App): Screen {
     app.endGame();
   };
 
-  const handle = mountGame(stage, conn, { onExit: exit });
+  // The pause menu's "Settings": the settings screen over the game, without leaving the route
+  // (that would end the run). The room status isn't touched: busy only counts in the lobby.
+  const openSettings = (onClose: () => void) => {
+    let closed = false;
+    const close = () => {
+      if (closed) return;
+      closed = true;
+      view.destroy?.();
+      view.el.remove();
+    };
+    const view = settingsScreen(app, undefined, {
+      onBack: () => {
+        close();
+        onClose();
+      },
+    });
+    view.el.classList.add('over-game');
+    el.append(view.el);
+    return close;
+  };
+
+  // Coop: the game gets the socket and shows room notices itself (the shell then doesn't).
+  const client = session.kind === 'coop' ? (app.net ?? undefined) : undefined;
+  const handle = mountGame(stage, conn, { onExit: exit, openSettings, client });
 
   // Coop loading: the server waits for everyone's `game.loaded` until the deadline.
   let timer: ReturnType<typeof setInterval> | null = null;

@@ -166,7 +166,8 @@
     "noticeDropped": "{0} could not load in time",
     "music": "Music",
     "sounds": "Sounds",
-    "mute": "Mute"
+    "mute": "Mute",
+    "newShiny": "new!"
   },
   "login": {
     "mysteryDungeon": "Mystery Dungeon",

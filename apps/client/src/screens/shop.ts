@@ -1,6 +1,7 @@
 // The shop: permanent upgrades per Pokémon, bought with coins (legacy "Upgrades"). Levels and
 // prices come from the server (`GET /api/upgrades`); buying returns the updated save.
 import { t } from '@pokesurvivor/data';
+import { audio } from '../audio.js';
 import type { App, Screen } from '../app/app.js';
 import { gameData, h, num, pokemonName, replace, sprite, typeColor } from '../app/dom.js';
 import { loadInto, screenBox } from './common.js';
@@ -93,13 +94,14 @@ export function shopScreen(app: App): Screen {
           {
             class: ['btn', 'small', !maxed && 'gold'],
             disabled: maxed || s.coins < cost,
-            dataset: { testid: `buy-${u.id}` },
+            dataset: { testid: `buy-${u.id}`, sfx: 'none' },
           },
           maxed ? t('upgrades.max') : [h('span', { class: 'coin' }), ` ${num(cost)}`],
         );
         buy.addEventListener('click', () => {
           void app.act(buy, async () => {
             app.setSave(await app.api.buyUpgrade(dex, u.id));
+            audio.sfx('buy');
           });
         });
         return h(

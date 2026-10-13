@@ -47,6 +47,8 @@ export type SimEvent =
       /** The shield absorbed it all. */
       shielded: boolean;
       byPlayer: PlayerId | null;
+      /** The attack's type (a move's, or burn / poison), for the number's colour; null: untyped. */
+      moveType: PokemonType | null;
     }
   | {
       type: 'enemy-died';
