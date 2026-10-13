@@ -2,6 +2,7 @@
 // the zod schemas on first use, plus derived lookup maps. Works in Node and the browser.
 import achievementsJson from '../json/achievements.json' with { type: 'json' };
 import biomesJson from '../json/biomes.json' with { type: 'json' };
+import bodiesJson from '../json/bodies.json' with { type: 'json' };
 import enemiesJson from '../json/enemies.json' with { type: 'json' };
 import gachaJson from '../json/gacha.json' with { type: 'json' };
 import itemsJson from '../json/items.json' with { type: 'json' };
@@ -19,6 +20,7 @@ import worldJson from '../json/world.json' with { type: 'json' };
 import {
   AchievementsFileSchema,
   BiomesFileSchema,
+  BodiesFileSchema,
   EnemiesFileSchema,
   GachaFileSchema,
   ItemsFileSchema,
@@ -36,6 +38,7 @@ import {
   type Achievement,
   type AchievementsFile,
   type BiomesFile,
+  type Body,
   type EnemiesFile,
   type GachaFile,
   type Item,
@@ -71,6 +74,7 @@ export * from './schemas/index.js';
 export const rawData = {
   achievements: achievementsJson,
   biomes: biomesJson,
+  bodies: bodiesJson,
   enemies: enemiesJson,
   gacha: gachaJson,
   items: itemsJson,
@@ -91,6 +95,7 @@ export const rawData = {
 export const dataSchemas = {
   achievements: AchievementsFileSchema,
   biomes: BiomesFileSchema,
+  bodies: BodiesFileSchema,
   enemies: EnemiesFileSchema,
   gacha: GachaFileSchema,
   items: ItemsFileSchema,
@@ -123,6 +128,8 @@ export interface GameData {
   music: MusicFile;
   gacha: GachaFile;
   biomes: BiomesFile;
+  /** Collision size, hovering and shiny availability per Pokémon (derived from the sprites). */
+  bodies: readonly Body[];
   world: WorldFile;
   weather: WeatherFile;
   tuning: TuningFile;
@@ -138,6 +145,7 @@ export interface GameData {
   statCardById: ReadonlyMap<string, StatCard>;
   missionById: ReadonlyMap<string, Mission>;
   achievementById: ReadonlyMap<string, Achievement>;
+  bodyByDex: ReadonlyMap<number, Body>;
 }
 
 function parse<K extends keyof typeof rawData>(key: K): z.infer<(typeof dataSchemas)[K]> {
@@ -158,6 +166,7 @@ export function loadGameData(): GameData {
   const levelUp = parse('levelup');
   const missions = parse('missions');
   const achievements = parse('achievements');
+  const { bodies } = parse('bodies');
 
   const movesByType = new Map<PokemonType, Move[]>();
   for (const move of moves.moves) {
@@ -180,6 +189,7 @@ export function loadGameData(): GameData {
     music: parse('music'),
     gacha: parse('gacha'),
     biomes: parse('biomes'),
+    bodies,
     world: parse('world'),
     weather: parse('weather'),
     tuning: parse('tuning'),
@@ -194,6 +204,7 @@ export function loadGameData(): GameData {
     statCardById: indexBy(levelUp.statCards, (c) => c.id, 'level-up card id'),
     missionById: indexBy([...missions.daily, ...missions.weekly], (m) => m.id, 'mission id'),
     achievementById: indexBy(achievements.achievements, (a) => a.id, 'achievement id'),
+    bodyByDex: indexBy(bodies, (b) => b.dex, 'body dex'),
   };
   return gameData;
 }

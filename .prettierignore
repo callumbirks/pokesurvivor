@@ -6,3 +6,4 @@ apps/server/drizzle/meta/
 CREDITS.md
 packages/data/json/pokedex.json
 packages/data/json/sprites.json
+packages/data/json/bodies.json

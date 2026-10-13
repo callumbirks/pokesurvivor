@@ -10,14 +10,17 @@ before larger changes.
 - `packages/data` — game data (`json/`), zod schemas, and UI strings (`i18n/en.json`); see its
   README. The JSON is the source of truth (generated once from legacy by `tools/legacy-data`).
 - `packages/sim` — headless simulation (world, entities, combat, …). Runs in Node and in a Web
-  Worker. **No DOM, Canvas, Audio or browser globals** (ESLint enforces the globals).
+  Worker. **No DOM, Canvas, Audio or browser globals, and deterministic**: randomness only from
+  the seeded RNG in its state, time only from its fixed tick (ESLint enforces both). See its
+  README for the API, state, events and netcode notes; `/?debug-sim` in `pnpm dev` draws it.
 - `packages/protocol` — client/server message types, encoding, `PROTOCOL_VERSION`.
 - `apps/server` — Fastify HTTP API, WebSocket game server (`/ws`), Postgres via Drizzle.
   Also serves the built client at `/` and `legacy/` at `/legacy/`.
 - `apps/client` — Vite + Canvas 2D client.
 - `assets/` — sprites (`assets/pokemon/{dex}/`), served at `/sprites/` and, for legacy,
   `/legacy/assets/pokemon/`. The manifest is `packages/data/json/sprites.json`; regenerate it
-  (`pnpm --filter @pokesurvivor/tools convert-legacy-data --only sprites.json`) if sprites change.
+  (`pnpm --filter @pokesurvivor/tools convert-legacy-data --only sprites.json,bodies.json`) if
+  sprites change (`bodies.json` holds the collision sizes the sim derives from them).
 - `tools/` — one-off scripts (legacy data conversion, UI string seeding).
 - `legacy/` — the original vanilla-JS game. **Read-only reference**: don't edit it (except to
   keep it servable) and don't import from it. Its own `CLAUDE.md`/README describe the old
@@ -38,6 +41,7 @@ pnpm lint                # ESLint + Prettier check; `pnpm format` fixes formatti
 pnpm typecheck
 pnpm test
 pnpm build
+pnpm --filter @pokesurvivor/sim bench   # sim tick times (4 players, late game, stress)
 pnpm db:generate --name <change>   # after editing apps/server/src/db/schema.ts
 pnpm db:migrate                    # also runs automatically on server start
 docker build .

@@ -15,6 +15,7 @@ import { join, resolve } from 'node:path';
 import {
   AchievementsFileSchema,
   BiomesFileSchema,
+  BodiesFileSchema,
   EnemiesFileSchema,
   GachaFileSchema,
   ItemsFileSchema,
@@ -89,8 +90,8 @@ function emit(file: string, schema: z.ZodType, data: unknown, compact?: { arrayK
         const lines = (rows: unknown[]) => rows.map((r) => '  ' + JSON.stringify(r)).join(',\n');
         if (compact.arrayKey) {
           const { [compact.arrayKey]: rows, ...rest } = data as Record<string, unknown[]>;
-          const head = JSON.stringify(rest).slice(0, -1);
-          text = `${head},"${compact.arrayKey}":[\n${lines(rows ?? [])}\n]}\n`;
+          const head = JSON.stringify(rest).slice(0, -1) + (Object.keys(rest).length ? ',' : '');
+          text = `${head}"${compact.arrayKey}":[\n${lines(rows ?? [])}\n]}\n`;
         } else text = `[\n${lines(data as unknown[])}\n]\n`;
       } else
         text = await format(JSON.stringify(data), {
@@ -210,6 +211,24 @@ const sprites = {
   }),
 };
 emit('sprites.json', SpriteManifestSchema, sprites, { arrayKey: 'pokemon' });
+
+// The sim's view of the sprites: collision radius, height, hovering and shiny (legacy
+// Sprites.bodyRadius / bodyHeight, measured on the Idle sheet, falling back to Walk).
+const bodies = {
+  bodies: sprites.pokemon.map((p) => {
+    const idle = p.animations.Idle ?? p.animations.Walk;
+    const width = idle?.width ?? 32;
+    const anchorY = idle?.anchorY ?? 24;
+    return {
+      dex: p.dex,
+      radius: Math.min(26, Math.max(5, width * 0.22)) * 2,
+      height: anchorY * 2,
+      hovers: p.hovers,
+      shiny: p.shiny,
+    };
+  }),
+};
+emit('bodies.json', BodiesFileSchema, bodies, { arrayKey: 'bodies' });
 
 // ---------------------------------------------------------------- types
 

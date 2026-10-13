@@ -62,6 +62,22 @@ describe('sprite manifest', () => {
     ).toEqual([]);
   });
 
+  it('agrees with bodies.json (the sizes the sim uses)', () => {
+    const { bodyByDex } = loadGameData();
+    expect(bodyByDex.size).toBe(manifest.pokemon.length);
+    for (const p of manifest.pokemon) {
+      const idle = p.animations.Idle ?? p.animations.Walk;
+      const body = bodyByDex.get(p.dex);
+      expect(body, `${p.dex}`).toEqual({
+        dex: p.dex,
+        radius: Math.min(26, Math.max(5, (idle?.width ?? 32) * 0.22)) * 2,
+        height: (idle?.anchorY ?? 24) * 2,
+        hovers: p.hovers,
+        shiny: p.shiny,
+      });
+    }
+  });
+
   it('builds cache-busting URLs', () => {
     const pikachu = manifest.byDex.get(25)!;
     expect(spriteUrl(manifest, pikachu, 'Walk', true)).toBe(
