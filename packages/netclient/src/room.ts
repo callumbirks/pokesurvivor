@@ -56,6 +56,8 @@ export interface RoomConnection {
   now?(): number;
   /** Solo only: stop or resume the run (multiplayer runs never pause for one player). */
   setPaused?(paused: boolean): void;
+  /** Solo only: give up the run (it ends and is reported). Multiplayer leaves the room instead. */
+  quit?(): void;
   on<K extends keyof RoomConnectionEvents>(
     event: K,
     handler: (payload: RoomConnectionEvents[K]) => void,
