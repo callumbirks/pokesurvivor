@@ -73,7 +73,8 @@ export function clearWeather(ctx: Ctx): void {
   emit(ctx, { type: 'weather', kind: null, seconds: 0 });
 }
 
-function pick(ctx: Ctx, biome: number): WeatherId {
+/** A weather for this run biome, by its weights. */
+export function pickWeather(ctx: Ctx, biome: number): WeatherId {
   const all = ctx.d.game.weather.biomeWeights;
   const w = all[biome % all.length] ?? {};
   const entries = Object.entries(w) as [WeatherId, number][];
@@ -101,7 +102,7 @@ export function updateWeather(ctx: Ctx): void {
       w.checkT = data.checkEvery;
       if (rand() < data.chance) {
         const [lo, hi] = data.durationRange;
-        startWeather(ctx, pick(ctx, s.world.biome), Math.round(rand.range(lo, hi)));
+        startWeather(ctx, pickWeather(ctx, s.world.biome), Math.round(rand.range(lo, hi)));
       }
     }
   }

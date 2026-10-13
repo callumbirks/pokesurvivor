@@ -47,6 +47,28 @@ describe('determinism', () => {
     expect(a.hash()).not.toBe(b.hash());
   });
 
+  it('restores mid-arena with an event, a thief, weather and a rift schedule running', () => {
+    const a = createSim(config(8));
+    drive(a, 900);
+    a.debugStartEvent('lost');
+    a.debugStartEvent('thief');
+    a.debugStartWeather('snow', 40);
+    drive(a, 300);
+    a.debugStartArena('fire');
+    drive(a, 200);
+    expect(a.state.arena).not.toBeNull();
+    const snap = JSON.parse(JSON.stringify(a.state)) as SimState;
+    // Plain JSON: nothing lost on the way (no Infinity, Maps, classes or undefined-only keys).
+    expect(snap).toEqual(a.state);
+    const b = restoreSim(snap);
+    expect(b.hash()).toBe(a.hash());
+    // Through the end of the fight (time limit at worst) and back to the map.
+    drive(a, 4200);
+    drive(b, 4200);
+    expect(a.state.arena).toBeNull();
+    expect(b.hash()).toBe(a.hash());
+  });
+
   it('a JSON snapshot restores into a sim that continues identically', () => {
     const a = createSim(config(5));
     drive(a, 2000);
