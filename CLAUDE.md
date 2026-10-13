@@ -13,10 +13,18 @@ before larger changes.
   Worker. **No DOM, Canvas, Audio or browser globals, and deterministic**: randomness only from
   the seeded RNG in its state, time only from its fixed tick (ESLint enforces both). See its
   README for the API, state, events and netcode notes; `/?debug-sim` in `pnpm dev` draws it.
-- `packages/protocol` — client/server message types, encoding, `PROTOCOL_VERSION`.
-- `apps/server` — Fastify HTTP API, WebSocket game server (`/ws`), Postgres via Drizzle.
+- `packages/protocol` — client/server message types and validation, the delta-table snapshot
+  codec, `PROTOCOL_VERSION`. Sim-agnostic: game payloads are generic. See `docs/protocol.md`.
+- `packages/netclient` — the client side of the protocol (DOM-free: browser and Node bots):
+  `NetClient`, `RoomConnection`, the snapshot buffer, and the sim → snapshot projection that the
+  server shares (`SnapshotEncoder`).
+- `apps/server` — Fastify HTTP API, WebSocket game server (`/ws`, `src/game/`: sessions,
+  presence, rooms, the authoritative loop), Postgres via Drizzle. `src/test/bots.ts` is the bot
+  harness for game tests.
   Also serves the built client at `/` and `legacy/` at `/legacy/`.
-- `apps/client` — Vite + Canvas 2D client.
+- `apps/client` — Vite + Canvas 2D client. Dev-only views: `/?debug-sim` (sim locally) and
+  `/?debug-net` (log in, rooms, play over the network; use a private window or `127.0.0.1` for a
+  second account).
 - `assets/` — sprites (`assets/pokemon/{dex}/`), served at `/sprites/` and, for legacy,
   `/legacy/assets/pokemon/`. The manifest is `packages/data/json/sprites.json`; regenerate it
   (`pnpm --filter @pokesurvivor/tools convert-legacy-data --only sprites.json,bodies.json`) if
@@ -49,7 +57,8 @@ docker build .
 
 Run `pnpm lint && pnpm typecheck && pnpm test` before committing. The server tests need Postgres
 (`docker compose up -d`, or `DATABASE_URL`); each test file creates and drops its own database.
-The HTTP API is documented in `docs/api.md`; keep it in sync.
+The HTTP API is documented in `docs/api.md` and the WebSocket protocol in `docs/protocol.md`;
+keep them in sync. `pnpm --filter @pokesurvivor/netclient bandwidth` measures snapshot bandwidth.
 
 ## Conventions
 

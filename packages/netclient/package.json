@@ -1,0 +1,22 @@
+{
+  "name": "@pokesurvivor/netclient",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Client networking (DOM-free: browser and Node bots) and the snapshot projection shared with the server.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc && tsc -p test",
+    "test": "vitest run",
+    "bandwidth": "tsx test/bandwidth.ts"
+  },
+  "dependencies": {
+    "@pokesurvivor/protocol": "workspace:*",
+    "@pokesurvivor/sim": "workspace:*"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.15"
+  }
+}

@@ -41,6 +41,9 @@ importers:
       '@pokesurvivor/data':
         specifier: workspace:*
         version: link:../../packages/data
+      '@pokesurvivor/netclient':
+        specifier: workspace:*
+        version: link:../../packages/netclient
       '@pokesurvivor/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
@@ -84,6 +87,9 @@ importers:
       '@pokesurvivor/data':
         specifier: workspace:*
         version: link:../../packages/data
+      '@pokesurvivor/netclient':
+        specifier: workspace:*
+        version: link:../../packages/netclient
       '@pokesurvivor/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
@@ -102,12 +108,28 @@ importers:
       tsx:
         specifier: ^4.23.15
         version: 4.23.15
+      ws:
+        specifier: ^8.18.3
+        version: 8.22.0
 
   packages/data:
     dependencies:
       zod:
         specifier: ^4.6.6
         version: 4.6.6
+
+  packages/netclient:
+    dependencies:
+      '@pokesurvivor/protocol':
+        specifier: workspace:*
+        version: link:../protocol
+      '@pokesurvivor/sim':
+        specifier: workspace:*
+        version: link:../sim
+    devDependencies:
+      tsx:
+        specifier: ^4.23.15
+        version: 4.23.15
 
   packages/protocol: {}
 

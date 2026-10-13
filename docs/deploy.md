@@ -23,16 +23,21 @@ In the Dokploy project: **Create Service → Database → PostgreSQL**.
 - **Build type:** `Dockerfile`, Dockerfile path `Dockerfile`, build context `.` (the repo root).
 - **Environment:**
 
-  | Variable                | Value                                   | Notes                                                                     |
-  | ----------------------- | --------------------------------------- | ------------------------------------------------------------------------- |
-  | `DATABASE_URL`          | the internal connection URL from step 1 | required                                                                  |
-  | `PORT`                  | `3000`                                  | optional, it's the default                                                |
-  | `LOG_LEVEL`             | `info`                                  | optional                                                                  |
-  | `MIGRATE_ON_START`      | `true`                                  | optional; migrations run on every start by default                        |
-  | `LEADERBOARD_TIME_ZONE` | `Europe/Madrid`                         | optional; when daily/weekly leaderboards reset                            |
-  | `AUTH_RATE_LIMIT_MAX`   | `10`                                    | optional; login and register attempts per IP per minute                   |
-  | `ACTION_RATE_LIMIT_MAX` | `60`                                    | optional; run starts and friend requests per IP per minute                |
-  | `COOKIE_SECURE`         | `true`                                  | optional; defaults to true when `NODE_ENV=production` (the image sets it) |
+  | Variable                | Value                                   | Notes                                                                      |
+  | ----------------------- | --------------------------------------- | -------------------------------------------------------------------------- |
+  | `DATABASE_URL`          | the internal connection URL from step 1 | required                                                                   |
+  | `PORT`                  | `3000`                                  | optional, it's the default                                                 |
+  | `LOG_LEVEL`             | `info`                                  | optional                                                                   |
+  | `MIGRATE_ON_START`      | `true`                                  | optional; migrations run on every start by default                         |
+  | `LEADERBOARD_TIME_ZONE` | `Europe/Madrid`                         | optional; when daily/weekly leaderboards reset                             |
+  | `AUTH_RATE_LIMIT_MAX`   | `10`                                    | optional; login and register attempts per IP per minute                    |
+  | `ACTION_RATE_LIMIT_MAX` | `60`                                    | optional; run starts and friend requests per IP per minute                 |
+  | `COOKIE_SECURE`         | `true`                                  | optional; defaults to true when `NODE_ENV=production` (the image sets it)  |
+  | `DRAIN_TIMEOUT_S`       | `900`                                   | optional; how long running games may finish on a deploy (see §4)           |
+  | `SNAPSHOT_HZ`           | `20`                                    | optional; snapshots per second per client (max 30)                         |
+  | `CHOICE_TIMEOUT_S`      | `30`                                    | optional; coop level-up/item/bond choices resolve by themselves after this |
+  | `RECONNECT_GRACE_S`     | `60`                                    | optional; how long a dropped player's place is kept                        |
+  | `LOADING_TIMEOUT_S`     | `15`                                    | optional; members who haven't loaded by then are dropped from the game     |
 
   `NODE_ENV=production` is already set in the image.
 
@@ -45,8 +50,9 @@ In the application's **Domains** tab, add the domain (e.g. `pokesurvivor.example
 
 Dokploy routes the domain through Traefik, which proxies WebSocket upgrades without extra
 configuration. The client connects to `wss://<domain>/ws` on the same origin, so no CORS or
-separate WebSocket domain is needed. Check it by opening the site: the page should show
-`server: open` and an RTT.
+separate WebSocket domain is needed (the session cookie authenticates the upgrade). Check it by
+opening the site: the page should show `server: up (protocol 2)`. The protocol is described in
+[protocol.md](protocol.md).
 
 ## 4. Health check and zero-downtime deploys
 
@@ -75,9 +81,31 @@ application's **Advanced → Swarm Settings**:
   ```
 - **Update Config:** `{"Parallelism": 1, "Order": "start-first", "FailureAction": "rollback"}`
 
-On shutdown Swarm sends `SIGTERM`; the server stops accepting connections, closes open WebSockets
-and the database pool, and exits within 10 s. When phase 3 adds draining of running games, raise
-the stop grace period to match.
+### Deploys while people are playing
+
+Coop games run in the server's memory, so a deploy must not kill them. On `SIGTERM` the server
+**drains**: it stops creating rooms and games, tells every client the server is updating, and
+sends lobby clients to reconnect, which with `start-first` reaches the new container. It lets
+running games finish for up to `DRAIN_TIMEOUT_S` (default 900 s = 15 min), then ends the rest and
+credits their players. Finally it closes the sockets and the database pool and exits. It gives up
+`DRAIN_TIMEOUT_S + 15 s` after the signal. The drain ends early once the last game is over.
+
+Docker's default stop grace period is **10 s**, after which the container is killed (`SIGKILL`)
+and running games are lost without being credited. Raise it above the drain timeout, e.g.
+**16 minutes** for the default 900 s:
+
+- If your Dokploy version has **Stop Grace Period** under **Advanced → Swarm Settings**, set it
+  there (`960s`, or `960000000000` if it asks for nanoseconds).
+- Otherwise set it on the Swarm service by hand:
+  `docker service update --stop-grace-period 16m <service>` (the service name is the app's
+  name in Dokploy). Check that it survives a redeploy (`docker service inspect <service>`,
+  `StopGracePeriod`). Dokploy may recreate the service spec. If it doesn't survive, lower
+  `DRAIN_TIMEOUT_S` to fit what you can set.
+
+With `start-first` updates the new container is serving before the old one gets `SIGTERM`, so
+new and reconnecting clients go to the new one while the old one finishes its games. A player who
+drops during the drain reconnects to the new instance and can't resume the old game (rooms live
+in memory), but is still credited when it ends.
 
 ## 5. Verify
 

@@ -29,11 +29,13 @@
   },
   "devDependencies": {
     "@pokesurvivor/data": "workspace:*",
+    "@pokesurvivor/netclient": "workspace:*",
     "@pokesurvivor/protocol": "workspace:*",
     "@pokesurvivor/sim": "workspace:*",
     "@types/ws": "^8.18.2",
     "drizzle-kit": "^0.31.11",
     "esbuild": "^0.28.2",
-    "tsx": "^4.23.15"
+    "tsx": "^4.23.15",
+    "ws": "^8.18.3"
   }
 }

@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { PROTOCOL_VERSION, decodeServerMessage, encode } from '@pokesurvivor/protocol';
+import { CloseCode, PROTOCOL_VERSION } from '@pokesurvivor/protocol';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { buildApp } from './app.js';
@@ -63,19 +63,16 @@ describe('server', () => {
     expect((await app.inject({ url: '/sprites/25/Missing.png' })).statusCode).toBe(404);
   });
 
-  it('answers pings over the WebSocket', async () => {
+  it('reports the protocol version', async () => {
+    const res = await app.inject({ url: '/api/info' });
+    expect(res.json()).toEqual({ protocolVersion: PROTOCOL_VERSION, tickHz: 30 });
+  });
+
+  it('refuses anonymous WebSockets', async () => {
     const ws = new WebSocket(`${baseUrl.replace('http', 'ws')}/ws`);
-    const reply = await new Promise<string>((resolve, reject) => {
-      ws.addEventListener('open', () => ws.send(encode({ type: 'ping', id: 1, sentAt: 42 })));
-      ws.addEventListener('message', (event) => resolve(String(event.data)));
-      ws.addEventListener('error', () => reject(new Error('WebSocket error')));
-    });
-    ws.close();
-    expect(decodeServerMessage(reply)).toMatchObject({
-      type: 'pong',
-      id: 1,
-      sentAt: 42,
-      protocolVersion: PROTOCOL_VERSION,
-    });
+    const code = await new Promise<number>((resolve) =>
+      ws.addEventListener('close', (event) => resolve(event.code)),
+    );
+    expect(code).toBe(CloseCode.unauthenticated);
   });
 });
