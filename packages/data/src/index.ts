@@ -59,6 +59,7 @@ import {
 import { indexBy, parseDataFile } from './util.js';
 import type { z } from 'zod';
 
+export * from './i18n.js';
 export { indexBy, parseDataFile } from './util.js';
 export * from './schemas/index.js';
 
