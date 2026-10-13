@@ -161,6 +161,8 @@ export type ClientMessage<Intent = WireIntent> =
   | { type: 'hello'; protocolVersion: number }
   | { type: 'ping'; id: number; sentAt: number }
   | { type: 'game.loaded'; gameId: string }
+  /** The client couldn't apply a snapshot: the next one must be full. */
+  | { type: 'game.resync'; gameId: string }
   | InputMessage
   /** `rid`: request id, echoed in the `reply`. */
   | (ClientRequest<Intent> & { rid: number });

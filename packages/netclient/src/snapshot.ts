@@ -217,13 +217,17 @@ export interface Snapshot {
 const T = { players: 0, enemies: 1, projectiles: 2, pickups: 3, fields: 4, hazards: 5, team: 6 };
 const WIDTHS = [11, 12, 8, 4, 9, 10, 9];
 
-/** Header: seq, tick, time (ms), ackSeq, flags (full, paused). */
+/**
+ * Header: seq, tick, time (ms), ackSeq, flags (full, paused), and the seq of the frame this one
+ * is a delta against (0 for full frames): a client that missed a frame notices and resyncs.
+ */
 const enum H {
   seq,
   tick,
   timeMs,
   ackSeq,
   flags,
+  baseSeq,
 }
 
 interface Extra {
@@ -261,6 +265,7 @@ export class SnapshotEncoder {
   private shinies = '';
   private ended: string | null = null;
   private full = true;
+  private lastSeq = 0;
   private readonly events = new EventEncoder((s) => this.str(s));
   readonly viewerId: string;
   readonly radius: number;
@@ -386,8 +391,10 @@ export class SnapshotEncoder {
       Math.round(s.time * 1000),
       ackSeq,
       flags(this.full, s.pendingChoices.length > 0),
+      this.full ? 0 : this.lastSeq,
     ];
     this.full = false;
+    this.lastSeq = seq;
     const w = this.format === 'binary' ? new BinaryWriter() : new JsonWriter();
     w.uint(FrameKind.snapshot);
     writeFrame(
@@ -560,6 +567,22 @@ function choiceRef(c: PendingChoice): ChoiceRef {
 
 // ------------------------------------------------------------------ decoder
 
+/** Is this a full snapshot frame (one that doesn't need earlier ones)? */
+export function isFullFrame(data: Uint8Array | string): boolean {
+  try {
+    const r: Reader =
+      typeof data === 'string'
+        ? new JsonReader(JSON.parse(data) as (number | string)[])
+        : new BinaryReader(data);
+    if (r.uint() !== FrameKind.snapshot) return false;
+    const header: number[] = [];
+    for (let i = r.uint(); i > 0; i--) header.push(r.int());
+    return bit(header[H.flags] ?? 0, 0);
+  } catch {
+    return false;
+  }
+}
+
 /** Client side: applies frames in order and returns the full current view after each one. */
 export class SnapshotDecoder {
   private readonly tables = WIDTHS.map((w) => new TableDecoder(w));
@@ -570,9 +593,11 @@ export class SnapshotDecoder {
   private shinies: number[] = [];
   private ended: RunEnd | null = null;
   private readonly events = new EventDecoder();
+  /** Seq of the last frame applied. */
+  private lastSeq = -1;
 
   /** `playerIds[index]`: the player id of each join-order index (from `GameStatic`). */
-  constructor(private readonly playerIds: readonly string[]) {}
+  constructor(readonly playerIds: readonly string[]) {}
 
   decode(data: Uint8Array | string): Snapshot {
     const r: Reader =
@@ -583,7 +608,10 @@ export class SnapshotDecoder {
     if (kind !== FrameKind.snapshot) throw new Error(`not a snapshot frame (${kind})`);
     const frame = readFrame(r, this.tables, (header) => {
       if (bit(header[H.flags] ?? 0, 0)) this.resetState();
+      else if ((header[H.baseSeq] ?? -1) !== this.lastSeq)
+        throw new Error(`snapshot gap: delta against ${header[H.baseSeq]}, have ${this.lastSeq}`);
     });
+    this.lastSeq = frame.header[H.seq] ?? 0;
     const extra = JSON.parse(frame.json) as Extra;
     for (const [i, s] of Object.entries(extra.strings ?? {})) this.strings.set(Number(i), s);
     Object.assign(this.details, extra.details);

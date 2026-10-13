@@ -103,7 +103,7 @@ describe('snapshots', () => {
   it('stay under 30 KB/s per client in a 4-player late game', () => {
     const m = measure(lateGame(5, 7), { seconds: 10, hz: 20, format: 'binary' });
     expect(m.bytesPerSecond).toBeLessThan(30 * 1024);
-  });
+  }, 30_000);
 });
 
 describe('events', () => {

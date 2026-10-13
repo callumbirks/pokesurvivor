@@ -102,9 +102,10 @@ export function decodeClientMessage(raw: string): Decoded<ClientMessage> {
         ? { ok: true, message: { type: 'ping', id: m.id, sentAt: m.sentAt } }
         : fail('bad ping');
     case 'game.loaded':
+    case 'game.resync':
       return isStr(m.gameId, 64) && onlyKeys(m, ['gameId'])
-        ? { ok: true, message: { type: 'game.loaded', gameId: m.gameId } }
-        : fail('bad game.loaded');
+        ? { ok: true, message: { type: m.type, gameId: m.gameId } }
+        : fail(`bad ${m.type}`);
     case 'input': {
       const slot = m.slot;
       const slotOk = slot === undefined || slot === null || (isUint(slot) && slot < 16);

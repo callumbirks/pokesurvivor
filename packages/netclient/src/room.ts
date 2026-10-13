@@ -7,7 +7,7 @@ import { TICK_MS } from '@pokesurvivor/sim';
 import { SnapshotBuffer, type SnapshotBufferOptions } from './buffer.js';
 import { Emitter } from './emitter.js';
 import { timers } from './timers.js';
-import { SnapshotDecoder, type NetPlayer, type Snapshot } from './snapshot.js';
+import { SnapshotDecoder, isFullFrame, type NetPlayer, type Snapshot } from './snapshot.js';
 import type { Game, IntentResult, Results } from './types.js';
 
 export type RoomConnectionPhase = 'loading' | 'running' | 'ended';
@@ -58,7 +58,7 @@ export interface RoomConnection {
 
 /** What `NetRoomConnection` needs from the client that owns the socket. */
 export interface RoomTransport {
-  send(message: InputMessage | { type: 'game.loaded'; gameId: string }): boolean;
+  send(message: InputMessage | { type: 'game.loaded' | 'game.resync'; gameId: string }): boolean;
   request(message: { type: 'intent'; intent: Intent }): Promise<unknown>;
   now(): number;
 }
@@ -75,6 +75,7 @@ export class NetRoomConnection implements RoomConnection {
   private seq = 0;
   private unacked: SentInput[] = [];
   private loadedGameId: string | null = null;
+  private resyncing = false;
 
   constructor(
     readonly selfId: string,
@@ -168,14 +169,26 @@ export class NetRoomConnection implements RoomConnection {
       [...game.players].sort((a, b) => a.index - b.index).map((p) => p.id),
     );
     this.buffer.clear();
+    this.resyncing = false;
     this.setPhase('running');
     this.emitter.emit('start', { game, resumed });
   }
 
   /** @internal */
   handleFrame(data: Uint8Array, receivedAt: number): Snapshot | null {
-    if (!this.decoder) return null;
-    const snap = this.decoder.decode(data);
+    if (!this.decoder || !this.game) return null;
+    // After a bad frame, deltas are useless until the full snapshot we asked for.
+    if (this.resyncing && !isFullFrame(data)) return null;
+    let snap: Snapshot;
+    try {
+      snap = this.decoder.decode(data);
+    } catch {
+      this.resyncing = true;
+      this.decoder = new SnapshotDecoder(this.decoder.playerIds);
+      this.transport.send({ type: 'game.resync', gameId: this.game.gameId });
+      return null;
+    }
+    this.resyncing = false;
     this.ackedInputSeq = Math.max(this.ackedInputSeq, snap.ackSeq);
     while (this.unacked[0] && this.unacked[0].seq <= this.ackedInputSeq) this.unacked.shift();
     this.buffer.push(snap, receivedAt);

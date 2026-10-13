@@ -427,7 +427,7 @@ export class NetClient {
     this.room = new NetRoomConnection(
       this.user.id,
       {
-        send: (message: InputMessage | { type: 'game.loaded'; gameId: string }) =>
+        send: (message: InputMessage | { type: 'game.loaded' | 'game.resync'; gameId: string }) =>
           this.sendRaw(message),
         request: (message: { type: 'intent'; intent: Intent }) => this.request(message),
         now: () => this.opts.now(),
