@@ -797,11 +797,18 @@ const BANNER_IDS = [
 ];
 const gacha = (name: string) => constant('systems/gacha.js', name);
 const gachaRates = gacha('RATES') as [number, number][];
+// Rebalanced after the port (legacy: 1★ 45, 5★ 1.5, hard pity 70, no soft pity), so that a re-run
+// doesn't undo it.
+const GACHA_REBALANCED_WEIGHTS: Record<number, number> = { 1: 45.9, 5: 0.6 };
 emit('gacha.json', GachaFileSchema, {
   // systems/gacha.js costOf().
   cost: { single: 1, multi: 10, multiCount: 10, multiTickets10: 1 },
-  rates: gachaRates.map(([rarity, weight]) => ({ rarity, weight })),
-  hardPity: gacha('PITY_5'),
+  rates: gachaRates.map(([rarity, weight]) => ({
+    rarity,
+    weight: GACHA_REBALANCED_WEIGHTS[rarity] ?? weight,
+  })),
+  softPity: { from: 74, stepPerPull: 0.06 },
+  hardPity: 90,
   multiGuaranteeMinRarity: 4,
   shinyRate: gacha('SHINY_RATE'),
   duplicateRefund: Object.entries(gacha('REFUND')).map(([rarity, coins]) => ({
@@ -944,13 +951,17 @@ emit('tuning.json', TuningFileSchema, {
     thiefFirst: [...constant('systems/events.js', 'THIEF_FIRST')],
     thiefNext: [...constant('systems/events.js', 'THIEF_NEXT')],
     thiefLife: constant('systems/events.js', 'THIEF_LIFE'),
+    // Inline in spawnThief() (legacy 0.25); rebalanced after the port.
+    goldThiefChance: 0.125,
   },
   combat: { critMultiplier: constant('systems/combat.js', 'CRIT_MUL') },
   pickups: {
     max: constant('entities/pickup.js', 'MAX'),
     ticketDropRate: constant('entities/pickup.js', 'TICKET_RATE'),
-    bossTicket10Chance: constant('entities/pickup.js', 'BOSS_T10'),
-    legendaryTicket10Chance: constant('entities/pickup.js', 'LEGEND_T10'),
+    // Legacy BOSS_T10 is 1/3; rebalanced after the port.
+    bossTicket10Chance: 0.1,
+    // Legacy LEGEND_T10 is 0.5; rebalanced after the port.
+    legendaryTicket10Chance: 0.2,
   },
 });
 

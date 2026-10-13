@@ -1,13 +1,14 @@
 {
   "cost": { "single": 1, "multi": 10, "multiCount": 10, "multiTickets10": 1 },
   "rates": [
-    { "rarity": 1, "weight": 45 },
+    { "rarity": 1, "weight": 45.9 },
     { "rarity": 2, "weight": 30 },
     { "rarity": 3, "weight": 17 },
     { "rarity": 4, "weight": 6.5 },
-    { "rarity": 5, "weight": 1.5 }
+    { "rarity": 5, "weight": 0.6 }
   ],
-  "hardPity": 70,
+  "softPity": { "from": 74, "stepPerPull": 0.06 },
+  "hardPity": 90,
   "multiGuaranteeMinRarity": 4,
   "shinyRate": 0.01,
   "duplicateRefund": [

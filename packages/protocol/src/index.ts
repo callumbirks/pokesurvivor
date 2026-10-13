@@ -1,3 +1,5 @@
+export * from './run.js';
+
 /** Bumped on every breaking change to the wire format. */
 export const PROTOCOL_VERSION = 1;
 

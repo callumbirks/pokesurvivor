@@ -1,6 +1,8 @@
+import { getServerData } from '../data.js';
+
 /**
- * Economy numbers the server enforces. Passed into `buildApp` so tests can tune them; the
- * upgrade table will move to `packages/data` once the data extraction lands.
+ * Economy numbers the server enforces. Passed into `buildApp` so tests can tune them. The
+ * upgrade table comes from `packages/data` (`upgrades.json`).
  */
 export interface EconomyConfig {
   /** Coins credited to a new save. */
@@ -38,29 +40,35 @@ export interface RunCaps {
   shiniesFlat: number;
   shiniesPerMinute: number;
   shiniesMax: number;
+  /** `RunProgress` counters, each `flat + perMinute * minutes`. */
+  chestsFlat: number;
+  chestsPerMinute: number;
+  itemsFlat: number;
+  itemsPerMinute: number;
+  evolutionsFlat: number;
+  evolutionsPerMinute: number;
+  riftWinsFlat: number;
+  riftWinsPerMinute: number;
+  /** Lost Pokémon that join the collection: `min(rescuesMax, flat + perMinute * minutes)`. */
+  rescuesFlat: number;
+  rescuesPerMinute: number;
+  rescuesMax: number;
 }
 
-/** Cost of buying level `currentLevel + 1`, as in the legacy shop. */
+/** Cost of buying level `currentLevel + 1`, as in the legacy shop (`legacy/js/data/upgrades.js`). */
 export function upgradeCost(def: UpgradeDef, currentLevel: number): number {
   return Math.round((def.baseCost * Math.pow(def.growth, currentLevel)) / 10) * 10;
 }
 
-/** The legacy upgrade table (`legacy/js/data/upgrades.js`). */
-const LEGACY_UPGRADES: Record<string, UpgradeDef> = {
-  hp: { maxLevel: 10, baseCost: 60, growth: 1.35 },
-  atk: { maxLevel: 10, baseCost: 80, growth: 1.38 },
-  spd: { maxLevel: 8, baseCost: 70, growth: 1.4 },
-  cd: { maxLevel: 8, baseCost: 90, growth: 1.42 },
-  def: { maxLevel: 8, baseCost: 80, growth: 1.4 },
-  regen: { maxLevel: 5, baseCost: 120, growth: 1.5 },
-  magnet: { maxLevel: 6, baseCost: 50, growth: 1.4 },
-  xp: { maxLevel: 8, baseCost: 100, growth: 1.42 },
-  coins: { maxLevel: 8, baseCost: 120, growth: 1.45 },
-  moves: { maxLevel: 1, baseCost: 1500, growth: 1 },
-  crit: { maxLevel: 10, baseCost: 90, growth: 1.4 },
-  reroll: { maxLevel: 5, baseCost: 150, growth: 1.6 },
-  ban: { maxLevel: 3, baseCost: 300, growth: 1.9 },
-};
+/** The upgrade table from `upgrades.json`, keyed by upgrade id. */
+export function upgradesFromData(): Record<string, UpgradeDef> {
+  return Object.fromEntries(
+    getServerData().upgrades.map((u) => [
+      u.id,
+      { maxLevel: u.maxLevel, baseCost: u.baseCost, growth: u.costGrowth },
+    ]),
+  );
+}
 
 /**
  * Defaults. The run caps are generous first guesses (legacy pays ~12 coins/min for time plus
@@ -68,7 +76,7 @@ const LEGACY_UPGRADES: Record<string, UpgradeDef> = {
  */
 export const DEFAULT_ECONOMY: EconomyConfig = {
   startingCoins: 500,
-  upgrades: LEGACY_UPGRADES,
+  upgrades: upgradesFromData(),
   runCaps: {
     maxDurationS: 3 * 60 * 60,
     maxLevel: 200,
@@ -83,5 +91,16 @@ export const DEFAULT_ECONOMY: EconomyConfig = {
     shiniesFlat: 1,
     shiniesPerMinute: 0.2,
     shiniesMax: 5,
+    chestsFlat: 2,
+    chestsPerMinute: 0.5,
+    itemsFlat: 2,
+    itemsPerMinute: 0.5,
+    evolutionsFlat: 1,
+    evolutionsPerMinute: 0.5,
+    riftWinsFlat: 1,
+    riftWinsPerMinute: 0.34,
+    rescuesFlat: 1,
+    rescuesPerMinute: 0.1,
+    rescuesMax: 3,
   },
 };

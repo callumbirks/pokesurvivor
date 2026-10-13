@@ -192,38 +192,52 @@ export type AchievementsFile = z.infer<typeof AchievementsFileSchema>;
 
 // ---------------- gacha ----------------
 
-export const GachaFileSchema = z.strictObject({
-  /** Ticket cost of a single pull and of a ×10 pull (×10 can also be paid with one ×10 ticket). */
-  cost: z.strictObject({
-    single: z.number().int().positive(),
-    multi: z.number().int().positive(),
-    multiCount: z.number().int().positive(),
-    multiTickets10: z.number().int().positive(),
-  }),
-  /** Relative weights per rarity for each pull. */
-  rates: z.array(z.strictObject({ rarity: RaritySchema, weight: z.number().positive() })),
-  /** After this many pulls without a 5★ on a banner, the next pull is 5★. Counted per banner. */
-  hardPity: z.number().int().positive(),
-  /** The last pull of a ×10 is at least this rarity if none of the others was. */
-  multiGuaranteeMinRarity: RaritySchema,
-  /** Chance a pull comes out shiny (only Pokémon with shiny sprites). */
-  shinyRate: z.number().positive().max(1),
-  /** Coins for a duplicate, by rarity; duplicate shinies give `shinyDuplicateMultiplier` times as many. */
-  duplicateRefund: z.array(
-    z.strictObject({ rarity: RaritySchema, coins: z.number().int().positive() }),
-  ),
-  shinyDuplicateMultiplier: z.number().positive(),
-  rarities: z.array(
-    z.strictObject({ rarity: RaritySchema, name: TextSchema, color: HexColorSchema }),
-  ),
-  /** One banner per generation; it contains that generation's Pokémon. */
-  banners: z.array(
-    z.strictObject({
-      id: IdSchema,
-      gen: z.number().int().min(1).max(9),
-      name: TextSchema,
-      colors: z.array(HexColorSchema).length(3),
+export const GachaFileSchema = z
+  .strictObject({
+    /** Ticket cost of a single pull and of a ×10 pull (×10 can also be paid with one ×10 ticket). */
+    cost: z.strictObject({
+      single: z.number().int().positive(),
+      multi: z.number().int().positive(),
+      multiCount: z.number().int().positive(),
+      multiTickets10: z.number().int().positive(),
     }),
-  ),
-});
+    /** Relative weights per rarity for each pull. */
+    rates: z.array(z.strictObject({ rarity: RaritySchema, weight: z.number().positive() })),
+    /**
+     * Soft pity: from the `from`-th pull since the last 5★ on a banner, the 5★ chance is the base
+     * rate plus `stepPerPull` per pull (`from` itself gets one step). The extra chance is taken from
+     * the other rarities in proportion to their weights.
+     */
+    softPity: z.strictObject({
+      from: z.number().int().positive(),
+      stepPerPull: z.number().positive().max(1),
+    }),
+    /** The `hardPity`-th pull without a 5★ on a banner is a 5★. Counted per banner. */
+    hardPity: z.number().int().positive(),
+    /** The last pull of a ×10 is at least this rarity if none of the others was. */
+    multiGuaranteeMinRarity: RaritySchema,
+    /** Chance a pull comes out shiny (only Pokémon with shiny sprites). */
+    shinyRate: z.number().positive().max(1),
+    /** Coins for a duplicate, by rarity; duplicate shinies give `shinyDuplicateMultiplier` times as many. */
+    duplicateRefund: z.array(
+      z.strictObject({ rarity: RaritySchema, coins: z.number().int().positive() }),
+    ),
+    shinyDuplicateMultiplier: z.number().positive(),
+    rarities: z.array(
+      z.strictObject({ rarity: RaritySchema, name: TextSchema, color: HexColorSchema }),
+    ),
+    /** One banner per generation; it contains that generation's Pokémon. */
+    banners: z.array(
+      z.strictObject({
+        id: IdSchema,
+        gen: z.number().int().min(1).max(9),
+        name: TextSchema,
+        colors: z.array(HexColorSchema).length(3),
+      }),
+    ),
+  })
+  .refine((g) => g.softPity.from < g.hardPity, {
+    message: 'softPity.from must come before hardPity',
+    path: ['softPity', 'from'],
+  });
 export type GachaFile = z.infer<typeof GachaFileSchema>;
