@@ -18,6 +18,7 @@
     "@pokesurvivor/protocol": "workspace:*",
     "@pokesurvivor/sim": "workspace:*",
     "fake-indexeddb": "^6.2.5",
+    "happy-dom": "^21.0.1",
     "vite": "^8.3.4"
   }
 }

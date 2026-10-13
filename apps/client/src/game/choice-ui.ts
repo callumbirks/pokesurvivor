@@ -1,5 +1,10 @@
 // The choice overlay in the DOM (legacy run-ui.js level-up cards, item swap and bond screens),
 // rendered from `ChoiceState`. Keys 1–4 pick, R rerolls, Backspace/Esc goes back in a bond.
+//
+// The state is re-derived from every snapshot (20–30 a second), so rendering is incremental: the
+// box is created once per choice (its entry animation plays once), the cards are rebuilt only when
+// what they show changes (a reroll, a bond's second step, a pick), and the countdown and the list
+// of teammates still choosing are updated in place.
 import { t } from '@pokesurvivor/data';
 import { audio } from '../audio.js';
 import { typeColor } from '../icons.js';
@@ -10,8 +15,15 @@ import { cardText, itemDescription, itemName, moveName, nameList } from './text.
 export class ChoiceOverlay {
   readonly root: HTMLElement;
   private readonly waitBar: HTMLElement;
+  private readonly waitBarText: HTMLElement;
   private shown = -1;
   private open = false;
+  /** The open choice's box, its id, and what its cards were last built from. */
+  private box: HTMLElement | null = null;
+  private boxChoice: number | null = null;
+  private built = '';
+  private deadline: HTMLElement | null = null;
+  private waitLine: HTMLElement | null = null;
   private details: (moveId: string) => { level: number; type: string } | null = () => null;
 
   constructor(
@@ -19,7 +31,12 @@ export class ChoiceOverlay {
     private readonly state: ChoiceState,
   ) {
     this.root = el('div', { class: 'ps-choice hidden', data: { testid: 'choice' } });
-    this.waitBar = el('div', { class: 'ps-wait hidden', data: { testid: 'choice-waiting' } });
+    this.waitBarText = el('p', { class: 'note' });
+    this.waitBar = el(
+      'div',
+      { class: 'ps-wait hidden', data: { testid: 'choice-waiting' } },
+      this.waitBarText,
+    );
     parent.append(this.root, this.waitBar);
   }
 
@@ -42,17 +59,49 @@ export class ChoiceOverlay {
     this.open = !!v;
     if (v) {
       if (!wasOpen) audio.sfx('levelup');
-      this.render(v, w);
+      if (!this.box || this.boxChoice !== v.choice.id) {
+        // A new choice: a new box, which animates in.
+        clear(this.root);
+        this.box = el('div', { class: 'ps-box' });
+        this.boxChoice = v.choice.id;
+        this.built = '';
+        this.root.append(this.box);
+        this.root.classList.remove('hidden');
+      }
+      const key = structureKey(v);
+      if (key !== this.built) {
+        this.built = key;
+        this.render(this.box, v);
+      }
+      this.updateLive(v, w);
     } else {
       this.root.classList.add('hidden');
       clear(this.root);
+      this.box = this.deadline = this.waitLine = null;
+      this.boxChoice = null;
+      this.built = '';
     }
     // Paused for someone else's choice: a bar at the top (our own overlay shows it inside).
     if (!v && w) {
-      clear(this.waitBar);
-      this.waitBar.append(this.waitText(w, false));
+      const text = this.waitString(w, false);
+      if (this.waitBarText.textContent !== text) this.waitBarText.textContent = text;
       this.waitBar.classList.remove('hidden');
     } else this.waitBar.classList.add('hidden');
+  }
+
+  /** The parts that change while the cards stay: the countdown and who's still choosing. */
+  private updateLive(v: ChoiceView, w: WaitingView | null): void {
+    if (this.deadline) {
+      const text = v.secondsLeft !== null ? t('game.secondsShort', { 0: v.secondsLeft }) : '';
+      if (this.deadline.textContent !== text) this.deadline.textContent = text;
+      this.deadline.classList.toggle('hidden', v.secondsLeft === null);
+      this.deadline.classList.toggle('soon', v.secondsLeft !== null && v.secondsLeft <= 5);
+    }
+    if (this.waitLine) {
+      const text = w ? this.waitString(w, true) : '';
+      if (this.waitLine.textContent !== text) this.waitLine.textContent = text;
+      this.waitLine.classList.toggle('hidden', !w);
+    }
   }
 
   /** Keys while the overlay is open. Returns true if it used the key. */
@@ -82,34 +131,21 @@ export class ChoiceOverlay {
     else if (this.state.view()?.first !== was) audio.sfx('select');
   }
 
-  private waitText(w: WaitingView, mine: boolean): HTMLElement {
+  private waitString(w: WaitingView, mine: boolean): string {
     const secs = w.secondsLeft !== null ? ` · ${t('game.secondsShort', { 0: w.secondsLeft })}` : '';
-    return el(
-      'p',
-      { class: 'note' },
-      mine
+    return (
+      (mine
         ? t('levelUp.stillChoosing', { 0: nameList(w.others) })
-        : t('levelUp.waitingFor', { 0: nameList(w.others) }),
-      secs,
+        : t('levelUp.waitingFor', { 0: nameList(w.others) })) + secs
     );
   }
 
-  private render(v: ChoiceView, w: WaitingView | null): void {
-    clear(this.root);
-    this.root.classList.remove('hidden');
+  /** Builds the box's content (the live parts are filled in by `updateLive`). */
+  private render(box: HTMLElement, v: ChoiceView): void {
+    clear(box);
     const c = v.choice;
-    const box = el('div', { class: 'ps-box' });
-    const countdown =
-      v.secondsLeft !== null
-        ? el(
-            'div',
-            {
-              class: `ps-deadline${v.secondsLeft <= 5 ? ' soon' : ''}`,
-              data: { testid: 'deadline' },
-            },
-            t('game.secondsShort', { 0: v.secondsLeft }),
-          )
-        : null;
+    const countdown = el('div', { class: 'ps-deadline hidden', data: { testid: 'deadline' } });
+    this.deadline = countdown;
     const cards = el('div', { class: `ps-cards${v.submitted ? ' done' : ''}` });
     const card = (
       i: number,
@@ -168,7 +204,7 @@ export class ChoiceOverlay {
           tx.color,
         );
       });
-      box.append(countdown ?? '', cards);
+      box.append(countdown, cards);
       if (v.rerollsLeft > 0 && !v.submitted)
         box.append(
           el(
@@ -203,7 +239,7 @@ export class ChoiceOverlay {
           '#ffd23f',
         ),
       );
-      box.append(countdown ?? '', cards);
+      box.append(countdown, cards);
     } else if (c.kind === 'bond') {
       const group = (c.group ?? []).map(moveName).join(' + ');
       const step2 = c.mode === 'pair' && v.first;
@@ -238,7 +274,7 @@ export class ChoiceOverlay {
           col,
         );
       });
-      box.append(countdown ?? '', cards);
+      box.append(countdown, cards);
       if (step2 && !v.submitted)
         box.append(
           el(
@@ -252,9 +288,20 @@ export class ChoiceOverlay {
           ),
         );
     }
-    if (w) box.append(this.waitText(w, true));
-    this.root.append(box);
+    this.waitLine = el('p', { class: 'note hidden' });
+    box.append(this.waitLine);
   }
+}
+
+/** What the cards show: everything but the countdown and the waiting list. */
+function structureKey(v: ChoiceView): string {
+  return JSON.stringify([
+    { ...v.choice, deadlineTick: null },
+    v.options,
+    v.first,
+    v.submitted,
+    v.rerollsLeft,
+  ]);
 }
 
 function kbd(k: string): HTMLElement {
