@@ -47,7 +47,7 @@ export function resolveChoice(ctx: Ctx, c: PendingChoice, optionId: string | nul
   } else {
     if (pick !== c.held && pick !== c.found) return { ok: false, error: 'not an offered item' };
     s.pendingChoices.splice(i, 1);
-    if (p && pick) resolveItemChoice(ctx, p, pick);
+    if (p && pick) resolveItemChoice(ctx, p, c, pick);
   }
   emit(ctx, { type: 'choice-resolved', playerId: c.playerId, choiceId: c.id, auto });
   return { ok: true };

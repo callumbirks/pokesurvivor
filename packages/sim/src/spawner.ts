@@ -245,7 +245,7 @@ export function updateSpawner(ctx: Ctx): void {
   const t = s.time;
   const cap = d.game.tuning.spawner.cap;
   const n = activePlayers(s).length;
-  if (!n) return;
+  if (!n || s.config.noSpawns) return;
   // 2b: nothing spawns while the team is in a rift arena (and the boss clock waits).
 
   const lateFrom = d.game.enemies.lateGame.fromMinute * 60;

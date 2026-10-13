@@ -46,7 +46,7 @@ export interface SimConfig {
    */
   choiceTimeoutSeconds?: number | null;
   /** Debug and tests only. */
-  debug?: { invulnerable?: boolean };
+  debug?: { invulnerable?: boolean; noSpawns?: boolean };
 }
 
 export interface MoveInput {
@@ -73,7 +73,8 @@ export const MAX_PLAYERS = 4;
 
 export class Sim {
   readonly state: SimState;
-  private readonly ctx: Ctx;
+  /** Internal: the systems' context (for tests and tools; not part of the API). */
+  readonly ctx: Ctx;
 
   /** Use `createSim` or `restoreSim`. `init` runs once with the context (new runs). */
   constructor(state: SimState, init?: (ctx: Ctx) => void) {
@@ -287,6 +288,7 @@ export function createSim(config: SimConfig): Sim {
     config: {
       choiceTimeoutTicks: timeout === null ? null : Math.max(1, Math.round(timeout * TICK_HZ)),
       invulnerable: !!config.debug?.invulnerable,
+      noSpawns: !!config.debug?.noSpawns,
     },
   };
   const sim = new Sim(state, (ctx) => {

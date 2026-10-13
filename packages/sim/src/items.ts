@@ -4,7 +4,7 @@
 import { emit, type Ctx } from './ctx.js';
 import { openChoice } from './choices.js';
 import type { StatEffect } from '@pokesurvivor/data';
-import type { PlayerState } from './state.js';
+import type { ItemChoice, PlayerState } from './state.js';
 
 function applyEffect(p: PlayerState, e: StatEffect, on: boolean): void {
   if (e.op === 'mul') {
@@ -30,6 +30,8 @@ export function equip(ctx: Ctx, p: PlayerState, id: string | null): void {
 function takeItem(ctx: Ctx, p: PlayerState, id: string): void {
   if (id === p.item) return;
   equip(ctx, p, id);
+  // Other swaps this player still has to decide are now against the new item.
+  for (const c of ctx.s.pendingChoices) if (c.kind === 'item' && c.playerId === p.id) c.held = id;
   const name = ctx.d.item(id).name;
   emit(ctx, { type: 'item-equipped', playerId: p.id, itemId: id });
   emit(ctx, {
@@ -63,9 +65,9 @@ export function offerItem(ctx: Ctx, p: PlayerState, id: string): void {
   openChoice(ctx, { kind: 'item', playerId: p.id, held: p.item, found: id });
 }
 
-/** Resolves an item choice: `keep` is the id to hold. */
-export function resolveItemChoice(ctx: Ctx, p: PlayerState, keep: string): void {
-  takeItem(ctx, p, keep);
+/** Resolves an item choice: switch to the found item, or keep the held one. */
+export function resolveItemChoice(ctx: Ctx, p: PlayerState, c: ItemChoice, keep: string): void {
+  if (keep === c.found) takeItem(ctx, p, c.found);
 }
 
 /** Life Orb: every cast costs a little HP (never knocks you out). Legacy behaviour, see §4. */

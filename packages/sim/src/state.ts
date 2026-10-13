@@ -48,6 +48,8 @@ export interface SimSettings {
   choiceTimeoutTicks: number | null;
   /** Debug/tests: players take no damage. */
   invulnerable: boolean;
+  /** Debug/tests: the spawner is off (no waves, surges or bosses). */
+  noSpawns: boolean;
 }
 
 export interface RunEnd {
