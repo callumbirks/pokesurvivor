@@ -11,6 +11,7 @@
     "test": "vitest run"
   },
   "devDependencies": {
+    "@pokesurvivor/data": "workspace:*",
     "@pokesurvivor/protocol": "workspace:*",
     "@pokesurvivor/sim": "workspace:*",
     "vite": "^8.3.4"

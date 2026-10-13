@@ -251,6 +251,19 @@ export function propsInCircle(ctx: Ctx, x: number, y: number, r: number): Prop[]
   return out;
 }
 
+/** Every live prop in a rectangle (for renderers: terrain comes from `terrainRaw`). */
+export function propsInRect(ctx: Ctx, x0: number, y0: number, x1: number, y1: number): Prop[] {
+  const out: Prop[] = [];
+  for (let cy = Math.floor(y0 / CHUNK); cy <= Math.floor(y1 / CHUNK); cy++) {
+    for (let cx = Math.floor(x0 / CHUNK); cx <= Math.floor(x1 / CHUNK); cx++) {
+      for (const p of chunkAt(ctx.d, ctx.s.world, ctx.chunks, cx, cy).props) {
+        if (p.x >= x0 && p.x <= x1 && p.y >= y0 && p.y <= y1) out.push(p);
+      }
+    }
+  }
+  return out;
+}
+
 /** Interactables near a point (2b). */
 export function specialsNear(ctx: Ctx, x: number, y: number, r: number): Prop[] {
   const out: Prop[] = [];

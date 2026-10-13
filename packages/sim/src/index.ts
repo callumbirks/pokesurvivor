@@ -19,5 +19,6 @@ export type { ChoiceResult } from './choices.js';
 export type { HitLabel, ProgressEventName, SimEvent, SimEventType } from './events.js';
 export type { PlayerSummary, RunSummary } from './summary.js';
 export { hashString, stateHash } from './hash.js';
-export { FLOOR, LIQUID, WALL, terrainRaw } from './world.js';
+export { FLOOR, LIQUID, WALL, propHp, propsInRect, terrainRaw } from './world.js';
+export type { Prop, PropType, Terrain } from './world.js';
 export type * from './state.js';

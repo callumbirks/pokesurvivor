@@ -4,9 +4,17 @@ const canvas = document.querySelector<HTMLCanvasElement>('#game');
 const ctx = canvas?.getContext('2d');
 if (!canvas || !ctx) throw new Error('Canvas 2D is not available');
 
-const connection = new Connection(socketUrl(location));
+// Dev-only sim viewer: /?debug-sim (excluded from production builds).
+const debugSim = import.meta.env.DEV && new URLSearchParams(location.search).has('debug-sim');
+if (debugSim) void import('./debug-sim.js').then((m) => m.startDebugSim(canvas, ctx));
+else start();
 
-function frame(): void {
+function start(): void {
+  const connection = new Connection(socketUrl(location));
+  requestAnimationFrame(() => frame(connection));
+}
+
+function frame(connection: Connection): void {
   if (!canvas || !ctx) return;
   const dpr = window.devicePixelRatio || 1;
   const width = Math.round(canvas.clientWidth * dpr);
@@ -27,6 +35,5 @@ function frame(): void {
   const rtt = connection.rttMs === null ? '—' : `${connection.rttMs.toFixed(1)} ms`;
   ctx.fillText(`RTT: ${rtt}`, 24, 96);
 
-  requestAnimationFrame(frame);
+  requestAnimationFrame(() => frame(connection));
 }
-requestAnimationFrame(frame);
