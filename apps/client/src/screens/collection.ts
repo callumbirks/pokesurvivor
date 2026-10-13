@@ -81,10 +81,11 @@ export function collectionScreen(app: App, params: URLSearchParams): Screen {
       { id: 'all', label: t('collection.all') },
       { id: 'owned', label: t('collection.owned') },
       { id: 'missing', label: t('collection.missing') },
-      { id: 'shiny', label: `✦ ${t('app.shiny')}` },
+      // As legacy: the shiny icon, and each rarity's Poké Ball.
+      { id: 'shiny', label: h('span', null, icon('shiny', 12), ' ', t('app.shiny')) },
       ...([5, 4, 3, 2, 1] as const).map((r) => ({
         id: String(r) as Filter,
-        label: rarityInfo(r).name,
+        label: h('span', null, rarityBall(r, 12), ' ', rarityInfo(r).name),
       })),
     ];
     replace(

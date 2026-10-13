@@ -1955,3 +1955,8 @@ canvas.backdrop {
 .menu-item.play:disabled small {
   color: var(--gold);
 }
+.filters .chip > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
