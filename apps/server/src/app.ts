@@ -4,7 +4,7 @@ import fastifyCookie from '@fastify/cookie';
 import fastifyRateLimit from '@fastify/rate-limit';
 import fastifyStatic from '@fastify/static';
 import fastifyWebsocket from '@fastify/websocket';
-import { PROTOCOL_VERSION, decodeClientMessage, encode } from '@pokesurvivor/protocol';
+import { MAX_CLIENT_MESSAGE_BYTES, PROTOCOL_VERSION } from '@pokesurvivor/protocol';
 import { TICK_HZ } from '@pokesurvivor/sim';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { authRoutes } from './auth/routes.js';
@@ -16,6 +16,8 @@ import { offlinePresence, silentNotifier } from './friends/presence.js';
 import type { FriendNotifier, PresenceSource } from './friends/presence.js';
 import { friendRoutes } from './friends/routes.js';
 import { gachaRoutes } from './gacha/routes.js';
+import { GameServer } from './game/server.js';
+import type { GameServerOptions } from './game/server.js';
 import { registerErrorHandler } from './http/errors.js';
 import { missionRoutes } from './progress/routes.js';
 import { runRoutes } from './runs/routes.js';
@@ -30,14 +32,24 @@ export interface AppOptions {
   presence?: PresenceSource;
   /** Pushes friend changes to online users; the WebSocket server provides it (phase 3c). */
   friendNotifier?: FriendNotifier;
+  /** Tests: sim debug flags for every coop game. */
+  simDebug?: GameServerOptions['simDebug'];
+}
+
+declare module 'fastify' {
+  interface FastifyInstance {
+    /** The WebSocket game server (null without a database: nobody can log in). */
+    game: GameServer | null;
+  }
 }
 
 export async function buildApp({
   config,
   db,
   economy = DEFAULT_ECONOMY,
-  presence = offlinePresence,
-  friendNotifier = silentNotifier,
+  presence,
+  friendNotifier,
+  simDebug,
 }: AppOptions): Promise<FastifyInstance> {
   const app = Fastify({
     logger: { level: config.logLevel },
@@ -67,6 +79,19 @@ export async function buildApp({
 
   app.get('/api/info', () => ({ protocolVersion: PROTOCOL_VERSION, tickHz: TICK_HZ }));
 
+  const game = db
+    ? new GameServer({
+        db: db.db,
+        config: config.game,
+        log: app.log.child({ module: 'game' }),
+        timeZone: config.leaderboardTimeZone,
+        simDebug,
+      })
+    : null;
+  app.decorate('game', game);
+  // Sockets close before Fastify waits for connections to end.
+  app.addHook('preClose', () => game?.close());
+
   if (db) {
     const common = { db: db.db, secureCookies: config.secureCookies };
     authRoutes(app, {
@@ -85,30 +110,15 @@ export async function buildApp({
     missionRoutes(app, { ...common, timeZone: config.leaderboardTimeZone });
     friendRoutes(app, {
       ...common,
-      presence,
-      notifier: friendNotifier,
+      presence: presence ?? game ?? offlinePresence,
+      notifier: friendNotifier ?? game ?? silentNotifier,
       rateLimit: config.rateLimits.actions,
     });
   }
 
-  await app.register(fastifyWebsocket, { options: { maxPayload: 64 * 1024 } });
-  app.get('/ws', { websocket: true }, (socket) => {
-    socket.on('message', (data, isBinary) => {
-      if (isBinary) return;
-      const message = decodeClientMessage(Buffer.from(data as Buffer).toString('utf8'));
-      if (message?.type === 'ping') {
-        socket.send(
-          encode({
-            type: 'pong',
-            id: message.id,
-            sentAt: message.sentAt,
-            serverTime: Date.now(),
-            protocolVersion: PROTOCOL_VERSION,
-          }),
-        );
-      }
-    });
-  });
+  // Client messages are small (inputs, intents, lobby requests); anything bigger is refused.
+  await app.register(fastifyWebsocket, { options: { maxPayload: MAX_CLIENT_MESSAGE_BYTES } });
+  game?.register(app);
 
   const spritesDir = join(config.assetsDir, 'pokemon');
   if (existsSync(spritesDir)) {

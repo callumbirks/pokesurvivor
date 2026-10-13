@@ -1,0 +1,300 @@
+// One coop run: owns the sim, applies inputs and intents, sends snapshots, handles players
+// dropping out and coming back, and produces the results. The room decides who plays; the
+// GameServer's ticker calls `tick()` 30 times a second.
+import { randomInt, randomUUID } from 'node:crypto';
+import { SnapshotEncoder } from '@pokesurvivor/netclient';
+import type { Game as GameStatic, ResultSummary } from '@pokesurvivor/netclient';
+import type { InputMessage, WireIntent } from '@pokesurvivor/protocol';
+import { TICK_HZ, createSim } from '@pokesurvivor/sim';
+import type { ChoiceResult, Intent, PlayerConfig, Sim, SimEvent } from '@pokesurvivor/sim';
+import type { Session } from './session.js';
+
+export interface GamePlayerInfo {
+  userId: string;
+  username: string;
+  loadout: PlayerConfig;
+}
+
+export interface GameSettings {
+  snapshotHz: number;
+  choiceTimeoutS: number;
+  /** Tests: sim debug flags (no spawns, invulnerable). */
+  simDebug?: { invulnerable?: boolean; noSpawns?: boolean };
+}
+
+export interface PlayerOutcome {
+  userId: string;
+  username: string;
+  loadout: PlayerConfig;
+  /** Left or was removed before the end. */
+  left: boolean;
+  summary: ResultSummary;
+}
+
+export interface GameOutcome {
+  gameId: string;
+  reason: string;
+  startedAt: Date;
+  endedAt: Date;
+  durationS: number;
+  players: PlayerOutcome[];
+}
+
+interface Slot extends GamePlayerInfo {
+  index: number;
+  encoder: SnapshotEncoder;
+  /** The latest input: movement persists; a slot press waits until a tick applies it. */
+  moveX: number;
+  moveY: number;
+  slot: number | null;
+  /** Highest input seq received / applied on the current socket. */
+  lastSeq: number;
+  ackSeq: number;
+  connected: boolean;
+  left: boolean;
+  /** Results at the moment they left (credited for what they earned until then). */
+  frozen: ResultSummary | null;
+}
+
+export type GamePhase = 'loading' | 'running' | 'ended';
+
+export class Game {
+  readonly id = randomUUID();
+  readonly seed = randomInt(1, 2 ** 31 - 1);
+  phase: GamePhase = 'loading';
+  sim: Sim;
+  info: GameStatic;
+  startedAt = new Date();
+  private slots = new Map<string, Slot>();
+  private events: SimEvent[] = [];
+  private snapAcc = 0;
+  private seq = 0;
+
+  constructor(
+    readonly roomId: string,
+    players: readonly GamePlayerInfo[],
+    private readonly settings: GameSettings,
+    private readonly sessionOf: (userId: string) => Session | null,
+    private readonly onEnd: (game: Game, outcome: GameOutcome) => void,
+  ) {
+    this.sim = this.createSim(players);
+    this.info = this.describe();
+  }
+
+  /** Players in the game (not including those who left). */
+  get playerIds(): string[] {
+    return [...this.slots.values()].filter((s) => !s.left).map((s) => s.userId);
+  }
+
+  has(userId: string): boolean {
+    const slot = this.slots.get(userId);
+    return !!slot && !slot.left;
+  }
+
+  private createSim(players: readonly GamePlayerInfo[]): Sim {
+    const sim = createSim({
+      seed: this.seed,
+      players: players.map((p) => p.loadout),
+      choiceTimeoutSeconds: this.settings.choiceTimeoutS,
+      debug: this.settings.simDebug,
+    });
+    this.slots = new Map(
+      players.map((p, index) => [
+        p.userId,
+        {
+          ...p,
+          index,
+          encoder: new SnapshotEncoder({ viewerId: p.userId }),
+          moveX: 0,
+          moveY: 0,
+          slot: null,
+          lastSeq: 0,
+          ackSeq: 0,
+          connected: true,
+          left: false,
+          frozen: null,
+        },
+      ]),
+    );
+    return sim;
+  }
+
+  private describe(): GameStatic {
+    return {
+      roomId: this.roomId,
+      gameId: this.id,
+      seed: this.seed,
+      tickHz: TICK_HZ,
+      snapshotHz: this.settings.snapshotHz,
+      choiceTimeoutS: this.settings.choiceTimeoutS,
+      roster: this.sim.state.roster,
+      players: [...this.slots.values()].map((s) => ({
+        id: s.userId,
+        username: s.username,
+        index: s.index,
+        dex: s.loadout.dex,
+        shiny: this.sim.state.players[s.index]?.shiny ?? false,
+      })),
+    };
+  }
+
+  /**
+   * Loading is over: the run starts with the players who loaded. If some were dropped the sim is
+   * rebuilt without them (same seed, so the same world and roster).
+   */
+  start(loaded: readonly string[]): void {
+    const players = [...this.slots.values()].filter((s) => loaded.includes(s.userId));
+    if (players.length !== this.slots.size) {
+      this.sim = this.createSim(players);
+      this.info = this.describe();
+    }
+    this.phase = 'running';
+    this.startedAt = new Date();
+    for (const slot of this.slots.values()) {
+      const session = this.sessionOf(slot.userId);
+      if (!session) {
+        // Loaded, then dropped before the start: they get their reconnect grace like anyone.
+        this.disconnect(slot.userId);
+        continue;
+      }
+      this.sendStart(slot, session, false);
+    }
+  }
+
+  private sendStart(slot: Slot, session: Session, resumed: boolean): void {
+    slot.encoder.reset();
+    session.send({ type: 'game.start', game: this.info, resumed });
+    // The full snapshot goes out now, so a resumed client doesn't wait for the next one.
+    if (session.writable)
+      session.sendBinary(
+        slot.encoder.encode(this.sim.state, [], ++this.seq, slot.ackSeq) as Uint8Array,
+      );
+  }
+
+  /** One tick (only while running). */
+  tick(): void {
+    if (this.phase !== 'running') return;
+    const slots = [...this.slots.values()];
+    // Nobody connected: the run is frozen until someone comes back or their grace runs out.
+    if (!slots.some((s) => s.connected && !s.left)) return;
+    for (const s of slots) {
+      if (s.left) continue;
+      this.sim.setInput(s.userId, { moveX: s.moveX, moveY: s.moveY, slot: s.slot });
+      s.slot = null;
+      s.ackSeq = s.lastSeq;
+    }
+    this.sim.step();
+    this.events.push(...this.sim.drainEvents());
+    this.snapAcc += this.settings.snapshotHz;
+    if (this.snapAcc >= TICK_HZ || this.sim.ended) {
+      this.snapAcc -= TICK_HZ;
+      this.sendSnapshots();
+    }
+    if (this.sim.ended) this.finish(this.sim.state.ended?.reason ?? 'ended');
+  }
+
+  private sendSnapshots(): void {
+    this.seq++;
+    for (const slot of this.slots.values()) {
+      if (slot.left || !slot.connected) continue;
+      const session = this.sessionOf(slot.userId);
+      // A client that can't keep up skips snapshots (its encoder keeps its baseline, so the
+      // next one is still a correct delta); its events since then are lost (cosmetic).
+      if (!session?.writable) continue;
+      session.sendBinary(
+        slot.encoder.encode(this.sim.state, this.events, this.seq, slot.ackSeq) as Uint8Array,
+      );
+    }
+    this.events = [];
+  }
+
+  input(userId: string, session: Session, m: InputMessage): void {
+    const slot = this.slots.get(userId);
+    if (!slot || slot.left || m.seq <= session.inputSeq) return;
+    session.inputSeq = m.seq;
+    slot.lastSeq = m.seq;
+    slot.moveX = m.moveX;
+    slot.moveY = m.moveY;
+    if (m.slot != null) slot.slot = m.slot;
+  }
+
+  intent(userId: string, intent: WireIntent): ChoiceResult {
+    if (this.phase !== 'running' || !this.has(userId)) return { ok: false, error: 'not playing' };
+    // The sim validates the fields of each intent type and rejects unknown ones.
+    const result = this.sim.submitIntent(userId, intent as unknown as Intent) as
+      ChoiceResult | undefined;
+    return result ?? { ok: false, error: 'unknown intent' };
+  }
+
+  /** The client lost track of the deltas: its next snapshot is full. */
+  resync(userId: string): void {
+    this.slots.get(userId)?.encoder.reset();
+  }
+
+  /** The player's socket closed: idle and invulnerable, their choices resolve by themselves. */
+  disconnect(userId: string): void {
+    const slot = this.slots.get(userId);
+    if (!slot || slot.left) return;
+    slot.connected = false;
+    slot.moveX = slot.moveY = 0;
+    slot.slot = null;
+    this.sim.setConnected(userId, false);
+  }
+
+  /** Back within the grace period: a full snapshot and play continues. */
+  reconnect(userId: string, session: Session): void {
+    const slot = this.slots.get(userId);
+    if (!slot || slot.left) return;
+    slot.connected = true;
+    slot.lastSeq = slot.ackSeq = 0;
+    if (this.phase === 'running') {
+      this.sim.setConnected(userId, true);
+      this.sendStart(slot, session, true);
+    }
+  }
+
+  /** Left for good (or the grace ran out). Credited with their results as of now. */
+  removePlayer(userId: string): void {
+    const slot = this.slots.get(userId);
+    if (!slot || slot.left || this.phase === 'ended') return;
+    slot.frozen = this.summaryOf(slot);
+    slot.left = true;
+    slot.connected = false;
+    this.sim.removePlayer(userId);
+    if (this.sim.ended) this.finish(this.sim.state.ended?.reason ?? 'everyone-left');
+  }
+
+  /** Ends the run now (server shutdown), crediting everyone with what they have. */
+  forceEnd(reason: string): void {
+    if (this.phase === 'ended') return;
+    this.finish(reason);
+  }
+
+  private summaryOf(slot: Slot): ResultSummary {
+    return {
+      run: this.sim.runSummaryFor(slot.userId),
+      player: this.sim.summary().players.find((p) => p.playerId === slot.userId) ?? null,
+    };
+  }
+
+  private finish(reason: string): void {
+    if (this.phase === 'ended') return;
+    this.phase = 'ended';
+    const endedAt = new Date();
+    const players = [...this.slots.values()].map((slot) => ({
+      userId: slot.userId,
+      username: slot.username,
+      loadout: slot.loadout,
+      left: slot.left,
+      summary: slot.frozen ?? this.summaryOf(slot),
+    }));
+    this.onEnd(this, {
+      gameId: this.id,
+      reason,
+      startedAt: this.startedAt,
+      endedAt,
+      durationS: Math.floor(this.sim.state.time),
+      players,
+    });
+  }
+}

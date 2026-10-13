@@ -84,6 +84,9 @@ importers:
       '@pokesurvivor/data':
         specifier: workspace:*
         version: link:../../packages/data
+      '@pokesurvivor/netclient':
+        specifier: workspace:*
+        version: link:../../packages/netclient
       '@pokesurvivor/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
@@ -102,6 +105,9 @@ importers:
       tsx:
         specifier: ^4.23.15
         version: 4.23.15
+      ws:
+        specifier: ^8.18.3
+        version: 8.22.0
 
   packages/data:
     dependencies:
