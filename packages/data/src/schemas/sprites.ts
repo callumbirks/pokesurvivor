@@ -16,9 +16,20 @@ export const SpriteAnimationSchema = z.strictObject({
   rows: z.number().int().positive(),
   /** Duration of each frame, in 1/60 s. */
   durations: z.array(z.number().int().positive()).min(1),
-  /** Ground anchor inside the frame. */
+  /** Ground anchor inside the frame: where the feet (and the shadow's centre) go. */
   anchorX: z.number(),
   anchorY: z.number(),
+  /**
+   * The opaque pixels' box inside the frame, over every frame of the facing-down row (`right`
+   * and `bottom` exclusive). Art often reaches a few pixels below the anchor (tails, legs), so
+   * layouts that stand a sprite on a line use `bottom`, not `anchorY`.
+   */
+  bounds: z.strictObject({
+    left: z.number().int().nonnegative(),
+    top: z.number().int().nonnegative(),
+    right: z.number().int().positive(),
+    bottom: z.number().int().positive(),
+  }),
 });
 export type SpriteAnimation = z.infer<typeof SpriteAnimationSchema>;
 

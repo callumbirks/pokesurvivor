@@ -171,6 +171,9 @@ export function bodyHeight(dex: number, scale = 1): number {
   return (animMeta(dex, 'Idle')?.anchorY ?? 24) * PX * scale;
 }
 
+/** PMD's ShadowSize for a Pokémon (0–2), once the manifest is loaded. */
+export const shadowSizeOf = (dex: number): number | null => meta(dex)?.shadowSize ?? null;
+
 /** An elliptical shadow under the feet, sized by PMD's ShadowSize. */
 export function drawShadow(
   ctx: CanvasRenderingContext2D,
@@ -179,11 +182,11 @@ export function drawShadow(
   y: number,
   scale = 1,
 ): void {
-  const s = meta(dex)?.shadowSize ?? 1;
-  const rx = ([5, 8, 12][Math.max(0, Math.min(2, s))] ?? 8) * PX * scale;
+  const r = shadowRadii(meta(dex)?.shadowSize ?? 1);
+  const rx = r.rx * PX * scale;
   ctx.fillStyle = 'rgba(0,0,0,.34)';
   ctx.beginPath();
-  ctx.ellipse(x, y, rx, rx * 0.42, 0, 0, Math.PI * 2);
+  ctx.ellipse(x, y, rx, r.ry * PX * scale, 0, 0, Math.PI * 2);
   ctx.fill();
 }
 
@@ -363,18 +366,76 @@ export interface SpriteBox {
   height: number;
 }
 
+/** The shadow ellipse's radii in art pixels, by PMD's ShadowSize (as `drawShadow`). */
+export function shadowRadii(shadowSize: number): { rx: number; ry: number } {
+  const rx = [5, 8, 12][Math.max(0, Math.min(2, shadowSize))] ?? 8;
+  return { rx, ry: rx * 0.42 };
+}
+
+type Frame = Pick<SpriteAnimation, 'width' | 'height' | 'anchorX' | 'anchorY' | 'bounds'>;
+
 /**
- * The pixel scale for a sprite frame to fit `box`: `scale` if it fits, else the largest whole
- * scale that does (crisp pixels), or a fraction below 1 for the rare frame that doesn't fit even
- * at 1. The height that counts is the body above the feet (`anchorY`); below them is empty.
+ * What a sprite shows inside its frame, in art pixels: the opaque pixels (`bounds`) and, with a
+ * shadow, the ellipse under the feet. Art often reaches below the anchor (tails, legs), so the
+ * bottom is whichever is lower.
+ */
+export function visualBox(frame: Frame, shadowSize: number | null) {
+  const b = frame.bounds;
+  const s = shadowSize === null ? null : shadowRadii(shadowSize);
+  return {
+    left: Math.min(b.left, s ? frame.anchorX - s.rx : b.left),
+    right: Math.max(b.right, s ? frame.anchorX + s.rx : b.right),
+    top: b.top,
+    bottom: Math.max(b.bottom, s ? frame.anchorY + s.ry : b.bottom),
+  };
+}
+
+/**
+ * The pixel scale for a sprite to fit `box`: `scale` if what it shows fits, else the largest
+ * whole scale that does (crisp pixels), or a fraction below 1 for the rare one that doesn't fit
+ * even at 1.
  */
 export function fitScale(
-  frame: { width: number; anchorY: number },
+  frame: Frame,
   scale: number,
   box?: SpriteBox,
+  shadowSize: number | null = null,
 ): number {
   if (!box) return scale;
-  const max = Math.min(box.width / frame.width, box.height / frame.anchorY);
+  const v = visualBox(frame, shadowSize);
+  const max = Math.min(box.width / (v.right - v.left), box.height / (v.bottom - v.top));
   if (max >= scale) return scale;
   return max >= 1 ? Math.floor(max) : max;
+}
+
+export interface SpriteLayout {
+  scale: number;
+  /** The element's size: the whole frame at `scale`. */
+  width: number;
+  height: number;
+  /**
+   * With `feet`, the margin that stands the sprite on its container's content edge: the frame's
+   * empty rows below what it shows (art or shadow) hang under it, so the lowest visible pixel
+   * sits on that edge, and the container's padding is the margin to its border.
+   */
+  marginBottom: number;
+  /** What it shows, from the element's top edge (CSS px). */
+  visualTop: number;
+  visualBottom: number;
+}
+
+export function spriteLayout(
+  frame: Frame,
+  opts: { scale: number; box?: SpriteBox; shadowSize: number | null; feet: boolean },
+): SpriteLayout {
+  const k = fitScale(frame, opts.scale, opts.box, opts.shadowSize);
+  const v = visualBox(frame, opts.shadowSize);
+  return {
+    scale: k,
+    width: frame.width * k,
+    height: frame.height * k,
+    marginBottom: opts.feet ? -(frame.height - v.bottom) * k : 0,
+    visualTop: v.top * k,
+    visualBottom: v.bottom * k,
+  };
 }

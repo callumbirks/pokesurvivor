@@ -4,7 +4,7 @@
 import { loadGameData, t, type UiStringKey } from '@pokesurvivor/data';
 import type { SpriteData } from '@pokesurvivor/data/sprites';
 import { iconImg, iconUrl } from '../icons.js';
-import { fitScale, type SpriteBox } from '../sprites.js';
+import { fitScale, shadowRadii, spriteLayout, type SpriteBox } from '../sprites.js';
 
 export { fitScale, type SpriteBox };
 
@@ -232,18 +232,32 @@ function paint(el: HTMLElement): void {
   }
   const anim = entry.animations.Idle;
   const [fw, fh] = (el.dataset.fit ?? '').split('x').map(Number);
-  const box = fw && fh ? { width: fw, height: fh } : undefined;
-  const scale = fitScale(anim, Number(el.dataset.scale) || 2, box);
+  const feet = !!el.dataset.feet;
+  // Standing sprites get the game's ground shadow (not silhouettes, as in legacy).
+  const shadowSize = feet && !el.classList.contains('silhouette') ? entry.shadowSize : null;
+  const lay = spriteLayout(anim, {
+    scale: Number(el.dataset.scale) || 2,
+    box: fw && fh ? { width: fw, height: fh } : undefined,
+    shadowSize,
+    feet,
+  });
+  const k = lay.scale;
   const url = `${sprites.basePath}/${entry.dex}/${el.dataset.shiny && entry.shiny ? 's/' : ''}Idle.png?v=${entry.hash}`;
-  const w = anim.width * scale;
-  const ht = anim.height * scale;
-  el.style.width = `${w}px`;
-  el.style.height = `${ht}px`;
-  // Feet on the baseline: the part of the frame below them hangs under the container's edge.
-  if (el.dataset.feet) el.style.marginBottom = `${-(anim.height - anim.anchorY) * scale}px`;
-  el.style.backgroundImage = `url("${url}")`;
-  el.style.backgroundSize = `${w * anim.frames}px ${ht * anim.rows}px`;
-  el.style.setProperty('--sheet-w', `-${w * anim.frames}px`);
+  el.style.width = `${lay.width}px`;
+  el.style.height = `${lay.height}px`;
+  // The lowest visible pixel (art or shadow) on the container's content edge.
+  if (feet) el.style.marginBottom = `${lay.marginBottom}px`;
+  const sheet = `${lay.width * anim.frames}px ${lay.height * anim.rows}px`;
+  if (shadowSize !== null) {
+    // The shadow is a second layer under the sheet, fixed while the frames step.
+    const { rx, ry } = shadowRadii(shadowSize);
+    el.style.backgroundImage = `url("${url}"), radial-gradient(ellipse ${rx * k}px ${ry * k}px at ${anim.anchorX * k}px ${anim.anchorY * k}px, rgba(0, 0, 0, 0.34) 96%, transparent 100%)`;
+    el.style.backgroundSize = `${sheet}, 100% 100%`;
+  } else {
+    el.style.backgroundImage = `url("${url}")`;
+    el.style.backgroundSize = sheet;
+  }
+  el.style.setProperty('--sheet-w', `-${lay.width * anim.frames}px`);
   el.style.setProperty('--frames', String(anim.frames));
   // Durations are in 1/60 s ticks (SpriteCollab AnimData).
   el.style.setProperty('--dur', `${anim.durations.reduce((a, b) => a + b, 0) / 60}s`);

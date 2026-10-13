@@ -442,8 +442,16 @@
   animation: ps-sprite-play var(--dur, 1s) steps(var(--frames, 1)) infinite;
 }
 @keyframes ps-sprite-play {
+  /* Two layers when standing: the sheet steps, the ground shadow stays. */
+  from {
+    background-position:
+      0 0,
+      0 0;
+  }
   to {
-    background-position-x: var(--sheet-w);
+    background-position:
+      var(--sheet-w) 0,
+      0 0;
   }
 }
 .ps-achievements {

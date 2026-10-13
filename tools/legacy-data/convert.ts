@@ -12,6 +12,7 @@
 import { createHash } from 'node:crypto';
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { PNG } from 'pngjs';
 import {
   AchievementsFileSchema,
   BiomesFileSchema,
@@ -174,7 +175,28 @@ function hashDir(dir: string): string {
   return hash.digest('hex').slice(0, 8);
 }
 
-const anim = (a: Legacy) => {
+/** The opaque box over every frame of the facing-down row (row 0) of a sheet. */
+function boundsOf(file: string, w: number, h: number, frames: number) {
+  const png = PNG.sync.read(readFileSync(file));
+  let left = w;
+  let top = h;
+  let right = 0;
+  let bottom = 0;
+  for (let f = 0; f < frames; f++)
+    for (let y = 0; y < h && y < png.height; y++)
+      for (let x = 0; x < w; x++) {
+        const px = f * w + x;
+        if (px >= png.width || png.data[(y * png.width + px) * 4 + 3] === 0) continue;
+        left = Math.min(left, x);
+        top = Math.min(top, y);
+        right = Math.max(right, x + 1);
+        bottom = Math.max(bottom, y + 1);
+      }
+  // An empty sheet (shouldn't happen): the whole frame.
+  return right > left ? { left, top, right, bottom } : { left: 0, top: 0, right: w, bottom: h };
+}
+
+const anim = (a: Legacy, file: string) => {
   const extra = Object.keys(a).filter((k) => !['w', 'h', 'n', 'r', 'd', 'ax', 'ay'].includes(k));
   check(extra.length === 0, `sprite anim: unexpected fields ${extra.join()}`);
   return {
@@ -185,10 +207,13 @@ const anim = (a: Legacy) => {
     durations: [...a.d],
     anchorX: a.ax,
     anchorY: a.ay,
+    bounds: boundsOf(file, a.w, a.h, a.n),
   };
 };
-const mapAnims = (anims: Record<string, Legacy>) =>
-  Object.fromEntries(Object.entries(anims).map(([name, a]) => [name, anim(a)]));
+const mapAnims = (anims: Record<string, Legacy>, dir: string) =>
+  Object.fromEntries(
+    Object.entries(anims).map(([name, a]) => [name, anim(a, join(dir, `${name}.png`))]),
+  );
 
 const spriteDexes = Object.keys(G.SPRITE_META)
   .map(Number)
@@ -205,8 +230,8 @@ const sprites = {
       shadowSize: m.s,
       hovers: m.hv === 1,
       shiny: m.sh === 1,
-      animations: mapAnims(m.a),
-      ...(m.sa ? { shinyAnimations: mapAnims(m.sa) } : {}),
+      animations: mapAnims(m.a, join(spritesDir, String(dex))),
+      ...(m.sa ? { shinyAnimations: mapAnims(m.sa, join(spritesDir, String(dex), 's')) } : {}),
     };
   }),
 };
