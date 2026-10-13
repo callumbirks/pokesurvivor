@@ -6,8 +6,8 @@ import { CHUNK_TILES as N } from './constants.js';
 import type { Ctx } from './ctx.js';
 import { simData } from './data.js';
 import { makeRand, seedRng } from './rng.js';
-import { liquidSpeedMult, moveBody, type MovingBody } from './players.js';
-import type { ArenaGeometry, SimState, WorldState } from './state.js';
+import { liquidSpeedMult, moveBody, moveSpeedOf, type MovingBody } from './players.js';
+import type { ArenaGeometry, PlayerState, SimState, WorldState } from './state.js';
 import {
   createChunkCache,
   isLiquid,
@@ -136,4 +136,13 @@ export class WorldView {
   move(body: MovingBody, moveX: number, moveY: number, speed: number): void {
     moveBody(this.ctx, body, moveX, moveY, speed * liquidSpeedMult(this.ctx, body));
   }
+}
+
+/**
+ * A player's speed before liquids (`moveSpeedOf`) from the state alone: what snapshots send its
+ * own client for prediction.
+ */
+export function playerMoveSpeed(state: SimState, p: PlayerState): number {
+  // Speed reads only the player, the weather in the state and the static data.
+  return moveSpeedOf({ s: state, d: simData() } as Ctx, p);
 }
