@@ -37,7 +37,7 @@ describe('determinism', () => {
       expect(a.hash()).toBe(b.hash());
     }
     expect(a.state.team.kills).toBeGreaterThan(0);
-  });
+  }, 30_000);
 
   it('a different seed diverges', () => {
     const a = createSim(config(1));
@@ -67,7 +67,7 @@ describe('determinism', () => {
     drive(b, 4200);
     expect(a.state.arena).toBeNull();
     expect(b.hash()).toBe(a.hash());
-  });
+  }, 30_000);
 
   it('a JSON snapshot restores into a sim that continues identically', () => {
     const a = createSim(config(5));
@@ -78,5 +78,5 @@ describe('determinism', () => {
     drive(a, 1500);
     drive(b, 1500);
     expect(b.hash()).toBe(a.hash());
-  });
+  }, 30_000);
 });

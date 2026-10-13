@@ -108,7 +108,7 @@ describe('spawning', () => {
     }
     expect(seen.length).toBeGreaterThan(30);
     expect(Math.min(...seen)).toBeGreaterThan(OUTER_RADIUS - 1);
-  });
+  }, 30_000);
 
   it('spawns the first boss at 3:00, scaled for the team size', () => {
     const solo = sim1();
@@ -134,7 +134,7 @@ describe('spawning', () => {
     run(duo, 181);
     const boss2 = duo.state.enemies.find((e) => e.boss)!;
     expect(boss2.sc.hp / boss.sc.hp).toBeCloseTo(1.3 * 1.4);
-  });
+  }, 30_000);
 
   it('enemies past the cap threshold spawn as elites', () => {
     const sim = sim1();

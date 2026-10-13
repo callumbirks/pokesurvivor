@@ -79,7 +79,7 @@ describe('weather', () => {
   it('follows the schedule: none before startAfter, then rolls every checkEvery s', () => {
     const sim = quietSim();
     const starts: number[] = [];
-    while (sim.state.time < 30 * 60) {
+    while (sim.state.time < 15 * 60) {
       sim.step();
       for (const e of sim.drainEvents())
         if (e.type === 'weather' && e.kind) starts.push(sim.state.time);

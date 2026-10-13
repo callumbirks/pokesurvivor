@@ -149,12 +149,13 @@ describe('rift schedule', () => {
   it('long bot run: a rift at most 5 rolls after the last one is over, bosses or not', () => {
     const sim = createSim({
       seed: 31,
-      players: [
-        { id: 'a', dex: 25 },
-        { id: 'b', dex: 4 },
-      ],
-      debug: { invulnerable: true },
+      players: [{ id: 'a', dex: 25 }],
+      debug: { invulnerable: true, noSpawns: true },
     });
+    // The schedule doesn't need combat (so 40 minutes run fast): no spawns and the bots don't
+    // attack, but a boss is alive for most of the run, as in a late game. Legacy rolled no rifts
+    // while one was.
+    for (const p of sim.state.players) giveMove(sim, p, 'harden');
     const maxWait = Math.ceil(1 / R.chance) * R.checkEvery; // 150 s
     // Between two openings: the rift's ttl, an arena (entered at the last moment, fought to
     // the limit) and the wait.
@@ -175,6 +176,13 @@ describe('rift schedule', () => {
         p.x = rift.x;
         p.y = rift.y - 10;
       }
+      const now = sim.state.time;
+      if (!sim.state.arena && !bossAlive(sim.ctx) && now % 600 > 120) {
+        const p = sim.state.players[0]!;
+        spawnBoss(sim, p.x + 250, p.y).speed = 60;
+      }
+      if (!sim.state.arena && now % 600 < 120)
+        sim.state.enemies = sim.state.enemies.filter((e) => !e.boss);
       sim.step();
       for (const e of sim.drainEvents()) {
         const t = sim.state.time;

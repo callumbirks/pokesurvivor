@@ -1,16 +1,32 @@
 // Mid-run events (hordes, golden hour, the lost Pokémon) and treasure thieves.
 import { describe, expect, it } from 'vitest';
 import { simData } from '../src/data.js';
-import { hurtEnemy } from '../src/enemies.js';
+import { DT } from '../src/constants.js';
+import { addEnemy, createEnemy, hurtEnemy } from '../src/enemies.js';
 import { createSim, type Sim } from '../src/index.js';
 import type { EnemyState } from '../src/state.js';
 import { hordeTypes, spawnThief, startEvent } from '../src/runevents.js';
 import { spawnOne } from '../src/spawner.js';
-import { botStep } from './bots.js';
 import { giveMove, player, quietSim, seconds, spawnDummy, steps } from './helpers.js';
 
 const d = simData();
 const T = d.game.tuning.events;
+
+/** Combat isn't what these tests are about: only thieves stay (and the lost Pokémon). */
+function clearCombat(sim: Sim): void {
+  sim.state.enemies = sim.state.enemies.filter((e) => e.behavior === 'thief');
+  sim.state.projectiles = [];
+  sim.state.hazards = [];
+}
+
+function spawnBoss(sim: Sim) {
+  const p = player(sim);
+  const def = { dex: 149, behavior: 'chase' as const, hp: 1e9, speed: 0, damage: 0, xp: 1 };
+  return addEnemy(
+    sim.ctx,
+    createEnemy(sim.ctx, def, p.x + 300, p.y, { hp: 1, speed: 1, damage: 1 }, true),
+  );
+}
 
 /** A sim with spawns (events need them); `calm`: the players don't attack. */
 function liveSim(n = 1, seed = 9, calm = true): Sim {
@@ -62,24 +78,30 @@ describe('treasure thieves', () => {
     expect(s2.state.pickups.some((k) => k.kind === 'ticket10')).toBe(true);
   });
 
-  it('two per run, the first between thiefFirst s (waiting while a boss is alive)', () => {
-    // Bots that fight (the thieves wait for bosses to fall).
-    const sim = liveSim(4, 2026, false);
+  it('two per run: the first within thiefFirst s, the next thiefNext s later', () => {
+    const sim = liveSim();
     const at: number[] = [];
-    while (sim.state.time < 15 * 60) {
-      botStep(sim);
-      for (const e of sim.drainEvents()) {
-        if (e.type === 'thief') {
-          at.push(sim.state.time);
-          expect(sim.state.enemies.some((x) => x.boss && !x.dead && x.behavior !== 'thief')).toBe(
-            false,
-          );
-        }
-      }
+    while (sim.state.time < T.thiefFirst[1] + T.thiefNext[1] + 5) {
+      sim.step();
+      clearCombat(sim);
+      for (const e of sim.drainEvents()) if (e.type === 'thief') at.push(sim.state.time);
     }
     expect(at.length).toBe(2);
     expect(at[0]).toBeGreaterThanOrEqual(T.thiefFirst[0]);
+    expect(at[0]).toBeLessThanOrEqual(T.thiefFirst[1] + DT);
+    expect(at[1]! - at[0]!).toBeGreaterThanOrEqual(T.thiefNext[0] - DT);
+    expect(at[1]! - at[0]!).toBeLessThanOrEqual(T.thiefNext[1] + DT);
   }, 30_000);
+
+  it('a thief waits while a boss is alive (8 s at a time)', () => {
+    const sim = liveSim();
+    sim.state.time = 200;
+    spawnBoss(sim);
+    sim.state.events.thiefT = DT / 2;
+    sim.step();
+    expect(sim.state.events.thieves).toBe(0);
+    expect(sim.state.events.thiefT).toBeCloseTo(8, 1);
+  });
 });
 
 describe('events', () => {
@@ -113,21 +135,44 @@ describe('events', () => {
     }
   });
 
-  it('never the same event twice in a row, and none while a boss is alive', () => {
-    const sim = liveSim(4, 2026, false);
+  it('every 240–300 s, never the same event twice in a row', () => {
+    const sim = liveSim();
     const seen: string[] = [];
+    const at: number[] = [];
     while (sim.state.time < 20 * 60) {
-      botStep(sim);
+      sim.step();
+      clearCombat(sim);
       for (const e of sim.drainEvents()) {
         if (e.type === 'run-event' && e.phase === 'start') {
           seen.push(e.id);
-          expect(sim.state.enemies.some((x) => x.boss && !x.dead)).toBe(false);
+          at.push(sim.state.time);
         }
       }
+      // The lost Pokémon would wait the full 2 minutes: let it go home at once.
+      const L = sim.state.events.lost;
+      if (L) {
+        L.x = L.tx;
+        L.y = L.ty;
+        L.phase = 'follow';
+      }
     }
-    expect(seen.length).toBeGreaterThanOrEqual(2);
-    for (let i = 1; i < seen.length; i++) expect(seen[i]).not.toBe(seen[i - 1]);
-  }, 60_000);
+    expect(seen.length).toBeGreaterThanOrEqual(3);
+    expect(at[0]).toBeGreaterThanOrEqual(T.every[0]);
+    for (let i = 1; i < seen.length; i++) {
+      expect(seen[i]).not.toBe(seen[i - 1]);
+      expect(at[i]! - at[i - 1]!).toBeGreaterThanOrEqual(T.every[0] - DT);
+    }
+  }, 30_000);
+
+  it('no event starts while a boss is alive (retry every 10 s)', () => {
+    const sim = liveSim();
+    sim.state.time = 300;
+    spawnBoss(sim);
+    sim.state.events.nextT = DT / 2;
+    sim.step();
+    expect(sim.state.events.current).toBeNull();
+    expect(sim.state.events.nextT).toBeCloseTo(10, 1);
+  });
 
   it('lost Pokémon: touch it, it follows; at the marker everyone heals and it may join', () => {
     const sim = quietSim(2);
