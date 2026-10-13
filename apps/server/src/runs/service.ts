@@ -1,8 +1,12 @@
 import { and, eq, sql } from 'drizzle-orm';
+import { pokemonOf } from '../data.js';
 import type { Executor } from '../db/index.js';
 import { runPlayers, runs } from '../db/schema.js';
 import type { RunCaps } from '../economy/config.js';
 import { ApiError } from '../http/errors.js';
+import { checkAchievements } from '../progress/achievements.js';
+import type { UnlockedAchievement } from '../progress/achievements.js';
+import { advanceMissions, ensureMissions, periodsAt } from '../progress/missions.js';
 import { ownsPokemon, withLockedSave } from '../saves/service.js';
 import type { LockedSave } from '../saves/service.js';
 import { capRunStats } from './caps.js';
@@ -21,24 +25,53 @@ export interface RunResult {
   stats: RunStats;
   /** True if the client's claim was reduced by the sanity caps. */
   capped: boolean;
+  /** Achievements the run unlocked. */
+  achievements: UnlockedAchievement[];
+}
+
+/** Settings that decide how a run counts towards missions. */
+export interface ProgressOptions {
+  /** Daily and weekly missions roll over at midnight in this time zone. */
+  timeZone: string;
+}
+
+interface AppliedRun {
+  runId: string;
+  mode: RunMode;
+  stats: RunStats;
+  pokemon: RunPokemon;
+  endedAt: Date;
 }
 
 /**
- * Credits a player's run rewards to their locked save and updates their stats: coins and
- * tickets through the ledger, caught wild shinies (and the normal form) into the collection.
+ * Credits a player's run to their locked save: coins and tickets through the ledger; caught
+ * wild shinies (and the normal form) and rescued Pokémon into the collection; stats and the
+ * per-run progress (items found, moves evolved, arenas won, legendaries beaten); then missions
+ * and achievements (legacy `progress.js` events, applied once for the whole run).
  */
-function applyRunToSave(save: LockedSave, runId: string, mode: RunMode, stats: RunStats): void {
+function applyRunToSave(
+  save: LockedSave,
+  run: AppliedRun,
+  opts: ProgressOptions,
+): UnlockedAchievement[] {
   const { wallet, data } = save;
+  const { runId, mode, stats } = run;
+  const p = stats.progress;
   wallet.credit('coins', stats.coins, 'run_reward', runId);
   wallet.credit('tickets_x1', stats.ticketsX1, 'run_reward', runId);
   wallet.credit('tickets_x10', stats.ticketsX10, 'run_reward', runId);
 
-  const now = Date.now();
+  const now = run.endedAt.getTime();
   for (const dex of stats.shiniesCaught) {
     const key = String(dex);
     data.owned[key] ??= { at: now, from: 'wild' };
     data.shiny[key] ??= { at: now, from: 'wild' };
   }
+  for (const dex of p.rescued) data.owned[String(dex)] ??= { at: now, from: 'rescue' };
+  for (const id of p.itemsEquipped) data.itemsFound[id] ??= now;
+  for (const id of p.movesEvolved) data.movesEvolved[id] ??= now;
+  for (const type of p.riftWins) data.arenasWon[type] ??= now;
+  for (const dex of p.legendariesDefeated) data.legendsBeaten[String(dex)] ??= now;
 
   const s = data.stats;
   s.runs += 1;
@@ -52,11 +85,21 @@ function applyRunToSave(save: LockedSave, runId: string, mode: RunMode, stats: R
   s.bossesTotal += stats.bosses;
   s.coinsEarned += stats.coins;
   s.shinies += stats.shiniesCaught.length;
-  // Missions and achievements progress from runs once their definitions are in packages/data.
+  s.evolutions += p.movesEvolved.length;
+  s.riftWins += p.riftWins.length;
+
+  ensureMissions(save, periodsAt(run.endedAt, opts.timeZone));
+  advanceMissions(data, {
+    kind: 'run',
+    summary: stats,
+    pokemonTypes: pokemonOf(run.pokemon.dex).types,
+  });
+  return checkAchievements(save, now);
 }
 
 function playerColumns(stats: Omit<RunStats, 'durationS'>) {
   return {
+    progress: stats.progress,
     level: stats.level,
     kills: stats.kills,
     bosses: stats.bosses,
@@ -104,11 +147,14 @@ export async function finishSoloRun(
   runId: string,
   claim: RunStats,
   caps: RunCaps,
+  opts: ProgressOptions,
 ): Promise<RunResult> {
   return db.transaction(async (tx) => {
     const [run] = await tx
       .select({
         status: runs.status,
+        pokemonDex: runPlayers.pokemonDex,
+        pokemonShiny: runPlayers.pokemonShiny,
         elapsedS: sql<number>`extract(epoch from now() - ${runs.startedAt})::float8`,
       })
       .from(runs)
@@ -128,8 +174,11 @@ export async function finishSoloRun(
       .update(runPlayers)
       .set({ ...playerColumns(stats), claimed: capped ? claim : null })
       .where(and(eq(runPlayers.runId, runId), eq(runPlayers.userId, userId)));
-    await withLockedSave(tx, userId, (save) => applyRunToSave(save, runId, 'solo', stats));
-    return { runId, stats, capped };
+    const pokemon = { dex: run.pokemonDex, shiny: run.pokemonShiny };
+    const achievements = await withLockedSave(tx, userId, (save) =>
+      applyRunToSave(save, { runId, mode: 'solo', stats, pokemon, endedAt: new Date() }, opts),
+    );
+    return { runId, stats, capped, achievements };
   });
 }
 
@@ -142,10 +191,15 @@ export interface CoopRunReport {
 
 /**
  * Records a coop run reported by the game server's own simulation (not by clients, so it isn't
- * capped) and credits every player, all in one transaction. For the room manager (phase 3c);
+ * capped) and credits every player, all in one transaction. Each player's `progress` advances
+ * their missions and achievements like a solo run's. For the room manager (phase 3c);
  * there is deliberately no HTTP endpoint for it.
  */
-export async function recordCoopRun(db: Executor, report: CoopRunReport): Promise<string> {
+export async function recordCoopRun(
+  db: Executor,
+  report: CoopRunReport,
+  opts: ProgressOptions,
+): Promise<string> {
   if (report.players.length === 0) throw new Error('A coop run needs at least one player');
   // Lock saves in a stable order so concurrent reports can't deadlock.
   const players = [...report.players].sort((a, b) => a.userId.localeCompare(b.userId));
@@ -172,9 +226,14 @@ export async function recordCoopRun(db: Executor, report: CoopRunReport): Promis
       })),
     );
     for (const player of players) {
-      const stats = { ...player, durationS: report.durationS };
-      await withLockedSave(tx, player.userId, (save) =>
-        applyRunToSave(save, run.id, 'coop', stats),
+      const { userId, pokemon, ...rest } = player;
+      const stats = { ...rest, durationS: report.durationS };
+      await withLockedSave(tx, userId, (save) =>
+        applyRunToSave(
+          save,
+          { runId: run.id, mode: 'coop', stats, pokemon, endedAt: report.endedAt },
+          opts,
+        ),
       );
     }
     return run.id;

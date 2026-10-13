@@ -15,6 +15,13 @@
       "when": 1791865088738,
       "tag": "0001_accounts_saves_runs_friends",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791890695666,
+      "tag": "0002_gacha_pulls_run_progress",
+      "breakpoints": true
     }
   ]
 }

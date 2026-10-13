@@ -16,6 +16,7 @@ import { offlinePresence, silentNotifier } from './friends/presence.js';
 import type { FriendNotifier, PresenceSource } from './friends/presence.js';
 import { friendRoutes } from './friends/routes.js';
 import { registerErrorHandler } from './http/errors.js';
+import { missionRoutes } from './progress/routes.js';
 import { runRoutes } from './runs/routes.js';
 import { saveRoutes } from './saves/routes.js';
 
@@ -24,9 +25,9 @@ export interface AppOptions {
   /** Without it, only health, info, the WebSocket and static files are served. */
   db?: Db;
   economy?: EconomyConfig;
-  /** Live presence for the friends list; the WebSocket server provides it (phase 3b). */
+  /** Live presence for the friends list; the WebSocket server provides it (phase 3c). */
   presence?: PresenceSource;
-  /** Pushes friend changes to online users; the WebSocket server provides it (phase 3b). */
+  /** Pushes friend changes to online users; the WebSocket server provides it (phase 3c). */
   friendNotifier?: FriendNotifier;
 }
 
@@ -79,6 +80,7 @@ export async function buildApp({
       leaderboardTimeZone: config.leaderboardTimeZone,
       rateLimit: config.rateLimits.actions,
     });
+    missionRoutes(app, { ...common, timeZone: config.leaderboardTimeZone });
     friendRoutes(app, {
       ...common,
       presence,

@@ -141,6 +141,8 @@ export const runPlayers = pgTable(
     ticketsX1: integer('tickets_x1').notNull().default(0),
     ticketsX10: integer('tickets_x10').notNull().default(0),
     shiniesCaught: integer('shinies_caught').array().notNull().default([]),
+    /** The credited `RunProgress` (defeats by type, rift wins, …), null for older runs. */
+    progress: jsonb('progress'),
     /** The summary as the client sent it, when it differs from what was credited. */
     claimed: jsonb('claimed'),
   },
@@ -176,4 +178,29 @@ export const friendships = pgTable(
     index('friendships_addressee_id_idx').on(t.addresseeId),
     check('friendships_not_self', sql`${t.requesterId} <> ${t.addresseeId}`),
   ],
+);
+
+/**
+ * Every gacha pull (single or multi), for auditing: what was paid, the pity before and after,
+ * and what came out. Ledger entries for the pull reference its id.
+ */
+export const gachaPulls = pgTable(
+  'gacha_pulls',
+  {
+    id: uuid('id').primaryKey(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    banner: text('banner').notNull(),
+    count: smallint('count').notNull(),
+    /** `tickets` (×1 tickets) or `tickets10` (one ×10 ticket). */
+    payWith: text('pay_with').notNull(),
+    cost: integer('cost').notNull(),
+    pityBefore: integer('pity_before').notNull(),
+    pityAfter: integer('pity_after').notNull(),
+    /** `[{ dex, rarity, shiny, isNew, refund }]` in pull order. */
+    results: jsonb('results').notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index('gacha_pulls_user_id_idx').on(t.userId, t.createdAt)],
 );

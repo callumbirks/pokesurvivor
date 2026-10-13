@@ -1,11 +1,12 @@
+import { emptyRunProgress } from '@pokesurvivor/protocol';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { createAuthHooks, currentUser } from '../auth/plugin.js';
+import { getServerData, knownDexSchema, pokemonTypeSchema } from '../data.js';
 import type { Database } from '../db/index.js';
 import type { RunCaps } from '../economy/config.js';
 import { ApiError, parseBody } from '../http/errors.js';
 import { getSave } from '../saves/service.js';
-import { dexSchema } from '../saves/schema.js';
 import { getLeaderboard } from './leaderboard.js';
 import { finishSoloRun, startSoloRun } from './service.js';
 
@@ -19,7 +20,29 @@ export interface RunRoutesOptions {
 
 const count = z.number().int().nonnegative().max(1_000_000);
 
-const startBody = z.object({ pokemon: z.object({ dex: dexSchema, shiny: z.boolean() }) });
+const itemId = z
+  .string()
+  .max(32)
+  .refine((id) => getServerData().itemById.has(id), { message: 'Unknown item' });
+const moveId = z
+  .string()
+  .max(32)
+  .refine((id) => getServerData().moveById.has(id), { message: 'Unknown move' });
+
+/** `RunProgress` (`packages/protocol`); missing for clients that don't track it yet. */
+const progressBody = z
+  .object({
+    defeatsByType: z.partialRecord(pokemonTypeSchema, count),
+    chestsOpened: count,
+    itemsEquipped: z.array(itemId).max(100),
+    movesEvolved: z.array(moveId).max(100),
+    riftWins: z.array(pokemonTypeSchema).max(100),
+    legendariesDefeated: z.array(knownDexSchema).max(100),
+    rescued: z.array(knownDexSchema).max(100),
+  })
+  .default(() => ({ ...emptyRunProgress(), riftWins: [] }));
+
+const startBody = z.object({ pokemon: z.object({ dex: knownDexSchema, shiny: z.boolean() }) });
 const finishBody = z.object({
   runId: z.uuid(),
   durationS: count,
@@ -29,13 +52,14 @@ const finishBody = z.object({
   coins: count,
   ticketsX1: count,
   ticketsX10: count,
-  shiniesCaught: z.array(dexSchema).max(100),
+  shiniesCaught: z.array(knownDexSchema).max(100),
+  progress: progressBody,
 });
 const leaderboardQuery = z.object({
   mode: z.enum(['solo', 'group']).default('solo'),
   period: z.enum(['daily', 'weekly', 'all']).default('all'),
   friends: z.enum(['true', 'false']).default('false'),
-  pokemon: z.coerce.number().pipe(dexSchema).optional(),
+  pokemon: z.coerce.number().pipe(knownDexSchema).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50),
 });
 
@@ -57,7 +81,9 @@ export function runRoutes(app: FastifyInstance, opts: RunRoutesOptions): void {
   app.post('/api/runs', { preHandler: requireUser }, async (request) => {
     const { runId, ...claim } = parseBody(finishBody, request.body);
     const userId = currentUser(request).id;
-    const result = await finishSoloRun(db, userId, runId, claim, runCaps);
+    const result = await finishSoloRun(db, userId, runId, claim, runCaps, {
+      timeZone: opts.leaderboardTimeZone,
+    });
     return { ...result, save: await getSave(db, userId) };
   });
 
