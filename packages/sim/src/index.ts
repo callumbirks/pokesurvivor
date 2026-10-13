@@ -17,6 +17,7 @@ export { REVIVE_RANGE, REVIVE_SECONDS } from './players.js';
 export { rerollsLeft } from './choices.js';
 export type { ChoiceResult } from './choices.js';
 export type { HitLabel, ProgressEventName, SimEvent, SimEventType } from './events.js';
+export { playerRunSummary } from './summary.js';
 export type { PlayerSummary, RunSummary } from './summary.js';
 export { hashString, stateHash } from './hash.js';
 export { FLOOR, LIQUID, WALL, propHp, propsInRect, terrainRaw } from './world.js';

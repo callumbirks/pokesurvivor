@@ -131,7 +131,7 @@ export function evolveMove(ctx: Ctx, p: PlayerState, m: MoveState): boolean {
   if (m.evolved || !ctx.d.move(m.id).evolution) return false;
   m.evolved = true;
   m.stats = ctx.d.moveStats(m.id, m.level, true);
-  p.stats.progress.evolutions.push(m.id);
+  p.stats.progress.movesEvolved.push(m.id);
   emit(ctx, { type: 'move-evolved', playerId: p.id, moveId: m.id });
   emit(ctx, { type: 'progress', event: 'evolve', playerId: p.id, data: { move: m.id } });
   return true;

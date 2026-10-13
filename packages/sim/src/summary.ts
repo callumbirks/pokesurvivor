@@ -1,4 +1,5 @@
 // What a run leaves behind, per player: for coin rewards, records, missions and achievements.
+import type { RunSummary as ProtocolRunSummary } from '@pokesurvivor/protocol';
 import type { Ctx } from './ctx.js';
 import type { ProgressTotals, RunEnd, TeamState } from './state.js';
 
@@ -85,5 +86,34 @@ export function runSummary(ctx: Ctx): RunSummary {
       revivesGiven: p.stats.revivesGiven,
       progress: clone(p.stats.progress),
     })),
+  };
+}
+
+/**
+ * One player's result in the protocol's shape (`packages/protocol` `RunSummary`): what solo
+ * clients send to `POST /api/runs` and what the server's co-op rooms pass to `recordCoopRun()`.
+ */
+export function playerRunSummary(summary: RunSummary, playerId: string): ProtocolRunSummary {
+  const p = summary.players.find((x) => x.playerId === playerId);
+  if (!p) throw new Error(`no player ${playerId} in the run`);
+  const pr = p.progress;
+  return {
+    durationS: Math.floor(summary.time),
+    level: p.level,
+    kills: p.kills,
+    bosses: p.bosses,
+    coins: p.rewardCoins,
+    ticketsX1: p.tickets,
+    ticketsX10: p.tickets10,
+    shiniesCaught: [...p.shinies],
+    progress: {
+      defeatsByType: { ...pr.defeatsByType },
+      chestsOpened: pr.chestsOpened,
+      itemsEquipped: [...pr.itemsEquipped],
+      movesEvolved: [...pr.movesEvolved],
+      riftWins: [...pr.riftWins],
+      legendariesDefeated: [...pr.legendariesDefeated],
+      rescued: [...pr.rescued],
+    },
   };
 }

@@ -2,6 +2,7 @@
 // so it can be snapshotted, hashed and diffed. Derived caches (chunk data, spatial grid, path
 // fields) live outside it and are rebuilt from it.
 import type { EnemyBehavior, MoveKind, MoveStats, PokemonType } from '@pokesurvivor/data';
+import type { RunProgress } from '@pokesurvivor/protocol';
 import type { RngState } from './rng.js';
 
 export type PlayerId = string;
@@ -201,19 +202,16 @@ export interface PlayerRunStats {
   progress: ProgressTotals;
 }
 
-export interface ProgressTotals {
-  defeats: number;
+/**
+ * The protocol's `RunProgress` (what missions and achievements need), plus two totals for the
+ * results screen. 2b fills `chestsOpened`, `riftWins` (arena type ids), `legendariesDefeated` and
+ * `rescued`.
+ */
+export interface ProgressTotals extends RunProgress {
   /** Defeats per Pokémon type (a dual-type Pokémon counts for both). */
   defeatsByType: Partial<Record<PokemonType, number>>;
+  defeats: number;
   bossDefeats: number;
-  /** Legendaries defeated (dex numbers, 2b). */
-  legendaries: number[];
-  chestsOpened: number;
-  /** Items equipped (ids, in order). */
-  itemsFound: string[];
-  /** Moves evolved (ids). */
-  evolutions: string[];
-  riftWins: number;
 }
 
 /** Shared by the whole team, as in legacy co-op: one XP bar, one level, one loot pile. */

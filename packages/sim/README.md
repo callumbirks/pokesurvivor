@@ -87,16 +87,22 @@ super/weak/crit, `shielded`, `byPlayer`) · `enemy-died` · `enemy-spawned` · `
 `evolve {move}`, `run-end {time, level, coins, types, group}`; `playerId: null` = everyone) ·
 `choice-resolved` (`auto` if by timeout/disconnect) · `run-ended`.
 
-Progress is also aggregated per player in `players[].stats.progress` (defeats, by type, bosses,
-items, evolutions), so missions can be computed from the summary without the events.
+Progress is also aggregated per player in `players[].stats.progress`, which is the protocol's
+`RunProgress` (plus `defeats` and `bossDefeats`), so missions don't depend on the events.
 
 ## Run summary
 
-`summary()` returns `{ time, ended, group, team, players[] }`; per player: dex, shiny, `left`, the
-team's level/kills/bosses/coins/tickets/shinies, `rewardCoins` (legacy formula: (s/5 + kills/4 +
-80 per boss + coins picked up) × the player's coin multiplier) with its parts, moves, item, damage
-dealt, last hits, times down, revives given and the progress totals. Granting shinies, the
-"+300 coins for a shiny you already own" and the ticket income are the server's job.
+`sim.runSummaryFor(playerId)` (or `playerRunSummary(sim.summary(), playerId)`) returns that
+player's result in the protocol's shape, `RunSummary` from `@pokesurvivor/protocol`: what a solo
+client sends to `POST /api/runs` and what co-op rooms pass to `recordCoopRun()`. `durationS` is
+whole seconds; `level`, `kills`, `bosses`, tickets and shinies are the team's (as legacy co-op
+shared them); `coins` is the end-of-run reward, legacy's formula (s/5 + kills/4 + 80 per boss +
+coins picked up) × the player's coin multiplier (Fortune, Amulet Coin).
+
+`summary()` is the richer version for the results screen: `{ time, ended, group, team,
+players[] }` with, per player, the reward breakdown, moves, item, damage dealt, last hits, times
+down, revives given and the progress totals. Granting shinies and the "+300 coins for a shiny you
+already own" are the server's job.
 
 ## Co-op rules (as legacy co-op)
 

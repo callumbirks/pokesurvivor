@@ -1,5 +1,6 @@
 // The players' Pokémon (legacy entities/player.js, logic only): stats, movement with collisions,
 // liquids, auto-aim, damage, healing, going down and being revived.
+import { emptyRunProgress } from '@pokesurvivor/protocol';
 import { DT, TILE } from './constants.js';
 import { activePlayers, emit, type Ctx } from './ctx.js';
 import { clamp, damp, dist, dist2 } from './math.js';
@@ -108,16 +109,7 @@ export function createPlayer(
       lastHits: 0,
       timesDown: 0,
       revivesGiven: 0,
-      progress: {
-        defeats: 0,
-        defeatsByType: {},
-        bossDefeats: 0,
-        legendaries: [],
-        chestsOpened: 0,
-        itemsFound: [],
-        evolutions: [],
-        riftWins: 0,
-      },
+      progress: { ...emptyRunProgress(), defeatsByType: {}, defeats: 0, bossDefeats: 0 },
     },
   };
   (cfg.moveBindings ?? []).forEach((id, i) => {

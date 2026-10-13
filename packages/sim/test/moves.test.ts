@@ -295,6 +295,6 @@ describe('levelling and evolution', () => {
     applyCard(sim.ctx, p, { id: 'evolution:ember', type: 'evolution', moveId: 'ember' });
     expect(m.evolved).toBe(true);
     expect(m.stats.damage).toBeCloseTo(dmg * 1.8);
-    expect(p.stats.progress.evolutions).toEqual(['ember']);
+    expect(p.stats.progress.movesEvolved).toEqual(['ember']);
   });
 });

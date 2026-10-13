@@ -13,9 +13,11 @@
     "bench": "tsx test/bench.ts"
   },
   "dependencies": {
-    "@pokesurvivor/data": "workspace:*"
+    "@pokesurvivor/data": "workspace:*",
+    "@pokesurvivor/protocol": "workspace:*"
   },
   "devDependencies": {
-    "tsx": "^4.23.15"
+    "tsx": "^4.23.15",
+    "zod": "^4.6.6"
   }
 }

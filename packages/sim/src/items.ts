@@ -41,7 +41,7 @@ function takeItem(ctx: Ctx, p: PlayerState, id: string): void {
     seconds: 2.6,
     playerId: p.id,
   });
-  p.stats.progress.itemsFound.push(id);
+  p.stats.progress.itemsEquipped.push(id);
   emit(ctx, { type: 'progress', event: 'item', playerId: p.id, data: { id } });
 }
 

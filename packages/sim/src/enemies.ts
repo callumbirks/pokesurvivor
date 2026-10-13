@@ -407,7 +407,7 @@ function countKill(ctx: Ctx, e: EnemyState): void {
     pr.defeats++;
     for (const t of e.types) pr.defeatsByType[t] = (pr.defeatsByType[t] ?? 0) + 1;
     if (e.boss) pr.bossDefeats++;
-    if (e.legend) pr.legendaries.push(e.dex);
+    if (e.legend) pr.legendariesDefeated.push(e.dex);
   }
   emit(ctx, {
     type: 'progress',

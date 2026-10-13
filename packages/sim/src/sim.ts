@@ -34,7 +34,8 @@ import { newTeam } from './team.js';
 import { createChunkCache } from './world.js';
 import type { PlayerId, PlayerState, SimState } from './state.js';
 import { stateHash } from './hash.js';
-import { runSummary, type RunSummary } from './summary.js';
+import { playerRunSummary, runSummary, type RunSummary } from './summary.js';
+import type { RunSummary as ProtocolRunSummary } from '@pokesurvivor/protocol';
 
 export interface SimConfig {
   seed: number;
@@ -178,6 +179,11 @@ export class Sim {
 
   summary(): RunSummary {
     return runSummary(this.ctx);
+  }
+
+  /** One player's result in the protocol shape (`POST /api/runs`, `recordCoopRun`). */
+  runSummaryFor(playerId: PlayerId): ProtocolRunSummary {
+    return playerRunSummary(runSummary(this.ctx), playerId);
   }
 
   /** Debug: the next `n` spawns are shiny. */
