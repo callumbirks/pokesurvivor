@@ -110,6 +110,24 @@ importers:
 
   packages/sim: {}
 
+  tools:
+    devDependencies:
+      '@pokesurvivor/data':
+        specifier: workspace:*
+        version: link:../packages/data
+      acorn:
+        specifier: ^8.15.0
+        version: 8.19.0
+      prettier:
+        specifier: ^3.9.10
+        version: 3.9.10
+      tsx:
+        specifier: ^4.23.15
+        version: 4.23.15
+      zod:
+        specifier: ^4.6.6
+        version: 4.6.6
+
 packages:
 
   '@cacheable/memory@2.2.0':

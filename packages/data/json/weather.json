@@ -1,0 +1,65 @@
+{
+  "kinds": [
+    {
+      "id": "sun",
+      "name": "Harsh sunlight",
+      "hint": "Fire is boosted and Water is weakened",
+      "icon": "wsun",
+      "color": "#ffcb3d",
+      "tint": [255, 190, 90, 0.07],
+      "multipliers": { "fire": 1.5, "water": 0.5 },
+      "slows": false
+    },
+    {
+      "id": "rain",
+      "name": "Rain",
+      "hint": "Water is boosted and Fire is weakened",
+      "icon": "wrain",
+      "color": "#7fb8ff",
+      "tint": [50, 90, 170, 0.09],
+      "multipliers": { "water": 1.5, "electric": 1.2, "fire": 0.5 },
+      "slows": false
+    },
+    {
+      "id": "sand",
+      "name": "Sandstorm",
+      "hint": "Rock, Ground and Steel are boosted; the rest suffer",
+      "icon": "wsand",
+      "color": "#e0bf73",
+      "tint": [200, 160, 90, 0.09],
+      "multipliers": { "rock": 1.3, "ground": 1.3, "steel": 1.3 },
+      "immuneTypes": ["rock", "ground", "steel"],
+      "slows": false
+    },
+    {
+      "id": "snow",
+      "name": "Snowfall",
+      "hint": "Ice is boosted; the rest suffer and slow down",
+      "icon": "wsnow",
+      "color": "#d8f1ff",
+      "tint": [210, 230, 255, 0.08],
+      "multipliers": { "ice": 1.5 },
+      "immuneTypes": ["ice"],
+      "slows": true
+    },
+    {
+      "id": "fog",
+      "name": "Fog",
+      "hint": "Ghost, Fairy and Psychic are boosted",
+      "icon": "wfog",
+      "color": "#c9cfdc",
+      "tint": [190, 195, 210, 0.12],
+      "multipliers": { "ghost": 1.3, "fairy": 1.3, "psychic": 1.3 },
+      "slows": false
+    }
+  ],
+  "biomeWeights": [
+    { "rain": 3, "fog": 2, "sun": 1.5, "snow": 0.5, "sand": 0.5 },
+    { "fog": 3, "snow": 2.5, "rain": 1, "sand": 1 },
+    { "sun": 3, "sand": 3, "fog": 1 }
+  ],
+  "startAfter": 120,
+  "checkEvery": 60,
+  "chance": 0.18,
+  "durationRange": [55, 75]
+}

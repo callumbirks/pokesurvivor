@@ -1,0 +1,81 @@
+{
+  "tiers": [
+    { "from": 0, "bst": [180, 330], "hp": 17, "speed": 56, "damage": 6, "xp": 3.5, "castSize": 7 },
+    { "from": 70, "bst": [300, 405], "hp": 32, "speed": 62, "damage": 8.5, "xp": 5, "castSize": 7 },
+    { "from": 160, "bst": [385, 465], "hp": 52, "speed": 60, "damage": 11, "xp": 8, "castSize": 7 },
+    {
+      "from": 260,
+      "bst": [445, 515],
+      "hp": 88,
+      "speed": 70,
+      "damage": 14,
+      "xp": 13,
+      "castSize": 7
+    },
+    {
+      "from": 380,
+      "bst": [495, 560],
+      "hp": 150,
+      "speed": 66,
+      "damage": 22,
+      "xp": 24,
+      "castSize": 7
+    },
+    {
+      "from": 500,
+      "bst": [530, 620],
+      "hp": 250,
+      "speed": 72,
+      "damage": 28,
+      "xp": 38,
+      "castSize": 7
+    }
+  ],
+  "bossSlots": [
+    { "at": 180, "hp": 1400, "damage": 34, "xp": 220, "bst": [490, 545] },
+    { "at": 360, "hp": 3200, "damage": 42, "xp": 420, "bst": [520, 580] },
+    { "at": 540, "hp": 5600, "damage": 48, "xp": 680, "bst": [540, 600] },
+    { "at": 720, "hp": 9000, "damage": 56, "xp": 1000, "bst": [580, 700] },
+    { "at": 900, "hp": 16000, "damage": 68, "xp": 1800, "bst": [600, 700] }
+  ],
+  "lateGame": { "fromMinute": 60, "k": 0.000374 },
+  "fixedBehaviors": {
+    "healer": [35, 36, 113, 173, 183, 184, 242, 301, 440, 531, 594, 700, 764, 858],
+    "shielder": [95, 122, 208, 213, 227, 306, 375, 410, 411, 436, 437, 439, 476, 703],
+    "bomber": [74, 75, 76, 100, 101, 102, 109, 110, 337, 338, 343, 344]
+  },
+  "summons": [
+    { "summoner": 15, "minion": 13 },
+    { "summoner": 18, "minion": 16 },
+    { "summoner": 24, "minion": 23 },
+    { "summoner": 28, "minion": 27 },
+    { "summoner": 31, "minion": 29 },
+    { "summoner": 34, "minion": 32 },
+    { "summoner": 42, "minion": 41 },
+    { "summoner": 51, "minion": 50 },
+    { "summoner": 53, "minion": 52 },
+    { "summoner": 57, "minion": 56 },
+    { "summoner": 59, "minion": 58 },
+    { "summoner": 62, "minion": 60 },
+    { "summoner": 68, "minion": 66 },
+    { "summoner": 73, "minion": 72 },
+    { "summoner": 78, "minion": 77 },
+    { "summoner": 82, "minion": 81 },
+    { "summoner": 85, "minion": 84 },
+    { "summoner": 91, "minion": 90 },
+    { "summoner": 117, "minion": 116 },
+    { "summoner": 130, "minion": 129 },
+    { "summoner": 168, "minion": 167 },
+    { "summoner": 169, "minion": 41 },
+    { "summoner": 199, "minion": 79 },
+    { "summoner": 230, "minion": 116 },
+    { "summoner": 262, "minion": 261 },
+    { "summoner": 334, "minion": 333 },
+    { "summoner": 405, "minion": 403 },
+    { "summoner": 416, "minion": 415 },
+    { "summoner": 462, "minion": 81 },
+    { "summoner": 466, "minion": 239 },
+    { "summoner": 553, "minion": 551 },
+    { "summoner": 637, "minion": 636 }
+  ]
+}

@@ -1,0 +1,1013 @@
+{
+  "modifierRules": {
+    "multiplicative": [
+      "damage",
+      "cooldown",
+      "speed",
+      "radius",
+      "duration",
+      "amount",
+      "arc",
+      "width",
+      "spread",
+      "lifetime",
+      "size",
+      "rate"
+    ],
+    "additive": ["count", "pierce", "stacks"]
+  },
+  "upgradeLadders": {
+    "projectile": [
+      { "text": "+1 projectile", "mods": { "count": 1, "spread": 1.4 } },
+      { "text": "+45% damage", "mods": { "damage": 1.45 } },
+      { "text": "-25% cooldown", "mods": { "cooldown": 0.75 } },
+      { "text": "+1 projectile and +1 pierce", "mods": { "count": 1, "pierce": 1, "spread": 1.2 } }
+    ],
+    "melee": [
+      { "text": "+40% damage", "mods": { "damage": 1.4 } },
+      { "text": "+25% range", "mods": { "radius": 1.25 } },
+      { "text": "-25% cooldown", "mods": { "cooldown": 0.75 } },
+      { "text": "Hits in 360° and +50% damage", "mods": { "arc": 9, "damage": 1.5 } }
+    ],
+    "beam": [
+      { "text": "+45% damage", "mods": { "damage": 1.45 } },
+      { "text": "+30% range and width", "mods": { "radius": 1.3, "width": 1.3 } },
+      { "text": "-25% cooldown", "mods": { "cooldown": 0.75 } },
+      { "text": "+50% damage", "mods": { "damage": 1.5 } }
+    ],
+    "orbit": [
+      { "text": "+1 orb", "mods": { "count": 1 } },
+      { "text": "+55% damage", "mods": { "damage": 1.55 } },
+      { "text": "+25% radius and spins faster", "mods": { "radius": 1.25, "speed": 1.35 } },
+      { "text": "+1 orb and +55% damage", "mods": { "count": 1, "damage": 1.55 } }
+    ],
+    "nova": [
+      { "text": "+4 projectiles", "mods": { "count": 4 } },
+      { "text": "+40% damage", "mods": { "damage": 1.4 } },
+      { "text": "-25% cooldown", "mods": { "cooldown": 0.75 } },
+      { "text": "+4 projectiles and +1 pierce", "mods": { "count": 4, "pierce": 1 } }
+    ],
+    "aura": [
+      { "text": "+30% radius", "mods": { "radius": 1.3 } },
+      { "text": "+45% damage", "mods": { "damage": 1.45 } },
+      { "text": "Hits 40% more often", "mods": { "cooldown": 0.7 } },
+      { "text": "+30% radius and +50% damage", "mods": { "radius": 1.3, "damage": 1.5 } }
+    ],
+    "boomerang": [
+      { "text": "+1 boomerang", "mods": { "count": 1 } },
+      { "text": "+45% damage", "mods": { "damage": 1.45 } },
+      { "text": "+30% range", "mods": { "radius": 1.3 } },
+      { "text": "+1 boomerang and +40% damage", "mods": { "count": 1, "damage": 1.4 } }
+    ],
+    "chain": [
+      { "text": "+2 jumps", "mods": { "count": 2 } },
+      { "text": "+45% damage", "mods": { "damage": 1.45 } },
+      { "text": "-25% cooldown", "mods": { "cooldown": 0.75 } },
+      { "text": "+2 jumps and +40% damage", "mods": { "count": 2, "damage": 1.4 } }
+    ],
+    "mine": [
+      { "text": "+1 mine", "mods": { "count": 1 } },
+      { "text": "+50% damage", "mods": { "damage": 1.5 } },
+      { "text": "+30% blast radius", "mods": { "radius": 1.3 } },
+      { "text": "+1 mine and -25% cooldown", "mods": { "count": 1, "cooldown": 0.75 } }
+    ],
+    "meteor": [
+      { "text": "+1 meteor", "mods": { "count": 1 } },
+      { "text": "+45% damage", "mods": { "damage": 1.45 } },
+      { "text": "+30% radius", "mods": { "radius": 1.3 } },
+      { "text": "+2 meteors and -20% cooldown", "mods": { "count": 2, "cooldown": 0.8 } }
+    ],
+    "turret": [
+      { "text": "+50% damage", "mods": { "damage": 1.5 } },
+      { "text": "Fires 35% faster", "mods": { "rate": 0.74 } },
+      { "text": "+1 at a time", "mods": { "count": 1 } },
+      { "text": "+50% duration and +40% damage", "mods": { "duration": 1.5, "damage": 1.4 } }
+    ],
+    "dash": [
+      { "text": "+40% damage", "mods": { "damage": 1.4 } },
+      { "text": "+30% distance", "mods": { "radius": 1.3 } },
+      { "text": "-25% cooldown", "mods": { "cooldown": 0.75 } },
+      { "text": "+60% damage and wider", "mods": { "damage": 1.6, "width": 1.4 } }
+    ],
+    "trail": [
+      { "text": "+40% damage", "mods": { "damage": 1.4 } },
+      { "text": "+40% duration", "mods": { "duration": 1.4 } },
+      { "text": "Pools 30% bigger", "mods": { "radius": 1.3 } },
+      { "text": "+50% damage and +30% radius", "mods": { "damage": 1.5, "radius": 1.3 } }
+    ],
+    "cone": [
+      { "text": "+3 shots", "mods": { "count": 3 } },
+      { "text": "+40% damage", "mods": { "damage": 1.4 } },
+      { "text": "+30% range", "mods": { "lifetime": 1.3 } },
+      { "text": "+3 shots and +1 pierce", "mods": { "count": 3, "pierce": 1 } }
+    ],
+    "buff": [
+      { "text": "+1 max stack", "mods": { "stacks": 1 } },
+      { "text": "+40% power", "mods": { "amount": 1.4 } },
+      { "text": "+50% duration", "mods": { "duration": 1.5 } },
+      { "text": "+1 stack and +40% power", "mods": { "stacks": 1, "amount": 1.4 } }
+    ]
+  },
+  "evolutionBoosts": {
+    "projectile": {
+      "text": "×1.8 damage, +2 projectiles, +2 pierce and bigger",
+      "mods": { "damage": 1.8, "count": 2, "pierce": 2, "size": 1.3, "spread": 1.1 }
+    },
+    "melee": {
+      "text": "×1.9 damage, more range and hits in 360°",
+      "mods": { "damage": 1.9, "radius": 1.3, "arc": 9 }
+    },
+    "beam": {
+      "text": "×1.8 damage, a 50% wider and longer beam",
+      "mods": { "damage": 1.8, "width": 1.5, "radius": 1.2, "cooldown": 0.85 }
+    },
+    "orbit": {
+      "text": "+2 orbs, ×1.7 damage and more radius",
+      "mods": { "count": 2, "damage": 1.7, "radius": 1.15 }
+    },
+    "nova": {
+      "text": "+6 projectiles, ×1.6 damage and +1 pierce",
+      "mods": { "count": 6, "damage": 1.6, "pierce": 1 }
+    },
+    "aura": {
+      "text": "×1.8 damage and 35% more radius",
+      "mods": { "damage": 1.8, "radius": 1.35 }
+    },
+    "boomerang": {
+      "text": "×1.8 damage, +1 boomerang and more range",
+      "mods": { "damage": 1.8, "count": 1, "radius": 1.2, "size": 1.2 }
+    },
+    "chain": {
+      "text": "×1.7 damage and +3 jumps",
+      "mods": { "damage": 1.7, "count": 3, "radius": 1.2 }
+    },
+    "mine": {
+      "text": "×1.8 damage, +2 mines and a bigger blast",
+      "mods": { "damage": 1.8, "count": 2, "radius": 1.25 }
+    },
+    "meteor": {
+      "text": "×1.7 damage, +2 meteors and more radius",
+      "mods": { "damage": 1.7, "count": 2, "radius": 1.2 }
+    },
+    "turret": {
+      "text": "×1.8 damage, +1 at a time and fires faster",
+      "mods": { "damage": 1.8, "count": 1, "rate": 0.8 }
+    },
+    "dash": {
+      "text": "×1.9 damage, more distance and less cooldown",
+      "mods": { "damage": 1.9, "radius": 1.25, "cooldown": 0.8 }
+    },
+    "trail": {
+      "text": "×1.8 damage, bigger and longer-lasting pools",
+      "mods": { "damage": 1.8, "radius": 1.25, "duration": 1.3 }
+    },
+    "cone": {
+      "text": "×1.7 damage, +4 shots and +1 pierce",
+      "mods": { "damage": 1.7, "count": 4, "pierce": 1 }
+    }
+  },
+  "startingMoves": {
+    "fire": "ember",
+    "water": "water-gun",
+    "grass": "vine-whip",
+    "electric": "thunder-shock",
+    "psychic": "confusion",
+    "poison": "sludge",
+    "ground": "mud-shot",
+    "flying": "gust",
+    "bug": "bug-bite",
+    "rock": "rock-throw",
+    "ice": "ice-beam",
+    "fighting": "karate-chop",
+    "ghost": "shadow-ball",
+    "dragon": "dragon-rage",
+    "fairy": "fairy-wind",
+    "steel": "metal-claw",
+    "dark": "bite",
+    "normal": "tackle"
+  },
+  "moves": [
+    {
+      "id": "tackle",
+      "name": "Tackle",
+      "type": "normal",
+      "kind": "melee",
+      "description": "Charges in an arc at everything in front of you.",
+      "stats": { "cooldown": 0.5, "damage": 16, "radius": 60, "arc": 2.13, "knockback": 90 },
+      "evolution": { "id": "take-down", "name": "Take Down", "requires": "max-hp" }
+    },
+    {
+      "id": "quick-attack",
+      "name": "Quick Attack",
+      "type": "normal",
+      "kind": "dash",
+      "description": "You dash at the enemy like lightning and hit everything on the way.",
+      "stats": { "cooldown": 0.75, "damage": 20, "radius": 110, "width": 34, "knockback": 40 },
+      "evolution": { "id": "extreme-speed", "name": "Extreme Speed", "requires": "speed" }
+    },
+    {
+      "id": "swords-dance",
+      "name": "Swords Dance",
+      "type": "normal",
+      "kind": "buff",
+      "description": "Deals no damage: builds ATTACK while active.",
+      "stats": { "cooldown": 0.85, "amount": 0.13, "duration": 7, "stacks": 5 },
+      "buffStat": "attack"
+    },
+    {
+      "id": "agility",
+      "name": "Agility",
+      "type": "normal",
+      "kind": "buff",
+      "description": "Deals no damage: builds SPEED while active.",
+      "stats": { "cooldown": 0.85, "amount": 0.1, "duration": 7, "stacks": 5 },
+      "buffStat": "speed"
+    },
+    {
+      "id": "harden",
+      "name": "Harden",
+      "type": "normal",
+      "kind": "buff",
+      "description": "Deals no damage: builds DEFENSE while active.",
+      "stats": { "cooldown": 0.85, "amount": 0.07, "duration": 7, "stacks": 5 },
+      "buffStat": "defense"
+    },
+    {
+      "id": "ember",
+      "name": "Ember",
+      "type": "fire",
+      "kind": "projectile",
+      "description": "A fireball at the nearest enemy.",
+      "stats": {
+        "cooldown": 0.52,
+        "damage": 18,
+        "speed": 310,
+        "count": 1,
+        "spread": 0.12,
+        "pierce": 0,
+        "lifetime": 1.6,
+        "size": 7,
+        "burn": 1
+      },
+      "evolution": { "id": "fire-blast", "name": "Fire Blast", "requires": "attack" }
+    },
+    {
+      "id": "flamethrower",
+      "name": "Flamethrower",
+      "type": "fire",
+      "kind": "cone",
+      "description": "A short fan of flames that burns.",
+      "stats": {
+        "cooldown": 0.7,
+        "damage": 7,
+        "count": 7,
+        "arc": 0.9,
+        "speed": 380,
+        "lifetime": 0.42,
+        "size": 6,
+        "pierce": 1,
+        "burn": 1
+      },
+      "evolution": { "id": "overheat", "name": "Overheat", "requires": "cooldown" }
+    },
+    {
+      "id": "fire-spin",
+      "name": "Fire Spin",
+      "type": "fire",
+      "kind": "orbit",
+      "description": "Flames that spin around you. Constant defense.",
+      "stats": {
+        "cooldown": 0.3,
+        "damage": 14,
+        "count": 3,
+        "radius": 62,
+        "speed": 2.4,
+        "size": 9,
+        "burn": 1
+      },
+      "evolution": { "id": "sacred-fire", "name": "Sacred Fire", "requires": "regen" }
+    },
+    {
+      "id": "heat-wave",
+      "name": "Heat Wave",
+      "type": "fire",
+      "kind": "nova",
+      "description": "Explodes in flames in every direction.",
+      "stats": {
+        "cooldown": 1.25,
+        "damage": 13,
+        "speed": 250,
+        "count": 10,
+        "pierce": 1,
+        "lifetime": 1.1,
+        "size": 7,
+        "burn": 1
+      },
+      "evolution": { "id": "eruption", "name": "Eruption", "requires": "max-hp" }
+    },
+    {
+      "id": "water-gun",
+      "name": "Water Gun",
+      "type": "water",
+      "kind": "projectile",
+      "description": "A piercing jet. Reliable at any range.",
+      "stats": {
+        "cooldown": 0.44,
+        "damage": 14,
+        "speed": 350,
+        "count": 1,
+        "spread": 0.1,
+        "pierce": 1,
+        "lifetime": 1.5,
+        "size": 6
+      },
+      "evolution": { "id": "scald", "name": "Scald", "requires": "attack" }
+    },
+    {
+      "id": "bubble",
+      "name": "Bubble",
+      "type": "water",
+      "kind": "nova",
+      "description": "A fan of bubbles that slows whatever they touch.",
+      "stats": {
+        "cooldown": 1,
+        "damage": 9,
+        "speed": 210,
+        "count": 8,
+        "pierce": 0,
+        "lifetime": 1.3,
+        "size": 8,
+        "slow": 0.45
+      },
+      "evolution": { "id": "surf", "name": "Surf", "requires": "speed" }
+    },
+    {
+      "id": "hydro-pump",
+      "name": "Hydro Pump",
+      "type": "water",
+      "kind": "beam",
+      "description": "A slow but devastating water blast.",
+      "stats": { "cooldown": 1.5, "damage": 29, "radius": 250, "width": 30 },
+      "evolution": { "id": "hydro-cannon", "name": "Hydro Cannon", "requires": "attack" }
+    },
+    {
+      "id": "aqua-ring",
+      "name": "Aqua Ring",
+      "type": "water",
+      "kind": "buff",
+      "description": "Deals no damage: builds health REGENERATION.",
+      "stats": { "cooldown": 0.9, "amount": 1.6, "duration": 8, "stacks": 4 },
+      "buffStat": "regen"
+    },
+    {
+      "id": "vine-whip",
+      "name": "Vine Whip",
+      "type": "grass",
+      "kind": "melee",
+      "description": "Long-range whips in a wide arc.",
+      "stats": { "cooldown": 0.62, "damage": 19, "radius": 85, "arc": 1.63, "knockback": 60 },
+      "evolution": { "id": "power-whip", "name": "Power Whip", "requires": "attack" }
+    },
+    {
+      "id": "razor-leaf",
+      "name": "Razor Leaf",
+      "type": "grass",
+      "kind": "boomerang",
+      "description": "Two leaves that fly out and back, cutting both ways.",
+      "stats": {
+        "cooldown": 0.9,
+        "damage": 10,
+        "speed": 330,
+        "count": 2,
+        "spread": 0.5,
+        "radius": 210,
+        "size": 6
+      },
+      "evolution": { "id": "leaf-storm", "name": "Leaf Storm", "requires": "cooldown" }
+    },
+    {
+      "id": "petal-blizzard",
+      "name": "Petal Blizzard",
+      "type": "grass",
+      "kind": "orbit",
+      "description": "A cyclone of leaves spins widely around you.",
+      "stats": {
+        "cooldown": 0.26,
+        "damage": 14,
+        "count": 4,
+        "radius": 74,
+        "speed": 2.6,
+        "size": 8
+      },
+      "evolution": { "id": "petal-dance", "name": "Petal Dance", "requires": "regen" }
+    },
+    {
+      "id": "grass-knot",
+      "name": "Grass Knot",
+      "type": "grass",
+      "kind": "aura",
+      "description": "Roots that snare and pound everything near you.",
+      "stats": { "cooldown": 0.55, "damage": 9, "radius": 76 },
+      "evolution": { "id": "frenzy-plant", "name": "Frenzy Plant", "requires": "max-hp" }
+    },
+    {
+      "id": "thunder-shock",
+      "name": "Thunder Shock",
+      "type": "electric",
+      "kind": "projectile",
+      "description": "A lightning-fast bolt that pierces several enemies.",
+      "stats": {
+        "cooldown": 0.4,
+        "damage": 13,
+        "speed": 480,
+        "count": 1,
+        "spread": 0.08,
+        "pierce": 2,
+        "lifetime": 1.1,
+        "size": 5
+      },
+      "evolution": { "id": "thunder", "name": "Thunder", "requires": "attack" }
+    },
+    {
+      "id": "discharge",
+      "name": "Discharge",
+      "type": "electric",
+      "kind": "aura",
+      "description": "A permanent electric field around you.",
+      "stats": { "cooldown": 0.45, "damage": 8, "radius": 70 },
+      "evolution": { "id": "electric-terrain", "name": "Electric Terrain", "requires": "defense" }
+    },
+    {
+      "id": "thunderbolt",
+      "name": "Thunderbolt",
+      "type": "electric",
+      "kind": "chain",
+      "description": "A bolt that jumps from one enemy to the next.",
+      "stats": { "cooldown": 0.95, "damage": 21, "count": 4, "radius": 140 },
+      "evolution": { "id": "zap-cannon", "name": "Zap Cannon", "requires": "cooldown" }
+    },
+    {
+      "id": "confusion",
+      "name": "Confusion",
+      "type": "psychic",
+      "kind": "projectile",
+      "description": "A wave that homes in on its target.",
+      "stats": {
+        "cooldown": 0.58,
+        "damage": 13,
+        "speed": 280,
+        "count": 1,
+        "spread": 0.1,
+        "pierce": 0,
+        "lifetime": 2.2,
+        "size": 8,
+        "homing": 2
+      },
+      "evolution": { "id": "psyshock", "name": "Psyshock", "requires": "cooldown" }
+    },
+    {
+      "id": "psybeam",
+      "name": "Psybeam",
+      "type": "psychic",
+      "kind": "beam",
+      "description": "A wide, heavy-hitting psychic beam.",
+      "stats": { "cooldown": 1.15, "damage": 17, "radius": 215, "width": 40 },
+      "evolution": { "id": "future-sight", "name": "Future Sight", "requires": "attack" }
+    },
+    {
+      "id": "psychic",
+      "name": "Psychic",
+      "type": "psychic",
+      "kind": "nova",
+      "description": "A radial mental burst that seeks enemies.",
+      "stats": {
+        "cooldown": 1.35,
+        "damage": 10,
+        "speed": 230,
+        "count": 12,
+        "pierce": 1,
+        "lifetime": 1.6,
+        "size": 7,
+        "homing": 1
+      },
+      "evolution": { "id": "expanding-force", "name": "Expanding Force", "requires": "magnet" }
+    },
+    {
+      "id": "sludge",
+      "name": "Sludge",
+      "type": "poison",
+      "kind": "projectile",
+      "description": "Toxic sludge that poisons on impact.",
+      "stats": {
+        "cooldown": 0.6,
+        "damage": 17,
+        "speed": 290,
+        "count": 1,
+        "spread": 0.12,
+        "pierce": 0,
+        "lifetime": 1.5,
+        "size": 8,
+        "poison": 1
+      },
+      "evolution": { "id": "sludge-bomb", "name": "Sludge Bomb", "requires": "attack" }
+    },
+    {
+      "id": "mud-shot",
+      "name": "Mud Shot",
+      "type": "ground",
+      "kind": "nova",
+      "description": "Splashes mud around and slows foes.",
+      "stats": {
+        "cooldown": 1.1,
+        "damage": 11,
+        "speed": 200,
+        "count": 7,
+        "pierce": 0,
+        "lifetime": 1,
+        "size": 9,
+        "slow": 0.4
+      },
+      "evolution": { "id": "earth-power", "name": "Earth Power", "requires": "attack" }
+    },
+    {
+      "id": "gust",
+      "name": "Gust",
+      "type": "flying",
+      "kind": "orbit",
+      "description": "Whirlwinds that escort you.",
+      "stats": {
+        "cooldown": 0.26,
+        "damage": 13,
+        "count": 3,
+        "radius": 72,
+        "speed": 2.8,
+        "size": 8,
+        "knockback": 40
+      },
+      "evolution": { "id": "hurricane", "name": "Hurricane", "requires": "speed" }
+    },
+    {
+      "id": "wing-attack",
+      "name": "Wing Attack",
+      "type": "flying",
+      "kind": "melee",
+      "description": "A wide wing sweep that pushes foes back.",
+      "stats": { "cooldown": 0.55, "damage": 17, "radius": 73, "arc": 2.38, "knockback": 70 },
+      "evolution": { "id": "brave-bird", "name": "Brave Bird", "requires": "attack" }
+    },
+    {
+      "id": "body-slam",
+      "name": "Body Slam",
+      "type": "normal",
+      "kind": "melee",
+      "description": "A full-weight tackle: slow, short and brutal.",
+      "stats": { "cooldown": 0.95, "damage": 36, "radius": 58, "arc": 2.75, "knockback": 140 },
+      "evolution": { "id": "giga-impact", "name": "Giga Impact", "requires": "attack" }
+    },
+    {
+      "id": "hyper-voice",
+      "name": "Hyper Voice",
+      "type": "normal",
+      "kind": "nova",
+      "description": "A sound wave that spreads in every direction.",
+      "stats": {
+        "cooldown": 1.15,
+        "damage": 12,
+        "speed": 260,
+        "count": 9,
+        "pierce": 1,
+        "lifetime": 0.9,
+        "size": 7
+      },
+      "evolution": { "id": "uproar", "name": "Uproar", "requires": "cooldown" }
+    },
+    {
+      "id": "poison-sting",
+      "name": "Poison Sting",
+      "type": "poison",
+      "kind": "projectile",
+      "description": "A quick poisonous sting.",
+      "stats": {
+        "cooldown": 0.34,
+        "damage": 8,
+        "speed": 420,
+        "count": 1,
+        "spread": 0.08,
+        "pierce": 0,
+        "lifetime": 1,
+        "size": 4,
+        "poison": 1
+      },
+      "evolution": { "id": "poison-jab", "name": "Poison Jab", "requires": "speed" }
+    },
+    {
+      "id": "toxic",
+      "name": "Toxic",
+      "type": "poison",
+      "kind": "trail",
+      "description": "You leave pools of poison that badly poison whoever steps on them.",
+      "stats": { "cooldown": 0.3, "damage": 6, "radius": 26, "duration": 3, "poison": 1 },
+      "evolution": { "id": "poison-gas", "name": "Poison Gas", "requires": "regen" }
+    },
+    {
+      "id": "bulldoze",
+      "name": "Bulldoze",
+      "type": "ground",
+      "kind": "aura",
+      "description": "Shakes the ground: damages and slows everything nearby.",
+      "stats": { "cooldown": 0.7, "damage": 11, "radius": 80, "slow": 0.35 },
+      "evolution": { "id": "earthquake", "name": "Earthquake", "requires": "attack" }
+    },
+    {
+      "id": "bug-bite",
+      "name": "Bug Bite",
+      "type": "bug",
+      "kind": "melee",
+      "description": "A quick bite in a short arc.",
+      "stats": { "cooldown": 0.42, "damage": 13, "radius": 55, "arc": 2, "knockback": 40 },
+      "evolution": { "id": "x-scissor", "name": "X-Scissor", "requires": "attack" }
+    },
+    {
+      "id": "string-shot",
+      "name": "String Shot",
+      "type": "bug",
+      "kind": "mine",
+      "description": "Leaves webs on the ground that trap and greatly slow whoever steps on them.",
+      "stats": {
+        "cooldown": 1.1,
+        "damage": 14,
+        "count": 2,
+        "radius": 56,
+        "duration": 7,
+        "slow": 0.6
+      },
+      "evolution": { "id": "sticky-web", "name": "Sticky Web", "requires": "cooldown" }
+    },
+    {
+      "id": "bug-buzz",
+      "name": "Bug Buzz",
+      "type": "bug",
+      "kind": "aura",
+      "description": "A constant vibration that pounds everything nearby.",
+      "stats": { "cooldown": 0.45, "damage": 8, "radius": 66 },
+      "evolution": { "id": "swarm", "name": "Swarm", "requires": "regen" }
+    },
+    {
+      "id": "rock-throw",
+      "name": "Rock Throw",
+      "type": "rock",
+      "kind": "projectile",
+      "description": "A heavy boulder that pushes the enemy back.",
+      "stats": {
+        "cooldown": 0.7,
+        "damage": 24,
+        "speed": 260,
+        "count": 1,
+        "spread": 0.12,
+        "pierce": 0,
+        "lifetime": 1.4,
+        "size": 9,
+        "knockback": 90
+      },
+      "evolution": { "id": "stone-edge", "name": "Stone Edge", "requires": "attack" }
+    },
+    {
+      "id": "rock-slide",
+      "name": "Rock Slide",
+      "type": "rock",
+      "kind": "meteor",
+      "description": "Rocks fall from the sky onto nearby enemies.",
+      "stats": { "cooldown": 1.3, "damage": 21, "count": 3, "radius": 46, "knockback": 50 },
+      "evolution": { "id": "stealth-rock", "name": "Stealth Rock", "requires": "cooldown" }
+    },
+    {
+      "id": "ice-beam",
+      "name": "Ice Beam",
+      "type": "ice",
+      "kind": "beam",
+      "description": "An icy beam that almost freezes foes solid.",
+      "stats": { "cooldown": 1.1, "damage": 20, "radius": 220, "width": 30, "slow": 0.7 },
+      "evolution": { "id": "blizzard", "name": "Blizzard", "requires": "attack" }
+    },
+    {
+      "id": "powder-snow",
+      "name": "Powder Snow",
+      "type": "ice",
+      "kind": "aura",
+      "description": "A blizzard around you that slows foes.",
+      "stats": { "cooldown": 0.55, "damage": 8, "radius": 76, "slow": 0.45 },
+      "evolution": { "id": "icy-wind", "name": "Icy Wind", "requires": "speed" }
+    },
+    {
+      "id": "karate-chop",
+      "name": "Karate Chop",
+      "type": "fighting",
+      "kind": "melee",
+      "description": "A sharp, powerful blow straight ahead.",
+      "stats": { "cooldown": 0.5, "damage": 22, "radius": 63, "arc": 1.5, "knockback": 110 },
+      "evolution": { "id": "close-combat", "name": "Close Combat", "requires": "attack" }
+    },
+    {
+      "id": "aura-sphere",
+      "name": "Aura Sphere",
+      "type": "fighting",
+      "kind": "projectile",
+      "description": "An energy sphere that never misses.",
+      "stats": {
+        "cooldown": 0.62,
+        "damage": 17,
+        "speed": 300,
+        "count": 1,
+        "spread": 0.1,
+        "pierce": 0,
+        "lifetime": 2,
+        "size": 8,
+        "homing": 4
+      },
+      "evolution": { "id": "focus-blast", "name": "Focus Blast", "requires": "cooldown" }
+    },
+    {
+      "id": "lick",
+      "name": "Lick",
+      "type": "ghost",
+      "kind": "melee",
+      "description": "A ghostly lick that briefly paralyzes.",
+      "stats": { "cooldown": 0.48, "damage": 14, "radius": 60, "arc": 2.25, "slow": 0.4 },
+      "evolution": { "id": "shadow-punch", "name": "Shadow Punch", "requires": "attack" }
+    },
+    {
+      "id": "shadow-ball",
+      "name": "Shadow Ball",
+      "type": "ghost",
+      "kind": "projectile",
+      "description": "A shadowy orb that pierces several foes.",
+      "stats": {
+        "cooldown": 0.66,
+        "damage": 19,
+        "speed": 280,
+        "count": 1,
+        "spread": 0.1,
+        "pierce": 2,
+        "lifetime": 1.6,
+        "size": 9
+      },
+      "evolution": { "id": "phantom-force", "name": "Phantom Force", "requires": "cooldown" }
+    },
+    {
+      "id": "dragon-rage",
+      "name": "Dragon Rage",
+      "type": "dragon",
+      "kind": "beam",
+      "description": "Draconic flames in a straight line.",
+      "stats": { "cooldown": 1, "damage": 24, "radius": 230, "width": 34 },
+      "evolution": { "id": "draco-meteor", "name": "Draco Meteor", "requires": "attack" }
+    },
+    {
+      "id": "dragon-dance",
+      "name": "Dragon Dance",
+      "type": "dragon",
+      "kind": "buff",
+      "description": "Deals no damage: builds ATTACK faster than Swords Dance.",
+      "stats": { "cooldown": 0.7, "amount": 0.11, "duration": 7, "stacks": 5 },
+      "buffStat": "attack"
+    },
+    {
+      "id": "fairy-wind",
+      "name": "Fairy Wind",
+      "type": "fairy",
+      "kind": "nova",
+      "description": "A magical breeze in every direction.",
+      "stats": {
+        "cooldown": 1,
+        "damage": 11,
+        "speed": 230,
+        "count": 10,
+        "pierce": 0,
+        "lifetime": 1.2,
+        "size": 7
+      },
+      "evolution": { "id": "moonblast", "name": "Moonblast", "requires": "attack" }
+    },
+    {
+      "id": "dazzling-gleam",
+      "name": "Dazzling Gleam",
+      "type": "fairy",
+      "kind": "aura",
+      "description": "A flash of light all around you.",
+      "stats": { "cooldown": 0.5, "damage": 9, "radius": 72 },
+      "evolution": { "id": "misty-terrain", "name": "Misty Terrain", "requires": "regen" }
+    },
+    {
+      "id": "metal-claw",
+      "name": "Metal Claw",
+      "type": "steel",
+      "kind": "melee",
+      "description": "A steel swipe in an arc.",
+      "stats": { "cooldown": 0.5, "damage": 18, "radius": 63, "arc": 2, "knockback": 60 },
+      "evolution": { "id": "iron-head", "name": "Iron Head", "requires": "attack" }
+    },
+    {
+      "id": "flash-cannon",
+      "name": "Flash Cannon",
+      "type": "steel",
+      "kind": "beam",
+      "description": "A piercing beam of metallic light.",
+      "stats": { "cooldown": 1.05, "damage": 23, "radius": 220, "width": 30 },
+      "evolution": { "id": "steel-beam", "name": "Steel Beam", "requires": "defense" }
+    },
+    {
+      "id": "bite",
+      "name": "Bite",
+      "type": "dark",
+      "kind": "melee",
+      "description": "A quick bite that knocks foes back.",
+      "stats": { "cooldown": 0.45, "damage": 17, "radius": 58, "arc": 1.88, "knockback": 70 },
+      "evolution": { "id": "crunch", "name": "Crunch", "requires": "attack" }
+    },
+    {
+      "id": "dark-pulse",
+      "name": "Dark Pulse",
+      "type": "dark",
+      "kind": "nova",
+      "description": "A wave of dark energy in every direction.",
+      "stats": {
+        "cooldown": 1.15,
+        "damage": 14,
+        "speed": 240,
+        "count": 10,
+        "pierce": 1,
+        "lifetime": 1.1,
+        "size": 8
+      },
+      "evolution": { "id": "snarl", "name": "Snarl", "requires": "speed" }
+    },
+    {
+      "id": "night-shade",
+      "name": "Night Shade",
+      "type": "dark",
+      "kind": "aura",
+      "description": "A shadow surrounds you and consumes what is near.",
+      "stats": { "cooldown": 0.5, "damage": 9, "radius": 72 },
+      "evolution": { "id": "nightmare", "name": "Nightmare", "requires": "regen" }
+    },
+    {
+      "id": "bonemerang",
+      "name": "Bonemerang",
+      "type": "ground",
+      "kind": "boomerang",
+      "description": "A bone that flies out and back, hitting hard.",
+      "stats": {
+        "cooldown": 0.95,
+        "damage": 16,
+        "speed": 300,
+        "count": 1,
+        "radius": 230,
+        "size": 8,
+        "knockback": 40
+      },
+      "evolution": { "id": "bone-rush", "name": "Bone Rush", "requires": "attack" }
+    },
+    {
+      "id": "psycho-cut",
+      "name": "Psycho Cut",
+      "type": "psychic",
+      "kind": "boomerang",
+      "description": "Psychic blades that come back to you.",
+      "stats": {
+        "cooldown": 0.8,
+        "damage": 9,
+        "speed": 360,
+        "count": 2,
+        "spread": 0.6,
+        "radius": 200,
+        "size": 7
+      },
+      "evolution": { "id": "psychic-fangs", "name": "Psychic Fangs", "requires": "cooldown" }
+    },
+    {
+      "id": "spikes",
+      "name": "Spikes",
+      "type": "ground",
+      "kind": "mine",
+      "description": "Scatters spikes that burst when stepped on.",
+      "stats": { "cooldown": 1.2, "damage": 18, "count": 2, "radius": 60, "duration": 8 },
+      "evolution": { "id": "fissure", "name": "Fissure", "requires": "attack" }
+    },
+    {
+      "id": "toxic-spikes",
+      "name": "Toxic Spikes",
+      "type": "poison",
+      "kind": "mine",
+      "description": "Poison spikes that badly poison when they burst.",
+      "stats": {
+        "cooldown": 1.1,
+        "damage": 11,
+        "count": 2,
+        "radius": 56,
+        "duration": 8,
+        "poison": 2
+      },
+      "evolution": { "id": "gunk-shot", "name": "Gunk Shot", "requires": "regen" }
+    },
+    {
+      "id": "hail",
+      "name": "Hail",
+      "type": "ice",
+      "kind": "meteor",
+      "description": "Hailstones fall on enemies and slow them.",
+      "stats": { "cooldown": 1.2, "damage": 18, "count": 4, "radius": 40, "slow": 0.4 },
+      "evolution": { "id": "avalanche", "name": "Avalanche", "requires": "cooldown" }
+    },
+    {
+      "id": "meteor-mash",
+      "name": "Meteor Mash",
+      "type": "steel",
+      "kind": "meteor",
+      "description": "Two steel meteors that crush where they land.",
+      "stats": { "cooldown": 1.4, "damage": 34, "count": 2, "radius": 54, "knockback": 80 },
+      "evolution": { "id": "magnet-bomb", "name": "Magnet Bomb", "requires": "attack" }
+    },
+    {
+      "id": "will-o-wisp",
+      "name": "Will-O-Wisp",
+      "type": "fire",
+      "kind": "turret",
+      "description": "Leaves a floating flame that fires on its own and burns.",
+      "stats": {
+        "cooldown": 3.5,
+        "damage": 15,
+        "rate": 0.55,
+        "duration": 6,
+        "count": 1,
+        "range": 300,
+        "speed": 300,
+        "size": 7,
+        "burn": 1
+      },
+      "evolution": { "id": "inferno", "name": "Inferno", "requires": "cooldown" }
+    },
+    {
+      "id": "substitute",
+      "name": "Substitute",
+      "type": "normal",
+      "kind": "turret",
+      "description": "A decoy that stays behind shooting for you.",
+      "stats": {
+        "cooldown": 4,
+        "damage": 14,
+        "rate": 0.4,
+        "duration": 6,
+        "count": 1,
+        "range": 280,
+        "speed": 320,
+        "size": 6
+      },
+      "evolution": { "id": "double-team", "name": "Double Team", "requires": "defense" }
+    },
+    {
+      "id": "aerial-ace",
+      "name": "Aerial Ace",
+      "type": "flying",
+      "kind": "dash",
+      "description": "You dive and slash everything you pass through.",
+      "stats": { "cooldown": 0.75, "damage": 18, "radius": 120, "width": 40, "knockback": 60 },
+      "evolution": { "id": "acrobatics", "name": "Acrobatics", "requires": "speed" }
+    },
+    {
+      "id": "flame-wheel",
+      "name": "Flame Wheel",
+      "type": "fire",
+      "kind": "trail",
+      "description": "You run wrapped in fire, leaving a trail of flames.",
+      "stats": { "cooldown": 0.28, "damage": 10, "radius": 28, "duration": 2.6, "burn": 1 },
+      "evolution": { "id": "flare-blitz", "name": "Flare Blitz", "requires": "speed" }
+    },
+    {
+      "id": "bubble-beam",
+      "name": "Bubble Beam",
+      "type": "water",
+      "kind": "cone",
+      "description": "A short fan of bubbles that slows.",
+      "stats": {
+        "cooldown": 0.65,
+        "damage": 6,
+        "count": 7,
+        "arc": 1,
+        "speed": 340,
+        "lifetime": 0.45,
+        "size": 6,
+        "slow": 0.3
+      },
+      "evolution": { "id": "aqua-tail", "name": "Aqua Tail", "requires": "attack" }
+    },
+    {
+      "id": "hex",
+      "name": "Hex",
+      "type": "ghost",
+      "kind": "chain",
+      "description": "A curse that jumps between enemies. Much more damage if they are burned, poisoned or slowed.",
+      "stats": { "cooldown": 0.9, "damage": 17, "count": 4, "radius": 150, "hexBonus": 1.7 },
+      "evolution": { "id": "poltergeist", "name": "Poltergeist", "requires": "magnet" }
+    }
+  ]
+}

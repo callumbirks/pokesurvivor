@@ -1,0 +1,33 @@
+{
+  "spawner": {
+    "cap": 64,
+    "eliteFrom": 0.85,
+    "density": 0.24,
+    "damageK": 2.4,
+    "xpK": 5.6,
+    "shinyRate": 0.000244140625
+  },
+  "rift": {
+    "checkEvery": 30,
+    "chance": 0.2,
+    "startAfter": 75,
+    "ttl": 45,
+    "arenaRadius": 11,
+    "arenaTime": 120
+  },
+  "events": {
+    "every": [240, 300],
+    "duration": 30,
+    "lostTime": 120,
+    "thiefFirst": [120, 240],
+    "thiefNext": [240, 360],
+    "thiefLife": 15
+  },
+  "combat": { "critMultiplier": 1.5 },
+  "pickups": {
+    "max": 420,
+    "ticketDropRate": 0.0025,
+    "bossTicket10Chance": 0.3333333333333333,
+    "legendaryTicket10Chance": 0.5
+  }
+}

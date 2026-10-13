@@ -1,0 +1,19 @@
+{
+  "name": "@pokesurvivor/tools",
+  "version": "0.0.0",
+  "private": true,
+  "description": "One-off scripts: legacy data conversion.",
+  "type": "module",
+  "scripts": {
+    "convert-legacy-data": "tsx legacy-data/convert.ts",
+    "seed-ui-strings": "tsx legacy-data/seed-ui-strings.ts",
+    "typecheck": "tsc"
+  },
+  "devDependencies": {
+    "@pokesurvivor/data": "workspace:*",
+    "acorn": "^8.15.0",
+    "prettier": "^3.9.10",
+    "tsx": "^4.23.15",
+    "zod": "^4.6.6"
+  }
+}

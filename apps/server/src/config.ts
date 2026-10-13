@@ -17,6 +17,8 @@ export interface Config {
   clientDir: string;
   /** The legacy game, served under /legacy/ for side-by-side comparison. */
   legacyDir: string;
+  /** Shared static assets (sprites), served at /sprites/ and, for the legacy game, /legacy/assets/pokemon/. */
+  assetsDir: string;
   /** Mark the session cookie `Secure`. Defaults to on in production (served over TLS). */
   secureCookies: boolean;
   /** Daily and weekly leaderboards reset at midnight in this IANA time zone. */
@@ -70,6 +72,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     migrationsDir: resolve(here, '../drizzle'),
     clientDir: resolve(env.CLIENT_DIR ?? resolve(here, '../../client/dist')),
     legacyDir: resolve(env.LEGACY_DIR ?? resolve(here, '../../../legacy')),
+    assetsDir: resolve(env.ASSETS_DIR ?? resolve(here, '../../../assets')),
     secureCookies: env.COOKIE_SECURE ? env.COOKIE_SECURE === 'true' : isProduction,
     leaderboardTimeZone: timeZone(env.LEADERBOARD_TIME_ZONE),
     rateLimits: {

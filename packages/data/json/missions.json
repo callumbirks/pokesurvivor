@@ -1,0 +1,151 @@
+{
+  "dailyCount": 3,
+  "weeklyCount": 2,
+  "daily": [
+    {
+      "id": "defeat",
+      "event": "defeat",
+      "mode": "add",
+      "goals": [300, 500, 800],
+      "reward": { "tickets": 2, "coins": 150 },
+      "text": "Defeat {count} Pokémon"
+    },
+    {
+      "id": "defeat-type",
+      "event": "defeat",
+      "filter": "has-type",
+      "mode": "add",
+      "param": "type",
+      "goals": [30, 50, 80],
+      "reward": { "tickets": 2, "coins": 200 },
+      "text": "Defeat {count} {type}-type Pokémon"
+    },
+    {
+      "id": "survive",
+      "event": "run-end",
+      "value": "minutes",
+      "mode": "max",
+      "goals": [5, 7, 9],
+      "reward": { "tickets": 3, "coins": 200 },
+      "text": "Survive {count} minutes in a run"
+    },
+    {
+      "id": "reach-level",
+      "event": "run-end",
+      "value": "level",
+      "mode": "max",
+      "goals": [8, 12, 15],
+      "reward": { "tickets": 2, "coins": 200 },
+      "text": "Reach level {count} in a run"
+    },
+    {
+      "id": "defeat-boss",
+      "event": "defeat",
+      "filter": "boss",
+      "mode": "add",
+      "goals": [1, 2],
+      "reward": { "tickets": 3, "coins": 250 },
+      "text": "Defeat {count} bosses",
+      "textSingular": "Defeat a boss"
+    },
+    {
+      "id": "open-chest",
+      "event": "chest",
+      "mode": "add",
+      "goals": [1, 2],
+      "reward": { "tickets": 2, "coins": 200 },
+      "text": "Open {count} locked chests",
+      "textSingular": "Open a locked chest"
+    },
+    {
+      "id": "collect-coins",
+      "event": "run-end",
+      "value": "coins",
+      "mode": "add",
+      "goals": [100, 200, 300],
+      "reward": { "tickets": 2, "coins": 150 },
+      "text": "Collect {count} coins in your runs"
+    },
+    {
+      "id": "survive-type",
+      "event": "run-end",
+      "filter": "has-type",
+      "value": "minutes",
+      "mode": "max",
+      "param": "type",
+      "goals": [3],
+      "reward": { "tickets": 3, "coins": 200 },
+      "text": "Survive {count} minutes with a {type}-type Pokémon"
+    },
+    {
+      "id": "find-item",
+      "event": "item",
+      "mode": "add",
+      "goals": [1],
+      "reward": { "tickets": 2, "coins": 150 },
+      "text": "Find a held item"
+    },
+    {
+      "id": "evolve-move",
+      "event": "evolve",
+      "mode": "add",
+      "goals": [1],
+      "reward": { "tickets": 3, "coins": 250 },
+      "text": "Evolve a move"
+    }
+  ],
+  "weekly": [
+    {
+      "id": "weekly-defeat",
+      "event": "defeat",
+      "mode": "add",
+      "goals": [4000, 6000],
+      "reward": { "tickets10": 1, "coins": 800 },
+      "text": "Defeat {count} Pokémon"
+    },
+    {
+      "id": "weekly-rift-win",
+      "event": "rift-win",
+      "mode": "add",
+      "goals": [1, 2],
+      "reward": { "tickets10": 1, "coins": 1000 },
+      "text": "Win {count} rift battles",
+      "textSingular": "Win a rift battle"
+    },
+    {
+      "id": "weekly-defeat-boss",
+      "event": "defeat",
+      "filter": "boss",
+      "mode": "add",
+      "goals": [4, 6],
+      "reward": { "tickets10": 1, "coins": 900 },
+      "text": "Defeat {count} bosses"
+    },
+    {
+      "id": "weekly-survive",
+      "event": "run-end",
+      "value": "minutes",
+      "mode": "max",
+      "goals": [12, 15],
+      "reward": { "tickets10": 1, "coins": 1000 },
+      "text": "Survive {count} minutes in a run"
+    },
+    {
+      "id": "weekly-evolve-move",
+      "event": "evolve",
+      "mode": "add",
+      "goals": [3, 5],
+      "reward": { "tickets10": 1, "coins": 900 },
+      "text": "Evolve {count} moves"
+    },
+    {
+      "id": "weekly-daily-missions",
+      "event": "mission-done",
+      "filter": "daily",
+      "mode": "add",
+      "goals": [8, 12],
+      "reward": { "tickets10": 1, "coins": 800 },
+      "text": "Complete {count} daily missions"
+    }
+  ]
+}

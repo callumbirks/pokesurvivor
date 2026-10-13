@@ -1,0 +1,39 @@
+{
+  "cost": { "single": 1, "multi": 10, "multiCount": 10, "multiTickets10": 1 },
+  "rates": [
+    { "rarity": 1, "weight": 45 },
+    { "rarity": 2, "weight": 30 },
+    { "rarity": 3, "weight": 17 },
+    { "rarity": 4, "weight": 6.5 },
+    { "rarity": 5, "weight": 1.5 }
+  ],
+  "hardPity": 70,
+  "multiGuaranteeMinRarity": 4,
+  "shinyRate": 0.01,
+  "duplicateRefund": [
+    { "rarity": 1, "coins": 15 },
+    { "rarity": 2, "coins": 30 },
+    { "rarity": 3, "coins": 60 },
+    { "rarity": 4, "coins": 120 },
+    { "rarity": 5, "coins": 300 }
+  ],
+  "shinyDuplicateMultiplier": 3,
+  "rarities": [
+    { "rarity": 1, "name": "Common", "color": "#9fb1c9" },
+    { "rarity": 2, "name": "Uncommon", "color": "#5fe08a" },
+    { "rarity": 3, "name": "Rare", "color": "#4fb4ff" },
+    { "rarity": 4, "name": "Epic", "color": "#c47bff" },
+    { "rarity": 5, "name": "Legendary", "color": "#ffcb3d" }
+  ],
+  "banners": [
+    { "id": "kanto", "gen": 1, "name": "Kanto", "colors": ["#3a1d6e", "#1b2f78", "#0f4d6e"] },
+    { "id": "johto", "gen": 2, "name": "Johto", "colors": ["#5a2a1a", "#7a3d1f", "#2d4a6e"] },
+    { "id": "hoenn", "gen": 3, "name": "Hoenn", "colors": ["#0f4d6e", "#1b6a5a", "#2a3d78"] },
+    { "id": "sinnoh", "gen": 4, "name": "Sinnoh", "colors": ["#2a2a5e", "#3d3d8a", "#5a2a6e"] },
+    { "id": "unova", "gen": 5, "name": "Unova", "colors": ["#1a1a2a", "#3a3a4e", "#2a4a6e"] },
+    { "id": "kalos", "gen": 6, "name": "Kalos", "colors": ["#4a1a3a", "#2a3a7a", "#1a5a7a"] },
+    { "id": "alola", "gen": 7, "name": "Alola", "colors": ["#7a3a1a", "#1a6a6a", "#2a4a8a"] },
+    { "id": "galar", "gen": 8, "name": "Galar", "colors": ["#4a1a5a", "#1a3a6a", "#6a1a3a"] },
+    { "id": "paldea", "gen": 9, "name": "Paldea", "colors": ["#6a2a1a", "#4a1a5a", "#1a4a6a"] }
+  ]
+}

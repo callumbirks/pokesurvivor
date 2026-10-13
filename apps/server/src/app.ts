@@ -1,4 +1,5 @@
 import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import fastifyCookie from '@fastify/cookie';
 import fastifyRateLimit from '@fastify/rate-limit';
 import fastifyStatic from '@fastify/static';
@@ -104,6 +105,21 @@ export async function buildApp({
       }
     });
   });
+
+  const spritesDir = join(config.assetsDir, 'pokemon');
+  if (existsSync(spritesDir)) {
+    // Sprite sheets never change in place: the manifest in @pokesurvivor/data carries a content
+    // hash per Pokémon that clients append as a query string to bust the cache.
+    for (const prefix of ['/sprites/', '/legacy/assets/pokemon/']) {
+      await app.register(fastifyStatic, {
+        root: spritesDir,
+        prefix,
+        decorateReply: false,
+        maxAge: '365d',
+        immutable: true,
+      });
+    }
+  }
 
   if (existsSync(config.legacyDir)) {
     await app.register(fastifyStatic, {
