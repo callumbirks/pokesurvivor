@@ -4,7 +4,8 @@
 // one, more often and tougher (`scaleRate` / `scaleHp`).
 import { DT, OUTER_RADIUS } from './constants.js';
 import { activePlayers, emit, presentPlayers, type Ctx } from './ctx.js';
-import { addEnemy, createEnemy, makeShiny, pokemonName } from './enemies.js';
+import { addEnemy, createEnemy, makeGolden, makeShiny, pokemonName } from './enemies.js';
+import { goldenHour, hordeBag } from './runevents.js';
 import { TAU, dist2 } from './math.js';
 import { isFree } from './world.js';
 import type {
@@ -119,7 +120,9 @@ export function rollRoster(ctx: Ctx): RosterState {
 
 /** A random enemy def available at second `t` (old tiers lose weight after 260 s). */
 function pickDef(ctx: Ctx, t: number): EnemyDef {
-  // 2b: during a typed horde only that type spawns (events.js `bag()`).
+  // During a typed horde only that type spawns.
+  const horde = hordeBag(ctx);
+  if (horde) return ctx.rand.pick(horde);
   const tiers = ctx.s.roster.tiers;
   let total = 0;
   for (const tier of tiers)
@@ -203,7 +206,7 @@ export function spawnOne(ctx: Ctx, pl: PlayerState, t: number, angle?: number): 
     e.xp = Math.round(e.xp * 1.6);
   }
   if (shiny) makeShiny(e);
-  // 2b: golden hour (events.js) makes new spawns golden here.
+  if (goldenHour(ctx)) makeGolden(e);
   addEnemy(ctx, e);
   if (shiny)
     emit(ctx, {
@@ -246,7 +249,8 @@ export function updateSpawner(ctx: Ctx): void {
   const cap = d.game.tuning.spawner.cap;
   const n = activePlayers(s).length;
   if (!n || s.config.noSpawns) return;
-  // 2b: nothing spawns while the team is in a rift arena (and the boss clock waits).
+  // Nothing spawns while the team is in a rift arena (and the next boss waits).
+  if (s.arena) return;
 
   const lateFrom = d.game.enemies.lateGame.fromMinute * 60;
   if (t >= lateFrom && t - DT < lateFrom) {
@@ -291,7 +295,7 @@ export function updateSpawner(ctx: Ctx): void {
   }
 }
 
-/** A few at once from one side (2b: hordes start with this). */
+/** A few at once from one side (hordes start with this). */
 export function spawnBurst(ctx: Ctx, count: number): void {
   const base = ctx.rand() * TAU;
   const target = anchor(ctx);

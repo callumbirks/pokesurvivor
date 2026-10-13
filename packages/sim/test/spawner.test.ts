@@ -75,7 +75,8 @@ const run = (sim: Sim, s: number) => {
           choiceId: c.id,
           cardId: c.options[0]!.id,
         });
-      else sim.submitIntent(c.playerId, { type: 'pickItem', choiceId: c.id, itemId: c.held });
+      else if (c.kind === 'item')
+        sim.submitIntent(c.playerId, { type: 'pickItem', choiceId: c.id, itemId: c.held });
     }
     sim.step();
   }

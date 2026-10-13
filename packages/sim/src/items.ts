@@ -78,6 +78,8 @@ export function resolveItemChoice(ctx: Ctx, p: PlayerState, c: ItemChoice, keep:
  */
 export function lifeOrbDrain(ctx: Ctx, p: PlayerState): void {
   if (p.item !== 'life-orb' || ctx.s.time >= p.attackingUntil) return;
+  // Not during the arena's win/lose banner (the fight is over).
+  if (ctx.s.arena && ctx.s.arena.phase !== 'fight') return;
   const params = ctx.d.item('life-orb').params ?? {};
   const floor = p.maxHp * (params.drainFloor ?? 0.3);
   if (p.hp <= floor) return;

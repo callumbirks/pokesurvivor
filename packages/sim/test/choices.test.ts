@@ -21,7 +21,13 @@ const choicesOf = (sim: Sim, id: string): PendingChoice[] =>
 const pick = (sim: Sim, c: PendingChoice) =>
   c.kind === 'level-up'
     ? sim.submitIntent(c.playerId, { type: 'pickCard', choiceId: c.id, cardId: c.options[0]!.id })
-    : sim.submitIntent(c.playerId, { type: 'pickItem', choiceId: c.id, itemId: c.found });
+    : c.kind === 'item'
+      ? sim.submitIntent(c.playerId, { type: 'pickItem', choiceId: c.id, itemId: c.found })
+      : sim.submitIntent(c.playerId, {
+          type: 'pickBond',
+          choiceId: c.id,
+          moves: c.loose.slice(0, 2),
+        });
 
 describe('level-up choices', () => {
   it('offer every player their own cards and pause the game until all pick', () => {

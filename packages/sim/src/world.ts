@@ -3,13 +3,16 @@
 // the seed and the set of broken props, so chunks are generated lazily into a cache that isn't part
 // of the state. Rendering (tiles.js) is the client's job; it can call `terrainAt` / `chunkProps`.
 //
-// 2b: the rift arena (a walled circle carved into the map) plugs in at `terrainRaw` / `placeProps`.
+// The rift arena is a walled circle carved into a far corner of the map (`world.arena`): terrain
+// and props are a pure function of the seed, the arena and the broken props.
 import { CHUNK, CHUNK_TILES as N, TILE } from './constants.js';
 import { emit, type Ctx } from './ctx.js';
+import { onSpecialBroken } from './interact.js';
 import { clamp, dist2, hash2 } from './math.js';
 import { dropPickup, dropXp } from './pickups.js';
 import type { SimData } from './data.js';
-import type { WorldState } from './state.js';
+import type { ArenaGeometry, WorldState } from './state.js';
+import type { Arena } from '@pokesurvivor/data';
 
 export const FLOOR = 0;
 export const WALL = 1;
@@ -18,7 +21,7 @@ export type Terrain = typeof FLOOR | typeof WALL | typeof LIQUID;
 
 export type PropType =
   'tree' | 'rock' | 'chest' | 'grass' | 'altar' | 'spring' | 'big-chest' | 'trap';
-/** Interactables (2b: altars, springs, locked chests, traps). */
+/** Interactables: altars, springs, locked chests and traps (see interact.ts). */
 export const SPECIAL_PROPS: ReadonlySet<PropType> = new Set([
   'altar',
   'spring',
@@ -50,6 +53,8 @@ export interface Chunk {
   props: Prop[];
   /** Solid props by tile key. */
   propAt: Map<string, Prop>;
+  /** The interactables among `props`. */
+  specials: Prop[];
 }
 
 export interface ChunkCache {
@@ -61,6 +66,11 @@ const MAX_CHUNKS = 400;
 
 export function createChunkCache(seed: number): ChunkCache {
   return { seed, chunks: new Map() };
+}
+
+/** The arena changed: chunks are regenerated (they're a pure function of the state). */
+export function resetChunks(ctx: Ctx): void {
+  ctx.chunks.chunks.clear();
 }
 
 // ---------------------------------------------------------------- noise
@@ -82,8 +92,44 @@ function vnoise(x: number, y: number, s: number): number {
 const fbm = (x: number, y: number, s: number) =>
   vnoise(x, y, s) * 0.65 + vnoise(x * 2.13 + 17, y * 2.13 - 9, s + 1) * 0.35;
 
-/** Terrain of a tile, uncached. */
-export function terrainRaw(seed: number, tx: number, ty: number): Terrain {
+/** The look of a rift arena of `type` (normal if there's none for it). */
+export function arenaTheme(d: SimData, type: string): Arena {
+  const list = d.game.biomes.arenas;
+  return list.find((a) => a.type === type) ?? (list[0] as Arena);
+}
+
+const arenaDist = (a: ArenaGeometry, tx: number, ty: number) => Math.hypot(tx - a.tx, ty - a.ty);
+/** Walls and decor stop this far outside the arena's wall. */
+const arenaOuter = (a: ArenaGeometry) => a.r + 7;
+
+/** The arena's clear lane: where the team arrives (south) and the legendary waits (north). */
+function arenaLane(a: ArenaGeometry, tx: number, ty: number): boolean {
+  const lx = tx - a.tx;
+  const ly = ty - a.ty;
+  return (Math.abs(lx) <= 2 && ly >= -6 && ly <= 5) || Math.hypot(lx, ly) < 2.5;
+}
+
+/** Terrain of a tile, uncached. `arena`: the rift arena carved into the map, if any. */
+export function terrainRaw(
+  seed: number,
+  tx: number,
+  ty: number,
+  arena: ArenaGeometry | null = null,
+): Terrain {
+  if (arena) {
+    const ad = arenaDist(arena, tx, ty);
+    if (ad < arenaOuter(arena)) {
+      if (ad >= arena.r) return WALL;
+      if (arenaLane(arena, tx, ty)) return FLOOR;
+      // 2×2 pillars (cover) and pools, by the arena's type.
+      const { pillars, pools } = arena;
+      if (pillars && ad < arena.r - 2 && hash2(tx >> 1, ty >> 1, seed + 31 + arena.tx) < pillars)
+        return WALL;
+      if (pools && ad < arena.r - 1.5 && fbm(tx / 3.2, ty / 3.2, seed + 37 + arena.tx) < pools)
+        return LIQUID;
+      return FLOOR;
+    }
+  }
   const d = Math.hypot(tx, ty);
   if (d < 9) return FLOOR; // starting clearing
   const ramp = clamp((d - 9) / 8, 0, 1); // fades in
@@ -117,6 +163,7 @@ function makeProp(d: SimData, type: PropType, tx: number, ty: number, kind = 0):
 
 function placeProps(d: SimData, w: WorldState, c: Chunk): void {
   const seed = w.seed;
+  const arena = w.arena;
   for (let j = 0; j < N; j++) {
     for (let i = 0; i < N; i++) {
       if (c.terr[j * N + i] !== FLOOR) continue;
@@ -129,11 +176,31 @@ function placeProps(d: SimData, w: WorldState, c: Chunk): void {
       let open = true;
       for (let b = -1; b <= 1 && open; b++) {
         for (let a = -1; a <= 1; a++) {
-          if (terrainRaw(seed, tx + a, ty + b) !== FLOOR) {
+          if (terrainRaw(seed, tx + a, ty + b, arena) !== FLOOR) {
             open = false;
             break;
           }
         }
+      }
+
+      // In the arena: its type's decor (and nothing in the lane).
+      if (arena && arenaDist(arena, tx, ty) < arenaOuter(arena) + 2) {
+        const ad = arenaDist(arena, tx, ty);
+        if (ad >= arena.r - 1.2 || arenaLane(arena, tx, ty)) continue;
+        const pr = arenaTheme(d, arena.type).props;
+        const tree = pr.tree ?? 0;
+        const rock = pr.rock ?? 0;
+        const hh = hash2(tx, ty, seed + 777);
+        let at: PropType | null = null;
+        if (open && hh < tree) at = 'tree';
+        else if (open && hh < tree + rock) at = 'rock';
+        else if (hh > 1 - (pr.grass ?? 0)) at = 'grass';
+        if (at) {
+          const p = makeProp(d, at, tx, ty);
+          c.props.push(p);
+          if (p.solid) c.propAt.set(p.key, p);
+        }
+        continue;
       }
 
       const h = hash2(tx, ty, seed + 404);
@@ -155,6 +222,7 @@ function placeProps(d: SimData, w: WorldState, c: Chunk): void {
       const p = makeProp(d, type, tx, ty, kind);
       c.props.push(p);
       if (p.solid) c.propAt.set(p.key, p);
+      if (SPECIAL_PROPS.has(type)) c.specials.push(p);
     }
   }
 }
@@ -169,9 +237,10 @@ export function chunkAt(
   const k = chunkKey(cx, cy);
   let c = cache.chunks.get(k);
   if (c) return c;
-  c = { cx, cy, terr: new Uint8Array(N * N), props: [], propAt: new Map() };
+  c = { cx, cy, terr: new Uint8Array(N * N), props: [], propAt: new Map(), specials: [] };
   for (let j = 0; j < N; j++) {
-    for (let i = 0; i < N; i++) c.terr[j * N + i] = terrainRaw(w.seed, cx * N + i, cy * N + j);
+    for (let i = 0; i < N; i++)
+      c.terr[j * N + i] = terrainRaw(w.seed, cx * N + i, cy * N + j, w.arena);
   }
   if (cache.chunks.size > MAX_CHUNKS) {
     const oldest = cache.chunks.keys().next().value;
@@ -201,11 +270,17 @@ export const isWall = (ctx: Ctx, x: number, y: number): boolean =>
 export const isLiquid = (ctx: Ctx, x: number, y: number): boolean =>
   terrainAt(ctx, tileOf(x), tileOf(y)) === LIQUID;
 
+/** The liquid on the map now: the run biome's, or the arena's while the team is in it. */
+export function liquidKind(ctx: Ctx): string {
+  const a = ctx.s.world.arena;
+  return a ? arenaTheme(ctx.d, a.type).liquid : ctx.d.biomeLiquid(ctx.s.world.biome);
+}
+
 /** Can a walker cross this tile? Walls, solid props and harmful liquids block (pathing). */
 export function walkable(ctx: Ctx, tx: number, ty: number): boolean {
   const t = terrainAt(ctx, tx, ty);
   if (t === WALL) return false;
-  if (t === LIQUID && ctx.d.liquidHurts(ctx.s.world.biome)) return false;
+  if (t === LIQUID && ctx.d.liquidHurts(liquidKind(ctx))) return false;
   const p = propAtTile(ctx, tx, ty);
   return !(p && p.solid);
 }
@@ -264,13 +339,11 @@ export function propsInRect(ctx: Ctx, x0: number, y0: number, x1: number, y1: nu
   return out;
 }
 
-/** Interactables near a point (2b). */
+/** Interactables near a point. */
 export function specialsNear(ctx: Ctx, x: number, y: number, r: number): Prop[] {
   const out: Prop[] = [];
   chunksAround(ctx, x, y, r, (c) => {
-    for (const p of c.props) {
-      if (SPECIAL_PROPS.has(p.type) && dist2(x, y, p.x, p.y) <= (r + p.r) ** 2) out.push(p);
-    }
+    for (const p of c.specials) if (dist2(x, y, p.x, p.y) <= (r + p.r) ** 2) out.push(p);
   });
   return out;
 }
@@ -399,6 +472,8 @@ export function destroyProp(ctx: Ctx, p: Prop): void {
   const c = chunkAt(ctx.d, w, ctx.chunks, Math.floor(p.tx / N), Math.floor(p.ty / N));
   const i = c.props.indexOf(p);
   if (i >= 0) c.props.splice(i, 1);
+  const j = c.specials.indexOf(p);
+  if (j >= 0) c.specials.splice(j, 1);
   c.propAt.delete(p.key);
   emit(ctx, { type: 'prop-broken', key: p.key, propType: p.type, x: p.x, y: p.y });
 
@@ -424,8 +499,10 @@ export function destroyProp(ctx: Ctx, p: Prop): void {
     dropPickup(ctx, rand() < 0.5 ? 'heal' : 'magnet', p.x, p.y);
     dropXp(ctx, p.x, p.y, 20);
     if (rand() < 0.08) dropPickup(ctx, 'item', p.x, p.y - 12, 0, rollItem(ctx));
+    return;
   }
-  // 2b: big chests (opened by standing next to them) and traps (trigger effects) break here too.
+  // Locked chests (opened by standing next to them) and traps (stepped on).
+  onSpecialBroken(ctx, p);
 }
 
 /** A random held item, different from `except` (legacy `Items.roll`). */
