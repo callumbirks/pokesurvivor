@@ -1,7 +1,10 @@
-// Main menu: the partner on the left, the menu list on the right (legacy menu.js).
+// Main menu: the partner on the left, the menu list on the right (legacy menu.js). Above the
+// list, a solo run left unfinished in this browser (closed tab, crash, reload): resume or end it.
 import { t } from '@pokesurvivor/data';
 import type { App, Screen } from '../app/app.js';
 import type { Save } from '../app/api.js';
+import type { SavedSoloRun } from '../app/game.js';
+import { endSavedRun, resumeSolo, savedSoloRun } from '../app/solo-runs.js';
 import {
   gameData,
   h,
@@ -25,7 +28,12 @@ export function rewardsToClaim(save: Save): number {
 export function menuScreen(app: App): Screen {
   const left = h('div', { class: 'menu-left' });
   const list = h('nav', { class: 'menu-list' });
-  const right = h('div', { class: 'menu-right' }, h('div', { class: 'box' }, list));
+  const savedBox = h('div', { class: 'box saved-run hidden', dataset: { testid: 'saved-run' } });
+  const right = h(
+    'div',
+    { class: 'menu-right' },
+    h('div', null, savedBox, h('div', { class: 'box' }, list)),
+  );
   const el = h(
     'section',
     { class: 'scr scr-menu', dataset: { testid: 'screen-menu' } },
@@ -174,7 +182,45 @@ export function menuScreen(app: App): Screen {
     );
   };
 
+  const renderSaved = (saved: SavedSoloRun | null) => {
+    savedBox.classList.toggle('hidden', !saved);
+    if (!saved) return;
+    const info = {
+      0: pokemonName(saved.loadout.dex),
+      1: mmss(saved.summary.durationS),
+      2: saved.summary.level,
+    };
+    const resume = h(
+      'button',
+      { class: 'btn gold small grow', dataset: { testid: 'saved-run-resume' } },
+      t('app.savedRunResume'),
+    );
+    resume.addEventListener('click', () => {
+      void app.act(resume, async () => {
+        if (!(await resumeSolo(app, saved))) renderSaved(null);
+      });
+    });
+    const end = h(
+      'button',
+      { class: 'btn small grow', dataset: { testid: 'saved-run-end' } },
+      t('app.savedRunEnd'),
+    );
+    end.addEventListener('click', () => {
+      void app.act(end, async () => {
+        await endSavedRun(app, saved);
+        renderSaved(null);
+      });
+    });
+    replace(
+      savedBox,
+      h('h4', null, t('app.savedRun')),
+      h('p', { class: 'sub' }, t(saved.state ? 'app.savedRunInfo' : 'app.savedRunEnded', info)),
+      h('div', { class: 'row' }, saved.state ? resume : null, end),
+    );
+  };
+
   render();
+  void savedSoloRun(app).then(renderSaved);
   const offs = [
     app.events.on('save', render),
     app.net?.on('room', render),

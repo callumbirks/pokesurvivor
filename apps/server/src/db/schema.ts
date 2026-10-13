@@ -100,8 +100,9 @@ export const runMode = pgEnum('run_mode', ['solo', 'coop']);
 export const runStatus = pgEnum('run_status', ['started', 'finished']);
 
 /**
- * A run. Solo runs are created by `POST /api/runs/start` and finished by the client's summary;
- * coop runs are inserted finished by the game server.
+ * A run. Solo runs are created by `POST /api/runs/start` and finished by the client's summary,
+ * or, when that never comes, by the timeout sweep from their last checkpoint (`timedOut`); coop
+ * runs are inserted finished by the game server.
  */
 export const runs = pgTable(
   'runs',
@@ -114,8 +115,15 @@ export const runs = pgTable(
     startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
     endedAt: timestamp('ended_at', { withTimezone: true }),
     durationS: integer('duration_s'),
+    /** When the latest solo checkpoint was stored (`run_players.checkpoint`). */
+    checkpointAt: timestamp('checkpoint_at', { withTimezone: true }),
+    /** Finished by the timeout sweep from the last checkpoint, not by a final report. */
+    timedOut: boolean('timed_out').notNull().default(false),
   },
   (t) => [
+    index('runs_checkpoint_idx')
+      .on(t.checkpointAt)
+      .where(sql`${t.status} = 'started'`),
     index('runs_leaderboard_idx')
       .on(t.mode, t.endedAt)
       .where(sql`${t.status} = 'finished'`),
@@ -145,6 +153,11 @@ export const runPlayers = pgTable(
     progress: jsonb('progress'),
     /** The summary as the client sent it, when it differs from what was credited. */
     claimed: jsonb('claimed'),
+    /**
+     * Solo runs: the latest checkpoint (`RunStats`, already capped), credited by the timeout
+     * sweep if the final report never comes.
+     */
+    checkpoint: jsonb('checkpoint'),
   },
   (t) => [
     primaryKey({ columns: [t.runId, t.userId] }),

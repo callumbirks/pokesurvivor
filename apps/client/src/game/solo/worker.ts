@@ -1,8 +1,10 @@
 // The solo run's simulation, in a Web Worker: the same sim the server runs for co-op rooms, stepped
 // at 30 Hz and projected into the same binary snapshots (`SnapshotEncoder`), so the game client
-// can't tell solo from the network. Choices have no deadline (the game simply waits).
+// can't tell solo from the network. Choices have no deadline (the game simply waits). Every
+// `checkpointEveryS` of run time it sends a checkpoint: the run so far and a copy of the state
+// (plain JSON data), which the connection reports and saves so the run can be resumed.
 import { SnapshotEncoder, firstOption } from '@pokesurvivor/netclient';
-import { TICK_HZ, TICK_MS, createSim, drainTicks, type Sim } from '@pokesurvivor/sim';
+import { TICK_HZ, TICK_MS, createSim, drainTicks, restoreSim, type Sim } from '@pokesurvivor/sim';
 import type { FromWorker, ToWorker } from './messages.js';
 
 interface WorkerScope {
@@ -29,6 +31,8 @@ let seq = 0;
 let acc = 0;
 let last = 0;
 let timer: ReturnType<typeof setInterval> | null = null;
+let checkpointEveryS = 0;
+let nextCheckpointS = Infinity;
 
 const post = (m: FromWorker, transfer?: Transferable[]) => scope.postMessage(m, transfer);
 
@@ -36,6 +40,23 @@ function sendFrame(events: ReturnType<Sim['drainEvents']>): void {
   if (!sim || !encoder) return;
   const data = encoder.encode(sim.state, events, ++seq, input.seq) as Uint8Array;
   post({ type: 'frame', data }, [data.buffer]);
+}
+
+function checkpoint(): void {
+  if (!sim || ended) return;
+  const s = sim;
+  const run = s.runSummaryFor(playerId, (dex) => owned.has(dex));
+  // `postMessage` copies the state (structured clone) before the next tick changes it.
+  post({ type: 'checkpoint', summary: run, state: s.state });
+  scheduleCheckpoint(s);
+}
+
+/** The next checkpoint is due at the next multiple of `checkpointEveryS` of run time. */
+function scheduleCheckpoint(s: Sim): void {
+  nextCheckpointS =
+    checkpointEveryS > 0
+      ? (Math.floor(s.state.time / checkpointEveryS) + 1) * checkpointEveryS
+      : Infinity;
 }
 
 function finish(reason: string): void {
@@ -66,6 +87,7 @@ function loop(): void {
     // Every tick: solo has no bandwidth to save, and it keeps interpolation smooth.
     sendFrame(sim.drainEvents());
     if (sim.ended) finish(sim.state.ended?.reason ?? 'all-down');
+    else if (sim.state.time >= nextCheckpointS) checkpoint();
   }
 }
 
@@ -95,14 +117,18 @@ scope.onmessage = (ev) => {
       case 'init': {
         playerId = m.loadout.id;
         owned = new Set(m.owned);
-        sim = createSim({
-          seed: m.seed,
-          players: [m.loadout],
-          choiceTimeoutSeconds: null,
-          debug: m.invulnerable ? { invulnerable: true } : undefined,
-        });
+        sim = m.restore
+          ? restoreSim(m.restore)
+          : createSim({
+              seed: m.seed,
+              players: [m.loadout],
+              choiceTimeoutSeconds: null,
+              debug: m.invulnerable ? { invulnerable: true } : undefined,
+            });
         encoder = new SnapshotEncoder({ viewerId: playerId });
-        if (m.skipMinutes) skipAhead(sim, m.skipMinutes * 60);
+        if (m.skipMinutes && !m.restore) skipAhead(sim, m.skipMinutes * 60);
+        checkpointEveryS = m.checkpointEveryS ?? 0;
+        scheduleCheckpoint(sim);
         const p = sim.state.players[0]!;
         post({
           type: 'ready',
@@ -157,6 +183,9 @@ scope.onmessage = (ev) => {
         else sim.debugStartEvent(a);
         return;
       }
+      case 'checkpoint':
+        if (running) checkpoint();
+        return;
       case 'quit':
         if (!sim || ended) return;
         sim.removePlayer(playerId);

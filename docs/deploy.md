@@ -23,21 +23,23 @@ In the Dokploy project: **Create Service → Database → PostgreSQL**.
 - **Build type:** `Dockerfile`, Dockerfile path `Dockerfile`, build context `.` (the repo root).
 - **Environment:**
 
-  | Variable                | Value                                   | Notes                                                                      |
-  | ----------------------- | --------------------------------------- | -------------------------------------------------------------------------- |
-  | `DATABASE_URL`          | the internal connection URL from step 1 | required                                                                   |
-  | `PORT`                  | `3000`                                  | optional, it's the default                                                 |
-  | `LOG_LEVEL`             | `info`                                  | optional                                                                   |
-  | `MIGRATE_ON_START`      | `true`                                  | optional; migrations run on every start by default                         |
-  | `LEADERBOARD_TIME_ZONE` | `Europe/Madrid`                         | optional; when daily/weekly leaderboards reset                             |
-  | `AUTH_RATE_LIMIT_MAX`   | `10`                                    | optional; login and register attempts per IP per minute                    |
-  | `ACTION_RATE_LIMIT_MAX` | `60`                                    | optional; run starts and friend requests per IP per minute                 |
-  | `COOKIE_SECURE`         | `true`                                  | optional; defaults to true when `NODE_ENV=production` (the image sets it)  |
-  | `DRAIN_TIMEOUT_S`       | `900`                                   | optional; how long running games may finish on a deploy (see §4)           |
-  | `SNAPSHOT_HZ`           | `20`                                    | optional; snapshots per second per client (max 30)                         |
-  | `CHOICE_TIMEOUT_S`      | `30`                                    | optional; coop level-up/item/bond choices resolve by themselves after this |
-  | `RECONNECT_GRACE_S`     | `60`                                    | optional; how long a dropped player's place is kept                        |
-  | `LOADING_TIMEOUT_S`     | `15`                                    | optional; members who haven't loaded by then are dropped from the game     |
+  | Variable                   | Value                                   | Notes                                                                                                                                  |
+  | -------------------------- | --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+  | `DATABASE_URL`             | the internal connection URL from step 1 | required                                                                                                                               |
+  | `PORT`                     | `3000`                                  | optional, it's the default                                                                                                             |
+  | `LOG_LEVEL`                | `info`                                  | optional                                                                                                                               |
+  | `MIGRATE_ON_START`         | `true`                                  | optional; migrations run on every start by default                                                                                     |
+  | `LEADERBOARD_TIME_ZONE`    | `Europe/Madrid`                         | optional; when daily/weekly leaderboards reset                                                                                         |
+  | `AUTH_RATE_LIMIT_MAX`      | `10`                                    | optional; login and register attempts per IP per minute                                                                                |
+  | `ACTION_RATE_LIMIT_MAX`    | `60`                                    | optional; run starts, checkpoints and friend requests per IP per minute                                                                |
+  | `COOKIE_SECURE`            | `true`                                  | optional; defaults to true when `NODE_ENV=production` (the image sets it)                                                              |
+  | `DRAIN_TIMEOUT_S`          | `900`                                   | optional; how long running games may finish on a deploy (see §4)                                                                       |
+  | `RUN_CHECKPOINT_TIMEOUT_S` | `3600`                                  | optional; an unreported solo run is credited from its last checkpoint after this ([api.md](api.md#checkpoints-and-the-timeout-credit)) |
+  | `RUN_SWEEP_INTERVAL_S`     | `60`                                    | optional; how often the server looks for such runs                                                                                     |
+  | `SNAPSHOT_HZ`              | `20`                                    | optional; snapshots per second per client (max 30)                                                                                     |
+  | `CHOICE_TIMEOUT_S`         | `30`                                    | optional; coop level-up/item/bond choices resolve by themselves after this                                                             |
+  | `RECONNECT_GRACE_S`        | `60`                                    | optional; how long a dropped player's place is kept                                                                                    |
+  | `LOADING_TIMEOUT_S`        | `15`                                    | optional; members who haven't loaded by then are dropped from the game                                                                 |
 
   `NODE_ENV=production` is already set in the image.
 

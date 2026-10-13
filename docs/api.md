@@ -13,13 +13,13 @@ Every error has the same shape. `code` is stable and maps to a UI string in `en.
 { "error": { "code": "username_taken", "message": "Username is taken" } }
 ```
 
-| Status | Codes                                                                                                                                                                                                                                                                                                           |
-| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 400    | `invalid_request` (body/query validation, incl. unknown dex/item/move/type ids; has `issues`), `unknown_upgrade`, `unknown_title`, `not_a_starter`, `invalid_answers`, `invalid_move`, `duplicate_move`, `unknown_banner`, `invalid_pull_count`, `invalid_payment`, `cannot_friend_self`, `duplicate_favourite` |
-| 401    | `unauthenticated`, `invalid_credentials`                                                                                                                                                                                                                                                                        |
-| 404    | `run_not_found`, `user_not_found`, `request_not_found`, `friend_not_found`, `mission_not_found`                                                                                                                                                                                                                 |
-| 409    | `username_taken`, `pokemon_not_owned`, `insufficient_funds`, `upgrade_maxed`, `title_locked`, `starter_already_chosen`, `too_many_bans`, `run_already_finished`, `mission_not_done`, `mission_already_claimed`, `mission_reroll_used`, `mission_reroll_unavailable`, `already_friends`, `request_already_sent`  |
-| 429    | `rate_limited`                                                                                                                                                                                                                                                                                                  |
+| Status | Codes                                                                                                                                                                                                                                                                                                                                     |
+| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 400    | `invalid_request` (body/query validation, incl. unknown dex/item/move/type ids; has `issues`), `unknown_upgrade`, `unknown_title`, `not_a_starter`, `invalid_answers`, `invalid_move`, `duplicate_move`, `unknown_banner`, `invalid_pull_count`, `invalid_payment`, `cannot_friend_self`, `duplicate_favourite`                           |
+| 401    | `unauthenticated`, `invalid_credentials`                                                                                                                                                                                                                                                                                                  |
+| 404    | `run_not_found`, `user_not_found`, `request_not_found`, `friend_not_found`, `mission_not_found`                                                                                                                                                                                                                                           |
+| 409    | `username_taken`, `pokemon_not_owned`, `insufficient_funds`, `upgrade_maxed`, `title_locked`, `starter_already_chosen`, `too_many_bans`, `run_already_finished`, `run_credited_by_timeout`, `mission_not_done`, `mission_already_claimed`, `mission_reroll_used`, `mission_reroll_unavailable`, `already_friends`, `request_already_sent` |
+| 429    | `rate_limited`                                                                                                                                                                                                                                                                                                                            |
 
 Dex numbers, held items, moves, types, upgrade ids, titles, banners and missions are all checked
 against `@pokesurvivor/data`.
@@ -186,6 +186,40 @@ the original claim on the run when anything was capped, credits coins and ticket
 ledger, adds caught shinies (and their normal form) and rescued Pokémon to the collection,
 updates the stats, items found, moves evolved, arenas won and legendaries beaten, advances the
 missions and unlocks achievements. Each run can be reported once.
+
+### Checkpoints and the timeout credit
+
+A closed tab, a crash or a dead battery would otherwise lose a whole run, so the client also
+sends the run so far while it plays:
+
+3. `POST /api/runs/checkpoint` with the same body as `POST /api/runs` (the `RunSummary` so far
+   and the `runId`) → `200 { runId, stats, capped }`, where `stats` is the checkpoint as stored.
+   It is validated and capped exactly like a final report for the time since `start`, and
+   replaces the run's previous checkpoint. **Nothing is credited.** Rate-limited per IP
+   (`ACTION_RATE_LIMIT_MAX`). The client sends one about every minute of run time, at least
+   every 3 minutes of wall-clock time while the run is open (paused, or waiting on a choice), and
+   when the page is hidden or closed (`fetch` with `keepalive`; a hidden solo run also pauses).
+4. **Timeout credit.** If a run that has a checkpoint gets neither a checkpoint nor a final
+   report for `RUN_CHECKPOINT_TIMEOUT_S` (default 3600 s), the server credits that last
+   checkpoint as the run's result, exactly as a final report with those numbers would be, and
+   closes the run (`runs.timed_out`; it ends at the checkpoint's time, for leaderboards and
+   missions). Runs without a checkpoint stay open. The server looks for such runs at start and
+   every `RUN_SWEEP_INTERVAL_S` (60 s); the state is all in Postgres, so it survives restarts,
+   and several instances can sweep at once.
+
+**A run is credited at most once.** Whichever comes first, the final report or the timeout
+credit, credits the run and closes it (both lock the run row). After that:
+
+- another final report is refused with `409 run_already_finished`, or `409
+run_credited_by_timeout` if the timeout credited it. The latter's error body also has
+  `credited`: the `RunSummary` that was credited (`{ "error": { "code", "message", "credited" } }`);
+- a checkpoint is refused the same way. Resuming a saved run starts with a checkpoint, so a run
+  that was credited by timeout can't be resumed: the client drops its local save and says the
+  run was already credited from its last checkpoint. A tab that comes back to a run credited
+  while it was away (a phone that switched apps for longer than the timeout) gets the same 409
+  on its next checkpoint: the client ends the run there and shows what was credited. (The alternative, crediting a later report
+  only for its difference above the checkpoint, was rejected: missions and achievements count
+  whole runs, so they can't be applied as differences.)
 
 Coop runs are not reported over HTTP: the game server records them from its own simulation with
 `recordCoopRun()` in `apps/server/src/runs/service.ts`, with the same `RunSummary` per player

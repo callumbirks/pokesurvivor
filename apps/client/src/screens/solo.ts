@@ -1,9 +1,8 @@
 // Solo: pick the partner, then start a run in the browser. The solo connection records the run's
-// start on the server and reports its results when the sim ends (see SoloApi).
+// start on the server, checkpoints it and reports its results when the sim ends (see SoloApi).
 import { t } from '@pokesurvivor/data';
 import type { App, Screen } from '../app/app.js';
-import { createSoloConnection, type SoloApi } from '../app/game.js';
-import { toastError } from '../app/toast.js';
+import { playSolo } from '../app/solo-runs.js';
 import {
   gameData,
   h,
@@ -36,29 +35,12 @@ export function soloScreen(app: App): Screen {
       t('menu.play'),
     );
     start.addEventListener('click', () => {
+      // The connection starts the run on the server, checkpoints it and reports it when the sim
+      // ends; the shell binds the calls to this player and keeps the save and toasts up to date.
       const key = String(dex);
-      // The connection starts the run on the server and reports it when the sim ends; the shell
-      // binds the calls to this player's partner and keeps the save and toasts up to date.
-      const api: SoloApi = {
-        startRun: () =>
-          app.api.startRun({ dex, shiny }).catch((err: unknown) => {
-            toastError(err);
-            throw err;
-          }),
-        reportRun: async (runId, summary) => {
-          try {
-            const res = await app.api.reportRun(runId, summary);
-            app.setSave(res.save);
-            app.achievements(res.achievements);
-            return res;
-          } catch (err) {
-            toastError(err);
-            throw err;
-          }
-        },
-      };
-      const conn = createSoloConnection({
-        loadout: {
+      playSolo(
+        app,
+        {
           id: app.user?.id ?? 'solo',
           dex,
           shiny,
@@ -68,10 +50,7 @@ export function soloScreen(app: App): Screen {
           legendsBeaten: Object.keys(s.legendsBeaten).map(Number),
         },
         owned,
-        username: app.user?.username ?? '',
-        api,
-      });
-      app.startGame({ conn, kind: 'solo' });
+      );
     });
     replace(
       box.body,

@@ -10,6 +10,8 @@ export class ApiError extends Error {
     readonly statusCode: number,
     readonly code: string,
     message: string = code,
+    /** Extra fields for the error body (documented with the endpoint that sends them). */
+    readonly details?: Record<string, unknown>,
   ) {
     super(message);
     this.name = 'ApiError';
@@ -17,7 +19,7 @@ export class ApiError extends Error {
 }
 
 export interface ErrorBody {
-  error: { code: string; message: string; issues?: unknown };
+  error: { code: string; message: string; issues?: unknown; [detail: string]: unknown };
 }
 
 /** Parses `value` with `schema`, turning a failure into a 400 `invalid_request`. */
@@ -36,7 +38,7 @@ class InvalidRequestError extends ApiError {
 export function registerErrorHandler(app: FastifyInstance): void {
   app.setErrorHandler<FastifyError | ApiError>((err, request, reply) => {
     if (err instanceof ApiError) {
-      const body: ErrorBody = { error: { code: err.code, message: err.message } };
+      const body: ErrorBody = { error: { ...err.details, code: err.code, message: err.message } };
       if (err instanceof InvalidRequestError) body.error.issues = z.treeifyError(err.zodError);
       return reply.status(err.statusCode).send(body);
     }
