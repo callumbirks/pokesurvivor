@@ -6,10 +6,13 @@ import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { buildApp } from './app.js';
 import { loadConfig } from './config.js';
+import { createTestDatabase } from './test/harness.js';
+import type { TestDatabase } from './test/harness.js';
 
 describe('server', () => {
   let app: FastifyInstance;
   let baseUrl: string;
+  let database: TestDatabase;
 
   beforeAll(async () => {
     const legacyDir = mkdtempSync(join(tmpdir(), 'legacy-'));
@@ -21,12 +24,14 @@ describe('server', () => {
       LEGACY_DIR: legacyDir,
       CLIENT_DIR: join(legacyDir, 'missing'),
     });
-    app = await buildApp({ config, db: { ping: async () => {} } });
+    database = await createTestDatabase();
+    app = await buildApp({ config, db: database.db });
     baseUrl = await app.listen({ host: config.host, port: config.port });
   });
 
   afterAll(async () => {
     await app.close();
+    await database.drop();
   });
 
   it('reports health', async () => {

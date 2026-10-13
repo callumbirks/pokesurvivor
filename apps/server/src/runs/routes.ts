@@ -1,0 +1,80 @@
+import type { FastifyInstance } from 'fastify';
+import { z } from 'zod';
+import { createAuthHooks, currentUser } from '../auth/plugin.js';
+import type { Database } from '../db/index.js';
+import type { RunCaps } from '../economy/config.js';
+import { ApiError, parseBody } from '../http/errors.js';
+import { getSave } from '../saves/service.js';
+import { dexSchema } from '../saves/schema.js';
+import { getLeaderboard } from './leaderboard.js';
+import { finishSoloRun, startSoloRun } from './service.js';
+
+export interface RunRoutesOptions {
+  db: Database;
+  secureCookies: boolean;
+  runCaps: RunCaps;
+  leaderboardTimeZone: string;
+  rateLimit: { max: number; timeWindowMs: number };
+}
+
+const count = z.number().int().nonnegative().max(1_000_000);
+
+const startBody = z.object({ pokemon: z.object({ dex: dexSchema, shiny: z.boolean() }) });
+const finishBody = z.object({
+  runId: z.uuid(),
+  durationS: count,
+  level: count,
+  kills: count,
+  bosses: count,
+  coins: count,
+  ticketsX1: count,
+  ticketsX10: count,
+  shiniesCaught: z.array(dexSchema).max(100),
+});
+const leaderboardQuery = z.object({
+  mode: z.enum(['solo', 'group']).default('solo'),
+  period: z.enum(['daily', 'weekly', 'all']).default('all'),
+  friends: z.enum(['true', 'false']).default('false'),
+  pokemon: z.coerce.number().pipe(dexSchema).optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+});
+
+export function runRoutes(app: FastifyInstance, opts: RunRoutesOptions): void {
+  const { db, runCaps } = opts;
+  const { requireUser, optionalUser } = createAuthHooks(opts);
+  const rateLimit = { max: opts.rateLimit.max, timeWindow: opts.rateLimit.timeWindowMs };
+
+  app.post(
+    '/api/runs/start',
+    { preHandler: requireUser, config: { rateLimit } },
+    async (request, reply) => {
+      const { pokemon } = parseBody(startBody, request.body);
+      const run = await startSoloRun(db, currentUser(request).id, pokemon);
+      return reply.status(201).send({ runId: run.runId, startedAt: run.startedAt.toISOString() });
+    },
+  );
+
+  app.post('/api/runs', { preHandler: requireUser }, async (request) => {
+    const { runId, ...claim } = parseBody(finishBody, request.body);
+    const userId = currentUser(request).id;
+    const result = await finishSoloRun(db, userId, runId, claim, runCaps);
+    return { ...result, save: await getSave(db, userId) };
+  });
+
+  app.get('/api/leaderboard', { preHandler: optionalUser }, async (request) => {
+    const q = parseBody(leaderboardQuery, request.query);
+    const friendsOnly = q.friends === 'true';
+    if (friendsOnly && !request.user)
+      throw new ApiError(401, 'unauthenticated', 'The friends filter needs a login');
+    const board = await getLeaderboard(db, {
+      mode: q.mode,
+      period: q.period,
+      friendsOnly,
+      pokemonDex: q.pokemon,
+      limit: q.limit,
+      viewerId: request.user?.id ?? null,
+      timeZone: opts.leaderboardTimeZone,
+    });
+    return { mode: q.mode, period: q.period, ...board };
+  });
+}

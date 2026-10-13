@@ -17,6 +17,38 @@ export interface Config {
   clientDir: string;
   /** The legacy game, served under /legacy/ for side-by-side comparison. */
   legacyDir: string;
+  /** Mark the session cookie `Secure`. Defaults to on in production (served over TLS). */
+  secureCookies: boolean;
+  /** Daily and weekly leaderboards reset at midnight in this IANA time zone. */
+  leaderboardTimeZone: string;
+  rateLimits: {
+    /** Per IP, for each of login and register. */
+    auth: RateLimit;
+    /** Per IP, for other endpoints that create rows (starting runs, friend requests). */
+    actions: RateLimit;
+  };
+}
+
+export interface RateLimit {
+  max: number;
+  timeWindowMs: number;
+}
+
+function positiveInt(name: string, value: string | undefined, fallback: number): number {
+  if (value === undefined || value === '') return fallback;
+  const n = Number(value);
+  if (!Number.isInteger(n) || n <= 0) throw new Error(`Invalid ${name}: ${value}`);
+  return n;
+}
+
+function timeZone(value: string | undefined): string {
+  const zone = value || 'Europe/Madrid';
+  try {
+    new Intl.DateTimeFormat('en', { timeZone: zone });
+  } catch {
+    throw new Error(`Invalid LEADERBOARD_TIME_ZONE: ${zone}`);
+  }
+  return zone;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -38,5 +70,17 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     migrationsDir: resolve(here, '../drizzle'),
     clientDir: resolve(env.CLIENT_DIR ?? resolve(here, '../../client/dist')),
     legacyDir: resolve(env.LEGACY_DIR ?? resolve(here, '../../../legacy')),
+    secureCookies: env.COOKIE_SECURE ? env.COOKIE_SECURE === 'true' : isProduction,
+    leaderboardTimeZone: timeZone(env.LEADERBOARD_TIME_ZONE),
+    rateLimits: {
+      auth: {
+        max: positiveInt('AUTH_RATE_LIMIT_MAX', env.AUTH_RATE_LIMIT_MAX, 10),
+        timeWindowMs: 60_000,
+      },
+      actions: {
+        max: positiveInt('ACTION_RATE_LIMIT_MAX', env.ACTION_RATE_LIMIT_MAX, 60),
+        timeWindowMs: 60_000,
+      },
+    },
   };
 }
