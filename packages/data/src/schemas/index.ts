@@ -1,3 +1,4 @@
+export * from './bodies.js';
 export * from './common.js';
 export * from './enemies.js';
 export * from './moves.js';
