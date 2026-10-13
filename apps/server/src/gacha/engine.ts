@@ -55,9 +55,36 @@ export function poolNear(
   return { rarity, list: pool.all };
 }
 
-/** A weighted rarity of at least `min` (legacy `rollRarity`). */
+/**
+ * The chance of a 5★ on the pull that brings a banner's pity to `pity`: the base rate, plus
+ * `softPity.stepPerPull` per pull from `softPity.from`, and 1 from `hardPity`.
+ */
+export function fiveStarChance(config: GachaFile, pity: number): number {
+  if (pity >= config.hardPity) return 1;
+  const total = config.rates.reduce((sum, r) => sum + r.weight, 0);
+  const base = (config.rates.find((r) => r.rarity === 5)?.weight ?? 0) / total;
+  const steps = Math.max(0, pity - config.softPity.from + 1);
+  return Math.min(1, base + steps * config.softPity.stepPerPull);
+}
+
+/**
+ * The rarity weights, normalised to 1, for the pull that brings a banner's pity to `pity`: 5★ at
+ * `fiveStarChance`, the other rarities sharing the rest in proportion to their weights.
+ */
+export function ratesAt(config: GachaFile, pity: number): GachaFile['rates'] {
+  const five = fiveStarChance(config, pity);
+  const othersTotal = config.rates
+    .filter((r) => r.rarity !== 5)
+    .reduce((sum, r) => sum + r.weight, 0);
+  return config.rates.map((r) => ({
+    rarity: r.rarity,
+    weight: r.rarity === 5 ? five : (r.weight / othersTotal) * (1 - five),
+  }));
+}
+
+/** A weighted rarity of at least `min` (legacy `rollRarity`). Zero weights never roll. */
 export function rollRarity(rates: GachaFile['rates'], rng: Rng, min = 1): number {
-  const eligible = rates.filter((r) => r.rarity >= min);
+  const eligible = rates.filter((r) => r.rarity >= min && r.weight > 0);
   const total = eligible.reduce((sum, r) => sum + r.weight, 0);
   let x = rng() * total;
   for (const r of eligible) {
@@ -101,8 +128,10 @@ export interface PullOutcome {
 
 /**
  * Rolls `count` pulls (legacy `pull`):
- * - each pull adds 1 to the banner's pity; at `hardPity` the pull is 5★, and a 5★ resets it;
- * - the last pull of a multi is at least `multiGuaranteeMinRarity` if no earlier one was;
+ * - each pull adds 1 to the banner's pity and rolls at `ratesAt` that pity: soft pity raises the
+ *   5★ chance from `softPity.from`, the `hardPity`-th pull is 5★, and a 5★ resets the pity;
+ * - the last pull of a multi is at least `multiGuaranteeMinRarity` if no earlier one was, rolled
+ *   at the same soft-pity rates restricted to those rarities;
  * - an empty rarity falls back to the nearest one (`poolNear`);
  * - `shinyRate` of pulls of Pokémon with shiny sprites are shiny. Shinies don't repeat: an owned
  *   shiny is swapped for one of the same rarity whose shiny is missing, or comes out normal;
@@ -118,15 +147,15 @@ export function rollPulls(input: PullInput): PullOutcome {
 
   for (let i = 0; i < count; i++) {
     pity += 1;
-    let want: number;
-    if (pity >= config.hardPity) want = 5;
-    else if (
+    const guaranteed =
       isMulti &&
       i === count - 1 &&
-      !results.some((r) => r.rarity >= config.multiGuaranteeMinRarity)
-    )
-      want = rollRarity(config.rates, rng, config.multiGuaranteeMinRarity);
-    else want = rollRarity(config.rates, rng);
+      !results.some((r) => r.rarity >= config.multiGuaranteeMinRarity);
+    const want = rollRarity(
+      ratesAt(config, pity),
+      rng,
+      guaranteed ? config.multiGuaranteeMinRarity : 1,
+    );
 
     const { rarity, list } = poolNear(pool, want);
     if (rarity === 5) pity = 0;
