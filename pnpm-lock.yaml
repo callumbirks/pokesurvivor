@@ -108,7 +108,11 @@ importers:
 
   packages/protocol: {}
 
-  packages/sim: {}
+  packages/sim:
+    dependencies:
+      '@pokesurvivor/data':
+        specifier: workspace:*
+        version: link:../data
 
   tools:
     devDependencies:
