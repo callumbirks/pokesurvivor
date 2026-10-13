@@ -104,20 +104,38 @@ interface Positioned {
 }
 
 /**
- * Entities of `to`, moved to their interpolated position. Ones that only exist in `to` are drawn
- * where they are; ones only in `from` are gone.
+ * Faster than anything moves (units per second): two samples further apart than this over the
+ * time between them aren't one movement but a jump, and are never interpolated. Measured over
+ * runs: enemies, shots and pickups never move over 60 units in a tick (this speed) except when
+ * the sim relocates them (a straggler sent back ahead of a player), nor players except dashes
+ * (up to ~110, drawn as instant in legacy too) and the trip to and from a rift arena.
+ */
+export const SNAP_SPEED = 1800;
+
+/** The farthest a lerp may span between two snapshots `ticks` apart. */
+export const maxStep = (ticks: number): number =>
+  (SNAP_SPEED * Math.max(1, ticks) * TICK_MS) / 1000;
+
+/**
+ * Entities of `to`, moved to their interpolated position. Ones that only exist in `to` (new, or
+ * back in range) are drawn where they are; ones only in `from` are gone; ones that jumped further
+ * than `limit` between the two (relocated, teleported) are drawn at their new position, never
+ * slid across.
  */
 export function interpolateList<E extends Positioned>(
   from: readonly E[],
   to: readonly E[],
   alpha: number,
   angles: readonly (keyof E)[] = [],
+  limit = Infinity,
 ): E[] {
   if (alpha === 0 && from === to) return [...to];
   const before = new Map(from.map((e) => [e.id, e]));
+  const limit2 = limit * limit;
   return to.map((e) => {
     const a = before.get(e.id);
     if (!a) return e;
+    if ((e.x - a.x) ** 2 + (e.y - a.y) ** 2 > limit2) return e;
     const out = { ...e, x: lerp(a.x, e.x, alpha), y: lerp(a.y, e.y, alpha) };
     for (const k of angles)
       (out as Record<keyof E, unknown>)[k] = lerpAngle(a[k] as number, e[k] as number, alpha);
@@ -136,11 +154,12 @@ export interface InterpolatedView {
 
 export function interpolate(sample: BufferSample): InterpolatedView {
   const { from, to, alpha } = sample;
+  const limit = maxStep(to.tick - from.tick);
   return {
     tick: sample.tick,
     snapshot: to,
-    players: interpolateList(from.players, to.players, alpha, ['aim', 'moveAngle']),
-    enemies: interpolateList(from.enemies, to.enemies, alpha, ['face']),
-    projectiles: interpolateList(from.projectiles, to.projectiles, alpha),
+    players: interpolateList(from.players, to.players, alpha, ['aim', 'moveAngle'], limit),
+    enemies: interpolateList(from.enemies, to.enemies, alpha, ['face'], limit),
+    projectiles: interpolateList(from.projectiles, to.projectiles, alpha, [], limit),
   };
 }

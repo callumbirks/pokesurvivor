@@ -1,6 +1,7 @@
 import { createSim, isAttacking, type FieldState, type SimEvent } from '@pokesurvivor/sim';
 import { describe, expect, it } from 'vitest';
-import { SnapshotBuffer, interpolate } from '../src/buffer.js';
+import { SnapshotBuffer, interpolate, interpolateList, maxStep } from '../src/buffer.js';
+import { measureJumps } from './jumps.js';
 import { EventDecoder, EventEncoder, isRelevant } from '../src/events.js';
 import {
   INTEREST_RADIUS,
@@ -319,5 +320,36 @@ describe('fields', () => {
     expect(mine[0]!.arm).toBeGreaterThan(0.2);
     expect(mine.at(-1)!.arm).toBe(0);
     expect(mine.at(-1)!.progress).toBeGreaterThan(mine[0]!.progress);
+  });
+});
+
+describe('interpolation across jumps', () => {
+  it('never slides an entity the sim relocated (stragglers sent ahead, arena trips)', () => {
+    // A solo run where the player wanders far: enemies left behind are sent back ahead of it.
+    const opts = { players: 1, seconds: 150, seed: 3 };
+    const before = measureJumps({ ...opts, snap: false });
+    expect(before.simTeleports).toBeGreaterThan(0);
+    expect(before.jumps.filter((j) => j.kind === 'enemy').length).toBeGreaterThan(0);
+    const after = measureJumps(opts);
+    expect(after.jumps).toEqual([]);
+  });
+
+  it('snaps samples further apart than anything moves, and lerps the rest', () => {
+    const a = [
+      { id: 1, x: 0, y: 0 },
+      { id: 2, x: 0, y: 0 },
+    ];
+    const b = [
+      { id: 1, x: 30, y: 0 },
+      { id: 2, x: 900, y: 0 },
+      { id: 3, x: 5, y: 5 },
+    ];
+    const out = interpolateList(a, b, 0.5, [], maxStep(2));
+    expect(out.map((e) => [e.id, e.x])).toEqual([
+      [1, 15],
+      [2, 900],
+      [3, 5],
+    ]);
+    expect(maxStep(1)).toBeCloseTo(60);
   });
 });

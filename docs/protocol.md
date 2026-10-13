@@ -306,7 +306,10 @@ still credited when it ends. See [deploy.md](deploy.md) for the stop grace perio
   state directly.
 - **`SnapshotBuffer`**: maps server ticks to local time from snapshot arrivals and renders
   `delayMs` (100 ms) behind. `sample(now)` returns the two snapshots around that time, and
-  `interpolate()` lerps players, enemies and projectiles.
+  `interpolate()` lerps players, enemies and projectiles, but never across a jump: two samples
+  further apart than `SNAP_SPEED` (1800 units/s) allows between them are drawn at the newer
+  position (stragglers the sim sends back ahead of a player, rift arena trips, dashes). Entities
+  new to a snapshot, or back in range, are drawn where they are. `test/jumps.ts` measures it.
 - **`firstOption(choice)`**: the intent that picks a choice's first option.
 - **`RoomConnection` extras** for the game client: a `loading` event (`{ game }`), `now()` (the
   clock snapshots were stamped with), and, solo only, `setPaused(paused)` and `quit()`. Client-side
