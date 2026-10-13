@@ -52,6 +52,8 @@ export interface RoomConnection {
   /** Samples `read` every tick and sends it while the game runs. Returns a stop function. */
   startInputLoop(read: () => MoveInput): () => void;
   intent(intent: Intent): Promise<IntentResult>;
+  /** The clock snapshots were stamped with (sample `buffer` with it). Default `Date.now`. */
+  now?(): number;
   /** Solo only: stop or resume the run (multiplayer runs never pause for one player). */
   setPaused?(paused: boolean): void;
   on<K extends keyof RoomConnectionEvents>(
@@ -91,6 +93,10 @@ export class NetRoomConnection implements RoomConnection {
 
   get latest(): Snapshot | null {
     return this.buffer.latest;
+  }
+
+  now(): number {
+    return this.transport.now();
   }
 
   get serverSelf(): NetPlayer | null {

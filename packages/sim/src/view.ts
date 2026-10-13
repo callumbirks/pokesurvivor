@@ -146,3 +146,8 @@ export function playerMoveSpeed(state: SimState, p: PlayerState): number {
   // Speed reads only the player, the weather in the state and the static data.
   return moveSpeedOf({ s: state, d: simData() } as Ctx, p);
 }
+
+/** A move's stats at a level (and evolved): what the client sizes cast visuals with. */
+export function moveStatsAt(id: string, level: number, evolved: boolean) {
+  return simData().moveStats(id, level, evolved);
+}
