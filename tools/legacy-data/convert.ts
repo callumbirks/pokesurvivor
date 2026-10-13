@@ -1,8 +1,10 @@
 // One-off conversion of the legacy game data (legacy/js/data/*.js and the tuning tables in
 // legacy/js/systems, world and entities) to the typed English JSON in packages/data/json.
 //
-//   pnpm --filter @pokesurvivor/tools convert-legacy-data
+//   pnpm --filter @pokesurvivor/tools convert-legacy-data [--only sprites.json,…]
 //
+// The generated JSON is maintained by hand afterwards, so this overwrites edits: use --only to
+// rewrite just some files (e.g. the sprite manifest after the sprites change).
 // Numbers are copied exactly as the legacy game computes them at load time. Display text goes
 // through lang-en.js plus translations.ts; any text without a translation fails the run. Each
 // file is validated against its schema before it's written. Item, level-up card and altar effects
@@ -55,7 +57,9 @@ const spritesDir = resolve(repoRoot, 'assets/pokemon');
 
 const { G, dictionary, constant } = loadLegacy();
 const tr = createTranslator(dictionary);
-const writers: (() => Promise<void>)[] = [];
+const writers: { file: string; write: () => Promise<void> }[] = [];
+const onlyArg = process.argv.indexOf('--only');
+const only = onlyArg >= 0 ? new Set(process.argv[onlyArg + 1]?.split(',')) : undefined;
 
 function fail(message: string): never {
   throw new Error(message);
@@ -76,20 +80,26 @@ const plain = (value: unknown): Legacy => JSON.parse(JSON.stringify(value));
 function emit(file: string, schema: z.ZodType, data: unknown, compact?: { arrayKey?: string }) {
   const parsed = schema.safeParse(data);
   if (!parsed.success) fail(`${file} doesn't match its schema:\n${parsed.error.message}`);
-  writers.push(async () => {
-    const path = join(outDir, file);
-    let text: string;
-    if (compact) {
-      const lines = (rows: unknown[]) => rows.map((r) => '  ' + JSON.stringify(r)).join(',\n');
-      if (compact.arrayKey) {
-        const { [compact.arrayKey]: rows, ...rest } = data as Record<string, unknown[]>;
-        const head = JSON.stringify(rest).slice(0, -1);
-        text = `${head},"${compact.arrayKey}":[\n${lines(rows ?? [])}\n]}\n`;
-      } else text = `[\n${lines(data as unknown[])}\n]\n`;
-    } else
-      text = await format(JSON.stringify(data), { ...(await resolveConfig(path)), parser: 'json' });
-    writeFileSync(path, text);
-    console.log(`wrote ${file}`);
+  writers.push({
+    file,
+    write: async () => {
+      const path = join(outDir, file);
+      let text: string;
+      if (compact) {
+        const lines = (rows: unknown[]) => rows.map((r) => '  ' + JSON.stringify(r)).join(',\n');
+        if (compact.arrayKey) {
+          const { [compact.arrayKey]: rows, ...rest } = data as Record<string, unknown[]>;
+          const head = JSON.stringify(rest).slice(0, -1);
+          text = `${head},"${compact.arrayKey}":[\n${lines(rows ?? [])}\n]}\n`;
+        } else text = `[\n${lines(data as unknown[])}\n]\n`;
+      } else
+        text = await format(JSON.stringify(data), {
+          ...(await resolveConfig(path)),
+          parser: 'json',
+        });
+      writeFileSync(path, text);
+      console.log(`wrote ${file}`);
+    },
   });
 }
 
@@ -948,24 +958,34 @@ const legacyIds = {
   props: PROP_IDS,
   progressEvents: EVENTS,
 };
-writers.push(async () => {
-  const path = resolve(import.meta.dirname, 'legacy-ids.json');
-  writeFileSync(
-    path,
-    await format(JSON.stringify(legacyIds), { ...(await resolveConfig(path)), parser: 'json' }),
-  );
-  console.log('wrote tools/legacy-data/legacy-ids.json');
+writers.push({
+  file: 'legacy-ids.json',
+  write: async () => {
+    const path = resolve(import.meta.dirname, 'legacy-ids.json');
+    writeFileSync(
+      path,
+      await format(JSON.stringify(legacyIds), { ...(await resolveConfig(path)), parser: 'json' }),
+    );
+    console.log('wrote tools/legacy-data/legacy-ids.json');
+  },
 });
 // lang-en.js keys consumed by data, read by seed-ui-strings.ts.
-writers.push(async () => {
-  const path = resolve(import.meta.dirname, 'data-dictionary-keys.json');
-  writeFileSync(
-    path,
-    await format(JSON.stringify([...tr.used].sort()), {
-      ...(await resolveConfig(path)),
-      parser: 'json',
-    }),
-  );
+writers.push({
+  file: 'data-dictionary-keys.json',
+  write: async () => {
+    const path = resolve(import.meta.dirname, 'data-dictionary-keys.json');
+    writeFileSync(
+      path,
+      await format(JSON.stringify([...tr.used].sort()), {
+        ...(await resolveConfig(path)),
+        parser: 'json',
+      }),
+    );
+  },
 });
 
-for (const write of writers) await write();
+if (only) {
+  const unknownFiles = [...only].filter((f) => !writers.some((w) => w.file === f));
+  check(unknownFiles.length === 0, `--only: unknown file(s) ${unknownFiles.join(', ')}`);
+}
+for (const { file, write } of writers) if (!only || only.has(file)) await write();

@@ -17,7 +17,7 @@ before larger changes.
 - `apps/client` — Vite + Canvas 2D client.
 - `assets/` — sprites (`assets/pokemon/{dex}/`), served at `/sprites/` and, for legacy,
   `/legacy/assets/pokemon/`. The manifest is `packages/data/json/sprites.json`; regenerate it
-  (`pnpm --filter @pokesurvivor/tools convert-legacy-data`) if sprites change.
+  (`pnpm --filter @pokesurvivor/tools convert-legacy-data --only sprites.json`) if sprites change.
 - `tools/` — one-off scripts (legacy data conversion, UI string seeding).
 - `legacy/` — the original vanilla-JS game. **Read-only reference**: don't edit it (except to
   keep it servable) and don't import from it. Its own `CLAUDE.md`/README describe the old

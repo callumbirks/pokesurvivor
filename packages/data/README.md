@@ -17,8 +17,8 @@ t('hud.aWildAppeared', { 0: 'Pikachu' }); // "A wild Pikachu appeared!"
 
 The JSON was generated from the legacy game by `tools/legacy-data/convert.ts`, with every number
 as the legacy game computed it at load time. **The JSON is now the source of truth**: edit it
-directly (rebalancing, new content). Re-running the converter overwrites it, so only do that to
-re-sync with `legacy/` before cutover. `tools/legacy-data/legacy-ids.json` maps legacy ids to the
+directly (rebalancing, new content). Re-running the converter overwrites it; `--only sprites.json`
+rewrites just the sprite manifest (after sprites change). `tools/legacy-data/legacy-ids.json` maps legacy ids to the
 new ones.
 
 | File                | Contents                                                                                                                    |
