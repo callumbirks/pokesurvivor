@@ -38,6 +38,8 @@ export const TuningFileSchema = z.strictObject({
     thiefFirst: RangeSchema,
     thiefNext: RangeSchema,
     thiefLife: Seconds,
+    /** Chance a treasure thief is Gholdengo (drops a ×10 ticket) instead of Meowth (coins). */
+    goldThiefChance: Chance,
   }),
   combat: z.strictObject({ critMultiplier: z.number().positive() }),
   pickups: z.strictObject({

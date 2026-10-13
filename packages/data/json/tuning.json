@@ -21,13 +21,14 @@
     "lostTime": 120,
     "thiefFirst": [120, 240],
     "thiefNext": [240, 360],
-    "thiefLife": 15
+    "thiefLife": 15,
+    "goldThiefChance": 0.125
   },
   "combat": { "critMultiplier": 1.5 },
   "pickups": {
     "max": 420,
     "ticketDropRate": 0.0025,
-    "bossTicket10Chance": 0.3333333333333333,
-    "legendaryTicket10Chance": 0.5
+    "bossTicket10Chance": 0.1,
+    "legendaryTicket10Chance": 0.2
   }
 }

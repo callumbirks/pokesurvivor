@@ -932,13 +932,17 @@ emit('tuning.json', TuningFileSchema, {
     thiefFirst: [...constant('systems/events.js', 'THIEF_FIRST')],
     thiefNext: [...constant('systems/events.js', 'THIEF_NEXT')],
     thiefLife: constant('systems/events.js', 'THIEF_LIFE'),
+    // Inline in spawnThief() (legacy 0.25); rebalanced after the port.
+    goldThiefChance: 0.125,
   },
   combat: { critMultiplier: constant('systems/combat.js', 'CRIT_MUL') },
   pickups: {
     max: constant('entities/pickup.js', 'MAX'),
     ticketDropRate: constant('entities/pickup.js', 'TICKET_RATE'),
-    bossTicket10Chance: constant('entities/pickup.js', 'BOSS_T10'),
-    legendaryTicket10Chance: constant('entities/pickup.js', 'LEGEND_T10'),
+    // Legacy BOSS_T10 is 1/3; rebalanced after the port.
+    bossTicket10Chance: 0.1,
+    // Legacy LEGEND_T10 is 0.5; rebalanced after the port.
+    legendaryTicket10Chance: 0.2,
   },
 });
 
