@@ -2,24 +2,14 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#050914" />
     <title>PokéSurvivor</title>
-    <style>
-      html,
-      body {
-        margin: 0;
-        height: 100%;
-        background: #111;
-      }
-      canvas {
-        display: block;
-        width: 100%;
-        height: 100%;
-      }
-    </style>
+    <link rel="preload" href="/fonts/PixelifyPS-400.ttf" as="font" type="font/ttf" crossorigin />
   </head>
   <body>
-    <canvas id="game"></canvas>
+    <div id="app"></div>
+    <noscript>PokéSurvivor needs JavaScript to work. Please enable it to play.</noscript>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
