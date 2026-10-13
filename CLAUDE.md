@@ -26,9 +26,10 @@ before larger changes.
   routes, session, save cache, WebSocket lifecycle, toasts, the typed HTTP API, `BusyStatus`),
   `src/screens/` every screen outside a run (login, starter, menu, collection, gacha, shop, goals,
   leaderboard, friends, lobby, settings, solo, play), `src/settings.ts` the settings store the
-  game reads, `src/game/` the in-game client (phase 4a; `src/app/game.ts` points at a stub until
-  it lands). Dev-only views: `/?debug-sim` (sim locally) and `/?debug-net` (log in, rooms, play
-  over the network; use a private window or `127.0.0.1` for a second account).
+  game reads, `src/game/` the in-game client (renderer, prediction, HUD, choices, results, the solo
+  Web Worker; see the README). Dev-only views: `/?debug-sim` (sim locally), `/?debug-net` (log
+  in, rooms, play over the network; use a private window or `127.0.0.1` for a second account),
+  and `/?play-solo` / `/?play-net` (the real game client on a test page, `play.html`).
 - `assets/` — sprites (`assets/pokemon/{dex}/`), served at `/sprites/` and, for legacy,
   `/legacy/assets/pokemon/`. The manifest is `packages/data/json/sprites.json`; regenerate it
   (`pnpm --filter @pokesurvivor/tools convert-legacy-data --only sprites.json,bodies.json`) if

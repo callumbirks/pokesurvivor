@@ -294,6 +294,10 @@ still credited when it ends. See [deploy.md](deploy.md) for the stop grace perio
   `delayMs` (100 ms) behind. `sample(now)` returns the two snapshots around that time, and
   `interpolate()` lerps players, enemies and projectiles.
 - **`firstOption(choice)`**: the intent that picks a choice's first option.
+- **`RoomConnection` extras** for the game client: a `loading` event (`{ game }`), `now()` (the
+  clock snapshots were stamped with), and, solo only, `setPaused(paused)` and `quit()`. Client-side
+  prediction (`apps/client/src/game/net/predict.ts`) uses `ackedInputSeq`, `unackedInputs()`,
+  `serverSelf` and the snapshot's `self.speed`.
 
 ## Testing
 
