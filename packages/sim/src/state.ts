@@ -177,6 +177,8 @@ export interface PlayerState {
   sashAt: number | null;
   /** Shell Bell healing still to be applied. */
   bellHeal: number;
+  /** Attacking until this `state.time` (last cast + window; Life Orb drains while attacking). */
+  attackingUntil: number;
 
   invuln: number;
   /** Seconds left stuck by a trap (2b): half speed. */

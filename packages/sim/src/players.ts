@@ -96,6 +96,7 @@ export function createPlayer(
     itemRegen: 0,
     sashAt: null,
     bellHeal: 0,
+    attackingUntil: 0,
     invuln: 0,
     slowT: 0,
     inLiquid: false,

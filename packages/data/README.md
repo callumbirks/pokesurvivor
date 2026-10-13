@@ -53,6 +53,10 @@ These values differ from legacy (the converter emits the new ones):
 - `tuning.json` `events.goldThiefChance`: the chance a treasure thief is Gholdengo, who drops a
   ×10 ticket, instead of Meowth, who drops coins: 0.125 (hard-coded 0.25 in legacy
   `events.js` `spawnThief()`). The sim's event port reads it.
+- `items.json` `life-orb`: still +30% damage, but instead of 1% max HP per cast (which pinned
+  fast moves and bonds at 1 HP) it drains `drainPerSecond` 1.5% of max HP per second while the
+  player is attacking (a cast within `attackingWindowS` 1 s, or the move's cooldown if longer),
+  never below `drainFloor` 30% of max HP.
 
 Display text in data files is English. Text for screens (buttons, toasts, HUD) goes in
 `i18n/en.json`, never in code. `test/english.test.ts` fails if anything Spanish appears.

@@ -46,9 +46,9 @@
   {
     "id": "life-orb",
     "name": "Life Orb",
-    "description": "+30% damage, but each attack costs a little HP.",
+    "description": "+30% damage, but drains HP while you attack (never below 30%).",
     "effects": [{ "stat": "attackMul", "op": "mul", "value": 1.3 }],
-    "params": { "hpCostPerCast": 0.01, "minHpCost": 1 }
+    "params": { "drainPerSecond": 0.015, "drainFloor": 0.3, "attackingWindowS": 1 }
   },
   {
     "id": "choice-scarf",

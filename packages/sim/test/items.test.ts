@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { simData } from '../src/data.js';
 import { equip } from '../src/items.js';
-import { addMove } from '../src/moves.js';
+import { openChoice } from '../src/choices.js';
+import { addMove, newMove } from '../src/moves.js';
 import { hurtPlayer } from '../src/players.js';
 import { damageTo, giveMove, player, quietSim, seconds, spawnDummy, steps } from './helpers.js';
 
@@ -77,17 +78,109 @@ describe('held items', () => {
     expect(p.hp).toBeLessThanOrEqual(24.01);
   });
 
-  it('Life Orb: each cast costs 1% max HP but never knocks you out (legacy behaviour)', () => {
-    const sim = quietSim();
-    const p = player(sim);
-    equip(sim.ctx, p, 'life-orb');
-    giveMove(sim, p, 'tackle');
-    spawnDummy(sim, p.x + 30, p.y);
-    p.hp = 3;
-    p.regen = 0;
-    steps(sim, seconds(3));
-    expect(p.hp).toBe(1);
-    expect(p.dead).toBe(false);
+  describe('Life Orb', () => {
+    const params = d.item('life-orb').params ?? {};
+    const rate = params.drainPerSecond ?? 0;
+    const floor = params.drainFloor ?? 0;
+    // Untargeted moves by cooldown: the fastest and slowest caster cost the same per second.
+    const shots = d.game.moves.moves
+      .filter((m) => ['projectile', 'nova', 'beam'].includes(m.kind) && !m.stats.poison)
+      .sort((a, b) => (a.stats.cooldown ?? 0) - (b.stats.cooldown ?? 0));
+    const fast = shots[0]!;
+    const slow = shots[shots.length - 1]!;
+
+    function orbSim(move: string) {
+      const sim = quietSim();
+      const p = player(sim);
+      equip(sim.ctx, p, 'life-orb');
+      giveMove(sim, p, move);
+      p.regen = 0;
+      spawnDummy(sim, p.x + 60, p.y);
+      return { sim, p };
+    }
+
+    it('keeps +30% damage and has drain params instead of a per-cast cost', () => {
+      expect(rate).toBeCloseTo(0.015);
+      expect(floor).toBeCloseTo(0.3);
+      expect(params.hpCostPerCast).toBeUndefined();
+      const sim = quietSim();
+      const p = player(sim);
+      const before = p.attackMul;
+      equip(sim.ctx, p, 'life-orb');
+      expect(p.attackMul).toBeCloseTo(before * 1.3);
+    });
+
+    it('drains per second while attacking: a fast move costs the same as a slow one', () => {
+      expect((fast.stats.cooldown ?? 0) * 3).toBeLessThan(slow.stats.cooldown ?? 0);
+      const lost = (move: string) => {
+        const { sim, p } = orbSim(move);
+        steps(sim, seconds(1)); // first cast
+        const hp = p.hp;
+        steps(sim, seconds(4));
+        return hp - p.hp;
+      };
+      const a = lost(fast.id);
+      const b = lost(slow.id);
+      const maxHp = player(quietSim()).maxHp;
+      expect(a).toBeCloseTo(maxHp * rate * 4, 0);
+      expect(Math.abs(a - b)).toBeLessThan(maxHp * rate * 0.2);
+    });
+
+    it('a bond (several moves cast together) costs the same as one move', () => {
+      const one = orbSim(fast.id);
+      const two = orbSim(fast.id);
+      const other = shots.find((m) => m.id !== fast.id)!;
+      two.p.moves.push(newMove(two.sim.ctx, other.id));
+      two.p.slots = [[fast.id, other.id]];
+      steps(one.sim, seconds(5));
+      steps(two.sim, seconds(5));
+      expect(two.p.hp).toBeCloseTo(one.p.hp, 1);
+    });
+
+    it('never drains below 30% of max HP, and resumes after healing above it', () => {
+      const { sim, p } = orbSim(fast.id);
+      p.hp = p.maxHp * 0.31;
+      steps(sim, seconds(10));
+      expect(p.hp).toBeCloseTo(p.maxHp * floor, 5);
+      expect(p.dead).toBe(false);
+      p.hp = p.maxHp * 0.5;
+      steps(sim, seconds(2));
+      expect(p.hp).toBeLessThan(p.maxHp * 0.5);
+      expect(p.hp).toBeGreaterThan(p.maxHp * floor);
+    });
+
+    it('no drain while idle (nothing to attack) or paused for a choice', () => {
+      const sim = quietSim();
+      const p = player(sim);
+      equip(sim.ctx, p, 'life-orb');
+      giveMove(sim, p, 'tackle'); // melee: only casts with a target in reach
+      p.regen = 0;
+      p.hp = p.maxHp * 0.8;
+      steps(sim, seconds(5));
+      expect(p.hp).toBeCloseTo(p.maxHp * 0.8, 5);
+
+      const busy = orbSim(fast.id);
+      steps(busy.sim, seconds(1));
+      openChoice(busy.sim.ctx, {
+        kind: 'item',
+        playerId: busy.p.id,
+        held: 'life-orb',
+        found: 'leftovers',
+      });
+      const hp = busy.p.hp;
+      steps(busy.sim, seconds(5));
+      expect(busy.sim.paused).toBe(true);
+      expect(busy.p.hp).toBe(hp);
+    });
+
+    it('no drain while down or disconnected', () => {
+      const { sim, p } = orbSim(fast.id);
+      steps(sim, seconds(1));
+      sim.setConnected(p.id, false);
+      const hp = p.hp;
+      steps(sim, seconds(3));
+      expect(p.hp).toBe(hp);
+    });
   });
 
   it('Rocky Helmet: enemies that touch you get hurt', () => {

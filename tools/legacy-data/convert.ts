@@ -565,7 +565,10 @@ emit('upgrades.json', UpgradesFileSchema, upgrades);
 
 // ---------------------------------------------------------------- items
 
-const ITEM_EFFECTS: Record<string, { effects: StatEffect[]; params?: Record<string, number> }> = {
+const ITEM_EFFECTS: Record<
+  string,
+  { effects: StatEffect[]; params?: Record<string, number>; description?: string }
+> = {
   leftovers: { effects: [{ stat: 'regen', op: 'add', value: 0.015, perMaxHp: true }] },
   choiceband: { effects: [{ stat: 'attackMul', op: 'mul', value: 1.4 }] },
   quickclaw: { effects: [{ stat: 'cooldownMul', op: 'mul', value: 0.8 }] },
@@ -575,10 +578,13 @@ const ITEM_EFFECTS: Record<string, { effects: StatEffect[]; params?: Record<stri
   shellbell: { effects: [], params: { healPerDamage: 0.04, maxBankedHeal: 4 } },
   amuletcoin: { effects: [{ stat: 'coinMul', op: 'mul', value: 1.5 }] },
   luckyegg: { effects: [{ stat: 'xpMul', op: 'mul', value: 1.3 }] },
-  // entities/player.js cast(): each cast (not orbit/trail) costs max(minHpCost, fraction × max HP).
+  // Rebalanced after the port: legacy entities/player.js cast() charged 1% max HP per cast (not
+  // orbit/trail), which pinned fast casters and bonds at 1 HP. Now, while attacking (cast within
+  // `attackingWindowS`), it drains `drainPerSecond` × max HP per second, never below `drainFloor`.
   lifeorb: {
     effects: [{ stat: 'attackMul', op: 'mul', value: 1.3 }],
-    params: { hpCostPerCast: 0.01, minHpCost: 1 },
+    params: { drainPerSecond: 0.015, drainFloor: 0.3, attackingWindowS: 1 },
+    description: '+30% damage, but drains HP while you attack (never below 30%).',
   },
   choicescarf: { effects: [{ stat: 'speedMul', op: 'mul', value: 1.35 }] },
   // systems/combat.js: melee attackers take damageBase + damagePerLevel × player level.
@@ -600,7 +606,7 @@ const items = G.Items.LIST.map((it: Legacy) => {
   return {
     id: rename(ITEM_IDS, it.id, 'item'),
     name: tr(it.name),
-    description: tr(it.desc),
+    description: def.description ?? tr(it.desc),
     effects: def.effects,
     ...(def.params ? { params: def.params } : {}),
   };

@@ -176,4 +176,5 @@ things now owned elsewhere:
 - After the last player goes down, the sim keeps running normally for the 1.3/1.6 s before the run
   ends (legacy slowed enemies to 30% during the faint animation in solo).
 - Dropped: the unused aura `drain` path (no move has it).
-- Life Orb keeps its per-cast cost (§4 rebalances it later).
+- Life Orb drains HP per second while attacking instead of per cast (see the data README's
+  "Rebalanced after the port").
