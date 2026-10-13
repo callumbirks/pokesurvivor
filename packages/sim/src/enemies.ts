@@ -624,7 +624,8 @@ function updateEnemy(ctx: Ctx, e: EnemyState, pl: PlayerState): void {
 // ---------------------------------------------------------------- attacks and skills
 
 /** Damage of this enemy's shots (scaled like its contact damage). */
-const shotDamage = (e: EnemyState) => (e.def.shotDamage || 10) * (e.damage / e.def.damage);
+const shotDamage = (e: EnemyState) =>
+  (e.def.shotDamage || 10) * (e.def.damage ? e.damage / e.def.damage : 1);
 
 /** A normal enemy shot (one, or several in a fan). */
 function shoot(ctx: Ctx, e: EnemyState, ax: number, ay: number, spread = 0, n = 1, k = 1) {
