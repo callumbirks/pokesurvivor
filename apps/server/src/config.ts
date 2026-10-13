@@ -17,6 +17,8 @@ export interface Config {
   clientDir: string;
   /** The legacy game, served under /legacy/ for side-by-side comparison. */
   legacyDir: string;
+  /** Shared static assets (sprites), served at /sprites/ and, for the legacy game, /legacy/assets/pokemon/. */
+  assetsDir: string;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -38,5 +40,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     migrationsDir: resolve(here, '../drizzle'),
     clientDir: resolve(env.CLIENT_DIR ?? resolve(here, '../../client/dist')),
     legacyDir: resolve(env.LEGACY_DIR ?? resolve(here, '../../../legacy')),
+    assetsDir: resolve(env.ASSETS_DIR ?? resolve(here, '../../../assets')),
   };
 }

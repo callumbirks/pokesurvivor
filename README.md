@@ -25,6 +25,8 @@ packages/
 apps/
   server/     Fastify HTTP API + WebSocket server + Postgres (Drizzle)
   client/     Vite + Canvas 2D client
+tools/        one-off scripts (legacy data conversion)
+assets/       sprites (served at /sprites/ and /legacy/assets/pokemon/)
 legacy/       the original game, read-only reference
 docs/         deployment and design notes
 ```
@@ -39,7 +41,7 @@ docker compose up -d   # Postgres on localhost:5432
 pnpm dev               # server on :3000, client on http://localhost:5173
 ```
 
-The dev client proxies `/ws`, `/api`, `/healthz` and `/legacy` to the server. Migrations run
+The dev client proxies `/ws`, `/api`, `/healthz`, `/sprites` and `/legacy` to the server. Migrations run
 when the server starts. Override settings in a root `.env` (see [.env.example](.env.example)).
 
 | Command            | What it does                                           |
