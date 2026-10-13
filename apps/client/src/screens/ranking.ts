@@ -7,7 +7,7 @@ import type {
   LeaderboardMode,
   LeaderboardPeriod,
 } from '../app/api.js';
-import { gameData, h, mmss, replace, sprite } from '../app/dom.js';
+import { gameData, h, icon, mmss, replace, sprite } from '../app/dom.js';
 import { loadInto, screenBox, tabs } from './common.js';
 
 const query: {
@@ -34,11 +34,22 @@ export function rankingScreen(app: App): Screen {
     h(
       'div',
       { class: ['rk-row', e.rank <= 3 && `top${e.rank}`, mine && 'mine'] },
-      h('span', { class: 'pos' }, `#${e.rank}`),
+      h('span', { class: 'pos' }, e.rank <= 3 ? icon('trophy', 20) : null, String(e.rank)),
       h(
         'span',
         { class: 'mons' },
-        e.players.map((p) => sprite(p.pokemon.dex, { scale: 1, shiny: p.pokemon.shiny })),
+        e.players.map((p) =>
+          h(
+            'span',
+            { class: 'mini' },
+            sprite(p.pokemon.dex, {
+              scale: 1,
+              shiny: p.pokemon.shiny,
+              fit: { width: 44, height: 36 },
+              feet: true,
+            }),
+          ),
+        ),
       ),
       h(
         'span',
@@ -100,8 +111,8 @@ export function rankingScreen(app: App): Screen {
       controls,
       tabs<LeaderboardMode>(
         [
-          { id: 'solo', label: t('app.soloBoard') },
-          { id: 'group', label: t('leaderboard.group2') },
+          { id: 'solo', label: h('b', null, icon('user', 16), ' ', t('app.soloBoard')) },
+          { id: 'group', label: h('b', null, icon('friends', 16), ' ', t('leaderboard.group2')) },
         ],
         query.mode,
         (m) => ((query.mode = m), render()),

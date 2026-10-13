@@ -57,7 +57,13 @@ export function lobbyScreen(app: App): Screen {
         dataset: { testid: `member-${m.username}` },
       },
       m.partner
-        ? sprite(m.partner.dex, { scale: 2, lively: true, shiny: m.partner.shiny })
+        ? sprite(m.partner.dex, {
+            scale: 2,
+            lively: true,
+            shiny: m.partner.shiny,
+            fit: { width: 140, height: 96 },
+            feet: true,
+          })
         : h('span', { class: 'no-partner' }, '?'),
       h('b', null, m.username),
       h('small', null, m.partner ? pokemonName(m.partner.dex) : t('app.noPartner')),

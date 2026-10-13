@@ -13,13 +13,13 @@ Every error has the same shape. `code` is stable and maps to a UI string in `en.
 { "error": { "code": "username_taken", "message": "Username is taken" } }
 ```
 
-| Status | Codes                                                                                                                                                                                                                                                                                                                                     |
-| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 400    | `invalid_request` (body/query validation, incl. unknown dex/item/move/type ids; has `issues`), `unknown_upgrade`, `unknown_title`, `not_a_starter`, `invalid_answers`, `invalid_move`, `duplicate_move`, `unknown_banner`, `invalid_pull_count`, `invalid_payment`, `cannot_friend_self`, `duplicate_favourite`                           |
-| 401    | `unauthenticated`, `invalid_credentials`                                                                                                                                                                                                                                                                                                  |
-| 404    | `run_not_found`, `user_not_found`, `request_not_found`, `friend_not_found`, `mission_not_found`                                                                                                                                                                                                                                           |
-| 409    | `username_taken`, `pokemon_not_owned`, `insufficient_funds`, `upgrade_maxed`, `title_locked`, `starter_already_chosen`, `too_many_bans`, `run_already_finished`, `run_credited_by_timeout`, `mission_not_done`, `mission_already_claimed`, `mission_reroll_used`, `mission_reroll_unavailable`, `already_friends`, `request_already_sent` |
-| 429    | `rate_limited`                                                                                                                                                                                                                                                                                                                            |
+| Status | Codes                                                                                                                                                                                                                                                                                                                                                |
+| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 400    | `invalid_request` (body/query validation, incl. unknown dex/item/move/type ids; has `issues`), `unknown_upgrade`, `unknown_title`, `not_a_starter`, `invalid_answers`, `invalid_move`, `duplicate_move`, `unknown_banner`, `invalid_pull_count`, `invalid_payment`, `cannot_friend_self`, `duplicate_favourite`                                      |
+| 401    | `unauthenticated`, `invalid_credentials`                                                                                                                                                                                                                                                                                                             |
+| 404    | `run_not_found`, `user_not_found`, `request_not_found`, `friend_not_found`, `mission_not_found`                                                                                                                                                                                                                                                      |
+| 409    | `username_taken`, `pokemon_not_owned`, `insufficient_funds`, `upgrade_maxed`, `title_locked`, `starter_already_chosen`, `too_many_bans`, `run_already_finished`, `run_credited_by_timeout`, `in_room`, `mission_not_done`, `mission_already_claimed`, `mission_reroll_used`, `mission_reroll_unavailable`, `already_friends`, `request_already_sent` |
+| 429    | `rate_limited`                                                                                                                                                                                                                                                                                                                                       |
 
 Dex numbers, held items, moves, types, upgrade ids, titles, banners and missions are all checked
 against `@pokesurvivor/data`.
@@ -137,7 +137,8 @@ clears it.
 Solo runs are simulated in the browser, so their results are claims the server caps:
 
 1. `POST /api/runs/start` `{ pokemon: { dex, shiny } }` → `201 { runId, startedAt }`. The Pokémon
-   must be owned. Rate-limited per IP (`ACTION_RATE_LIMIT_MAX`).
+   must be owned. A player in a room (party) can't start one: `409 in_room` until they leave it.
+   Rate-limited per IP (`ACTION_RATE_LIMIT_MAX`).
 2. `POST /api/runs` with the summary when the run ends:
 
    ```json

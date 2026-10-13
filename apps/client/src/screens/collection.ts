@@ -5,11 +5,13 @@ import { audio } from '../audio.js';
 import type { App, Screen } from '../app/app.js';
 import {
   gameData,
+  boxFor,
   h,
+  icon,
   rarityInfo,
   replace,
   sprite,
-  stars,
+  rarityBall,
   typeChip,
   typeColor,
 } from '../app/dom.js';
@@ -141,17 +143,27 @@ export function collectionScreen(app: App, params: URLSearchParams): Screen {
               },
               h('span', { class: 'no' }, String(p.dex).padStart(3, '0')),
               isPartner
-                ? h('span', { class: 'badge-r', title: t('collection.itSYourPartner') }, '♛')
+                ? h(
+                    'span',
+                    { class: 'badge-r', title: t('collection.itSYourPartner') },
+                    icon('crown', 14),
+                  )
                 : ownsShiny(p.dex)
-                  ? h('span', { class: 'badge-r shiny-mark' }, '✦')
+                  ? h('span', { class: 'badge-r' }, icon('shiny', 12))
                   : null,
-              sprite(p.dex, {
-                scale: 1.5,
-                silhouette: !own,
-                shiny: isPartner && s.partner.shiny && ownsShiny(p.dex),
-              }),
+              h(
+                'span',
+                { class: 'cell-stage' },
+                sprite(p.dex, {
+                  scale: 1.5,
+                  silhouette: !own,
+                  shiny: isPartner && s.partner.shiny && ownsShiny(p.dex),
+                  fit: { width: 80, height: 58 },
+                  feet: true,
+                }),
+              ),
               h('b', null, own ? p.name : '???'),
-              stars(p.rarity),
+              rarityBall(p.rarity, 12),
             );
           })
         : h('p', { class: 'sub', style: 'grid-column:1/-1' }, t('collection.noneWithThisFilter')),
@@ -216,7 +228,14 @@ export function collectionScreen(app: App, params: URLSearchParams): Screen {
             '--stage-c': !own ? '#5b83d6' : shown ? '#9ae6ff' : typeColor(p.types[0] ?? 'normal'),
           },
         },
-        sprite(p.dex, { scale: 3, lively: own, silhouette: !own, shiny: shown }),
+        sprite(p.dex, {
+          scale: 3,
+          lively: own,
+          silhouette: !own,
+          shiny: shown,
+          fit: boxFor({ width: 216, height: 150 }, { width: 130, height: 96 }),
+          feet: true,
+        }),
       ),
       hasShiny
         ? h(
@@ -253,7 +272,7 @@ export function collectionScreen(app: App, params: URLSearchParams): Screen {
         h(
           'div',
           { style: { color: rarityInfo(p.rarity).color } },
-          stars(p.rarity),
+          rarityBall(p.rarity, 24),
           ' ',
           rarityInfo(p.rarity).name,
         ),
@@ -269,6 +288,11 @@ export function collectionScreen(app: App, params: URLSearchParams): Screen {
               { class: 'small' },
               `${t('collection.startsWith')} `,
               h('b', { class: 'gold' }, data.moveById.get(startingMoveOf(p))?.name ?? ''),
+            ),
+            h(
+              'p',
+              { class: 'move-icons', title: t('app.learnableMoves') },
+              movePoolOf(p).map((m) => h('span', { title: m.name }, icon(`move:${m.id}`, 16))),
             ),
             pick,
             moveSettings(app, p, () => renderDetail()),
@@ -373,7 +397,9 @@ function moveSettings(app: App, p: Pokemon, rerender: () => void): HTMLElement {
               },
             },
           },
-          m.name,
+          icon(`move:${m.id}`, 16),
+          ` ${m.name}`,
+          bans.has(m.id) ? [' ', icon('ban', 14)] : null,
         ),
       ),
   );

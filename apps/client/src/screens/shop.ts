@@ -3,7 +3,7 @@
 import { t } from '@pokesurvivor/data';
 import { audio } from '../audio.js';
 import type { App, Screen } from '../app/app.js';
-import { gameData, h, num, pokemonName, replace, sprite, typeColor } from '../app/dom.js';
+import { gameData, h, icon, num, pokemonName, replace, sprite, typeColor } from '../app/dom.js';
 import { loadInto, screenBox } from './common.js';
 
 type UpgradeRules = Record<string, { maxLevel: number; baseCost: number; growth: number }>;
@@ -68,7 +68,7 @@ export function shopScreen(app: App): Screen {
           class: ['stage', 'small', shiny && 'shiny'],
           style: { '--stage-c': shiny ? '#9ae6ff' : typeColor(mon?.types[0] ?? 'normal') },
         },
-        sprite(dex, { scale: 2, lively: true, shiny }),
+        sprite(dex, { scale: 2, lively: true, shiny, fit: { width: 110, height: 74 }, feet: true }),
       ),
       h(
         'div',
@@ -96,7 +96,7 @@ export function shopScreen(app: App): Screen {
             disabled: maxed || s.coins < cost,
             dataset: { testid: `buy-${u.id}`, sfx: 'none' },
           },
-          maxed ? t('upgrades.max') : [h('span', { class: 'coin' }), ` ${num(cost)}`],
+          maxed ? t('upgrades.max') : [icon('coin', 18), ` ${num(cost)}`],
         );
         buy.addEventListener('click', () => {
           void app.act(buy, async () => {
@@ -107,7 +107,7 @@ export function shopScreen(app: App): Screen {
         return h(
           'div',
           { class: 'panel upg-item' },
-          h('div', { class: 'ic' }, h('span', { class: `icon icon-${u.icon}` })),
+          h('div', { class: 'ic' }, icon(u.icon, 32)),
           h(
             'div',
             null,

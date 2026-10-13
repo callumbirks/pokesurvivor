@@ -123,6 +123,7 @@ export async function buildApp({
       runCaps: economy.runCaps,
       leaderboardTimeZone: config.leaderboardTimeZone,
       rateLimit: config.rateLimits.actions,
+      inRoom: (userId) => game?.roomOfUser(userId) != null,
     });
     gachaRoutes(app, { ...common, rateLimit: config.rateLimits.actions });
     missionRoutes(app, { ...common, timeZone: config.leaderboardTimeZone });

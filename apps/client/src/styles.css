@@ -511,10 +511,6 @@ button.stage {
     0 0 0 3px #0b1838,
     0 0 22px rgba(154, 230, 255, 0.55);
 }
-.stars {
-  font-size: 11px;
-  letter-spacing: -1px;
-}
 .type {
   display: inline-block;
   padding: 2px 8px;
@@ -525,70 +521,22 @@ button.stage {
   text-shadow: none;
   margin-right: 4px;
 }
-.coin,
-.ticket {
-  display: inline-block;
-  width: 16px;
-  height: 16px;
-  vertical-align: -2px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 35% 35%, #fff2a8, var(--gold) 45%, var(--gold2));
-  box-shadow: 0 0 0 2px #7a4b00;
+/* Pixel-art icons (src/icons.ts) as <img class="pix">, sized to whole multiples of their pixels. */
+img.pix {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  vertical-align: middle;
 }
-.ticket {
-  width: 20px;
-  height: 13px;
-  border-radius: 3px;
-  background: linear-gradient(90deg, #ff7b7b, #ff4d5e);
-  box-shadow: 0 0 0 2px #5a0f1a;
-  margin: 0 4px 0 2px;
+.rarity-ball {
+  display: inline-flex;
+  vertical-align: middle;
 }
-.ticket.x10 {
-  background: linear-gradient(90deg, #d59bff, #a35cff);
-  box-shadow: 0 0 0 2px #3a1166;
-}
-.icon {
-  font-size: 26px;
-}
-.icon::before {
-  content: '★';
-}
-.icon-heart::before {
-  content: '❤';
-  color: #ff6b7d;
-}
-.icon-fist::before {
-  content: '✊';
-}
-.icon-boot::before {
-  content: '👟';
-}
-.icon-clock::before {
-  content: '⏱';
-}
-.icon-shield::before {
-  content: '🛡';
-}
-.icon-sprout::before {
-  content: '🌱';
-}
-.icon-magnet::before {
-  content: '🧲';
-}
-.icon-book::before {
-  content: '📘';
-}
-.icon-coin::before {
-  content: '🪙';
-}
-.icon-cards::before {
-  content: '🃏';
-}
-.icon-up::before {
-  content: '⬆';
-}
-.icon-ban::before {
-  content: '🚫';
+.price {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  vertical-align: middle;
+  line-height: 1;
 }
 
 /* ---------- top bar, toasts, notices, invites ---------- */
@@ -1001,21 +949,40 @@ button.stage {
   border: 0;
   cursor: pointer;
   text-align: left;
-  padding: 7px 10px 7px 26px;
+  padding: 7px 10px 7px 30px;
   border-radius: 6px;
   font-size: 21px;
   font-weight: 700;
   text-shadow: 2px 2px 0 var(--shadow);
   position: relative;
+  display: grid;
+  grid-template-columns: 34px 1fr;
+  column-gap: 8px;
+  align-items: center;
 }
+.mi-ico {
+  grid-row: span 2;
+  display: flex;
+}
+.menu-item small {
+  grid-column: 2;
+}
+/* The pixel-art cursor of the Mystery Dungeon menus. */
 .menu-item::before {
-  content: '▶';
+  content: '';
   position: absolute;
   left: 6px;
-  top: 10px;
-  font-size: 14px;
+  top: 50%;
+  width: 16px;
+  height: 24px;
+  margin-top: -12px;
+  background: var(--ico-cursor) no-repeat center / contain;
+  image-rendering: pixelated;
   opacity: 0;
-  color: var(--gold);
+  transform: translateX(-4px);
+  transition:
+    opacity 0.1s,
+    transform 0.1s;
 }
 .menu-item:hover,
 .menu-item:focus-visible {
@@ -1025,6 +992,7 @@ button.stage {
 .menu-item:hover::before,
 .menu-item:focus-visible::before {
   opacity: 1;
+  transform: none;
 }
 .menu-item small {
   display: block;
@@ -1095,7 +1063,7 @@ button.stage {
 .banner .feat {
   display: flex;
   align-items: flex-end;
-  justify-content: center;
+  justify-content: space-evenly;
   gap: 6px;
   margin: 8px -10px -16px;
   height: 170px;
@@ -1119,6 +1087,9 @@ button.stage {
 .price {
   display: inline-flex;
   align-items: center;
+  gap: 4px;
+  vertical-align: middle;
+  line-height: 1;
 }
 .pity-bar {
   position: relative;
@@ -1163,70 +1134,16 @@ button.stage {
   bottom: 8px;
   flex-shrink: 0;
 }
-.led {
-  font-size: 28px;
-  font-weight: 700;
-  color: var(--gold);
-  text-shadow: 3px 3px 0 var(--shadow);
-  letter-spacing: 2px;
-}
-.ball {
-  width: 120px;
-  height: 120px;
+/* The slot machine (src/app/slots.ts): drawn at 176×170 and scaled up without smoothing. */
+.slot {
+  width: min(528px, 92vw, 66vh);
+  height: auto;
   flex-shrink: 0;
-  border-radius: 50%;
-  position: relative;
-  background: linear-gradient(180deg, #ff4d4d 0 47%, #1a1a1a 47% 53%, #f4f4f4 53% 100%);
-  border: 5px solid #1a1a1a;
-}
-.ball::after {
-  content: '';
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 30px;
-  height: 30px;
-  transform: translate(-50%, -50%);
-  border-radius: 50%;
-  background: #f4f4f4;
-  border: 5px solid #1a1a1a;
-}
-.ball.drop {
-  animation: drop 0.55s cubic-bezier(0.3, 1.6, 0.6, 1) both;
-}
-.ball.shake {
-  animation: shake 0.45s ease-in-out 3;
-}
-.ball.shake.frenzy {
-  animation: shake 0.3s ease-in-out infinite;
-  box-shadow: 0 0 40px 10px var(--glow);
-}
-.ball.burst {
-  animation: burst 0.45s ease-out forwards;
-}
-@keyframes drop {
-  from {
-    transform: translateY(-60vh) rotate(-200deg);
-  }
-}
-@keyframes shake {
-  25% {
-    transform: rotate(-18deg);
-  }
-  75% {
-    transform: rotate(18deg);
-  }
-}
-@keyframes burst {
-  60% {
-    box-shadow: 0 0 80px 40px var(--glow);
-    transform: scale(1.15);
-  }
-  100% {
-    box-shadow: 0 0 200px 120px transparent;
-    transform: scale(0);
-    opacity: 0;
-  }
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  cursor: pointer;
+  filter: drop-shadow(0 0 30px rgba(255, 90, 90, 0.35));
+  animation: pop 0.25s ease-out both;
 }
 .pull-results {
   display: flex;
@@ -1897,7 +1814,16 @@ input[type='range']::-moz-range-thumb {
   }
   .menu-item {
     font-size: 15px;
-    padding: 4px 6px 4px 18px;
+    padding: 4px 6px;
+    grid-template-columns: 22px 1fr;
+    column-gap: 6px;
+  }
+  .menu-item::before {
+    display: none;
+  }
+  .mi-ico img {
+    width: 20px;
+    height: 20px;
   }
   .menu-item.play {
     grid-column: span 2;
@@ -1918,10 +1844,106 @@ input[type='range']::-moz-range-thumb {
   }
   .pcard {
     width: 100px;
+    min-height: 0;
     padding: 5px 3px;
+  }
+  .pcard .pstage {
+    width: 88px;
+    height: 76px;
   }
 }
 .detail .stage {
   width: 100%;
   max-width: 220px;
+}
+.move-icons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin: 0 0 10px;
+}
+.ban-moves .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.rk-row .pos {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+/* The living world behind the menus (src/app/backdrop.ts). */
+canvas.backdrop {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  image-rendering: pixelated;
+}
+.pcard .pstage {
+  width: 132px;
+  height: 120px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 8px;
+  overflow: hidden;
+  /* The ground shadow under the Pokémon. */
+  background: radial-gradient(
+    ellipse 28px 8px at 50% calc(100% - 10px),
+    rgba(0, 0, 0, 0.38) 98%,
+    transparent
+  );
+}
+@media (prefers-reduced-motion: reduce) {
+  .sprite.lively,
+  .pcard.r5,
+  .pcard.shiny {
+    animation: none;
+  }
+}
+.cell-stage {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  width: 100%;
+  height: 66px;
+  padding-bottom: 6px;
+  overflow: hidden;
+}
+/* Small sprites in list rows (leaderboard, friends): a fixed box, feet on its bottom edge. */
+.mini {
+  display: inline-flex;
+  align-items: flex-end;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 44px;
+  height: 40px;
+  padding-bottom: 3px;
+  overflow: hidden;
+}
+.banner .feat {
+  /* Room under the feet line for tails and legs drawn below it. */
+  padding-bottom: 22px;
+}
+.banner .feat .sprite {
+  flex-shrink: 0;
+}
+.leg-cell {
+  justify-content: flex-end;
+  min-height: 84px;
+}
+.leg-cell small {
+  position: relative;
+}
+.menu-item:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.menu-item:disabled::before {
+  display: none;
+}
+.menu-item.play:disabled small {
+  color: var(--gold);
 }

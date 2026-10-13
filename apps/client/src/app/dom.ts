@@ -1,8 +1,12 @@
 // Tiny DOM helpers for the menu screens: an element builder and a few shared widgets (Pokémon
 // sprites, rarity stars, type chips). No framework: screens build their DOM with `h()` and
 // rebuild the parts that change.
-import { loadGameData } from '@pokesurvivor/data';
+import { loadGameData, t, type UiStringKey } from '@pokesurvivor/data';
 import type { SpriteData } from '@pokesurvivor/data/sprites';
+import { iconImg, iconUrl } from '../icons.js';
+import { fitScale, type SpriteBox } from '../sprites.js';
+
+export { fitScale, type SpriteBox };
 
 type Child = Node | string | number | null | undefined | false | readonly Child[];
 
@@ -77,13 +81,55 @@ export function rarityInfo(rarity: number): { name: string; color: string } {
   return { name: r?.name ?? String(rarity), color: r?.color ?? '#fff' };
 }
 
-/** `★★★☆☆`-style rarity row in the rarity's colour. */
-export function stars(rarity: number, max = 5): HTMLElement {
+/**
+ * A UI string with nodes (icons) in its placeholders: `{ticket}` → an `<img>`. Text params are
+ * filled in as by `t()`.
+ */
+export function tNodes(key: UiStringKey, params: Record<string, string | number | Node>): Node[] {
+  const text = t(key);
+  const out: Node[] = [];
+  let last = 0;
+  for (const m of text.matchAll(/\{(\w+)\}/g)) {
+    const value = params[m[1] ?? ''];
+    if (value === undefined) continue;
+    if (m.index > last) out.push(document.createTextNode(text.slice(last, m.index)));
+    out.push(value instanceof Node ? value : document.createTextNode(String(value)));
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) out.push(document.createTextNode(text.slice(last)));
+  return out;
+}
+
+/** Rarity as a Poké Ball, as legacy did: Poké, Great, Ultra, Luxury and Master Ball. */
+export const RARITY_BALL: Readonly<Record<number, string>> = {
+  1: 'ball',
+  2: 'ball2',
+  3: 'ball3',
+  4: 'ballLux',
+  5: 'ball4',
+};
+
+/** A pixel-art icon (`src/icons.ts`) as an `<img>`, snapped to a whole multiple of its pixels. */
+export function icon(name: string, size = 20, cls?: string): HTMLImageElement {
+  const img = iconImg(name, size);
+  if (cls) img.classList.add(cls);
+  return img;
+}
+
+/** The rarity's Poké Ball, titled with the rarity's name. */
+export function rarityBall(rarity: number, size = 12): HTMLElement {
   return h(
     'span',
-    { class: 'stars', style: { color: rarityInfo(rarity).color }, title: rarityInfo(rarity).name },
-    '★'.repeat(rarity) + (max > rarity ? '☆'.repeat(max - rarity) : ''),
+    { class: 'rarity-ball', title: rarityInfo(rarity).name },
+    icon(RARITY_BALL[rarity] ?? 'ball', size),
   );
+}
+
+/** Publishes the icons the stylesheet uses (`--ico-cursor`, `--ico-coin`) as CSS variables. */
+export function installIconCss(): void {
+  const root = document.documentElement.style;
+  for (const name of ['cursor', 'coin', 'ticket', 'ticket10', 'shiny', 'gear'])
+    root.setProperty(`--ico-${name}`, `url("${iconUrl(name)}")`);
 }
 
 export function typeColor(type: string): string {
@@ -125,12 +171,31 @@ export function loadSprites(): Promise<SpriteData> {
 
 export interface SpriteOptions {
   shiny?: boolean;
-  /** Pixel scale (sprites are small pixel art). */
+  /** Pixel scale (sprites are small pixel art): the same for every Pokémon in a view. */
   scale?: number;
+  /**
+   * The box it must fit in (CSS px): a smaller scale for the giants (Eternatus, Rayquaza…), from
+   * the sprite's real frame (`fitScale`). Without it, the sprite is drawn at `scale` whatever
+   * its size.
+   */
+  fit?: SpriteBox;
+  /**
+   * Stands on the container's bottom edge: the frame's space below the feet hangs under it, so
+   * a row of Pokémon shares one baseline whatever their frame sizes (legacy's feet anchor).
+   */
+  feet?: boolean;
   /** Black shape only: not owned yet. */
   silhouette?: boolean;
   /** Plays the idle animation. */
   lively?: boolean;
+}
+
+/** A shared fit box for the screen size: `wide` on desktop, `narrow` on phones. */
+export function boxFor(wide: SpriteBox, narrow: SpriteBox): SpriteBox {
+  const small =
+    typeof matchMedia === 'function' &&
+    matchMedia('(max-width: 760px), (max-height: 520px)').matches;
+  return small ? narrow : wide;
 }
 
 /**
@@ -144,6 +209,8 @@ export function sprite(dex: number, opts: SpriteOptions = {}): HTMLElement {
       dex: String(dex),
       scale: String(opts.scale ?? 2),
       shiny: opts.shiny ? '1' : '',
+      fit: opts.fit ? `${opts.fit.width}x${opts.fit.height}` : '',
+      feet: opts.feet ? '1' : '',
     },
     role: 'img',
     'aria-label': opts.silhouette ? '???' : pokemonName(dex),
@@ -164,12 +231,16 @@ function paint(el: HTMLElement): void {
     return;
   }
   const anim = entry.animations.Idle;
-  const scale = Number(el.dataset.scale) || 2;
+  const [fw, fh] = (el.dataset.fit ?? '').split('x').map(Number);
+  const box = fw && fh ? { width: fw, height: fh } : undefined;
+  const scale = fitScale(anim, Number(el.dataset.scale) || 2, box);
   const url = `${sprites.basePath}/${entry.dex}/${el.dataset.shiny && entry.shiny ? 's/' : ''}Idle.png?v=${entry.hash}`;
   const w = anim.width * scale;
   const ht = anim.height * scale;
   el.style.width = `${w}px`;
   el.style.height = `${ht}px`;
+  // Feet on the baseline: the part of the frame below them hangs under the container's edge.
+  if (el.dataset.feet) el.style.marginBottom = `${-(anim.height - anim.anchorY) * scale}px`;
   el.style.backgroundImage = `url("${url}")`;
   el.style.backgroundSize = `${w * anim.frames}px ${ht * anim.rows}px`;
   el.style.setProperty('--sheet-w', `-${w * anim.frames}px`);

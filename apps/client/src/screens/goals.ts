@@ -5,7 +5,7 @@ import { formatText, t, type Achievement, type Reward } from '@pokesurvivor/data
 import { audio } from '../audio.js';
 import type { App, Screen } from '../app/app.js';
 import type { MissionState, Missions, Save } from '../app/api.js';
-import { gameData, h, mmss, num, pokemonName, replace, sprite } from '../app/dom.js';
+import { gameData, h, icon, mmss, num, pokemonName, replace, sprite } from '../app/dom.js';
 import { toast } from '../app/toast.js';
 import { loadInto, screenBox, tabs } from './common.js';
 
@@ -16,9 +16,9 @@ export function rewardView(r: Reward): HTMLElement {
   return h(
     'span',
     { class: 'reward' },
-    r.coins ? [h('span', { class: 'coin' }), ` ${num(r.coins)} `] : null,
-    r.tickets ? [h('span', { class: 'ticket' }), ` ${r.tickets} `] : null,
-    r.tickets10 ? [h('span', { class: 'ticket x10' }), ` ${r.tickets10}`] : null,
+    r.coins ? [icon('coin', 16), ` ${num(r.coins)} `] : null,
+    r.tickets ? [icon('ticket', 16), ` ${r.tickets} `] : null,
+    r.tickets10 ? [icon('ticket10', 16), ` ${r.tickets10}`] : null,
   );
 }
 
@@ -216,7 +216,14 @@ export function goalsScreen(app: App): Screen {
                 h(
                   'div',
                   { class: ['leg-cell', !!s.achievements[a.id] && 'ok'], title: a.description },
-                  a.dex ? sprite(a.dex, { scale: 1, silhouette: !s.achievements[a.id] }) : null,
+                  a.dex
+                    ? sprite(a.dex, {
+                        scale: 1,
+                        silhouette: !s.achievements[a.id],
+                        fit: { width: 68, height: 52 },
+                        feet: true,
+                      })
+                    : null,
                   h('small', null, a.dex ? pokemonName(a.dex) : a.name),
                 ),
               ),
@@ -241,7 +248,7 @@ export function goalsScreen(app: App): Screen {
     return h(
       'div',
       { class: ['ach', ok && 'ok'] },
-      h('span', { class: 'medal' }, ok ? '🏅' : '○'),
+      h('span', { class: 'medal' }, icon(ok ? `medal${a.tier}` : 'medalOff', 36)),
       h(
         'div',
         { class: 'a-txt' },
@@ -337,7 +344,14 @@ export function goalsScreen(app: App): Screen {
           h(
             'label',
             { class: 'fav-slot' },
-            favs[i] ? sprite(favs[i].dex, { scale: 2, shiny: favs[i].shiny }) : null,
+            favs[i]
+              ? sprite(favs[i].dex, {
+                  scale: 2,
+                  shiny: favs[i].shiny,
+                  fit: { width: 130, height: 80 },
+                  feet: true,
+                })
+              : null,
             sel,
           ),
         ),

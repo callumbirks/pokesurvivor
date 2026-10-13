@@ -8,12 +8,13 @@ import { endSavedRun, resumeSolo, savedSoloRun } from '../app/solo-runs.js';
 import {
   gameData,
   h,
+  icon,
   mmss,
   num,
   pokemonName,
   replace,
   sprite,
-  stars,
+  rarityBall,
   typeChip,
   typeColor,
 } from '../app/dom.js';
@@ -24,6 +25,19 @@ export function rewardsToClaim(save: Save): number {
     (m) => !m.claimed && m.progress >= m.goal,
   ).length;
 }
+
+/** The menu's pixel-art icons (legacy menu.js; legacy had no separate multiplayer entry). */
+const MENU_ICON: Record<string, string> = {
+  solo: 'ball',
+  lobby: 'friends',
+  collection: 'book',
+  gacha: 'ball4',
+  shop: 'up',
+  goals: 'medal3',
+  ranking: 'trophy',
+  friends: 'user',
+  settings: 'gear',
+};
 
 export function menuScreen(app: App): Screen {
   const left = h('div', { class: 'menu-left' });
@@ -45,15 +59,17 @@ export function menuScreen(app: App): Screen {
     go: string,
     label: string,
     sub: string,
-    opts: { play?: boolean; gold?: boolean; onClick?: () => void } = {},
+    opts: { play?: boolean; gold?: boolean; disabled?: boolean; onClick?: () => void } = {},
   ) =>
     h(
       'button',
       {
         class: ['menu-item', opts.play && 'play'],
+        disabled: !!opts.disabled,
         dataset: { testid: `menu-${go}` },
         on: { click: opts.onClick ?? (() => app.go(go)) },
       },
+      h('span', { class: 'mi-ico' }, MENU_ICON[go] ? icon(MENU_ICON[go], 26) : null),
       label,
       h('small', { class: opts.gold ? 'gold' : undefined }, sub),
     );
@@ -88,20 +104,26 @@ export function menuScreen(app: App): Screen {
             title: t('collection.chooseAsPartner', { 0: '' }),
             on: { click: () => app.go('collection', { dex: String(dex) }) },
           },
-          sprite(dex, { scale: 4, lively: true, shiny }),
+          sprite(dex, {
+            scale: 4,
+            lively: true,
+            shiny,
+            fit: { width: 256, height: 170 },
+            feet: true,
+          }),
         ),
         h(
           'div',
           { class: 'nm', dataset: { testid: 'partner-name' } },
           pokemonName(dex),
-          shiny ? ' ✦' : '',
+          shiny ? [' ', icon('shiny', 24)] : null,
         ),
         h(
           'div',
           { class: 'lv' },
           ...(mon?.types.map(typeChip) ?? []),
           ' ',
-          mon ? stars(mon.rarity) : null,
+          mon ? rarityBall(mon.rarity, 12) : null,
         ),
         ownsShiny
           ? h(
@@ -115,7 +137,8 @@ export function menuScreen(app: App): Screen {
               h(
                 'button',
                 { class: shiny ? 'on' : undefined, on: { click: () => setShiny(true) } },
-                '✦ ',
+                icon('shiny', 12),
+                ' ',
                 t('app.shiny'),
               ),
             )
@@ -145,7 +168,11 @@ export function menuScreen(app: App): Screen {
     const online = friends.filter((f) => f !== 'offline').length;
     replace(
       list,
-      item('solo', t('app.solo'), t('menu.enterTheDungeon'), { play: true }),
+      // A player in a party plays with it: no solo runs until they leave the room.
+      item('solo', t('app.solo'), room ? t('app.leaveRoomForSolo') : t('menu.enterTheDungeon'), {
+        play: true,
+        disabled: !!room,
+      }),
       item(
         'lobby',
         t('app.multiplayer'),

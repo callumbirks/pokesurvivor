@@ -89,7 +89,7 @@ const SPANISH_WORDS = new RegExp(
 );
 /** Spanish punctuation and letters (accents are fine in a few English words, checked below). */
 const SPANISH_CHARS = /[¿¡ñÑáíóúÁÍÓÚ]/;
-const ACCENTED_ENGLISH = ['Pokémon', 'Pokédex', 'PokéCoin', 'PokéSurvivor'];
+const ACCENTED_ENGLISH = ['Pokémon', 'Pokédex', 'PokéCoin', 'PokéSurvivor', 'Poké'];
 
 /** Pokémon names with accents or symbols (Flabébé, Nidoran♀…). */
 const pokemonNames = loadGameData()

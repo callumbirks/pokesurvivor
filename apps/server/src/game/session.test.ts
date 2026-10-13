@@ -251,4 +251,22 @@ describe('lobbies', () => {
     await b.connect();
     await waitFor(() => a.client.friends.get(b.username) === 'online', 'b online for a');
   });
+
+  it('refuses to start a solo run while the player is in a room', async () => {
+    const b = await t.bot();
+    await b.connect();
+    const start = () =>
+      t.app.inject({
+        method: 'POST',
+        url: '/api/runs/start',
+        headers: { cookie: b.cookie },
+        payload: { pokemon: { dex: 25, shiny: false } },
+      });
+    await b.client.createRoom();
+    const refused = await start();
+    expect(refused.statusCode).toBe(409);
+    expect(refused.json()).toMatchObject({ error: { code: 'in_room' } });
+    await b.client.leaveRoom();
+    expect((await start()).statusCode).toBe(201);
+  });
 });
