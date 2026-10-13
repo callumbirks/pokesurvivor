@@ -129,6 +129,20 @@
     "gachaTickets": "Gacha tickets",
     "maxLevel": "Max level"
   },
+  "game": {
+    "listAnd": "{0} and {1}",
+    "secondsShort": "{0} s",
+    "chooseReward": "Choose a reward",
+    "reroll": "Change options ({0})",
+    "holdOnlyOne": "You can only hold one",
+    "buffAttack": "ATK",
+    "buffSpeed": "SPD",
+    "buffDefense": "DEF",
+    "buffRegen": "REG",
+    "offline": "OFFLINE",
+    "choosing": "CHOOSING",
+    "mateDistance": "{0} · {1} m"
+  },
   "login": {
     "mysteryDungeon": "Mystery Dungeon",
     "logIn": "Log in",
