@@ -190,7 +190,9 @@ Each is a module of functions over `Ctx`, stepped after hazards: `interact.ts`, 
   `chestsOpened`, and a trap goes off under a player or a walking enemy, hitting enemies (poison,
   slow, explosion) and players within 70% of its radius.
 
-## For the netcode (phase 3c)
+## For the netcode
+
+The game server and `packages/netclient` use this; see `docs/protocol.md`.
 
 - **Static after start**: `roster`, `config`, `world.seed`, players' `dex`/`types`/`index`/`shiny`/
   `legendsBeaten`. Terrain and props are derived from the seed and `world.arena` (which changes only

@@ -189,7 +189,9 @@ missions and unlocks achievements. Each run can be reported once.
 
 Coop runs are not reported over HTTP: the game server records them from its own simulation with
 `recordCoopRun()` in `apps/server/src/runs/service.ts`, with the same `RunSummary` per player
-(uncapped), which counts towards missions and achievements the same way.
+(uncapped), which counts towards missions and achievements the same way. A player who left
+before the end is credited with what they had when they left (`leftAfterS` is their play time).
+Results reach the players as a `game.results` message ([protocol.md](protocol.md)).
 
 ## Gacha
 
@@ -305,5 +307,14 @@ least one of you). `pokemon` keeps runs where that Pokémon was played.
 | `DELETE /api/friends/:username`                | –              | `204`; removes a friend or cancels a request you sent                                      |
 
 Each list item has `{ username, partner, favourites, title }`. Friends also have `since` and
-`presence` (`offline` | `online` | `in_lobby` | `in_game`), and requests have `sentAt`. Until the
-WebSocket server provides presence (phase 3c), everyone is `offline`.
+`presence` (`offline` | `online` | `in_lobby` | `in_game`), and requests have `sentAt`. Presence
+comes from the WebSocket game server: `online` with a socket open, `in_lobby` in a room (or dropped
+from its game), `in_game` playing. Changes are also pushed live over the socket
+(`presence.update`), and so are friend requests accepted, received and removals (`friend`); see
+[protocol.md](protocol.md).
+
+## Game server
+
+Rooms, invites and coop games run over the WebSocket at `/ws` (same origin, authenticated by the
+session cookie), not over HTTP. [protocol.md](protocol.md) describes the messages, the room
+state machine, snapshots and reconnects. `GET /api/info` returns `{ protocolVersion, tickHz }`.

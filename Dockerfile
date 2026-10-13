@@ -12,6 +12,7 @@ COPY apps/server/package.json apps/server/
 COPY packages/data/package.json packages/data/
 COPY packages/protocol/package.json packages/protocol/
 COPY packages/sim/package.json packages/sim/
+COPY packages/netclient/package.json packages/netclient/
 RUN pnpm install --frozen-lockfile
 COPY tsconfig.base.json ./
 COPY apps apps
