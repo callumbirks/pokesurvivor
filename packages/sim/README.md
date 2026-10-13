@@ -245,10 +245,10 @@ things now owned elsewhere:
 - After the last player goes down, the sim keeps running normally for the 1.3/1.6 s before the run
   ends (legacy slowed enemies to 30% during the faint animation in solo).
 - Dropped: the unused aura `drain` path (no move has it).
-- Rifts: the guaranteed schedule and placement fallback above (the "no rifts" bug). Legacy also
-  pulled every pickup on the map to you after a win (only the arena's now), left the arena's
-  uncollectable leftovers and broken props behind (cleared), and let the lost Pokémon wander after
-  a team in the arena (it waits on the map, its timer paused).
+- Rifts: the guaranteed schedule and placement fallback above (the "no rifts" bug). A win pulls
+  every pickup on the map to you, as in legacy. Legacy left the arena's uncollectable leftovers
+  and broken props behind (cleared), and let the lost Pokémon wander after a team in the arena
+  (it waits on the map, its timer paused).
 - Co-op: the rift legendary, events, weather, chip damage, springs, altars and trap effects apply to
   every player (legacy only checked the local one on each machine, or ran them per machine); rewards
   that legacy gave "each machine's player" (a bond per win, the rescue heal and collection) go to

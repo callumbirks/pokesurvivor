@@ -5,6 +5,7 @@ import { DT, TILE } from '../src/constants.js';
 import { simData } from '../src/data.js';
 import { addEnemy, createEnemy, hurtEnemy } from '../src/enemies.js';
 import { createSim, type Sim } from '../src/index.js';
+import { dropPickup } from '../src/pickups.js';
 import { hurtPlayer } from '../src/players.js';
 import { placeRift } from '../src/rift.js';
 import { bossAlive } from '../src/runevents.js';
@@ -308,6 +309,29 @@ describe('the arena', () => {
       );
       expect(pending || (p.bonds === 0 && p.slots.some((g) => g.length > 1))).toBe(true);
     }
+  });
+
+  it('winning pulls every pickup on the map, inside and far outside the arena', () => {
+    const sim = calmSim();
+    dropPickup(sim.ctx, 'coin', 1000, 0, 1);
+    dropPickup(sim.ctx, 'ticket', -1000, 0, 1);
+    sim.debugStartArena('water');
+    const arena = sim.state.arena!;
+    dropPickup(sim.ctx, 'xp', arena.x, arena.y, 1);
+    const pickups = [...sim.state.pickups];
+    expect(pickups.every((pk) => !pk.pulled)).toBe(true);
+    for (const pk of pickups.slice(0, 2)) {
+      expect(Math.hypot(pk.x - arena.x, pk.y - arena.y)).toBeGreaterThan((arena.r + 2) * TILE);
+    }
+
+    killLegend(sim);
+    steps(sim, 2);
+
+    expect(sim.state.arena?.phase).toBe('won');
+    expect(sim.state.pickups.map((pk) => pk.id)).toEqual(
+      expect.arrayContaining(pickups.map((pk) => pk.id)),
+    );
+    expect(sim.state.pickups.every((pk) => pk.pulled)).toBe(true);
   });
 
   it('the legendary drops a ×10 ticket with legendaryTicket10Chance', () => {
