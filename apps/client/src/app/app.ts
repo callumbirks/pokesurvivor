@@ -21,9 +21,19 @@ import {
   type UnlockedAchievement,
   type User,
 } from './api.js';
+import { MenuBackdrop } from './backdrop.js';
 import { BusyStatus } from './busy.js';
 import { shellShowsNotice } from './notices.js';
-import { gameData, h, loadSprites, num, pokemonName, replace } from './dom.js';
+import {
+  gameData,
+  h,
+  icon,
+  installIconCss,
+  loadSprites,
+  num,
+  pokemonName,
+  replace,
+} from './dom.js';
 import { mountToasts, notice, toast, toastError } from './toast.js';
 
 export interface Screen {
@@ -69,6 +79,7 @@ export class App {
   private screen: Screen | null = null;
   private routeName = '';
   private readonly main: HTMLElement;
+  private readonly backdrop: MenuBackdrop;
   private readonly topbar: HTMLElement;
   private readonly invitePop: HTMLElement;
   private gachaInfo: Promise<GachaInfo> | null = null;
@@ -84,6 +95,8 @@ export class App {
     this.invitePop = h('div', { class: 'box invite-pop hidden', role: 'dialog' });
     root.append(this.main, this.topbar, this.invitePop);
     mountToasts(root);
+    installIconCss();
+    this.backdrop = new MenuBackdrop(root);
     this.busy = new BusyStatus({
       room: () => this.net?.roomView ?? null,
       selfId: () => this.user?.id ?? null,
@@ -355,6 +368,8 @@ export class App {
       h(
         'div',
         { dataset: { testid: 'invite' } },
+        icon('friends', 22),
+        ' ',
         t('friends.invitesYouToPlayIn', { 0: invite.from }),
       ),
       h('div', { class: 'row', style: 'margin-top:10px' }, join, decline),
@@ -421,6 +436,7 @@ export class App {
     if (name !== 'play') audio.music('village');
     this.main.replaceChildren(this.screen.el);
     this.main.dataset.screen = name;
+    this.backdrop.show(name !== 'play');
     // The game shows its own sticky notices (connection, server updating) over the canvas.
     this.root.classList.toggle('game-notices', this.gameShowsNotices);
     this.topbar.classList.toggle('hidden', !route.topbar);
@@ -439,18 +455,13 @@ export class App {
     const state = this.net?.state;
     replace(
       this.topbar,
-      h(
-        'div',
-        { class: 'pill', title: t('app.coins') },
-        h('span', { class: 'coin' }),
-        num(s.coins),
-      ),
+      h('div', { class: 'pill', title: t('app.coins') }, icon('coin', 18), num(s.coins)),
       h(
         'div',
         { class: 'pill', title: t('app.tickets') },
-        h('span', { class: 'ticket' }),
+        icon('ticket', 18),
         num(s.tickets.x1),
-        h('span', { class: 'ticket x10' }),
+        icon('ticket10', 18),
         num(s.tickets.x10),
       ),
       room
@@ -473,7 +484,7 @@ export class App {
           title: t('menu.settings'),
           on: { click: () => this.go('settings') },
         },
-        '⚙',
+        icon('gear', 20),
       ),
     );
   }

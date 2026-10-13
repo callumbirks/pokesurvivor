@@ -5,7 +5,7 @@ import { formatText, t, type Achievement, type Reward } from '@pokesurvivor/data
 import { audio } from '../audio.js';
 import type { App, Screen } from '../app/app.js';
 import type { MissionState, Missions, Save } from '../app/api.js';
-import { gameData, h, mmss, num, pokemonName, replace, sprite } from '../app/dom.js';
+import { gameData, h, icon, mmss, num, pokemonName, replace, sprite } from '../app/dom.js';
 import { toast } from '../app/toast.js';
 import { loadInto, screenBox, tabs } from './common.js';
 
@@ -16,9 +16,9 @@ export function rewardView(r: Reward): HTMLElement {
   return h(
     'span',
     { class: 'reward' },
-    r.coins ? [h('span', { class: 'coin' }), ` ${num(r.coins)} `] : null,
-    r.tickets ? [h('span', { class: 'ticket' }), ` ${r.tickets} `] : null,
-    r.tickets10 ? [h('span', { class: 'ticket x10' }), ` ${r.tickets10}`] : null,
+    r.coins ? [icon('coin', 16), ` ${num(r.coins)} `] : null,
+    r.tickets ? [icon('ticket', 16), ` ${r.tickets} `] : null,
+    r.tickets10 ? [icon('ticket10', 16), ` ${r.tickets10}`] : null,
   );
 }
 
@@ -241,7 +241,7 @@ export function goalsScreen(app: App): Screen {
     return h(
       'div',
       { class: ['ach', ok && 'ok'] },
-      h('span', { class: 'medal' }, ok ? '🏅' : '○'),
+      h('span', { class: 'medal' }, icon(ok ? `medal${a.tier}` : 'medalOff', 36)),
       h(
         'div',
         { class: 'a-txt' },

@@ -3,7 +3,16 @@
 import { bestStarters, personalityScores, t, topTrait } from '@pokesurvivor/data';
 import { audio } from '../audio.js';
 import type { App, Screen } from '../app/app.js';
-import { gameData, h, pokemonName, replace, sprite, typeChip, typeColor } from '../app/dom.js';
+import {
+  gameData,
+  h,
+  icon,
+  pokemonName,
+  replace,
+  sprite,
+  typeChip,
+  typeColor,
+} from '../app/dom.js';
 import { toast } from '../app/toast.js';
 
 export function starterScreen(app: App): Screen {
@@ -140,6 +149,8 @@ export function starterScreen(app: App): Screen {
               replace(
                 info,
                 ...(mon?.types.map(typeChip) ?? []),
+                ' ',
+                icon(`move:${s.startingMove}`, 16),
                 ' ',
                 gameData().moveById.get(s.startingMove)?.name ?? s.startingMove,
               );

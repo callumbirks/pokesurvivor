@@ -8,12 +8,13 @@ import { endSavedRun, resumeSolo, savedSoloRun } from '../app/solo-runs.js';
 import {
   gameData,
   h,
+  icon,
   mmss,
   num,
   pokemonName,
   replace,
   sprite,
-  stars,
+  rarityBall,
   typeChip,
   typeColor,
 } from '../app/dom.js';
@@ -24,6 +25,19 @@ export function rewardsToClaim(save: Save): number {
     (m) => !m.claimed && m.progress >= m.goal,
   ).length;
 }
+
+/** The menu's pixel-art icons (legacy menu.js; legacy had no separate multiplayer entry). */
+const MENU_ICON: Record<string, string> = {
+  solo: 'ball',
+  lobby: 'friends',
+  collection: 'book',
+  gacha: 'ball4',
+  shop: 'up',
+  goals: 'medal3',
+  ranking: 'trophy',
+  friends: 'user',
+  settings: 'gear',
+};
 
 export function menuScreen(app: App): Screen {
   const left = h('div', { class: 'menu-left' });
@@ -54,6 +68,7 @@ export function menuScreen(app: App): Screen {
         dataset: { testid: `menu-${go}` },
         on: { click: opts.onClick ?? (() => app.go(go)) },
       },
+      h('span', { class: 'mi-ico' }, MENU_ICON[go] ? icon(MENU_ICON[go], 26) : null),
       label,
       h('small', { class: opts.gold ? 'gold' : undefined }, sub),
     );
@@ -94,14 +109,14 @@ export function menuScreen(app: App): Screen {
           'div',
           { class: 'nm', dataset: { testid: 'partner-name' } },
           pokemonName(dex),
-          shiny ? ' ✦' : '',
+          shiny ? [' ', icon('shiny', 24)] : null,
         ),
         h(
           'div',
           { class: 'lv' },
           ...(mon?.types.map(typeChip) ?? []),
           ' ',
-          mon ? stars(mon.rarity) : null,
+          mon ? rarityBall(mon.rarity, 12) : null,
         ),
         ownsShiny
           ? h(
@@ -115,7 +130,8 @@ export function menuScreen(app: App): Screen {
               h(
                 'button',
                 { class: shiny ? 'on' : undefined, on: { click: () => setShiny(true) } },
-                '✦ ',
+                icon('shiny', 12),
+                ' ',
                 t('app.shiny'),
               ),
             )

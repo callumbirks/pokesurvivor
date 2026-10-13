@@ -1,8 +1,9 @@
 // Tiny DOM helpers for the menu screens: an element builder and a few shared widgets (Pokémon
 // sprites, rarity stars, type chips). No framework: screens build their DOM with `h()` and
 // rebuild the parts that change.
-import { loadGameData } from '@pokesurvivor/data';
+import { loadGameData, t, type UiStringKey } from '@pokesurvivor/data';
 import type { SpriteData } from '@pokesurvivor/data/sprites';
+import { iconImg, iconUrl } from '../icons.js';
 
 type Child = Node | string | number | null | undefined | false | readonly Child[];
 
@@ -77,13 +78,55 @@ export function rarityInfo(rarity: number): { name: string; color: string } {
   return { name: r?.name ?? String(rarity), color: r?.color ?? '#fff' };
 }
 
-/** `★★★☆☆`-style rarity row in the rarity's colour. */
-export function stars(rarity: number, max = 5): HTMLElement {
+/**
+ * A UI string with nodes (icons) in its placeholders: `{ticket}` → an `<img>`. Text params are
+ * filled in as by `t()`.
+ */
+export function tNodes(key: UiStringKey, params: Record<string, string | number | Node>): Node[] {
+  const text = t(key);
+  const out: Node[] = [];
+  let last = 0;
+  for (const m of text.matchAll(/\{(\w+)\}/g)) {
+    const value = params[m[1] ?? ''];
+    if (value === undefined) continue;
+    if (m.index > last) out.push(document.createTextNode(text.slice(last, m.index)));
+    out.push(value instanceof Node ? value : document.createTextNode(String(value)));
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) out.push(document.createTextNode(text.slice(last)));
+  return out;
+}
+
+/** Rarity as a Poké Ball, as legacy did: Poké, Great, Ultra, Luxury and Master Ball. */
+export const RARITY_BALL: Readonly<Record<number, string>> = {
+  1: 'ball',
+  2: 'ball2',
+  3: 'ball3',
+  4: 'ballLux',
+  5: 'ball4',
+};
+
+/** A pixel-art icon (`src/icons.ts`) as an `<img>`, snapped to a whole multiple of its pixels. */
+export function icon(name: string, size = 20, cls?: string): HTMLImageElement {
+  const img = iconImg(name, size);
+  if (cls) img.classList.add(cls);
+  return img;
+}
+
+/** The rarity's Poké Ball, titled with the rarity's name. */
+export function rarityBall(rarity: number, size = 12): HTMLElement {
   return h(
     'span',
-    { class: 'stars', style: { color: rarityInfo(rarity).color }, title: rarityInfo(rarity).name },
-    '★'.repeat(rarity) + (max > rarity ? '☆'.repeat(max - rarity) : ''),
+    { class: 'rarity-ball', title: rarityInfo(rarity).name },
+    icon(RARITY_BALL[rarity] ?? 'ball', size),
   );
+}
+
+/** Publishes the icons the stylesheet uses (`--ico-cursor`, `--ico-coin`) as CSS variables. */
+export function installIconCss(): void {
+  const root = document.documentElement.style;
+  for (const name of ['cursor', 'coin', 'ticket', 'ticket10', 'shiny', 'gear'])
+    root.setProperty(`--ico-${name}`, `url("${iconUrl(name)}")`);
 }
 
 export function typeColor(type: string): string {

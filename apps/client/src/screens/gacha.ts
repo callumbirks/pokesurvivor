@@ -5,7 +5,18 @@ import { t } from '@pokesurvivor/data';
 import { audio } from '../audio.js';
 import type { App, Screen } from '../app/app.js';
 import type { GachaBanner, GachaInfo, PayWith, PullResponse, PullResult } from '../app/api.js';
-import { gameData, h, num, pokemonName, replace, sprite } from '../app/dom.js';
+import {
+  gameData,
+  h,
+  icon,
+  num,
+  pokemonName,
+  rarityBall,
+  replace,
+  sprite,
+  tNodes,
+} from '../app/dom.js';
+import { SlotMachine } from '../app/slots.js';
 import { loadInto, screenBox } from './common.js';
 
 let bannerId: string | null = null;
@@ -18,6 +29,7 @@ export function gachaScreen(app: App): Screen {
   box.el.append(overlay);
   let info: GachaInfo | null = null;
   let pulling = false;
+  let machine: SlotMachine | null = null;
 
   const rarity = (r: number) => info?.rarities.find((x) => x.rarity === r);
   const color = (res: Pick<PullResult, 'rarity' | 'shiny'>) =>
@@ -60,7 +72,7 @@ export function gachaScreen(app: App): Screen {
       return b;
     };
     const ticket = (n: number, x10 = false) =>
-      h('span', { class: 'price' }, h('span', { class: ['ticket', x10 && 'x10'] }), String(n));
+      h('span', { class: 'price' }, icon(x10 ? 'ticket10' : 'ticket', 18), ` ${n}`);
 
     replace(
       box.body,
@@ -105,7 +117,7 @@ export function gachaScreen(app: App): Screen {
               'p',
               { class: 'sub', style: 'margin:0' },
               t('gacha.youHaveOf', { 0: owned, 1: genMons.length }),
-              shinies ? ` · ✦ ${shinies}` : '',
+              shinies ? [' · ', icon('shiny', 12), ` ${shinies}`] : null,
             ),
             h(
               'div',
@@ -147,7 +159,12 @@ export function gachaScreen(app: App): Screen {
           h(
             'p',
             { class: 'note tickets-line' },
-            t('app.youHaveTickets', { 0: num(s.tickets.x1), 1: num(s.tickets.x10) }),
+            tNodes('app.youHaveTickets', {
+              ticket: icon('ticket', 18),
+              ticket10: icon('ticket10', 18),
+              0: num(s.tickets.x1),
+              1: num(s.tickets.x10),
+            }),
           ),
           h(
             'p',
@@ -185,14 +202,19 @@ export function gachaScreen(app: App): Screen {
             h(
               'span',
               { style: { color: rarity(r.rarity)?.color ?? '#fff' } },
-              '★'.repeat(r.rarity),
+              rarityBall(r.rarity, 12),
               ' ',
               rarity(r.rarity)?.name ?? '',
             ),
             h('span', null, `${pct(r.weight / total)} · ${banner.poolSize[String(r.rarity)] ?? 0}`),
           ),
         ),
-      h('div', null, h('span', null, `✦ ${t('app.shiny')}`), h('span', null, pct(g.shinyRate))),
+      h(
+        'div',
+        null,
+        h('span', null, icon('shiny', 12), ` ${t('app.shiny')}`),
+        h('span', null, pct(g.shinyRate)),
+      ),
       h(
         'ul',
         { class: 'note rules' },
@@ -208,9 +230,11 @@ export function gachaScreen(app: App): Screen {
           null,
           t('app.ruleRefund'),
           ' ',
-          g.duplicateRefund
-            .map((d, i) => `${i ? ' · ' : ''}${'★'.repeat(d.rarity)} ${d.coins}`)
-            .join(''),
+          g.duplicateRefund.map((d, i) => [
+            i ? ' · ' : '',
+            rarityBall(d.rarity, 12),
+            ` ${d.coins}`,
+          ]),
         ),
         h('li', null, t('app.ruleShiny')),
         h('li', null, t('app.ruleTickets')),
@@ -243,9 +267,16 @@ export function gachaScreen(app: App): Screen {
       (a, r) => (r.rarity > a.rarity || (r.shiny && !a.shiny) ? r : a),
       res.results[0] ?? { rarity: 1, shiny: false },
     );
-    const big = best.rarity >= 4 || best.shiny;
-    const ball = h('div', { class: 'ball drop', style: { '--glow': color(best) } });
-    const led = h('div', { class: 'led' }, t('gacha.goodLuck'));
+    const slot = h('canvas', {
+      class: 'slot',
+      title: t('gacha.clickToSpeedUp'),
+      dataset: { testid: 'slot-machine' },
+    });
+    machine?.stop();
+    machine = new SlotMachine(slot, {
+      color: (r) => rarity(r)?.color ?? '#fff',
+      name: (r) => rarity(r)?.name ?? String(r),
+    });
     const cards = h('div', { class: 'pull-results', dataset: { testid: 'pull-results' } });
     const close = h(
       'button',
@@ -253,35 +284,18 @@ export function gachaScreen(app: App): Screen {
       t('pause.continue'),
     );
     const done = new Promise<void>((resolve) => close.addEventListener('click', () => resolve()));
-    replace(overlay, led, ball, cards, close);
+    replace(overlay, slot, cards, close);
     overlay.classList.remove('hidden');
-    overlay.onclick = () => (fast = true);
-    overlay.title = t('gacha.clickToSpeedUp');
+    overlay.onclick = () => {
+      fast = true;
+      machine?.hurry();
+    };
 
-    audio.sfx('ball');
-    await wait(550);
-    ball.classList.replace('drop', 'shake');
-    if (big) {
-      led.textContent = best.shiny
-        ? t('gacha.shiny2')
-        : best.rarity === 5
-          ? t('gacha.legendary')
-          : t('gacha.epic');
-      led.style.color = color(best);
-      ball.classList.add('frenzy');
-    }
-    // Three shakes, like a Poké Ball (legacy: one per slot reel).
-    for (let i = 0; i < 3; i++) {
-      audio.sfx('shake');
-      await wait((big ? 2000 : 1350) / 3);
-    }
-    ball.classList.replace('shake', 'burst');
+    // The slot machine (lever, reels, prize sounds), then the burst and the cards one by one.
+    await machine.play(res.results);
+    machine = null;
     audio.sfx('burst', { rarity: best.rarity });
-    if (best.rarity === 5) audio.sfx('legend');
-    if (best.shiny) audio.sfx('shiny');
-    await wait(400);
-    ball.remove();
-    led.remove();
+    slot.remove();
     for (const r of res.results) {
       cards.append(card(r));
       audio.sfx('reveal', { rarity: r.rarity });
@@ -307,15 +321,20 @@ export function gachaScreen(app: App): Screen {
         style: { '--rc': rc },
         dataset: { testid: 'pull-card' },
       },
-      h('div', { class: 'stars', style: { color: rc } }, '★'.repeat(r.rarity)),
-      sprite(r.dex, { scale: 2, shiny: r.shiny, lively: r.rarity >= 4 || r.shiny }),
-      h('b', null, r.shiny ? '✦ ' : '', pokemonName(r.dex)),
+      h('div', { class: 'stars' }, rarityBall(r.rarity, 24)),
+      // A fixed stage, as legacy's 132×120 canvas: every card is the same size.
+      h(
+        'div',
+        { class: 'pstage' },
+        sprite(r.dex, { scale: 2, shiny: r.shiny, lively: r.rarity >= 4 || r.shiny }),
+      ),
+      h('b', null, r.shiny ? [icon('shiny', 12), ' '] : null, pokemonName(r.dex)),
       h(
         'div',
         { class: 'tag' },
         r.isNew
           ? h('span', { class: 'new' }, r.shiny ? t('gacha.newShiny') : t('gacha.new'))
-          : [t('app.duplicate'), ' · ', h('span', { class: 'coin' }), ` +${num(r.refund)}`],
+          : [t('app.duplicate'), ' · ', icon('coin', 12), ` +${num(r.refund)}`],
       ),
     );
   };
@@ -331,5 +350,11 @@ export function gachaScreen(app: App): Screen {
   const off = app.events.on('save', () => {
     if (!pulling) render();
   });
-  return { el: box.el, destroy: off };
+  return {
+    el: box.el,
+    destroy() {
+      off();
+      machine?.stop();
+    },
+  };
 }

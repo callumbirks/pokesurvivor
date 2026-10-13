@@ -16,6 +16,10 @@ test('shop, moves, settings, solo and login again', async ({ page }) => {
   await expect(page.getByTestId('screen-menu')).toBeVisible();
   const partner = (await page.getByTestId('partner-name').textContent())?.trim() ?? '';
   expect(partner.length).toBeGreaterThan(0);
+  // The menu: a pixel-art icon per entry, the coins/tickets counters, the living world behind.
+  await expect(page.locator('.menu-item .mi-ico img.pix')).toHaveCount(9);
+  await expect(page.locator('.topbar img.pix')).toHaveCount(4);
+  await expect(page.locator('canvas.backdrop')).toBeVisible();
 
   // Shop: 500 coins + 100 from the first-partner achievement buys a level of "ban" (300).
   await page.getByTestId('menu-shop').click();
@@ -54,6 +58,8 @@ test('shop, moves, settings, solo and login again', async ({ page }) => {
   await page.goto('/#solo');
   await page.getByTestId('solo-start').click();
   await expect(page.getByTestId('screen-play')).toBeVisible();
+  // The run has its own canvas: the menu's world stops.
+  await expect(page.locator('canvas.backdrop')).toBeHidden();
   // The connection starts the run on the server (POST /api/runs/start) before it runs.
   await expect(page.getByTestId('game-phase')).toHaveText('running');
   await page.keyboard.press('Escape');

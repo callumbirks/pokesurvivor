@@ -9,7 +9,7 @@ import {
   pokemonName,
   replace,
   sprite,
-  stars,
+  rarityBall,
   typeChip,
   typeColor,
 } from '../app/dom.js';
@@ -69,7 +69,13 @@ export function soloScreen(app: App): Screen {
             sprite(dex, { scale: 4, lively: true, shiny }),
           ),
           h('h3', { dataset: { testid: 'solo-partner' } }, pokemonName(dex), shiny ? ' ✦' : ''),
-          h('div', null, ...(mon?.types.map(typeChip) ?? []), ' ', mon ? stars(mon.rarity) : null),
+          h(
+            'div',
+            null,
+            ...(mon?.types.map(typeChip) ?? []),
+            ' ',
+            mon ? rarityBall(mon.rarity, 12) : null,
+          ),
           h('p', { class: 'sub' }, t('hud.surviveTheHordesWithYour')),
           start,
         ),

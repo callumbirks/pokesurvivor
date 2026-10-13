@@ -526,7 +526,7 @@
     "bannedMoves": "Banned moves ({0}/{1})",
     "banNeedsUpgrade": "Buy the {0} upgrade in the shop to ban moves from your cards.",
     "inALobby": "In a room",
-    "youHaveTickets": "You have {0} tickets and {1} ×10 tickets",
+    "youHaveTickets": "You have {ticket} {0} tickets and {ticket10} {1} ×10 tickets",
     "softPityFrom": "Soft pity from pull {0}",
     "ruleMulti": "A ×{0} pull guarantees at least one {1} or better.",
     "ruleSoftPity": "From pull {0} without a legendary, its chance rises by {1} per pull.",
@@ -558,7 +558,11 @@
     "keyCycle": "Cycle moves",
     "keyReroll": "Reroll the cards",
     "legacyGame": "Play the original version",
-    "backToGame": "Back to the game"
+    "backToGame": "Back to the game",
+    "learnableMoves": "Moves it can learn",
+    "slotsTitle": "POKé SLOTS",
+    "slotsPullOf": "PULL {0}/{1}",
+    "slotsShiny": "SHINY · {0}"
   },
   "errors": {
     "unknown": "Something went wrong ({0}).",
