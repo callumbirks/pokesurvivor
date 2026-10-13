@@ -7,7 +7,6 @@ export { mountGame } from './mount.js';
 export type { GameHandle, MountGameOptions } from './mount.js';
 export { createSoloConnection, isSoloResults } from './solo/connection.js';
 export type {
-  RunReport,
   SoloApi,
   SoloConnection,
   SoloOptions,

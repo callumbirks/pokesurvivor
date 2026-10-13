@@ -497,7 +497,6 @@
   },
   "app": {
     "retry": "Try again",
-    "gameStub": "Game (placeholder until the in-game client lands)",
     "declinedInvite": "{0} declined your invite",
     "friendRequestReceived": "{0} wants to be your friend",
     "friendRemoved": "{0} is no longer your friend",

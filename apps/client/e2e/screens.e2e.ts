@@ -49,12 +49,19 @@ test('shop, moves, settings, solo and login again', async ({ page }) => {
   );
   expect(saved).toBe(true);
 
-  // Solo: start a run (the game client takes over), leave, back to the menu.
+  // Solo: start a run (the game client takes over), quit it from the pause menu: the run ends
+  // and is reported (POST /api/runs), the results show what was credited, back to the menu.
   await page.goto('/#solo');
   await page.getByTestId('solo-start').click();
   await expect(page.getByTestId('screen-play')).toBeVisible();
   // The connection starts the run on the server (POST /api/runs/start) before it runs.
   await expect(page.getByTestId('game-phase')).toHaveText('running');
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('pause')).toBeVisible();
+  await page.getByTestId('game-exit').click();
+  await expect(page.getByTestId('results')).toBeVisible();
+  await expect(page.getByTestId('game-phase')).toHaveText('ended');
+  await expect(page.getByTestId('not-credited')).toHaveCount(0);
   await page.getByTestId('game-exit').click();
   await expect(page.getByTestId('screen-menu')).toBeVisible();
 

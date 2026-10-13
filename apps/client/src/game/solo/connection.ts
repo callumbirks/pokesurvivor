@@ -14,23 +14,18 @@ import {
 } from '@pokesurvivor/netclient';
 import type { RunSummary } from '@pokesurvivor/protocol';
 import type { Intent, PlayerConfig } from '@pokesurvivor/sim';
+import type { RunReport } from '../../app/api.js';
 import type { FromWorker, ToWorker } from './messages.js';
 
-/** The shell's HTTP API for solo runs (its `api.ts` `Api` fits as it is). */
+/**
+ * The server side of a solo run, bound to the player's session and partner by the shell
+ * (`docs/api.md`, Runs): `startRun` before the run starts (the server caps the results by the time
+ * since then), `reportRun` as soon as the sim ends; the connection then emits `results` with what
+ * was credited.
+ */
 export interface SoloApi {
-  /** `POST /api/runs/start`: before the run (the Pokémon must be owned). */
-  startRun(pokemon: { dex: number; shiny: boolean }): Promise<{ runId: string; startedAt: string }>;
-  /** `POST /api/runs`: the run's summary when it ends; the server caps and credits it. */
+  startRun(): Promise<{ runId: string; startedAt: string }>;
   reportRun(runId: string, summary: RunSummary): Promise<RunReport>;
-}
-
-/** The server's answer to a reported run (`POST /api/runs`, docs/api.md). */
-export interface RunReport {
-  runId: string;
-  /** What was credited (the claim, capped). */
-  stats: unknown;
-  capped: boolean;
-  achievements: { id: string; reward: unknown; title: string | null }[];
 }
 
 export interface SoloOptions {
@@ -179,7 +174,7 @@ export function createSoloConnection(opts: SoloOptions): SoloConnection {
 
   // Start the run on the server (in parallel with building the sim and loading).
   runId = opts.api
-    .startRun({ dex: opts.loadout.dex, shiny: !!opts.loadout.shiny })
+    .startRun()
     .then((r) => r.runId ?? null)
     .catch((err: unknown) => {
       console.warn('[solo] the run will not be credited:', err);

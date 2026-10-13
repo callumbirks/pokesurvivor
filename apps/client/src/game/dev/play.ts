@@ -59,7 +59,9 @@ function login(then: () => void): void {
 
 /** The app shell passes its `api.ts`; this page has its own small one. */
 const devApi: SoloApi = {
-  async startRun(pokemon) {
+  async startRun() {
+    const { loadout } = await loadSoloLoadout();
+    const pokemon = { dex: loadout.dex, shiny: !!loadout.shiny };
     const { ok, data } = await api('POST', '/api/runs/start', { pokemon });
     if (!ok) throw Object.assign(new Error('start failed'), { code: errorCode(data) });
     return data as { runId: string; startedAt: string };
