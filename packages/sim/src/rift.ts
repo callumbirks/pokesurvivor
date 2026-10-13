@@ -117,8 +117,15 @@ export function openRift(ctx: Ctx): void {
 
 const RIFT_ROOM = 22;
 
-/** Where a rift opens around `p`. Never fails (see the header). */
-export function placeRift(ctx: Ctx, p: PlayerState): [number, number] {
+/**
+ * Where a rift opens around `p`. Never fails (see the header). `free`: is there room at (x, y)?
+ * (tests replace it).
+ */
+export function placeRift(
+  ctx: Ctx,
+  p: PlayerState,
+  free = (x: number, y: number) => isFree(ctx, x, y, RIFT_ROOM),
+): [number, number] {
   const { rand } = ctx;
   const [near, far] = ctx.d.game.tuning.rift.distance;
   const ring = (lo: number, hi: number, tries: number): [number, number] | null => {
@@ -127,7 +134,7 @@ export function placeRift(ctx: Ctx, p: PlayerState): [number, number] {
       const r = rand.range(lo, hi);
       const x = p.x + Math.cos(a) * r;
       const y = p.y + Math.sin(a) * r * 0.85;
-      if (isFree(ctx, x, y, RIFT_ROOM)) return [x, y];
+      if (free(x, y)) return [x, y];
     }
     return null;
   };
@@ -144,7 +151,7 @@ export function placeRift(ctx: Ctx, p: PlayerState): [number, number] {
       const x = (ptx + i + 0.5) * TILE;
       const y = (pty + j + 0.5) * TILE;
       const k = Math.abs(Math.hypot(x - p.x, y - p.y) - near);
-      if (k >= bestK || !isFree(ctx, x, y, RIFT_ROOM)) continue;
+      if (k >= bestK || !free(x, y)) continue;
       bestK = k;
       best = [x, y];
     }
