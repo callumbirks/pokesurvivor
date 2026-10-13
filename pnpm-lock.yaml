@@ -109,6 +109,19 @@ importers:
         specifier: ^4.6.6
         version: 4.6.6
 
+  packages/netclient:
+    dependencies:
+      '@pokesurvivor/protocol':
+        specifier: workspace:*
+        version: link:../protocol
+      '@pokesurvivor/sim':
+        specifier: workspace:*
+        version: link:../sim
+    devDependencies:
+      tsx:
+        specifier: ^4.23.15
+        version: 4.23.15
+
   packages/protocol: {}
 
   packages/sim:

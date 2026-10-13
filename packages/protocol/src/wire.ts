@@ -19,8 +19,13 @@ export interface Reader {
   readonly done: boolean;
 }
 
-const encoder = new TextEncoder();
-const decoder = new TextDecoder();
+// Present in Node and browsers alike; typed here instead of pulling in the DOM or Node libraries.
+const platform = globalThis as unknown as {
+  TextEncoder: new () => { encode(s: string): Uint8Array };
+  TextDecoder: new () => { decode(b: Uint8Array): string };
+};
+const encoder = new platform.TextEncoder();
+const decoder = new platform.TextDecoder();
 
 export const zigzag = (n: number): number => (n >= 0 ? n * 2 : -n * 2 - 1);
 export const unzigzag = (z: number): number => (z % 2 === 0 ? z / 2 : -(z + 1) / 2);

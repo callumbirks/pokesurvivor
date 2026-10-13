@@ -1,0 +1,200 @@
+import type { SimEvent } from '@pokesurvivor/sim';
+import { describe, expect, it } from 'vitest';
+import { SnapshotBuffer, interpolate } from '../src/buffer.js';
+import { EventDecoder, EventEncoder, isRelevant } from '../src/events.js';
+import {
+  INTEREST_RADIUS,
+  SnapshotDecoder,
+  SnapshotEncoder,
+  type Snapshot,
+} from '../src/snapshot.js';
+import { botStep, lateGame } from './late-game.js';
+import { measure } from './measure.js';
+import { BinaryReader, BinaryWriter } from '@pokesurvivor/protocol';
+
+describe('snapshots', () => {
+  const sim = lateGame(3);
+  const ids = sim.state.players.map((p) => p.id);
+
+  it('rebuild the viewer’s view of the state, within quantization', () => {
+    const enc = new SnapshotEncoder({ viewerId: 'p1' });
+    const dec = new SnapshotDecoder(ids);
+    let snap: Snapshot | null = null;
+    for (let i = 0; i < 60; i++) {
+      botStep(sim);
+      snap = dec.decode(enc.encode(sim.state, sim.drainEvents(), i + 1, i * 2));
+      expect(snap.full).toBe(i === 0);
+    }
+    const s = sim.state;
+    const me = s.players[1]!;
+    expect(snap!.seq).toBe(60);
+    expect(snap!.ackSeq).toBe(118);
+    expect(snap!.tick).toBe(s.tick);
+    expect(snap!.time).toBeCloseTo(s.time, 2);
+    expect(snap!.players.map((p) => [p.id, p.x, p.y, p.hp])).toEqual(
+      s.players.map((p) => [
+        p.id,
+        expect.closeTo(p.x, 1) as unknown,
+        expect.closeTo(p.y, 1) as unknown,
+        Math.ceil(p.hp),
+      ]),
+    );
+    const near = s.enemies.filter((e) => Math.hypot(e.x - me.x, e.y - me.y) <= INTEREST_RADIUS);
+    const got = new Map(snap!.enemies.map((e) => [e.id, e]));
+    for (const e of near) {
+      const n = got.get(e.id);
+      expect(n, `enemy ${e.id}`).toBeDefined();
+      expect(n!.dex).toBe(e.dex);
+      expect(Math.abs(n!.x - e.x)).toBeLessThanOrEqual(0.25);
+      expect(n!.boss).toBe(e.boss);
+    }
+    // Nothing far away (beyond the hysteresis band).
+    for (const n of snap!.enemies) {
+      const e = s.enemies.find((x) => x.id === n.id)!;
+      expect(Math.hypot(e.x - me.x, e.y - me.y)).toBeLessThanOrEqual(INTEREST_RADIUS + 150);
+    }
+    expect(snap!.team.level).toBe(s.team.level);
+    expect(snap!.details.p1?.moves.map((m) => m.id)).toEqual(me.moves.map((m) => m.id));
+    expect(Object.keys(snap!.world.broken).sort()).toEqual(Object.keys(s.world.broken).sort());
+  });
+
+  it('list every pending choice, the viewer’s own in full', () => {
+    const s = structuredClone(sim.state);
+    s.pendingChoices = [
+      {
+        id: 1,
+        playerId: 'p0',
+        kind: 'item',
+        held: 'leftovers',
+        found: 'life-orb',
+        deadlineTick: 50,
+      },
+      {
+        id: 2,
+        playerId: 'p1',
+        kind: 'item',
+        held: 'leftovers',
+        found: 'shell-bell',
+        deadlineTick: 50,
+      },
+    ];
+    const snap = new SnapshotDecoder(ids).decode(
+      new SnapshotEncoder({ viewerId: 'p1' }).encode(s, [], 1, 0),
+    );
+    expect(snap.paused).toBe(true);
+    expect(snap.choices).toEqual([s.pendingChoices[1]]);
+    expect(snap.waiting.map((c) => [c.id, c.playerId, c.kind, c.deadlineTick])).toEqual([
+      [1, 'p0', 'item', 50],
+      [2, 'p1', 'item', 50],
+    ]);
+  });
+
+  it('start over with a full snapshot after a reset (reconnect)', () => {
+    const enc = new SnapshotEncoder({ viewerId: 'p0' });
+    enc.encode(sim.state, [], 1, 0);
+    const second = enc.encode(sim.state, [], 2, 0) as Uint8Array;
+    enc.reset();
+    const fresh = new SnapshotDecoder(ids).decode(enc.encode(sim.state, [], 3, 0));
+    expect(fresh.full).toBe(true);
+    expect(fresh.enemies.length).toBeGreaterThan(0);
+    expect(second.length).toBeLessThan(200);
+  });
+
+  it('stay under 30 KB/s per client in a 4-player late game', () => {
+    const m = measure(lateGame(5, 7), { seconds: 10, hz: 20, format: 'binary' });
+    expect(m.bytesPerSecond).toBeLessThan(30 * 1024);
+  });
+});
+
+describe('events', () => {
+  const viewer = { viewerId: 'me', x: 0, y: 0, radius: 1000, visible: (id: number) => id === 7 };
+  it('keep what concerns the viewer and drop the rest', () => {
+    const keep: SimEvent[] = [
+      { type: 'say', key: 'hud.leftTheGame', seconds: 3 },
+      { type: 'say', key: 'hud.leftTheGame', seconds: 3, playerId: 'me' },
+      { type: 'player-hurt', playerId: 'other', amount: 3, label: null },
+      { type: 'pickup', playerId: 'other', kind: 'coin', x: 10, y: 10, value: 1 },
+      { type: 'enemy-action', id: 7, action: 'shoot' },
+      { type: 'level-up', level: 3 },
+    ];
+    const drop: SimEvent[] = [
+      { type: 'say', key: 'hud.leftTheGame', seconds: 3, playerId: 'other' },
+      { type: 'pickup', playerId: 'other', kind: 'coin', x: 5000, y: 0, value: 1 },
+      { type: 'enemy-action', id: 8, action: 'shoot' },
+    ];
+    expect(keep.filter((e) => isRelevant(e, viewer))).toEqual(keep);
+    expect(drop.filter((e) => isRelevant(e, viewer))).toEqual([]);
+  });
+
+  it('round-trip through the shape codec, including unknown event types', () => {
+    const strings = new Map<string, number>();
+    const enc = new EventEncoder(
+      (s) => strings.get(s) ?? (strings.set(s, strings.size + 1), strings.size),
+    );
+    const dec = new EventDecoder();
+    const events = [
+      {
+        type: 'enemy-hurt',
+        id: 3,
+        x: 1.26,
+        y: -2,
+        amount: 12,
+        label: null,
+        shielded: false,
+        byPlayer: 'me',
+      },
+      {
+        type: 'enemy-hurt',
+        id: 4,
+        x: 3,
+        y: 4,
+        amount: 7.5,
+        label: 'crit',
+        shielded: true,
+        byPlayer: null,
+      },
+      { type: 'future-event', chain: [{ x: 1.04, y: 2 }], nested: { a: 1 } },
+    ] as unknown as SimEvent[];
+    const w = new BinaryWriter();
+    const shapes = enc.write(w, events);
+    dec.addShapes(shapes);
+    const back = new Map([...strings].map(([s, i]) => [i, s]));
+    const out = dec.read(new BinaryReader(w.finish()), (i) => back.get(i) ?? null);
+    expect(out).toEqual([
+      { ...events[0], x: 1.3 },
+      events[1],
+      { type: 'future-event', chain: [{ x: 1, y: 2 }], nested: { a: 1 } },
+    ]);
+    // The second time, no new shapes are sent.
+    expect(enc.write(new BinaryWriter(), events)).toBeUndefined();
+  });
+});
+
+describe('snapshot buffer', () => {
+  const snap = (tick: number, x: number): Snapshot =>
+    ({
+      tick,
+      full: tick === 0,
+      players: [{ id: 'a', index: 0, x, y: 0, aim: 0, moveAngle: 0 }],
+      enemies: [],
+      projectiles: [],
+    }) as unknown as Snapshot;
+
+  it('renders ~100 ms behind, between the snapshots around that time', () => {
+    const buffer = new SnapshotBuffer({ delayMs: 100 });
+    // A snapshot every 2 ticks (66.7 ms), arriving on time.
+    for (let i = 0; i <= 10; i++) buffer.push(snap(i * 2, i * 10), 1000 + (i * 2 * 1000) / 30);
+    const now = 1000 + (20 * 1000) / 30;
+    const sample = buffer.sample(now)!;
+    expect(sample.tick).toBeCloseTo(17, 5);
+    const view = interpolate(sample);
+    expect(view.players[0]!.x).toBeCloseTo(85, 5);
+  });
+
+  it('clamps to the newest snapshot when data stops coming', () => {
+    const buffer = new SnapshotBuffer();
+    buffer.push(snap(0, 0), 0);
+    buffer.push(snap(2, 10), 66);
+    expect(interpolate(buffer.sample(5000)!).players[0]!.x).toBe(10);
+  });
+});
