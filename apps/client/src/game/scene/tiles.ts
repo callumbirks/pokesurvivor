@@ -61,7 +61,7 @@ export function allBiomes(): BiomePalette[] {
     ...data.runBiomes.map((b): BiomePalette => ({
       name: b.name,
       liquid: b.liquid,
-      prop: b.prop as BiomePalette['prop'],
+      prop: b.prop,
       floor: b.palette.floor,
       dirt: b.palette.dirt,
       speck: b.palette.speck,
@@ -90,7 +90,7 @@ export function allBiomes(): BiomePalette[] {
       return {
         name: a.name,
         liquid: a.liquid,
-        prop: a.prop as BiomePalette['prop'],
+        prop: a.prop,
         floor: [f, shade(f, 0.05), shade(f, -0.06)],
         dirt: [shade(f, -0.16), shade(f, -0.12), shade(f, -0.2)],
         speck: shade(f, -0.25),
