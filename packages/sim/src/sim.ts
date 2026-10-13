@@ -141,9 +141,13 @@ export class Sim {
         return rerollChoice(this.ctx, c);
       }
       case 'cycleSlot':
+        if (intent.dir !== 1 && intent.dir !== -1) return { ok: false, error: 'bad direction' };
         if (this.paused || p.dead) return { ok: false, error: 'not now' };
         cycleSlot(this.ctx, p, intent.dir);
         return { ok: true };
+      default:
+        // Intents arrive from the network: an unknown type is rejected, never thrown on.
+        return { ok: false, error: 'unknown intent' };
     }
   }
 

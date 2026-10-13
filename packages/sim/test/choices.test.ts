@@ -246,3 +246,24 @@ describe('item choices', () => {
     expect(p.item).toBe('leftovers');
   });
 });
+
+describe('intents from the network', () => {
+  it('rejects unknown types and malformed fields without throwing or changing state', () => {
+    const sim = quietSim(2);
+    const id = sim.state.players[0]!.id;
+    const before = sim.hash();
+    const bad = [
+      { type: 'teleport', x: 1 },
+      { type: 'cycleSlot', dir: 'up' },
+      { type: 'cycleSlot', dir: 7 },
+      { type: 'pickCard', choiceId: 'x', cardId: 3 },
+      { type: 'pickItem', choiceId: 1, itemId: null },
+      { type: 'reroll', choiceId: -1 },
+    ];
+    for (const intent of bad) {
+      // Deliberately ill-typed: what a client could send.
+      expect(sim.submitIntent(id, intent as never)).toMatchObject({ ok: false });
+    }
+    expect(sim.hash()).toBe(before);
+  });
+});
