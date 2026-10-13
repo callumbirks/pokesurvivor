@@ -23,23 +23,23 @@ In the Dokploy project: **Create Service → Database → PostgreSQL**.
 - **Build type:** `Dockerfile`, Dockerfile path `Dockerfile`, build context `.` (the repo root).
 - **Environment:**
 
-  | Variable                   | Value                                   | Notes                                                                                                                                  |
-  | -------------------------- | --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-  | `DATABASE_URL`             | the internal connection URL from step 1 | required                                                                                                                               |
-  | `PORT`                     | `3000`                                  | optional, it's the default                                                                                                             |
-  | `LOG_LEVEL`                | `info`                                  | optional                                                                                                                               |
-  | `MIGRATE_ON_START`         | `true`                                  | optional; migrations run on every start by default                                                                                     |
-  | `LEADERBOARD_TIME_ZONE`    | `Europe/Madrid`                         | optional; when daily/weekly leaderboards reset                                                                                         |
-  | `AUTH_RATE_LIMIT_MAX`      | `10`                                    | optional; login and register attempts per IP per minute                                                                                |
-  | `ACTION_RATE_LIMIT_MAX`    | `60`                                    | optional; run starts, checkpoints and friend requests per IP per minute                                                                |
-  | `COOKIE_SECURE`            | `true`                                  | optional; defaults to true when `NODE_ENV=production` (the image sets it)                                                              |
-  | `DRAIN_TIMEOUT_S`          | `900`                                   | optional; how long running games may finish on a deploy (see §4)                                                                       |
-  | `RUN_CHECKPOINT_TIMEOUT_S` | `3600`                                  | optional; an unreported solo run is credited from its last checkpoint after this ([api.md](api.md#checkpoints-and-the-timeout-credit)) |
-  | `RUN_SWEEP_INTERVAL_S`     | `60`                                    | optional; how often the server looks for such runs                                                                                     |
-  | `SNAPSHOT_HZ`              | `20`                                    | optional; snapshots per second per client (max 30)                                                                                     |
-  | `CHOICE_TIMEOUT_S`         | `30`                                    | optional; coop level-up/item/bond choices resolve by themselves after this                                                             |
-  | `RECONNECT_GRACE_S`        | `60`                                    | optional; how long a dropped player's place is kept                                                                                    |
-  | `LOADING_TIMEOUT_S`        | `15`                                    | optional; members who haven't loaded by then are dropped from the game                                                                 |
+  | Variable                   | Value                                     | Notes                                                                                                                                        |
+  | -------------------------- | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+  | `DATABASE_URL`             | the internal connection URL from step 1   | required                                                                                                                                     |
+  | `PORT`                     | `3000`                                    | optional, it's the default                                                                                                                   |
+  | `LOG_LEVEL`                | `info`                                    | optional                                                                                                                                     |
+  | `MIGRATE_ON_START`         | `true`                                    | optional; migrations run on every start by default                                                                                           |
+  | `LEADERBOARD_TIME_ZONE`    | your IANA time zone, e.g. `Europe/London` | recommended; when daily/weekly leaderboards reset. Set it to your own time zone; the default `Europe/Madrid` is only the original operator's |
+  | `AUTH_RATE_LIMIT_MAX`      | `10`                                      | optional; login and register attempts per IP per minute                                                                                      |
+  | `ACTION_RATE_LIMIT_MAX`    | `60`                                      | optional; run starts, checkpoints and friend requests per IP per minute                                                                      |
+  | `COOKIE_SECURE`            | `true`                                    | optional; defaults to true when `NODE_ENV=production` (the image sets it)                                                                    |
+  | `DRAIN_TIMEOUT_S`          | `900`                                     | optional; how long running games may finish on a deploy (see §4)                                                                             |
+  | `RUN_CHECKPOINT_TIMEOUT_S` | `3600`                                    | optional; an unreported solo run is credited from its last checkpoint after this ([api.md](api.md#checkpoints-and-the-timeout-credit))       |
+  | `RUN_SWEEP_INTERVAL_S`     | `60`                                      | optional; how often the server looks for such runs                                                                                           |
+  | `SNAPSHOT_HZ`              | `20`                                      | optional; snapshots per second per client (max 30)                                                                                           |
+  | `CHOICE_TIMEOUT_S`         | `30`                                      | optional; coop level-up/item/bond choices resolve by themselves after this                                                                   |
+  | `RECONNECT_GRACE_S`        | `60`                                      | optional; how long a dropped player's place is kept                                                                                          |
+  | `LOADING_TIMEOUT_S`        | `15`                                      | optional; members who haven't loaded by then are dropped from the game                                                                       |
 
   `NODE_ENV=production` is already set in the image.
 
@@ -53,7 +53,7 @@ In the application's **Domains** tab, add the domain (e.g. `pokesurvivor.example
 Dokploy routes the domain through Traefik, which proxies WebSocket upgrades without extra
 configuration. The client connects to `wss://<domain>/ws` on the same origin, so no CORS or
 separate WebSocket domain is needed (the session cookie authenticates the upgrade). Check it by
-opening the site: the page should show `server: up (protocol 2)`. The protocol is described in
+opening the site: it should show the login screen. The protocol is described in
 [protocol.md](protocol.md).
 
 ## 4. Health check and zero-downtime deploys
@@ -63,25 +63,25 @@ The image declares a Docker `HEALTHCHECK` that calls `GET /healthz` every 10 s, 
 `{"status":"ok","database":"up"|"down"}` while the process is alive; it deliberately stays `200`
 when Postgres is briefly down, so a database restart doesn't also restart the app.
 
-To have Dokploy wait for a healthy container before switching traffic, set these under the
+Swarm uses the image's health check (interval 10 s, timeout 3 s, start period 20 s, 3 retries)
+automatically, so there is nothing to configure for it. **Leave the Health Check field under
+Advanced → Swarm Settings empty.** Dokploy stores the `Test` array you paste there as a single
+JSON-encoded string (`["[\"CMD\",\"node\",...]"]`), which isn't a command Docker can run. The
+health check then never runs, every task stays `Starting`, the service name never resolves on
+`dokploy-network`, and Traefik answers **502 Bad Gateway** (see
+[Troubleshooting](#troubleshooting-bad-gateway)).
+
+To have Dokploy wait for a healthy container before switching traffic, set this under the
 application's **Advanced → Swarm Settings**:
 
-- **Health Check:**
-  ```json
-  {
-    "Test": [
-      "CMD",
-      "node",
-      "-e",
-      "fetch('http://127.0.0.1:3000/healthz').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"
-    ],
-    "Interval": 10000000000,
-    "Timeout": 3000000000,
-    "StartPeriod": 20000000000,
-    "Retries": 3
-  }
-  ```
 - **Update Config:** `{"Parallelism": 1, "Order": "start-first", "FailureAction": "rollback"}`
+
+### Replicas: keep 1
+
+Keep the application at **1 replica**. Rooms and coop games live in the server's memory, so with
+more than one replica players who want to play together can land on different instances and never
+see each other. The brief overlap of two containers during a `start-first` deploy is fine: the old
+one drains (below) and takes no new rooms.
 
 ### Deploys while people are playing
 
@@ -116,7 +116,44 @@ curl https://<domain>/healthz          # {"status":"ok","database":"up"}
 curl -I https://<domain>/legacy/       # 200, the old game
 ```
 
-and open `https://<domain>/` to see the WebSocket RTT.
+and open `https://<domain>/`: it should show the login screen. Log in and start a game to check
+that the WebSocket connects.
+
+## Troubleshooting: Bad Gateway
+
+If Traefik answers `502 Bad Gateway`, check on the Dokploy host (`<app>` is the app's name in
+Dokploy, which is also the Swarm service name):
+
+1. Are the tasks healthy?
+
+   ```sh
+   docker service ps <app> --format '{{.Name}} {{.CurrentState}} {{.DesiredState}} {{.Error}}'
+   ```
+
+   Tasks stuck in `Starting` (often several piled up, because of `start-first`) never became
+   healthy, so Swarm never adds them to the service's DNS name.
+
+2. Which health check did the container actually get?
+
+   ```sh
+   docker inspect <container> --format '{{json .Config.Healthcheck}} {{json .State.Health}}'
+   ```
+
+   It should be the image's `["CMD","node","-e","fetch(...)"]`. A `Test` with one JSON-encoded
+   string in it, or a `State.Health` of `null`, means the Dokploy Health Check field overrode it
+   (see §4).
+
+3. Can Traefik reach the app?
+
+   ```sh
+   docker exec dokploy-traefik wget -qO- http://<app>:3000/healthz
+   ```
+
+   `wget: bad address` means the service name doesn't resolve on `dokploy-network`, which is what
+   happens while no task is healthy.
+
+**Fix:** clear the Health Check field under **Advanced → Swarm Settings**, remove the service so
+the stale spec goes away (`docker service rm <app>`), and redeploy from Dokploy.
 
 ## Running the image anywhere else
 
