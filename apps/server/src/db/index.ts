@@ -17,6 +17,11 @@ export function createDb(databaseUrl: string) {
 }
 
 export type Db = ReturnType<typeof createDb>;
+/** The Drizzle handle the services use. */
+export type Database = Db['db'];
+export type Transaction = Parameters<Parameters<Database['transaction']>[0]>[0];
+/** Either the database or an open transaction (services can run inside a caller's transaction). */
+export type Executor = Database | Transaction;
 
 /** Applies pending migrations from `migrationsDir` on a dedicated single connection. */
 export async function runMigrations(databaseUrl: string, migrationsDir: string): Promise<void> {

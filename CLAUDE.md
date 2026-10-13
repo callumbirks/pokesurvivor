@@ -38,7 +38,9 @@ pnpm db:migrate                    # also runs automatically on server start
 docker build .
 ```
 
-Run `pnpm lint && pnpm typecheck && pnpm test` before committing.
+Run `pnpm lint && pnpm typecheck && pnpm test` before committing. The server tests need Postgres
+(`docker compose up -d`, or `DATABASE_URL`); each test file creates and drops its own database.
+The HTTP API is documented in `docs/api.md`; keep it in sync.
 
 ## Conventions
 
