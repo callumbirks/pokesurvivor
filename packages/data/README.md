@@ -56,5 +56,8 @@ logic stay with that logic, to be ported (and, if useful, lifted into `tuning.js
   `hazards.js`; `pathing.js`.
 - `interact.js`: spring heal/drain rates and trap damage per kind; `weather.js` chip damage and
   snow slow; `events.js` and `rift.js` rewards.
-- `upgrades.js` cost formula (`round(base · grow^level / 10) · 10`, documented on the schema) and
-  `gacha.js` pool fallback (`poolNear`).
+
+The upgrade cost formula (`round(base · grow^level / 10) · 10`, documented on the schema) and the
+gacha rules (`poolNear` fallback, pity, ×10 guarantee, shiny re-pick) live in the server
+(`apps/server/src/economy/config.ts`, `apps/server/src/gacha/engine.ts`), which owns the economy.
+The personality-test scoring is shared: `personalityScores`, `topTrait` and `bestStarters`.
