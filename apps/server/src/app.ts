@@ -15,6 +15,7 @@ import type { EconomyConfig } from './economy/config.js';
 import { offlinePresence, silentNotifier } from './friends/presence.js';
 import type { FriendNotifier, PresenceSource } from './friends/presence.js';
 import { friendRoutes } from './friends/routes.js';
+import { gachaRoutes } from './gacha/routes.js';
 import { registerErrorHandler } from './http/errors.js';
 import { missionRoutes } from './progress/routes.js';
 import { runRoutes } from './runs/routes.js';
@@ -80,6 +81,7 @@ export async function buildApp({
       leaderboardTimeZone: config.leaderboardTimeZone,
       rateLimit: config.rateLimits.actions,
     });
+    gachaRoutes(app, { ...common, rateLimit: config.rateLimits.actions });
     missionRoutes(app, { ...common, timeZone: config.leaderboardTimeZone });
     friendRoutes(app, {
       ...common,
