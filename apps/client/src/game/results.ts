@@ -131,7 +131,9 @@ export function renderResults(results: Results, o: ResultsOptions): HTMLElement 
 
   // Credited, or why not.
   const solo = isSoloResults(results) ? results.solo : null;
-  if (!results.credited)
+  if (solo?.timedOut)
+    box.append(el('p', { class: 'note warn', data: { testid: 'timed-out' } }, t('game.timedOut')));
+  else if (!results.credited)
     box.append(
       el(
         'p',

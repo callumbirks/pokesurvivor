@@ -57,15 +57,20 @@ fn)` (spinner on the button, toast on error), loads through `loadInto(el, load, 
   goes back to the menu and refreshes the save. `src/app/solo-runs.ts` builds the `SoloApi` and
   starts, resumes and ends runs.
 - **Solo crash-safety.** About every minute of run time (`CHECKPOINT_EVERY_S`; and every 3
-  minutes of wall-clock time while paused or choosing, so an open tab never times out) the
-  worker sends a checkpoint: the run so far and a copy of the sim state. The connection reports
+  minutes of wall-clock time while paused or choosing, and when the page is hidden or closed:
+  the game screen also pauses a hidden solo run until the player continues) the worker sends a
+  checkpoint: the run so far and a copy of the sim state. Checkpoints use `fetch` `keepalive`,
+  so they survive the tab closing. The connection reports
   it (`checkpointRun`, `POST /api/runs/checkpoint`: stored, not credited; the server credits it
-  after 10 minutes without news) and saves it in IndexedDB (`solo/store.ts`, one save per
+  after an hour without news) and saves it in IndexedDB (`solo/store.ts`, one save per
   user). The save is dropped once the run is credited or the server says it's closed; if the
   final report can't reach the server it keeps the final summary instead. The menu shows a saved
   run with **Resume** (a checkpoint first checks the run is still open; then `restoreSim` in the
   worker on the same `runId`) or **End run** (reports the saved summary as the final report). A
-  run the server already credited by timeout can't be resumed (`docs/api.md`).
+  run the server already credited by timeout can't be resumed (`docs/api.md`). If an open tab
+  comes back to such a run (a phone away longer than the timeout), its next checkpoint is
+  refused: the connection ends the run there, and the results show what the server credited
+  ("away too long", from the 409's `credited`).
 
 ## The in-game client (`src/game/`)
 
@@ -119,5 +124,5 @@ instead of 60 (the e2e tests use 2).
   friends, invite, both ready, one opens the gacha and the start is blocked, both play.
   `screens.e2e.ts` covers the single-player screens. `solo-resume.e2e.ts` plays a solo run past
   a checkpoint, reloads, and resumes and finishes it (or ends it from the menu), checking it was
-  credited once. Install the browser once with
+  credited once; and that hiding the page pauses the run and checkpoints it. Install the browser once with
   `pnpm --filter @pokesurvivor/client exec playwright install chromium`.

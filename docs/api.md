@@ -196,11 +196,11 @@ sends the run so far while it plays:
    and the `runId`) → `200 { runId, stats, capped }`, where `stats` is the checkpoint as stored.
    It is validated and capped exactly like a final report for the time since `start`, and
    replaces the run's previous checkpoint. **Nothing is credited.** Rate-limited per IP
-   (`ACTION_RATE_LIMIT_MAX`). The client sends one about every minute of run time, and at least
-   every 3 minutes of wall-clock time while the run is open (paused, or waiting on a choice), so
-   an open tab never times out.
+   (`ACTION_RATE_LIMIT_MAX`). The client sends one about every minute of run time, at least
+   every 3 minutes of wall-clock time while the run is open (paused, or waiting on a choice), and
+   when the page is hidden or closed (`fetch` with `keepalive`; a hidden solo run also pauses).
 4. **Timeout credit.** If a run that has a checkpoint gets neither a checkpoint nor a final
-   report for `RUN_CHECKPOINT_TIMEOUT_S` (default 600 s), the server credits that last
+   report for `RUN_CHECKPOINT_TIMEOUT_S` (default 3600 s), the server credits that last
    checkpoint as the run's result, exactly as a final report with those numbers would be, and
    closes the run (`runs.timed_out`; it ends at the checkpoint's time, for leaderboards and
    missions). Runs without a checkpoint stay open. The server looks for such runs at start and
@@ -211,10 +211,13 @@ sends the run so far while it plays:
 credit, credits the run and closes it (both lock the run row). After that:
 
 - another final report is refused with `409 run_already_finished`, or `409
-run_credited_by_timeout` if the timeout credited it;
+run_credited_by_timeout` if the timeout credited it. The latter's error body also has
+  `credited`: the `RunSummary` that was credited (`{ "error": { "code", "message", "credited" } }`);
 - a checkpoint is refused the same way. Resuming a saved run starts with a checkpoint, so a run
   that was credited by timeout can't be resumed: the client drops its local save and says the
-  run was already credited from its last checkpoint. (The alternative, crediting a later report
+  run was already credited from its last checkpoint. A tab that comes back to a run credited
+  while it was away (a phone that switched apps for longer than the timeout) gets the same 409
+  on its next checkpoint: the client ends the run there and shows what was credited. (The alternative, crediting a later report
   only for its difference above the checkpoint, was rejected: missions and achievements count
   whole runs, so they can't be applied as differences.)
 

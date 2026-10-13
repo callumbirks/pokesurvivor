@@ -178,7 +178,10 @@ describe('solo run checkpoints', () => {
     for (const url of ['/api/runs/checkpoint', '/api/runs']) {
       const res = await c.post(url, { runId, ...summary({ durationS: 300, coins: 120 }) });
       expect(res.statusCode).toBe(409);
-      expect(res.json()).toMatchObject({ error: { code: 'run_credited_by_timeout' } });
+      // With what was credited, so the client can show it.
+      expect(res.json()).toMatchObject({
+        error: { code: 'run_credited_by_timeout', credited: { durationS: 120, coins: 50 } },
+      });
     }
     const after = await getSave(t.db.db, c.userId);
     expect(await runCoins(t.db, runId)).toBe(50);

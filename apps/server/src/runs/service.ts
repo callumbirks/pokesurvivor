@@ -143,6 +143,7 @@ async function lockOpenSoloRun(tx: Executor, userId: string, runId: string) {
     .select({
       status: runs.status,
       timedOut: runs.timedOut,
+      checkpoint: runPlayers.checkpoint,
       pokemonDex: runPlayers.pokemonDex,
       pokemonShiny: runPlayers.pokemonShiny,
       elapsedS: sql<number>`extract(epoch from now() - ${runs.startedAt})::float8`,
@@ -153,10 +154,12 @@ async function lockOpenSoloRun(tx: Executor, userId: string, runId: string) {
     .for('update', { of: runs });
   if (!run) throw new ApiError(404, 'run_not_found', `No solo run ${runId} for this user`);
   if (run.timedOut)
+    // What was credited, so a client that comes back to the run can show its results.
     throw new ApiError(
       409,
       'run_credited_by_timeout',
       `Run ${runId} was already credited from its last checkpoint`,
+      { credited: run.checkpoint },
     );
   if (run.status !== 'started')
     throw new ApiError(409, 'run_already_finished', `Run ${runId} was already reported`);

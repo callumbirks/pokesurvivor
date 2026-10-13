@@ -37,7 +37,7 @@ export interface SoloApi {
 export const CHECKPOINT_EVERY_S = 60;
 /**
  * Wall-clock time after which an open run sends a checkpoint anyway (paused, or waiting on a
- * choice), well inside the server's timeout (`RUN_CHECKPOINT_TIMEOUT_S`, 10 minutes).
+ * choice), well inside the server's timeout (`RUN_CHECKPOINT_TIMEOUT_S`, an hour by default).
  */
 export const KEEP_ALIVE_MS = 3 * 60_000;
 
@@ -82,6 +82,11 @@ export interface SoloReport {
   capped: boolean;
   /** Why the run wasn't credited (offline, refused). */
   error: string | null;
+  /**
+   * The server had already credited the run from its last checkpoint (it was away longer than
+   * the server's timeout): the results are what was credited then.
+   */
+  timedOut: boolean;
 }
 
 export type SoloResults = Results & { solo: SoloReport };
@@ -114,8 +119,11 @@ export function createSoloConnection(opts: SoloOptions): SoloConnection {
   let runId: Promise<string | null> | null = null;
   let closed = false;
   let ended = false;
-  /** The server refused a checkpoint: the run is closed there (e.g. credited by timeout). */
-  let refused = false;
+  /**
+   * The server refused a checkpoint because the run is closed there (e.g. credited by timeout
+   * while the tab was in the background): the run is ended with that refusal as its result.
+   */
+  let closedBy: unknown = null;
   let lastCheckpoint = now();
   // Store writes in order, so a late checkpoint save can't bring back a save the report cleared.
   let storeQueue: Promise<void> = Promise.resolve();
@@ -198,23 +206,42 @@ export function createSoloConnection(opts: SoloOptions): SoloConnection {
 
   async function checkpoint(summary: RunSummary, state: SavedSoloRun['state']): Promise<void> {
     const id = await (runId ?? Promise.resolve(null));
-    if (!id || refused || ended) return;
+    if (!id || closedBy || ended) return;
     void storeOp((store) => store.put(saved(id, summary, state)));
     try {
       await opts.api.checkpointRun(id, summary);
     } catch (err) {
-      // Offline: the local save and the next checkpoint cover it. Closed: stop, drop the save.
-      if (!isRunClosed(errorCode(err))) return;
-      refused = true;
+      // Offline: the local save and the next checkpoint cover it. Closed: the run can't be
+      // credited any more, so don't let it go on: end it now, with the refusal as its result.
+      if (!isRunClosed(errorCode(err)) || closedBy || ended) return;
+      closedBy = err;
       void storeOp((store) => store.delete(loadout.id, id));
+      post({ type: 'quit' });
     }
+  }
+
+  /** Asks the worker for a checkpoint now (keep-alive, page hidden or closing). */
+  function requestCheckpoint(): void {
+    if (!closed && !ended && !closedBy && conn.phase === 'running') post({ type: 'checkpoint' });
+  }
+
+  /** The run is closed on the server: what the refusal says was credited, if anything. */
+  function closedResult(err: unknown, solo: SoloReport, run: RunSummary): RunSummary {
+    solo.error = errorCode(err);
+    const credited = (err as { details?: { credited?: unknown } } | null)?.details?.credited;
+    if (solo.error !== 'run_credited_by_timeout') return run;
+    solo.timedOut = true;
+    if (!isRunSummary(credited)) return run;
+    solo.error = null;
+    return { ...run, ...credited };
   }
 
   async function report(reason: string, summary: ResultSummary): Promise<void> {
     const id = await (runId ?? Promise.resolve(null));
-    const solo: SoloReport = { achievements: [], capped: false, error: null };
+    const solo: SoloReport = { achievements: [], capped: false, error: null, timedOut: false };
     let run: RunSummary = summary.run;
     if (!id) solo.error = 'offline';
+    else if (closedBy) run = closedResult(closedBy, solo, run);
     else {
       for (let i = 0; i < REPORT_TRIES; i++) {
         try {
@@ -228,13 +255,16 @@ export function createSoloConnection(opts: SoloOptions): SoloConnection {
         } catch (err) {
           solo.error = errorCode(err);
           // Refusals won't change on retry; network errors might.
-          if (solo.error === 'run_already_finished' || solo.error === 'run_not_found') break;
+          if (isRunClosed(solo.error)) {
+            run = closedResult(err, solo, run);
+            break;
+          }
           await new Promise((r) => setTimeout(r, 800 * 2 ** i));
         }
       }
       // Credited or refused: nothing left to resume. Unreachable: keep the final summary, so
       // the menu can report it later ("End run").
-      if (solo.error === null || isRunClosed(solo.error))
+      if (solo.error === null || solo.timedOut || isRunClosed(solo.error))
         void storeOp((store) => store.delete(loadout.id, id));
       else void storeOp((store) => store.put(saved(id, summary.run, null)));
     }
@@ -282,11 +312,20 @@ export function createSoloConnection(opts: SoloOptions): SoloConnection {
   // Keep-alive: an open run that doesn't advance (paused, choosing) still checkpoints.
   const keepAlive = setInterval(
     () => {
-      if (!closed && !ended && conn.phase === 'running' && now() - lastCheckpoint >= keepAliveMs)
-        post({ type: 'checkpoint' });
+      if (now() - lastCheckpoint >= keepAliveMs) requestCheckpoint();
     },
     Math.min(keepAliveMs, 30_000),
   );
+  // Hidden (a phone switching apps freezes the tab, timers and worker included) or closing:
+  // checkpoint and save now. The game screen pauses a hidden solo run too.
+  const onVisibility = () => {
+    if (document.visibilityState === 'hidden') requestCheckpoint();
+  };
+  const hasDocument = typeof document !== 'undefined';
+  if (hasDocument) {
+    document.addEventListener('visibilitychange', onVisibility);
+    addEventListener('pagehide', requestCheckpoint);
+  }
 
   const solo = conn as unknown as SoloConnection;
   solo.setPaused = (paused: boolean) => post({ type: 'pause', paused });
@@ -295,6 +334,10 @@ export function createSoloConnection(opts: SoloOptions): SoloConnection {
   solo.close = () => {
     closed = true;
     clearInterval(keepAlive);
+    if (hasDocument) {
+      document.removeEventListener('visibilitychange', onVisibility);
+      removeEventListener('pagehide', requestCheckpoint);
+    }
     worker.terminate();
     for (const resolve of pending.values()) resolve({ ok: false, error: 'closed' });
     pending.clear();

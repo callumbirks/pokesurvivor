@@ -113,7 +113,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     },
     soloRuns: {
       checkpointTimeoutMs:
-        positiveInt('RUN_CHECKPOINT_TIMEOUT_S', env.RUN_CHECKPOINT_TIMEOUT_S, 600) * 1000,
+        positiveInt('RUN_CHECKPOINT_TIMEOUT_S', env.RUN_CHECKPOINT_TIMEOUT_S, 3600) * 1000,
       sweepIntervalMs: positiveInt('RUN_SWEEP_INTERVAL_S', env.RUN_SWEEP_INTERVAL_S, 60) * 1000,
     },
     rateLimits: {

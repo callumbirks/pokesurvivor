@@ -179,6 +179,8 @@ export class ApiError extends Error {
     readonly status: number,
     readonly code: string,
     message: string,
+    /** The error body's other fields (e.g. `credited` with `run_credited_by_timeout`). */
+    readonly details: Record<string, unknown> = {},
   ) {
     super(message);
   }
@@ -192,7 +194,13 @@ export class Api {
 
   constructor(private readonly fetcher: Fetch = (...args) => fetch(...args)) {}
 
-  async request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  /** `keepalive`: the request outlives the page (checkpoints sent as the tab is hidden or closed). */
+  async request<T>(
+    method: string,
+    path: string,
+    body?: unknown,
+    opts: { keepalive?: boolean } = {},
+  ): Promise<T> {
     let res: Response;
     try {
       res = await this.fetcher(path, {
@@ -200,6 +208,7 @@ export class Api {
         headers: body === undefined ? {} : { 'content-type': 'application/json' },
         body: body === undefined ? undefined : JSON.stringify(body),
         credentials: 'same-origin',
+        keepalive: opts.keepalive,
       });
     } catch (err) {
       throw new ApiError(0, 'network', err instanceof Error ? err.message : String(err));
@@ -207,10 +216,12 @@ export class Api {
     if (res.status === 204) return undefined as T;
     const data: unknown = await res.json().catch(() => null);
     if (!res.ok) {
-      const error = (data as { error?: { code?: string; message?: string } } | null)?.error;
+      const error = (
+        data as { error?: { code?: string; message?: string } & Record<string, unknown> } | null
+      )?.error;
       const code = error?.code ?? (res.status >= 500 ? 'server_error' : 'unknown');
       if (res.status === 401 && code === 'unauthenticated') this.onUnauthenticated?.();
-      throw new ApiError(res.status, code, error?.message ?? res.statusText);
+      throw new ApiError(res.status, code, error?.message ?? res.statusText, error ?? {});
     }
     return data as T;
   }
@@ -333,7 +344,12 @@ export class Api {
     });
   }
   checkpointRun(runId: string, summary: RunSummary) {
-    return this.request<RunCheckpoint>('POST', '/api/runs/checkpoint', { ...summary, runId });
+    return this.request<RunCheckpoint>(
+      'POST',
+      '/api/runs/checkpoint',
+      { ...summary, runId },
+      { keepalive: true },
+    );
   }
   reportRun(runId: string, summary: RunSummary) {
     return this.request<RunReport>('POST', '/api/runs', { ...summary, runId });

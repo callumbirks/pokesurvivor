@@ -51,7 +51,8 @@ function soloApi(app: App, pokemon: PokemonRef): SoloApi {
       try {
         return await report(app, runId, summary);
       } catch (err) {
-        toastError(err);
+        // A closed run's results screen says why; other failures get a toast.
+        if (!closed(err)) toastError(err);
         throw err;
       }
     },

@@ -3,7 +3,12 @@
 // keep-alive, the local save and what happens to it when the run is reported, refused or offline.
 import type { Results } from '@pokesurvivor/netclient';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createSoloConnection, type SoloApi, type SoloOptions } from './connection.js';
+import {
+  createSoloConnection,
+  type SoloApi,
+  type SoloOptions,
+  type SoloResults,
+} from './connection.js';
 import type { FromWorker, ToWorker } from './messages.js';
 import { memoryRunStore, type SoloRunStore } from './store.js';
 
@@ -183,5 +188,102 @@ describe('solo connection checkpoints', () => {
     expect(api.reportRun.mock.calls[0]?.[1].durationS).toBe(3);
     expect(await store.get('u1')).toBeNull();
     resumed.close();
+  });
+
+  it('checkpoints when the page is hidden or closed', async () => {
+    // A minimal page: `document` with a visibility state, and the window's events.
+    const page = new EventTarget();
+    const doc = Object.assign(new EventTarget(), { visibilityState: 'visible' });
+    vi.stubGlobal('document', doc);
+    vi.stubGlobal('addEventListener', page.addEventListener.bind(page));
+    vi.stubGlobal('removeEventListener', page.removeEventListener.bind(page));
+    try {
+      const api = fakeApi();
+      const store = memoryRunStore();
+      const conn = await connect(api, store, { checkpointEveryS: 60 });
+      await vi.advanceTimersByTimeAsync(1500);
+      expect(api.checkpointRun).not.toHaveBeenCalled();
+
+      doc.visibilityState = 'hidden';
+      doc.dispatchEvent(new Event('visibilitychange'));
+      await vi.advanceTimersByTimeAsync(0);
+      expect(durations(api)).toEqual([1]);
+      expect((await store.get('u1'))?.summary.durationS).toBe(1);
+
+      page.dispatchEvent(new Event('pagehide'));
+      await vi.advanceTimersByTimeAsync(0);
+      expect(api.checkpointRun).toHaveBeenCalledTimes(2);
+      conn.close();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  /** A refusal like the shell's `ApiError` for a run the server credited from its checkpoint. */
+  const timedOut = (credited?: object) =>
+    Object.assign(new Error('timed out'), {
+      code: 'run_credited_by_timeout',
+      details: credited ? { credited } : {},
+    });
+  const credited = { durationS: 1, level: 2, kills: 3, coins: 9 };
+
+  it('ends a run the server credited by timeout while it was away, with what was credited', async () => {
+    let calls = 0;
+    const api = fakeApi({
+      // The tab was frozen past the timeout: the first checkpoint after it is refused.
+      checkpointRun: () => (++calls < 2 ? Promise.resolve({}) : Promise.reject(timedOut(credited))),
+    });
+    const store = memoryRunStore();
+    const conn = await connect(api, store);
+    const results = new Promise<SoloResults>((resolve) =>
+      conn.on('results', (r) => resolve(r as SoloResults)),
+    );
+    await vi.advanceTimersByTimeAsync(2300);
+    const r = await results;
+    // The run is over; it isn't reported again, and shows what the server credited.
+    expect(api.checkpointRun).toHaveBeenCalledTimes(2);
+    expect(api.reportRun).not.toHaveBeenCalled();
+    expect(r.credited).toBe(true);
+    expect(r.solo).toMatchObject({ timedOut: true, error: null });
+    expect(r.players[0]?.summary.run).toMatchObject(credited);
+    expect(conn.phase).toBe('ended');
+    expect(await store.get('u1')).toBeNull();
+    // Nothing more is sent from the ended run.
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(api.checkpointRun).toHaveBeenCalledTimes(2);
+    conn.close();
+  });
+
+  it('ends the run with just the message when the refusal has no credited numbers', async () => {
+    const api = fakeApi({ checkpointRun: () => Promise.reject(timedOut()) });
+    const conn = await connect(api, memoryRunStore());
+    const results = new Promise<SoloResults>((resolve) =>
+      conn.on('results', (r) => resolve(r as SoloResults)),
+    );
+    await vi.advanceTimersByTimeAsync(1300);
+    const r = await results;
+    expect(r.credited).toBe(false);
+    expect(r.solo).toMatchObject({ timedOut: true, error: 'run_credited_by_timeout' });
+    conn.close();
+  });
+
+  it('shows what was credited when the final report finds the run credited by timeout', async () => {
+    const api = fakeApi({ reportRun: () => Promise.reject(timedOut(credited)) });
+    const store = memoryRunStore();
+    const conn = await connect(api, store);
+    await vi.advanceTimersByTimeAsync(2300);
+    const results = new Promise<SoloResults>((resolve) =>
+      conn.on('results', (r) => resolve(r as SoloResults)),
+    );
+    conn.quit();
+    await vi.advanceTimersByTimeAsync(100);
+    const r = await results;
+    // A refusal isn't retried.
+    expect(api.reportRun).toHaveBeenCalledTimes(1);
+    expect(r.credited).toBe(true);
+    expect(r.solo.timedOut).toBe(true);
+    expect(r.players[0]?.summary.run.durationS).toBe(1);
+    expect(await store.get('u1')).toBeNull();
+    conn.close();
   });
 });

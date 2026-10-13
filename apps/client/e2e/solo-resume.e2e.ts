@@ -123,3 +123,37 @@ test('ending a reloaded solo run credits what it had', async ({ page }) => {
   await expect(page.getByTestId('saved-run')).toBeHidden();
   expect((await save(page)).stats.runs).toBe(1);
 });
+
+test('hiding the page pauses the solo run and checkpoints it', async ({ page }) => {
+  await newPlayer(page);
+  // Only the hide checkpoint should be sent: no run-time ones during this test.
+  await page.evaluate(() => localStorage.setItem('ps.dev.checkpointS', '600'));
+  await page.getByTestId('menu-solo').click();
+  await page.getByTestId('solo-start').click();
+  await expect(page.getByTestId('game-phase')).toHaveText('running');
+  await page.waitForTimeout(1500);
+
+  const setHidden = (hidden: boolean) =>
+    page.evaluate((h) => {
+      Object.defineProperty(document, 'hidden', { value: h, configurable: true });
+      Object.defineProperty(document, 'visibilityState', {
+        value: h ? 'hidden' : 'visible',
+        configurable: true,
+      });
+      document.dispatchEvent(new Event('visibilitychange'));
+    }, hidden);
+  // A phone switching apps: the run pauses and is checkpointed (and saved) at once.
+  const sent = page.waitForResponse((r) => r.url().endsWith('/api/runs/checkpoint'));
+  await setHidden(true);
+  const res = await sent;
+  expect(res.status()).toBe(200);
+  expect((res.request().postDataJSON() as Checkpoint).durationS).toBeGreaterThanOrEqual(1);
+  await expect(page.getByTestId('pause')).toBeVisible();
+
+  // Back: still paused until the player continues.
+  await setHidden(false);
+  await page.waitForTimeout(500);
+  await expect(page.getByTestId('pause')).toBeVisible();
+  await page.getByTestId('resume').click();
+  await expect(page.getByTestId('pause')).toBeHidden();
+});
