@@ -24,6 +24,7 @@ import { activePlayers, emit, presentPlayers, type Ctx } from './ctx.js';
 import { addEnemy, createEnemy, makeShiny, pokemonName, rebuildGrid } from './enemies.js';
 import { TAU, clamp, dist2 } from './math.js';
 import { resetPaths } from './pathing.js';
+import { pullAll } from './pickups.js';
 import { revivePlayer } from './players.js';
 import { scaleHp } from './spawner.js';
 import { clearWeather, startWeather } from './weather.js';
@@ -332,9 +333,8 @@ function won(ctx: Ctx): void {
     p.stats.progress.riftWins.push(a.type);
   }
   emit(ctx, { type: 'progress', event: 'rift-win', playerId: null, data: { type: a.type } });
-  // The reward flies to you (only what's in the arena: the map's pickups stay where they are).
-  const R = (a.r + 2) * TILE;
-  for (const pk of s.pickups) if (dist2(pk.x, pk.y, a.x, a.y) < R * R) pk.pulled = true;
+  // Legacy's reward: everything on the map flies to you, as with a Magnet.
+  pullAll(ctx);
   emit(ctx, { type: 'arena-ended', result: 'won', dex: a.dex });
   emit(ctx, {
     type: 'say',
