@@ -94,7 +94,7 @@ key from `packages/data/i18n/en.json` plus params (`say`).
 
 `say` (banner; `playerId` = only that player) · `cast` (move fired: kind, type, position, aim,
 beam/dash `length`, `chain` points) · `slot`, `slot-locked` · `enemy-hurt` (amount, `label`
-super/weak/crit, `shielded`, `byPlayer`) · `enemy-died` · `enemy-spawned` · `enemy-removed` ·
+super/weak/crit, `shielded`, `byPlayer`, `moveType`: the attack's type for the number's colour) · `enemy-died` · `enemy-spawned` · `enemy-removed` ·
 `enemy-action` (shoot, charge, dash, strike, heal, shield, summon, jump, land, fuse, enrage; boss
 `skill`) · `hazard` (hit) · `player-hurt` · `player-healed` · `player-down` · `player-revived` ·
 `focus-sash` · `pickup` · `bomb` · `magnet` · `prop-hit` · `prop-broken` · `field-blast` · `biome` ·

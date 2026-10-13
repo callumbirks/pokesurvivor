@@ -63,6 +63,21 @@ export interface EventSinks {
   owns(dex: number): boolean | null;
 }
 
+type EnemyHurt = Extract<SimEvent, { type: 'enemy-hurt' }>;
+
+/**
+ * A damage number's colour (legacy enemy.js `showHurt`): shield blue when the shield took it all;
+ * crit orange, super-effective yellow, not-very-effective grey; otherwise the attack's type colour
+ * (white when untyped, or from a server that doesn't send it).
+ */
+export function hurtColor(e: Pick<EnemyHurt, 'shielded' | 'label'> & { moveType?: string | null }) {
+  if (e.shielded) return '#9fd8ff';
+  if (e.label === 'crit') return '#ff9a3c';
+  if (e.label === 'super') return '#ffe14d';
+  if (e.label === 'weak') return '#a3abb8';
+  return e.moveType ? typeColor(e.moveType) : '#ffffff';
+}
+
 export class EventEffects {
   constructor(private readonly k: EventSinks) {}
 
@@ -128,20 +143,11 @@ export class EventEffects {
         const en = frame.enemies.find((x) => x.id === e.id);
         const h = en ? bodyHeight(en.dex, en.scale) : 24;
         const big = !!en?.boss || e.label === 'super' || e.label === 'crit';
-        const color = e.shielded
-          ? '#9fd8ff'
-          : e.label === 'crit'
-            ? '#ff9a3c'
-            : e.label === 'super'
-              ? '#ffe14d'
-              : e.label === 'weak'
-                ? '#a3abb8'
-                : '#ffffff';
-        fx.text(e.x, e.y - h - 4, Math.round(e.amount), color, big);
+        fx.text(e.x, e.y - h - 4, Math.round(e.amount), hurtColor(e), big);
         if (!e.shielded) {
           const dx = self ? e.x - self.x : 0;
           const dy = self ? e.y - self.y : 0;
-          fx.spark(e.x, e.y - h * 0.5, '#ffffff', dx, dy, 3);
+          fx.spark(e.x, e.y - h * 0.5, e.moveType ? typeColor(e.moveType) : '#ffffff', dx, dy, 3);
           entities.onEnemyHurt(e.id);
           if (this.near(frame, e.x, e.y)) this.sfx('hit');
         }

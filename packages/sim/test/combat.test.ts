@@ -58,6 +58,26 @@ describe('damage', () => {
     expect(hurt && hurt.type === 'enemy-hurt' && hurt.label).toBe('crit');
   });
 
+  it("tags each hit with the attack's type (moves, burn and poison ticks)", () => {
+    const sim = quietSim();
+    const p = player(sim);
+    giveMove(sim, p, 'ember');
+    const e = spawnDummy(sim, p.x + 60, p.y, {}, 100000);
+    steps(sim, seconds(0.5));
+    const hurts = () =>
+      sim
+        .drainEvents()
+        .filter((ev) => ev.type === 'enemy-hurt' && ev.id === e.id)
+        .map((ev) => (ev.type === 'enemy-hurt' ? ev.moveType : undefined));
+    expect(hurts()).toContain('fire');
+    // Poison ticks on its own, with its own type.
+    e.poison = 1;
+    e.poisonT = 5;
+    e.poisonTick = 0;
+    steps(sim, 2);
+    expect(hurts()).toContain('poison');
+  });
+
   it('applies burn, poison and slow, which tick on their own', () => {
     const sim = quietSim();
     const p = player(sim);
