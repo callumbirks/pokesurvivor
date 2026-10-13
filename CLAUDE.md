@@ -22,9 +22,13 @@ before larger changes.
   presence, rooms, the authoritative loop), Postgres via Drizzle. `src/test/bots.ts` is the bot
   harness for game tests.
   Also serves the built client at `/` and `legacy/` at `/legacy/`.
-- `apps/client` — Vite + Canvas 2D client. Dev-only views: `/?debug-sim` (sim locally) and
-  `/?debug-net` (log in, rooms, play over the network; use a private window or `127.0.0.1` for a
-  second account).
+- `apps/client` — Vite + Canvas 2D client; see its README. `src/app/` is the app shell (hash
+  routes, session, save cache, WebSocket lifecycle, toasts, the typed HTTP API, `BusyStatus`),
+  `src/screens/` every screen outside a run (login, starter, menu, collection, gacha, shop, goals,
+  leaderboard, friends, lobby, settings, solo, play), `src/settings.ts` the settings store the
+  game reads, `src/game/` the in-game client (phase 4a; `src/app/game.ts` points at a stub until
+  it lands). Dev-only views: `/?debug-sim` (sim locally) and `/?debug-net` (log in, rooms, play
+  over the network; use a private window or `127.0.0.1` for a second account).
 - `assets/` — sprites (`assets/pokemon/{dex}/`), served at `/sprites/` and, for legacy,
   `/legacy/assets/pokemon/`. The manifest is `packages/data/json/sprites.json`; regenerate it
   (`pnpm --filter @pokesurvivor/tools convert-legacy-data --only sprites.json,bodies.json`) if
@@ -50,6 +54,7 @@ pnpm typecheck
 pnpm test
 pnpm build
 pnpm --filter @pokesurvivor/sim bench   # sim tick times (4 players, late game, stress)
+pnpm --filter @pokesurvivor/client e2e  # Playwright: starts a server (DATABASE_URL) + Vite on 3101/5181
 pnpm db:generate --name <change>   # after editing apps/server/src/db/schema.ts
 pnpm db:migrate                    # also runs automatically on server start
 docker build .
@@ -70,6 +75,9 @@ keep them in sync. `pnpm --filter @pokesurvivor/netclient bandwidth` measures sn
   input; it never decides outcomes.
 - **The server is authoritative.** Clients send inputs and intents; the server owns game state,
   room state, saves, gacha rolls and the economy. Never trust values computed on the client.
+- **Busy screens.** A screen that takes a room member away from the lobby (gacha, shop,
+  collection, settings) sets `busy: true` on its route in `apps/client/src/screens/index.ts`, so
+  the owner can't start without them; `BusyStatus` restores their status on return.
 - Wire-format changes go through `packages/protocol` and bump `PROTOCOL_VERSION` when breaking.
 - Schema changes go through Drizzle migrations; never edit a migration that has been merged.
 - Config comes from environment variables (`apps/server/src/config.ts`, `.env.example`).
