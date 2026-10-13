@@ -330,7 +330,7 @@ export class SlotMachine {
       this.bulb(st, 15, y, i++, winCol);
       this.bulb(st, 146, y, i++, winCol);
     }
-    const title = t('app.slotsTitle');
+    const title = t('app.slotsTitle').toUpperCase();
     ctx.font = '700 12px Pixelify, "Segoe UI", sans-serif';
     ctx.textAlign = 'center';
     ctx.fillStyle = C.dark;
