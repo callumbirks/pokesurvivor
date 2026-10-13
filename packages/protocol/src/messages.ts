@@ -139,10 +139,15 @@ export interface InputMessage {
   slot?: number | null;
 }
 
-/** A primitive-valued object with a `type`: the sim's `Intent`, validated generically. */
+export type IntentValue = string | number | boolean | null;
+
+/**
+ * An object with a `type` and a few primitive (or short primitive-array) fields: the sim's
+ * `Intent`, validated generically so new intents pass through. The sim checks the fields.
+ */
 export interface WireIntent {
   type: string;
-  [key: string]: string | number | boolean | null;
+  [key: string]: IntentValue | IntentValue[];
 }
 
 export type ClientRequest<Intent = WireIntent> =

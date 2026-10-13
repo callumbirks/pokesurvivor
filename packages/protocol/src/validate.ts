@@ -1,6 +1,12 @@
 // Validation of everything a client sends. The server never trusts a client message's shape:
 // anything that doesn't match exactly is rejected (with the request id, if one could be read).
-import type { ClientMessage, MemberStatus, ServerMessage, WireIntent } from './messages.js';
+import type {
+  ClientMessage,
+  IntentValue,
+  MemberStatus,
+  ServerMessage,
+  WireIntent,
+} from './messages.js';
 
 export type Decoded<T> =
   { ok: true; message: T } | { ok: false; rid: number | null; reason: string };
@@ -10,6 +16,7 @@ const MEMBER_STATUSES: readonly MemberStatus[] = ['ready', 'not-ready', 'busy'];
 const MAX_INTENT_FIELDS = 8;
 const MAX_INTENT_STRING = 64;
 const MAX_KEY = 32;
+const MAX_INTENT_ARRAY = 8;
 
 type Obj = Record<string, unknown>;
 
@@ -35,6 +42,15 @@ function onlyKeys(m: Obj, keys: readonly string[]): boolean {
   return true;
 }
 
+function intentValue(value: unknown): value is IntentValue {
+  return (
+    value === null ||
+    typeof value === 'boolean' ||
+    isFinite(value) ||
+    (typeof value === 'string' && value.length <= MAX_INTENT_STRING)
+  );
+}
+
 export function validateIntent(v: unknown): WireIntent | null {
   if (!isObj(v) || !isStr(v.type, MAX_KEY)) return null;
   const keys = Object.keys(v);
@@ -44,13 +60,13 @@ export function validateIntent(v: unknown): WireIntent | null {
     if (k === 'type') continue;
     if (k.length > MAX_KEY || k === '__proto__') return null;
     const value = v[k];
-    if (
-      value === null ||
-      typeof value === 'boolean' ||
-      isFinite(value) ||
-      (typeof value === 'string' && value.length <= MAX_INTENT_STRING)
+    if (intentValue(value)) out[k] = value;
+    else if (
+      Array.isArray(value) &&
+      value.length <= MAX_INTENT_ARRAY &&
+      value.every((x) => intentValue(x) && !Array.isArray(x))
     )
-      out[k] = value;
+      out[k] = value as IntentValue[];
     else return null;
   }
   return out;

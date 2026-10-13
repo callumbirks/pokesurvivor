@@ -25,6 +25,11 @@ describe('client messages', () => {
       { type: 'room.status', rid: 3, status: 'busy' },
       { type: 'intent', rid: 4, intent: { type: 'pickCard', choiceId: 3, cardId: 'new:ember' } },
       { type: 'intent', rid: 5, intent: { type: 'someFutureIntent', flag: true, n: null } },
+      {
+        type: 'intent',
+        rid: 6,
+        intent: { type: 'pickBond', choiceId: 2, moves: ['ember', 'tackle'] },
+      },
     ]) {
       expect(decodeClientMessage(encode(m))).toEqual({ ok: true, message: m });
     }
@@ -63,6 +68,8 @@ describe('client messages', () => {
     expect(validateIntent({ type: 'x', ...many })).toBeNull();
     expect(validateIntent({ type: 'x', s: 'a'.repeat(65) })).toBeNull();
     expect(validateIntent({ type: 'x', n: Infinity })).toBeNull();
+    expect(validateIntent({ type: 'x', a: [[1]] })).toBeNull();
+    expect(validateIntent({ type: 'x', a: Array(9).fill('m') })).toBeNull();
     expect(validateIntent(JSON.parse('{"type":"x","__proto__":{"a":1}}'))).toBeNull();
   });
 });
