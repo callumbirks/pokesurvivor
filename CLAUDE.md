@@ -7,13 +7,18 @@ before larger changes.
 
 ## Layout
 
-- `packages/data` — game data (JSON) + zod schemas.
+- `packages/data` — game data (`json/`), zod schemas, and UI strings (`i18n/en.json`); see its
+  README. The JSON is the source of truth (generated once from legacy by `tools/legacy-data`).
 - `packages/sim` — headless simulation (world, entities, combat, …). Runs in Node and in a Web
   Worker. **No DOM, Canvas, Audio or browser globals** (ESLint enforces the globals).
 - `packages/protocol` — client/server message types, encoding, `PROTOCOL_VERSION`.
 - `apps/server` — Fastify HTTP API, WebSocket game server (`/ws`), Postgres via Drizzle.
   Also serves the built client at `/` and `legacy/` at `/legacy/`.
 - `apps/client` — Vite + Canvas 2D client.
+- `assets/` — sprites (`assets/pokemon/{dex}/`), served at `/sprites/` and, for legacy,
+  `/legacy/assets/pokemon/`. The manifest is `packages/data/json/sprites.json`; regenerate it
+  (`pnpm --filter @pokesurvivor/tools convert-legacy-data`) if sprites change.
+- `tools/` — one-off scripts (legacy data conversion, UI string seeding).
 - `legacy/` — the original vanilla-JS game. **Read-only reference**: don't edit it (except to
   keep it servable) and don't import from it. Its own `CLAUDE.md`/README describe the old
   Firebase/GitHub Pages workflow, which no longer applies.
@@ -42,8 +47,8 @@ Run `pnpm lint && pnpm typecheck && pnpm test` before committing.
 
 ## Conventions
 
-- **English only**: identifiers, comments, docs, commit messages and UI text. UI strings will
-  live in one `en.json`; don't hard-code user-facing text in logic.
+- **English only**: identifiers, comments, docs, commit messages and UI text. UI strings live in
+  `packages/data/i18n/en.json` (use `t()`); don't hard-code user-facing text in logic.
 - **TypeScript strict** everywhere (`tsconfig.base.json`, incl. `noUncheckedIndexedAccess`). No
   `any` escape hatches without a comment saying why.
 - **Game logic lives only in `packages/sim`.** The client renders, plays audio and collects
