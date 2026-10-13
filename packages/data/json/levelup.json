@@ -1,0 +1,92 @@
+{
+  "cardsOffered": 3,
+  "newMoveCandidates": 6,
+  "statCandidates": 5,
+  "maxBuffMoves": 2,
+  "maxMoveSlots": 4,
+  "weights": {
+    "newMove": 10,
+    "evolution": 40,
+    "moveUpgrade": 8,
+    "statForEvolution": 14,
+    "statWithFreeSlots": 4,
+    "stat": 7
+  },
+  "statCards": [
+    {
+      "id": "max-hp",
+      "icon": "heart",
+      "name": "Vigor",
+      "description": "+20 max HP (and heals it).",
+      "effect": { "type": "maxHp", "value": 20 }
+    },
+    {
+      "id": "attack",
+      "icon": "fist",
+      "name": "Power",
+      "description": "+10% damage with every move.",
+      "maxPicks": 40,
+      "effect": { "type": "stat", "stat": "attackMul", "op": "mul", "value": 1.1 }
+    },
+    {
+      "id": "speed",
+      "icon": "boot",
+      "name": "Sprint",
+      "description": "+7% movement speed.",
+      "maxPicks": 8,
+      "effect": { "type": "stat", "stat": "speedMul", "op": "mul", "value": 1.07 }
+    },
+    {
+      "id": "cooldown",
+      "icon": "clock",
+      "name": "Reflexes",
+      "description": "-8% cooldown on every move.",
+      "maxPicks": 10,
+      "effect": { "type": "stat", "stat": "cooldownMul", "op": "mul", "value": 0.92 }
+    },
+    {
+      "id": "defense",
+      "icon": "shield",
+      "name": "Armor",
+      "description": "+6% damage reduction.",
+      "maxPicks": 12,
+      "effect": {
+        "type": "stat",
+        "stat": "damageReduction",
+        "op": "add",
+        "value": 0.06,
+        "cap": 0.7
+      }
+    },
+    {
+      "id": "regen",
+      "icon": "sprout",
+      "name": "Synthesis",
+      "description": "+0.9 HP regenerated per second.",
+      "effect": { "type": "stat", "stat": "regen", "op": "add", "value": 0.9 }
+    },
+    {
+      "id": "magnet",
+      "icon": "magnet",
+      "name": "Magnet",
+      "description": "+30% experience pickup radius.",
+      "maxPicks": 6,
+      "effect": { "type": "stat", "stat": "magnet", "op": "mul", "value": 1.3 }
+    },
+    {
+      "id": "experience",
+      "icon": "book",
+      "name": "Learning",
+      "description": "+12% experience gained.",
+      "maxPicks": 8,
+      "effect": { "type": "stat", "stat": "xpMul", "op": "mul", "value": 1.12 }
+    },
+    {
+      "id": "heal",
+      "icon": "berry",
+      "name": "Sitrus Berry",
+      "description": "Restores 45% of your HP right now.",
+      "effect": { "type": "heal", "maxHpFraction": 0.45 }
+    }
+  ]
+}

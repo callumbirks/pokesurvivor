@@ -1,0 +1,65 @@
+{
+  "props": {
+    "tree": { "solid": true, "hp": null, "radius": 13, "flat": false },
+    "rock": { "solid": true, "hp": 34, "radius": 12, "flat": false },
+    "chest": { "solid": true, "hp": 22, "radius": 12, "flat": false },
+    "grass": { "solid": false, "hp": 1, "radius": 14, "flat": false },
+    "altar": { "solid": true, "hp": null, "radius": 9, "flat": false },
+    "spring": { "solid": false, "hp": null, "radius": 22, "flat": true },
+    "big-chest": { "solid": true, "hp": null, "radius": 14, "flat": false },
+    "trap": { "solid": false, "hp": null, "radius": 9, "flat": true }
+  },
+  "liquids": {
+    "water": { "slow": 0.6, "immune": ["water"] },
+    "swamp": { "slow": 0.45, "immune": ["water"] },
+    "lava": { "flat": 5, "every": 0.5, "color": "#ff8a3d", "immune": ["fire"], "damage": 0.06 },
+    "poison": {
+      "flat": 3,
+      "every": 0.5,
+      "color": "#c86bdc",
+      "immune": ["poison", "steel"],
+      "damage": 0.035
+    },
+    "spark": {
+      "flat": 4,
+      "every": 0.7,
+      "color": "#ffe14d",
+      "immune": ["electric", "ground"],
+      "damage": 0.045
+    },
+    "ice": { "slide": true, "immune": ["ice"] }
+  },
+  "bigChestOpenSeconds": 3.5,
+  "trapRadius": 74,
+  "altarPowerSeconds": 25,
+  "altarPowers": [
+    {
+      "id": "fury",
+      "name": "Fury",
+      "description": "damage ×2",
+      "color": "#ff5f6d",
+      "effect": { "stat": "attackMul", "value": 2, "op": "mul" }
+    },
+    {
+      "id": "lightning",
+      "name": "Lightning",
+      "description": "+45% speed",
+      "color": "#5fd4ff",
+      "effect": { "stat": "speedMul", "value": 1.45, "op": "mul" }
+    },
+    {
+      "id": "magnet",
+      "name": "Magnet",
+      "description": "you pull everything from afar",
+      "color": "#ff8ad8",
+      "effect": { "stat": "magnet", "value": 4, "op": "mul" }
+    },
+    {
+      "id": "haste",
+      "name": "Haste",
+      "description": "-40% cooldown",
+      "color": "#ffd23f",
+      "effect": { "stat": "cooldownMul", "value": 0.6, "op": "mul" }
+    }
+  ]
+}

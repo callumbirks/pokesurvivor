@@ -1,0 +1,180 @@
+{
+  "traits": [
+    {
+      "id": "brave",
+      "name": "Brave",
+      "description": "You don't think twice when someone needs help."
+    },
+    {
+      "id": "impulsive",
+      "name": "Impulsive",
+      "description": "You act first and think later. Sometimes it works!"
+    },
+    {
+      "id": "cautious",
+      "name": "Cautious",
+      "description": "You measure every step before taking it."
+    },
+    {
+      "id": "loyal",
+      "name": "Loyal",
+      "description": "Your friends know they can always count on you."
+    },
+    {
+      "id": "patient",
+      "name": "Patient",
+      "description": "You know how to wait for the right moment."
+    },
+    { "id": "gentle", "name": "Gentle", "description": "Your kindness calms everyone around you." },
+    {
+      "id": "timid",
+      "name": "Timid",
+      "description": "It's hard for you to take the first step, but you feel deeply."
+    },
+    { "id": "mischievous", "name": "Mischievous", "description": "You always have a joke ready." },
+    {
+      "id": "serene",
+      "name": "Serene",
+      "description": "You keep calm when things get complicated."
+    },
+    {
+      "id": "clever",
+      "name": "Clever",
+      "description": "You see solutions where others see problems."
+    },
+    { "id": "cheerful", "name": "Cheerful", "description": "You spread energy wherever you go." },
+    { "id": "tenacious", "name": "Tenacious", "description": "Giving up isn't in your plans." },
+    {
+      "id": "proud",
+      "name": "Proud",
+      "description": "You push yourself to be the best, and you almost always are."
+    },
+    {
+      "id": "lone-wolf",
+      "name": "Lone Wolf",
+      "description": "You do your own thing and don't care."
+    },
+    { "id": "relaxed", "name": "Relaxed", "description": "Nothing fazes you. Nothing." },
+    { "id": "chaotic", "name": "Chaotic", "description": "Not even you know what you'll do next." }
+  ],
+  "starters": [
+    { "dex": 1, "startingMove": "vine-whip", "traits": ["loyal", "patient"] },
+    { "dex": 4, "startingMove": "ember", "traits": ["brave", "impulsive"] },
+    { "dex": 7, "startingMove": "water-gun", "traits": ["cautious", "loyal"] },
+    { "dex": 152, "startingMove": "vine-whip", "traits": ["gentle", "patient"] },
+    { "dex": 155, "startingMove": "ember", "traits": ["timid", "impulsive"] },
+    { "dex": 158, "startingMove": "water-gun", "traits": ["mischievous", "brave"] },
+    { "dex": 252, "startingMove": "razor-leaf", "traits": ["serene", "clever"] },
+    { "dex": 255, "startingMove": "ember", "traits": ["cheerful", "brave"] },
+    { "dex": 258, "startingMove": "water-gun", "traits": ["tenacious", "loyal"] },
+    { "dex": 387, "startingMove": "vine-whip", "traits": ["patient", "tenacious"] },
+    { "dex": 390, "startingMove": "ember", "traits": ["mischievous", "cheerful"] },
+    { "dex": 393, "startingMove": "bubble", "traits": ["proud", "cautious"] },
+    { "dex": 495, "startingMove": "razor-leaf", "traits": ["proud", "clever"] },
+    { "dex": 498, "startingMove": "ember", "traits": ["tenacious", "cheerful"] },
+    { "dex": 501, "startingMove": "water-gun", "traits": ["brave", "mischievous"] },
+    { "dex": 650, "startingMove": "vine-whip", "traits": ["mischievous", "tenacious"] },
+    { "dex": 653, "startingMove": "ember", "traits": ["clever", "serene"] },
+    { "dex": 656, "startingMove": "water-gun", "traits": ["serene", "clever"] },
+    { "dex": 722, "startingMove": "razor-leaf", "traits": ["serene", "gentle"] },
+    { "dex": 725, "startingMove": "ember", "traits": ["lone-wolf", "proud"] },
+    { "dex": 728, "startingMove": "bubble", "traits": ["cheerful", "gentle"] },
+    { "dex": 810, "startingMove": "vine-whip", "traits": ["cheerful", "mischievous"] },
+    { "dex": 813, "startingMove": "ember", "traits": ["impulsive", "cheerful"] },
+    { "dex": 816, "startingMove": "water-gun", "traits": ["timid", "clever"] },
+    { "dex": 906, "startingMove": "razor-leaf", "traits": ["lone-wolf", "clever"] },
+    { "dex": 909, "startingMove": "ember", "traits": ["relaxed", "tenacious"] },
+    { "dex": 912, "startingMove": "water-gun", "traits": ["proud", "cautious"] },
+    { "dex": 54, "startingMove": "confusion", "traits": ["chaotic", "timid"] },
+    { "dex": 79, "startingMove": "confusion", "traits": ["relaxed", "patient"] }
+  ],
+  "personalityTest": [
+    {
+      "question": "There's a fight in the middle of town! What do you do?",
+      "answers": [
+        { "text": "I jump in to help without thinking.", "points": { "brave": 2, "impulsive": 1 } },
+        { "text": "I look for someone who can stop it.", "points": { "cautious": 2, "loyal": 1 } },
+        {
+          "text": "I watch everything from afar.",
+          "points": { "serene": 1, "timid": 1, "lone-wolf": 1 }
+        },
+        {
+          "text": "I laugh and cheer both of them on.",
+          "points": { "mischievous": 2, "chaotic": 1 }
+        }
+      ]
+    },
+    {
+      "question": "You find a wallet on the ground.",
+      "answers": [
+        { "text": "I take it to the police right away.", "points": { "loyal": 2, "gentle": 1 } },
+        {
+          "text": "I look for its owner even if it takes hours.",
+          "points": { "tenacious": 2, "patient": 1 }
+        },
+        { "text": "First I check what's inside…", "points": { "clever": 2, "mischievous": 1 } },
+        { "text": "I don't even touch it, just in case.", "points": { "cautious": 1, "timid": 2 } }
+      ]
+    },
+    {
+      "question": "Your ideal day off is…",
+      "answers": [
+        {
+          "text": "An adventure with no plan at all.",
+          "points": { "impulsive": 2, "cheerful": 1 }
+        },
+        { "text": "Reading, thinking, being calm.", "points": { "serene": 2, "relaxed": 1 } },
+        { "text": "Hanging out with all my friends.", "points": { "cheerful": 2, "loyal": 1 } },
+        { "text": "Training to get better.", "points": { "tenacious": 2, "proud": 1 } }
+      ]
+    },
+    {
+      "question": "You have an important exam tomorrow.",
+      "answers": [
+        { "text": "I study until late at night.", "points": { "tenacious": 2, "cautious": 1 } },
+        { "text": "I review just enough: I trust myself.", "points": { "proud": 2, "serene": 1 } },
+        { "text": "I get really stressed.", "points": { "timid": 2, "gentle": 1 } },
+        { "text": "Exam? I'll see tomorrow.", "points": { "chaotic": 2, "relaxed": 1 } }
+      ]
+    },
+    {
+      "question": "What do your friends say about you?",
+      "answers": [
+        {
+          "text": "That I'm the funniest one in the group.",
+          "points": { "cheerful": 2, "mischievous": 1 }
+        },
+        { "text": "That they can always count on me.", "points": { "loyal": 2, "gentle": 1 } },
+        { "text": "That I'm a bit mysterious.", "points": { "lone-wolf": 2, "clever": 1 } },
+        { "text": "That I never give up.", "points": { "brave": 1, "tenacious": 2 } }
+      ]
+    },
+    {
+      "question": "The path splits: one dark and short, the other long and sunny.",
+      "answers": [
+        { "text": "The dark one, more excitement!", "points": { "brave": 2, "impulsive": 1 } },
+        { "text": "The long one, no rush.", "points": { "patient": 2, "cautious": 1 } },
+        { "text": "I sit down to think it over.", "points": { "relaxed": 2, "serene": 1 } },
+        { "text": "Neither: I make a new shortcut.", "points": { "clever": 2, "chaotic": 1 } }
+      ]
+    },
+    {
+      "question": "Someone mocks you in front of everyone.",
+      "answers": [
+        { "text": "I answer back on the spot.", "points": { "proud": 2, "impulsive": 1 } },
+        { "text": "I ignore them completely.", "points": { "serene": 2, "lone-wolf": 1 } },
+        { "text": "It hurts, even if I don't say it.", "points": { "timid": 2, "gentle": 1 } },
+        { "text": "I hit back with a better joke.", "points": { "mischievous": 2, "clever": 1 } }
+      ]
+    },
+    {
+      "question": "What matters most to you?",
+      "answers": [
+        { "text": "Friendship.", "points": { "loyal": 2, "cheerful": 1 } },
+        { "text": "Freedom.", "points": { "lone-wolf": 2, "impulsive": 1 } },
+        { "text": "Calm.", "points": { "relaxed": 2, "patient": 1 } },
+        { "text": "Being the best.", "points": { "proud": 2, "tenacious": 1 } }
+      ]
+    }
+  ]
+}
