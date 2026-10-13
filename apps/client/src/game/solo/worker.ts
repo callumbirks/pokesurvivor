@@ -1,7 +1,7 @@
 // The solo run's simulation, in a Web Worker: the same sim the server runs for co-op rooms, stepped
 // at 30 Hz and projected into the same binary snapshots (`SnapshotEncoder`), so the game client
 // can't tell solo from the network. Choices have no deadline (the game simply waits).
-import { SnapshotEncoder } from '@pokesurvivor/netclient';
+import { SnapshotEncoder, firstOption } from '@pokesurvivor/netclient';
 import { TICK_HZ, TICK_MS, createSim, drainTicks, type Sim } from '@pokesurvivor/sim';
 import type { FromWorker, ToWorker } from './messages.js';
 
@@ -66,6 +66,25 @@ function loop(): void {
   }
 }
 
+/** Dev and perf tests: plays the first minutes for you (circling, invulnerable, first cards). */
+function skipAhead(s: Sim, seconds: number): void {
+  const cfg = s.state.config;
+  while (s.state.time < seconds && !s.ended) {
+    for (const c of s.state.pendingChoices.slice()) {
+      const intent = firstOption(c);
+      if (intent) s.submitIntent(c.playerId, intent);
+    }
+    const a = s.state.tick / 200;
+    s.setInput(playerId, { moveX: Math.cos(a), moveY: Math.sin(a) });
+    const god = cfg.invulnerable;
+    cfg.invulnerable = true;
+    s.step();
+    cfg.invulnerable = god;
+    s.drainEvents();
+  }
+  s.setInput(playerId, { moveX: 0, moveY: 0 });
+}
+
 scope.onmessage = (ev) => {
   const m = ev.data;
   try {
@@ -73,8 +92,14 @@ scope.onmessage = (ev) => {
       case 'init': {
         playerId = m.loadout.id;
         owned = new Set(m.owned);
-        sim = createSim({ seed: m.seed, players: [m.loadout], choiceTimeoutSeconds: null });
+        sim = createSim({
+          seed: m.seed,
+          players: [m.loadout],
+          choiceTimeoutSeconds: null,
+          debug: m.invulnerable ? { invulnerable: true } : undefined,
+        });
         encoder = new SnapshotEncoder({ viewerId: playerId });
+        if (m.skipMinutes) skipAhead(sim, m.skipMinutes * 60);
         const p = sim.state.players[0]!;
         post({
           type: 'ready',

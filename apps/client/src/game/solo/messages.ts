@@ -4,7 +4,17 @@ import type { Intent, PlayerConfig } from '@pokesurvivor/sim';
 import type { ChoiceResult } from '@pokesurvivor/sim';
 
 export type ToWorker =
-  | { type: 'init'; seed: number; loadout: PlayerConfig; username: string; owned: number[] }
+  | {
+      type: 'init';
+      seed: number;
+      loadout: PlayerConfig;
+      username: string;
+      owned: number[];
+      /** Dev and perf tests only: simulate this many minutes first (cards picked for you). */
+      skipMinutes?: number;
+      /** Dev and perf tests only: the player can't be hurt. */
+      invulnerable?: boolean;
+    }
   /** Assets loaded: the run starts. */
   | { type: 'start' }
   | { type: 'input'; seq: number; moveX: number; moveY: number; slot: number | null }

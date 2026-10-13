@@ -607,7 +607,7 @@ export class EntityLayer {
       ctx.restore();
     }
     // Group play: a name tag over teammates.
-    if (frame.game.players.length > 1) {
+    if (frame.game.players.length > 1 && p.id !== frame.selfId) {
       const name = info?.username ?? '';
       ctx.save();
       ctx.font = '700 7px Pixelify,"Segoe UI",sans-serif';

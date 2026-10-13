@@ -264,9 +264,11 @@ class GameScreen {
     if (this.disposed) return;
     this.raf = requestAnimationFrame((t2) => this.frame(t2));
     try {
+      const t0 = performance.now();
       this.resize();
       if (this.run) this.run.frame(ts, this.ctx);
       else this.clear();
+      if (import.meta.env.DEV) devFrameStats(performance.now() - t0);
     } catch (err) {
       // A frame that throws must not freeze the game: log and keep going.
       console.error('[game] frame failed:', err);
@@ -302,6 +304,23 @@ class GameScreen {
     this.root.remove();
     audio.music(null);
   }
+}
+
+/**
+ * Dev builds: the main-thread cost of each frame (update + draw), for perf tests:
+ * `window.__psFrames = { n, mean, max, p95 }` over the last 600 frames.
+ */
+const frameTimes: number[] = [];
+function devFrameStats(ms: number): void {
+  frameTimes.push(ms);
+  if (frameTimes.length > 600) frameTimes.shift();
+  const sorted = [...frameTimes].sort((a, b) => a - b);
+  (window as unknown as { __psFrames: object }).__psFrames = {
+    n: frameTimes.length,
+    mean: frameTimes.reduce((a, b) => a + b, 0) / frameTimes.length,
+    max: sorted[sorted.length - 1],
+    p95: sorted[Math.floor(sorted.length * 0.95)],
+  };
 }
 
 /** One run on screen. */
@@ -696,6 +715,14 @@ class Run {
     );
 
     this.draw(ctx, frame, w, h, dpr);
+    if (import.meta.env.DEV)
+      (window as unknown as { __psCounts: object }).__psCounts = {
+        enemies: frame.enemies.length,
+        projectiles: frame.projectiles.length,
+        pickups: frame.pickups.length,
+        fx: this.fx.count,
+        time: latest.time,
+      };
   }
 
   private draw(ctx: CanvasRenderingContext2D, frame: Frame, w: number, h: number, dpr: number) {

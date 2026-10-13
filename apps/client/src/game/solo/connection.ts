@@ -45,6 +45,10 @@ export interface SoloOptions {
   seed?: number;
   /** For tests and tools: the sim's worker. */
   createWorker?: () => Worker;
+  /** Dev and perf tests only: start this many minutes into a run (cards picked for you). */
+  skipMinutes?: number;
+  /** Dev and perf tests only: the player can't be hurt. */
+  invulnerable?: boolean;
 }
 
 /** What the server said about a reported solo run (`POST /api/runs`), on top of `Results`. */
@@ -187,6 +191,8 @@ export function createSoloConnection(opts: SoloOptions): SoloConnection {
     loadout: opts.loadout,
     username: opts.username,
     owned: [...opts.owned],
+    skipMinutes: opts.skipMinutes,
+    invulnerable: opts.invulnerable,
   });
 
   const solo = conn as unknown as SoloConnection;

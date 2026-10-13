@@ -91,9 +91,22 @@ export class EventEffects {
     const self = frame.self;
     const mine = (id: string | null | undefined) => id === frame.selfId;
     switch (e.type) {
-      case 'say':
-        if (!e.playerId || mine(e.playerId)) this.k.say(t(e.key, e.params), e.seconds);
+      case 'say': {
+        if (e.playerId && !mine(e.playerId)) return;
+        // Teammates leaving get a toast (with their name) instead.
+        if (e.key === 'hud.leftTheGame') return;
+        // The sim names players by id: show their username.
+        const params = e.params
+          ? Object.fromEntries(
+              Object.entries(e.params).map(([k, v]) => [
+                k,
+                frame.game.players.find((p) => p.id === v)?.username ?? v,
+              ]),
+            )
+          : undefined;
+        this.k.say(t(e.key, params), e.seconds);
         return;
+      }
       case 'cast': {
         // Our own casts start from where we're drawn (predicted), not where the server saw us.
         const x = mine(e.playerId) && self ? self.x : e.x;

@@ -1,5 +1,6 @@
 // Dev-only test page for the in-game client (/play.html, or /?play-solo and /?play-net).
-//   ?solo   log in, then a solo run from your save's partner: loading, the run, the report to the
+//   ?solo   (&t=<minutes> to start late, &god to be invulnerable, &seed=: dev runs, not credited)
+//           log in, then a solo run from your save's partner: loading, the run, the report to the
 //           server and the results; then again.
 //   ?net    log in, add a friend, make a room, invite, ready up and start: the run is played
 //           through mountGame (use a private window or 127.0.0.1 for the second account).
@@ -114,7 +115,21 @@ async function playSolo(): Promise<void> {
   try {
     const opts = await loadSoloLoadout();
     const seed = Number(params.get('seed')) || undefined;
-    const conn = createSoloConnection({ ...opts, seed, api: devApi });
+    // ?t=<minutes>: start late in a run (perf tests, late-game screenshots); not credited.
+    const skipMinutes = Number(params.get('t')) || undefined;
+    const offline: SoloApi = {
+      startRun: () => Promise.reject(new Error('fast-forwarded runs are not reported')),
+      reportRun: () => Promise.reject(new Error('not reported')),
+    };
+    // ?god: can't be hurt (perf tests); not credited either.
+    const invulnerable = params.has('god');
+    const conn = createSoloConnection({
+      ...opts,
+      seed,
+      skipMinutes,
+      invulnerable,
+      api: skipMinutes || invulnerable ? offline : devApi,
+    });
     handle = mountGame(root, conn, {
       onExit: (results) => {
         handle?.dispose();
