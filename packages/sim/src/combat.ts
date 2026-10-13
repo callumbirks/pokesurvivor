@@ -8,7 +8,15 @@ import type { SimEvent } from './events.js';
 import { lifeOrbDrain, markAttacking, onDamageDealt } from './items.js';
 import { TAU, dist, dist2, inArc, norm, segDist2 } from './math.js';
 import { activeGroup } from './moves.js';
-import { addBuff, attackOf, hurtPlayer, nearestEnemy, targetPos, typeLabel } from './players.js';
+import {
+  addBuff,
+  attackOf,
+  hurtPlayer,
+  isManualAim,
+  nearestEnemy,
+  targetPos,
+  typeLabel,
+} from './players.js';
 import { spawnProjectile } from './projectiles.js';
 import { weatherDamageMult } from './weather.js';
 import { collide, damageProp, isFree, isWall, projectileBlock, propsInCircle } from './world.js';
@@ -30,6 +38,37 @@ const TARGETED = new Set([
 ]);
 
 const int = (v: number | undefined) => Math.trunc(v ?? 0);
+
+/**
+ * Manual aim and moves that land on an enemy (chain, meteor): they pick from the enemies within
+ * this half-angle of the aim. Direction moves (projectile, cone, beam, melee, boomerang, dash, and
+ * where a turret goes) just use `p.aim`, which is the manual aim then.
+ */
+export const MANUAL_AIM_CONE = Math.PI / 4;
+
+/** Enemies within `range` of the player and `MANUAL_AIM_CONE` of its aim. */
+function enemiesInAim(ctx: Ctx, p: PlayerState, range: number): EnemyState[] {
+  return queryEnemies(ctx, p.x, p.y, range).filter(
+    (e) =>
+      !e.dead &&
+      dist2(p.x, p.y, e.x, e.y) <= range * range &&
+      inArc(p.x, p.y, e.x, e.y, p.aim, MANUAL_AIM_CONE),
+  );
+}
+
+/** The nearest enemy in the aim cone (manual aim), or null. */
+function aimedEnemy(ctx: Ctx, p: PlayerState, range: number): EnemyState | null {
+  let best: EnemyState | null = null;
+  let bd = Infinity;
+  for (const e of enemiesInAim(ctx, p, range)) {
+    const d = dist2(p.x, p.y, e.x, e.y);
+    if (d < bd) {
+      bd = d;
+      best = e;
+    }
+  }
+  return best;
+}
 
 /** How close the target must be before a targeted move fires. */
 function reach(m: MoveState): number {
@@ -107,13 +146,12 @@ function tickMove(ctx: Ctx, p: PlayerState, m: MoveState): void {
   }
   m.t -= DT;
   if (m.t > 0) return;
-  // Targeted moves wait for a target in reach (no animation wasted on thin air).
-  if (TARGETED.has(m.kind)) {
-    const tg = targetPos(ctx, p);
-    if (!(tg && dist(p.x, p.y, tg.x, tg.y) <= reach(m))) {
-      m.t = 0.05;
-      return;
-    }
+  // Targeted moves wait for a target in reach (no animation wasted on thin air). With manual
+  // aim, the auto target still says whether there's anything to fight; a chain, which needs an
+  // enemy to start from, waits for one in the aim cone.
+  if (TARGETED.has(m.kind) && !targetInReach(ctx, p, m)) {
+    m.t = 0.05;
+    return;
   }
   m.t = Math.max(0.05, (m.stats.cooldown ?? 0) * p.cooldownMul);
   // Attacking, for Life Orb (legacy didn't charge trails or orbits either).
@@ -136,6 +174,12 @@ function tickMove(ctx: Ctx, p: PlayerState, m: MoveState): void {
       ...info,
     });
   }
+}
+
+function targetInReach(ctx: Ctx, p: PlayerState, m: MoveState): boolean {
+  if (m.kind === 'chain' && isManualAim(p)) return aimedEnemy(ctx, p, reach(m)) !== null;
+  const tg = targetPos(ctx, p);
+  return !!tg && dist(p.x, p.y, tg.x, tg.y) <= reach(m);
 }
 
 function run(ctx: Ctx, p: PlayerState, m: MoveState): CastInfo {
@@ -335,11 +379,18 @@ function boomerang(ctx: Ctx, p: PlayerState, m: MoveState): CastInfo {
   return {};
 }
 
-/** Chain: hits one enemy and jumps to the next nearest ones (15% less each jump). */
+/**
+ * Chain: hits one enemy and jumps to the next nearest ones (15% less each jump). It starts at the
+ * target, or with manual aim at the nearest enemy in the aim cone.
+ */
 function chain(ctx: Ctx, p: PlayerState, m: MoveState): CastInfo {
   const s = m.stats;
-  const t = p.target?.kind === 'enemy' ? ctx.enemyById.get(p.target.id) : undefined;
-  let cur: EnemyState | null = t && !t.dead ? t : nearestEnemy(ctx, p.x, p.y, reach(m));
+  let cur: EnemyState | null;
+  if (isManualAim(p)) cur = aimedEnemy(ctx, p, reach(m));
+  else {
+    const t = p.target?.kind === 'enemy' ? ctx.enemyById.get(p.target.id) : undefined;
+    cur = t && !t.dead ? t : nearestEnemy(ctx, p.x, p.y, reach(m));
+  }
   if (!cur) return {};
   let fx = p.x;
   let fy = p.y;
@@ -439,14 +490,34 @@ function mines(ctx: Ctx, p: PlayerState, m: MoveState): CastInfo {
   return {};
 }
 
-/** Meteors: fall on nearby enemies (the shadow warns where). */
+/**
+ * Meteors: fall on nearby enemies (the shadow warns where). With manual aim, on the enemies in the
+ * aim cone, and the ones left over somewhere along the aim instead of anywhere around.
+ */
 function meteors(ctx: Ctx, p: PlayerState, m: MoveState): CastInfo {
   const n = Math.max(1, int(m.stats.count));
-  const near = ctx.rand.shuffle(queryEnemies(ctx, p.x, p.y, reach(m)).filter((e) => !e.dead));
+  const manual = isManualAim(p);
+  const near = ctx.rand.shuffle(
+    manual
+      ? enemiesInAim(ctx, p, reach(m))
+      : queryEnemies(ctx, p.x, p.y, reach(m)).filter((e) => !e.dead),
+  );
   for (let i = 0; i < n; i++) {
     const e = near[i];
-    const x = e ? e.x + ctx.rand.range(-8, 8) : p.x + ctx.rand.range(-140, 140);
-    const y = e ? e.y + ctx.rand.range(-6, 6) : p.y + ctx.rand.range(-110, 110);
+    let x: number;
+    let y: number;
+    if (e) {
+      x = e.x + ctx.rand.range(-8, 8);
+      y = e.y + ctx.rand.range(-6, 6);
+    } else if (manual) {
+      const a = p.aim + ctx.rand.range(-0.25, 0.25);
+      const d = ctx.rand.range(70, reach(m) * 0.75);
+      x = p.x + Math.cos(a) * d;
+      y = p.y + Math.sin(a) * d;
+    } else {
+      x = p.x + ctx.rand.range(-140, 140);
+      y = p.y + ctx.rand.range(-110, 110);
+    }
     const f = newField(ctx, p, m, 'meteor', x, y);
     f.t = -i * 0.09;
     f.arm = 0.5; // fall time

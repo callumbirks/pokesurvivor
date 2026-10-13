@@ -28,7 +28,7 @@ const sim = createSim({
   choiceTimeoutSeconds: 30, // null for solo: choices wait forever
 });
 
-sim.setInput('u1', { moveX: 1, moveY: 0 }); // persists; `slot: 2` switches move once
+sim.setInput('u1', { moveX: 1, moveY: 0 }); // persists; `slot: 2` switches move once, `aim: 0` aims right
 sim.step(); // one tick (1/30 s)
 for (const c of sim.state.pendingChoices) {
   if (c.kind === 'level-up')
@@ -44,7 +44,7 @@ const events = sim.drainEvents(); // cosmetic: sounds, numbers, VFX, banners
 | Call                                                                                              | What it does                                                                                                                                                                                                                                                                                                                                          |
 | ------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `createSim({ seed, players, choiceTimeoutSeconds?, debug? })`                                     | New run. `players[i]`: `id`, `dex`, `shiny?`, `upgrades?` (permanent upgrade levels by id, clamped to each max), `bannedMoves?`, `moveBindings?` (preferred slot per move), `legendsBeaten?` (dex numbers; unbeaten legendaries come up 4× as often in rifts). `debug`: `invulnerable`, `noSpawns` (also stops events and thieves; rifts still open). |
-| `setInput(playerId, { moveX, moveY, slot? })`                                                     | Movement (clamped to length 1) persists until changed. `slot` is a one-shot request applied on the next running tick: send it once per key press.                                                                                                                                                                                                     |
+| `setInput(playerId, { moveX, moveY, slot?, aim? })`                                               | Movement (clamped to length 1) and `aim` persist until changed (every call sets both). `aim`: manual aim in radians (see [Aiming](#aiming)); absent or null is auto-aim. `slot` is a one-shot request applied on the next running tick: send it once per key press.                                                                                   |
 | `submitIntent(playerId, intent)`                                                                  | `pickCard {choiceId, cardId}`, `pickItem {choiceId, itemId}` (the item to hold), `pickBond {choiceId, moves}` (loose move ids: two for `pair`, one for `add`), `reroll {choiceId}`, `cycleSlot {dir}`. Returns `{ ok }` or `{ ok: false, error }`; never throws on bad input (unknown types and malformed fields are rejected).                       |
 | `step()`                                                                                          | One tick. While any choice is pending it only counts ticks toward the choices' deadlines (the game is paused for everyone).                                                                                                                                                                                                                           |
 | `setConnected(playerId, bool)`                                                                    | Disconnected players stand still, don't attack, can't be hurt, aren't targeted or counted for difficulty/XP, and their pending choices resolve at once. The reconnect grace is the caller's.                                                                                                                                                          |
@@ -142,6 +142,26 @@ already own" are the server's job.
   HP ×(1 + 0.3·(n − 1)); bosses get another ×1.4 in a group.
 - A downed player is revived by a teammate standing within 56 units for 3 s (progress decays at
   half speed when they step away), at 50% HP.
+
+## Aiming
+
+Every tick a player picks an auto target (`players.ts`, `updatePlayer`): for ranged moves the boss
+if in range, else whatever touches it, else the nearest enemy; for the rest the other way round;
+else the nearest rock or chest; else it aims where it walks. Targeted moves wait until that target
+is in reach. With manual aim (`input.aim` set) the target is still picked, and still gates
+targeted moves (there's something to fight), but `p.aim` is the input's angle. What that means
+per move kind (`combat.ts`):
+
+| Kind                                           | Manual aim                                                                                                     |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| projectile, cone, beam, melee, boomerang, dash | Fires along the aim (they all use `p.aim`).                                                                    |
+| chain                                          | Starts at the nearest enemy within ±45° (`MANUAL_AIM_CONE`) of the aim and in reach; waits until there is one. |
+| meteor                                         | Falls on enemies within ±45° of the aim and in reach; the rest land at random along the aim.                   |
+| turret                                         | Placed behind the aim (as with auto-aim); it shoots on its own.                                                |
+| aura, nova, orbit, mine, trail, buff           | Unchanged: they don't aim.                                                                                     |
+
+A Pokémon faces its aim while attacking (`facingOf`), so the manual aim then. The aim comes in
+through `setInput` like movement, so runs stay deterministic and replayable.
 
 ## Rifts, bonds, events, weather, interactables
 
