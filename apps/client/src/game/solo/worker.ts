@@ -1,8 +1,10 @@
 // The solo run's simulation, in a Web Worker: the same sim the server runs for co-op rooms, stepped
 // at 30 Hz and projected into the same binary snapshots (`SnapshotEncoder`), so the game client
-// can't tell solo from the network. Choices have no deadline (the game simply waits). Every
-// `checkpointEveryS` of run time it sends a checkpoint: the run so far and a copy of the state
-// (plain JSON data), which the connection reports and saves so the run can be resumed.
+// can't tell solo from the network. Choices have no deadline (the game simply waits). It sends
+// checkpoints: the run so far and a copy of the state (plain JSON data). The connection saves every
+// one locally, so the run can be resumed, and reports those marked `report` to the server: one
+// as the run starts and every `saveEveryS` of run time (saved only), every `checkpointEveryS`
+// (saved and reported), and on request.
 import { SnapshotEncoder, firstOption } from '@pokesurvivor/netclient';
 import { TICK_HZ, TICK_MS, createSim, drainTicks, restoreSim, type Sim } from '@pokesurvivor/sim';
 import type { FromWorker, ToWorker } from './messages.js';
@@ -32,7 +34,9 @@ let acc = 0;
 let last = 0;
 let timer: ReturnType<typeof setInterval> | null = null;
 let checkpointEveryS = 0;
+let saveEveryS = 0;
 let nextCheckpointS = Infinity;
+let nextSaveS = Infinity;
 
 const post = (m: FromWorker, transfer?: Transferable[]) => scope.postMessage(m, transfer);
 
@@ -42,21 +46,22 @@ function sendFrame(events: ReturnType<Sim['drainEvents']>): void {
   post({ type: 'frame', data }, [data.buffer]);
 }
 
-function checkpoint(): void {
+function checkpoint(report: boolean): void {
   if (!sim || ended) return;
   const s = sim;
   const run = s.runSummaryFor(playerId, (dex) => owned.has(dex));
   // `postMessage` copies the state (structured clone) before the next tick changes it.
-  post({ type: 'checkpoint', summary: run, state: s.state });
-  scheduleCheckpoint(s);
+  post({ type: 'checkpoint', summary: run, state: s.state, report });
+  scheduleCheckpoints(s);
 }
 
-/** The next checkpoint is due at the next multiple of `checkpointEveryS` of run time. */
-function scheduleCheckpoint(s: Sim): void {
-  nextCheckpointS =
-    checkpointEveryS > 0
-      ? (Math.floor(s.state.time / checkpointEveryS) + 1) * checkpointEveryS
-      : Infinity;
+/** The next multiple of `every` seconds of run time (never if `every` is 0). */
+const nextMultiple = (time: number, every: number) =>
+  every > 0 ? (Math.floor(time / every) + 1) * every : Infinity;
+
+function scheduleCheckpoints(s: Sim): void {
+  nextCheckpointS = nextMultiple(s.state.time, checkpointEveryS);
+  nextSaveS = nextMultiple(s.state.time, saveEveryS);
 }
 
 function finish(reason: string): void {
@@ -87,7 +92,8 @@ function loop(): void {
     // Every tick: solo has no bandwidth to save, and it keeps interpolation smooth.
     sendFrame(sim.drainEvents());
     if (sim.ended) finish(sim.state.ended?.reason ?? 'all-down');
-    else if (sim.state.time >= nextCheckpointS) checkpoint();
+    else if (sim.state.time >= nextCheckpointS) checkpoint(true);
+    else if (sim.state.time >= nextSaveS) checkpoint(false);
   }
 }
 
@@ -128,7 +134,8 @@ scope.onmessage = (ev) => {
         encoder = new SnapshotEncoder({ viewerId: playerId });
         if (m.skipMinutes && !m.restore) skipAhead(sim, m.skipMinutes * 60);
         checkpointEveryS = m.checkpointEveryS ?? 0;
-        scheduleCheckpoint(sim);
+        saveEveryS = m.saveEveryS ?? 0;
+        scheduleCheckpoints(sim);
         const p = sim.state.players[0]!;
         post({
           type: 'ready',
@@ -151,6 +158,8 @@ scope.onmessage = (ev) => {
         last = performance.now();
         sendFrame([]);
         timer = setInterval(loop, TICK_MS / 2);
+        // Saved from the start: a reload in the first seconds can resume the run too.
+        if (saveEveryS > 0) checkpoint(false);
         return;
       case 'input':
         if (m.seq <= input.seq) return;
@@ -184,7 +193,7 @@ scope.onmessage = (ev) => {
         return;
       }
       case 'checkpoint':
-        if (running) checkpoint();
+        if (running) checkpoint(true);
         return;
       case 'quit':
         if (!sim || ended) return;

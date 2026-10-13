@@ -1,6 +1,7 @@
-// Solo crash-safety: a run checkpoints while it plays (every 2 s of run time here, through the
-// dev-only `ps.dev.checkpointS` override, instead of every minute) and saves itself locally. After
-// a reload the menu offers to resume it on the same run id, or to end it, crediting what it had.
+// Solo crash-safety: a run saves itself locally from the start and every few seconds, and
+// checkpoints to the server (every 2 s of run time in most cases here, through the dev-only
+// `ps.dev.checkpointS` override, instead of every minute). After a reload the menu offers to
+// resume it on the same run id, or to end it, crediting what it had.
 import { expect, test, type Page } from '@playwright/test';
 
 interface Checkpoint {
@@ -12,9 +13,10 @@ interface SaveStats {
   stats: { runs: number; bestTimeS: number };
 }
 
-async function newPlayer(page: Page): Promise<void> {
+async function newPlayer(page: Page, opts: { fastCheckpoints?: boolean } = {}): Promise<void> {
   await page.goto('/');
-  await page.evaluate(() => localStorage.setItem('ps.dev.checkpointS', '2'));
+  if (opts.fastCheckpoints !== false)
+    await page.evaluate(() => localStorage.setItem('ps.dev.checkpointS', '2'));
   await page.getByTestId('tab-register').click();
   await page.getByTestId('login-username').fill(`ash_${Date.now().toString(36).slice(-7)}`);
   await page.getByTestId('login-password').fill('password123');
@@ -156,4 +158,38 @@ test('hiding the page pauses the solo run and checkpoints it', async ({ page }) 
   await expect(page.getByTestId('pause')).toBeVisible();
   await page.getByTestId('resume').click();
   await expect(page.getByTestId('pause')).toBeHidden();
+});
+
+test('a reload early in a run, before any server checkpoint, still offers to resume it', async ({
+  page,
+}) => {
+  // The real cadence: no server checkpoint in the first minute of run time.
+  await newPlayer(page, { fastCheckpoints: false });
+  await page.getByTestId('menu-solo').click();
+  const started = page.waitForResponse((r) => r.url().endsWith('/api/runs/start'));
+  await page.getByTestId('solo-start').click();
+  const { runId } = (await (await started).json()) as { runId: string };
+  await expect(page.getByTestId('game-phase')).toHaveText('running');
+  const stop = pickCards(page);
+  await page.waitForTimeout(8000);
+  stop();
+
+  await page.reload();
+  await expect(page.getByTestId('screen-menu')).toBeVisible();
+  await expect(page.getByTestId('saved-run')).toBeVisible();
+  const sent = page.waitForResponse((r) => r.url().endsWith('/api/runs/checkpoint'));
+  await page.getByTestId('saved-run-resume').click();
+  // Resuming checks the run with a checkpoint of the saved run: the same run, a few seconds in.
+  const resumed = (await sent).request().postDataJSON() as Checkpoint;
+  expect(resumed.runId).toBe(runId);
+  expect(resumed.durationS).toBeGreaterThanOrEqual(3);
+  await expect(page.getByTestId('game-phase')).toHaveText('running');
+
+  await page.keyboard.press('Escape');
+  await page.getByTestId('game-exit').click();
+  await expect(page.getByTestId('results')).toBeVisible();
+  await expect(page.getByTestId('not-credited')).toHaveCount(0);
+  const { stats } = await save(page);
+  expect(stats.runs).toBe(1);
+  expect(stats.bestTimeS).toBeGreaterThanOrEqual(resumed.durationS);
 });
