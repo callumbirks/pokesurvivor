@@ -30,12 +30,22 @@ export function soloScreen(app: App): Screen {
       .map(Number)
       .filter((d) => data.pokemonByDex.has(d))
       .sort((a, b) => a - b);
+    // A player in a party can't start a solo run (the server refuses too: 409 in_room).
+    const inRoom = !!app.net?.roomView;
     const start = h(
       'button',
-      { class: 'btn gold big-btn', dataset: { testid: 'solo-start' } },
+      { class: 'btn gold big-btn', disabled: inRoom, dataset: { testid: 'solo-start' } },
       t('menu.play'),
     );
+    const blocked = inRoom
+      ? h(
+          'p',
+          { class: 'note gold', dataset: { testid: 'solo-blocked' } },
+          t('app.leaveRoomForSolo'),
+        )
+      : null;
     start.addEventListener('click', () => {
+      if (app.net?.roomView) return;
       // The connection starts the run on the server, checkpoints it and reports it when the sim
       // ends; the shell binds the calls to this player and keeps the save and toasts up to date.
       const key = String(dex);
@@ -85,6 +95,7 @@ export function soloScreen(app: App): Screen {
           ),
           h('p', { class: 'sub' }, t('hud.surviveTheHordesWithYour')),
           start,
+          blocked,
         ),
         h(
           'div',
@@ -113,6 +124,6 @@ export function soloScreen(app: App): Screen {
   };
 
   render();
-  const off = app.events.on('save', render);
-  return { el: box.el, destroy: off };
+  const offs = [app.events.on('save', render), app.net?.on('room', render)];
+  return { el: box.el, destroy: () => offs.forEach((off) => off?.()) };
 }

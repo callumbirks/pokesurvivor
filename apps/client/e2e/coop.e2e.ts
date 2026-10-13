@@ -44,6 +44,16 @@ test('two players: invite, ready, busy blocks the start, then both play', async 
   await pa.getByTestId('menu-lobby').click();
   await pa.getByTestId('room-create').click();
   await expect(member(pa, a)).toBeVisible();
+
+  // In a room, solo is off: the menu entry is disabled with the reason, and so is #solo.
+  await pa.getByTestId('back').click();
+  await expect(pa.getByTestId('menu-solo')).toBeDisabled();
+  await expect(pa.getByTestId('menu-solo')).toContainText('Leave your room to play solo');
+  await pa.evaluate(() => (location.hash = '#solo'));
+  await expect(pa.getByTestId('solo-start')).toBeDisabled();
+  await expect(pa.getByTestId('solo-blocked')).toBeVisible();
+  await pa.evaluate(() => (location.hash = '#lobby'));
+  await expect(member(pa, a)).toBeVisible();
   await pa.getByTestId(`invite-${b}`).click();
   await pb.getByTestId('invite-accept').click();
   await expect(pb.getByTestId('screen-lobby')).toBeVisible();

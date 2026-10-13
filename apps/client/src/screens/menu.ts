@@ -59,12 +59,13 @@ export function menuScreen(app: App): Screen {
     go: string,
     label: string,
     sub: string,
-    opts: { play?: boolean; gold?: boolean; onClick?: () => void } = {},
+    opts: { play?: boolean; gold?: boolean; disabled?: boolean; onClick?: () => void } = {},
   ) =>
     h(
       'button',
       {
         class: ['menu-item', opts.play && 'play'],
+        disabled: !!opts.disabled,
         dataset: { testid: `menu-${go}` },
         on: { click: opts.onClick ?? (() => app.go(go)) },
       },
@@ -167,7 +168,11 @@ export function menuScreen(app: App): Screen {
     const online = friends.filter((f) => f !== 'offline').length;
     replace(
       list,
-      item('solo', t('app.solo'), t('menu.enterTheDungeon'), { play: true }),
+      // A player in a party plays with it: no solo runs until they leave the room.
+      item('solo', t('app.solo'), room ? t('app.leaveRoomForSolo') : t('menu.enterTheDungeon'), {
+        play: true,
+        disabled: !!room,
+      }),
       item(
         'lobby',
         t('app.multiplayer'),

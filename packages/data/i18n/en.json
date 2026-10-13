@@ -562,7 +562,8 @@
     "learnableMoves": "Moves it can learn",
     "slotsTitle": "POKé SLOTS",
     "slotsPullOf": "PULL {0}/{1}",
-    "slotsShiny": "SHINY · {0}"
+    "slotsShiny": "SHINY · {0}",
+    "leaveRoomForSolo": "Leave your room to play solo"
   },
   "errors": {
     "unknown": "Something went wrong ({0}).",
@@ -609,7 +610,8 @@
     "no_partner": "Someone in the room has no partner yet.",
     "server_draining": "The server is updating: try again in a moment.",
     "not_playing": "No game is running.",
-    "bad_request": "That request wasn't valid."
+    "bad_request": "That request wasn't valid.",
+    "in_room": "Leave your room to play solo."
   },
   "notices": {
     "dropped-at-loading": "{0} couldn't load in time and stays in the room",

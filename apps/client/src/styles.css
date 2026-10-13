@@ -1937,3 +1937,13 @@ canvas.backdrop {
 .leg-cell small {
   position: relative;
 }
+.menu-item:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.menu-item:disabled::before {
+  display: none;
+}
+.menu-item.play:disabled small {
+  color: var(--gold);
+}
