@@ -2,7 +2,10 @@
 // sends the same snapshot frames the game server would, decoded by the same `NetRoomConnection`,
 // so the game screen doesn't know the difference. Around the run it talks to the server:
 // `POST /api/runs/start` before (the server checks the Pokémon is owned and starts the clock its
-// caps use), `POST /api/runs` with the run summary at the end (credited, capped by the server).
+// caps use), `POST /api/runs/checkpoint` with the run so far about every minute of run time
+// (stored, credited by the server only if the final report never comes), and `POST /api/runs`
+// with the run summary at the end (credited, capped by the server). At each checkpoint it also
+// saves the sim's state locally (`SoloRunStore`), so a closed tab can resume or report the run.
 // If the server can't be reached the run is still played; its results just aren't credited.
 import {
   NetRoomConnection,
@@ -16,17 +19,31 @@ import type { RunSummary } from '@pokesurvivor/protocol';
 import type { Intent, PlayerConfig } from '@pokesurvivor/sim';
 import type { RunReport } from '../../app/api.js';
 import type { DevAction, FromWorker, ToWorker } from './messages.js';
+import type { SavedSoloRun, SoloRunStore } from './store.js';
 
 /**
  * The server side of a solo run, bound to the player's session and partner by the shell
  * (`docs/api.md`, Runs): `startRun` before the run starts (the server caps the results by the time
- * since then), `reportRun` as soon as the sim ends; the connection then emits `results` with what
- * was credited.
+ * since then), `checkpointRun` with the run so far while it plays, `reportRun` as soon as the sim
+ * ends; the connection then emits `results` with what was credited.
  */
 export interface SoloApi {
   startRun(): Promise<{ runId: string; startedAt: string }>;
+  checkpointRun(runId: string, summary: RunSummary): Promise<unknown>;
   reportRun(runId: string, summary: RunSummary): Promise<RunReport>;
 }
+
+/** Run time between checkpoints. */
+export const CHECKPOINT_EVERY_S = 60;
+/**
+ * Wall-clock time after which an open run sends a checkpoint anyway (paused, or waiting on a
+ * choice), well inside the server's timeout (`RUN_CHECKPOINT_TIMEOUT_S`, 10 minutes).
+ */
+export const KEEP_ALIVE_MS = 3 * 60_000;
+
+/** Server refusals that mean the run is closed: it won't be credited (again), don't retry. */
+const RUN_CLOSED = new Set(['run_already_finished', 'run_credited_by_timeout', 'run_not_found']);
+export const isRunClosed = (code: string): boolean => RUN_CLOSED.has(code);
 
 export interface SoloOptions {
   /** The player's partner and its upgrades, bindings and bans, from their save. */
@@ -44,6 +61,17 @@ export interface SoloOptions {
   skipMinutes?: number;
   /** Dev and perf tests only: the player can't be hurt. */
   invulnerable?: boolean;
+  /**
+   * Continue a locally saved run (its `state`) on the same `runId` instead of starting one; its
+   * seed, loadout and `owned` are used. The shell checks with the server first that it's open.
+   */
+  resume?: SavedSoloRun;
+  /** Where checkpoints are saved for a resume (none: not saved). */
+  store?: SoloRunStore;
+  /** Run time between checkpoints (`CHECKPOINT_EVERY_S`; 0 for none). */
+  checkpointEveryS?: number;
+  /** Keep-alive checkpoints while the run doesn't advance (`KEEP_ALIVE_MS`). */
+  keepAliveMs?: number;
 }
 
 /** What the server said about a reported solo run (`POST /api/runs`), on top of `Results`. */
@@ -70,6 +98,11 @@ export interface SoloConnection extends RoomConnection {
 const REPORT_TRIES = 3;
 
 export function createSoloConnection(opts: SoloOptions): SoloConnection {
+  const resume = opts.resume?.state ? opts.resume : undefined;
+  const loadout = resume?.loadout ?? opts.loadout;
+  const owned = resume?.owned ?? [...opts.owned];
+  const seed = resume?.seed ?? opts.seed ?? Math.floor(Math.random() * 2 ** 31);
+  const keepAliveMs = opts.keepAliveMs ?? KEEP_ALIVE_MS;
   const worker =
     opts.createWorker?.() ??
     new Worker(new URL('./worker.ts', import.meta.url), { type: 'module', name: 'solo-sim' });
@@ -80,9 +113,34 @@ export function createSoloConnection(opts: SoloOptions): SoloConnection {
   let game: Game | null = null;
   let runId: Promise<string | null> | null = null;
   let closed = false;
+  let ended = false;
+  /** The server refused a checkpoint: the run is closed there (e.g. credited by timeout). */
+  let refused = false;
+  let lastCheckpoint = now();
+  // Store writes in order, so a late checkpoint save can't bring back a save the report cleared.
+  let storeQueue: Promise<void> = Promise.resolve();
+  const storeOp = (op: (store: SoloRunStore) => Promise<void>) => {
+    const store = opts.store;
+    if (!store) return storeQueue;
+    storeQueue = storeQueue
+      .then(() => op(store))
+      .catch((err: unknown) => console.warn('[solo] local save failed:', err));
+    return storeQueue;
+  };
+  const saved = (id: string, summary: RunSummary, state: SavedSoloRun['state']): SavedSoloRun => ({
+    userId: loadout.id,
+    runId: id,
+    savedAt: Date.now(),
+    seed,
+    loadout,
+    username: opts.username,
+    owned,
+    summary,
+    state,
+  });
 
   const conn = new NetRoomConnection(
-    opts.loadout.id,
+    loadout.id,
     {
       send(message) {
         if (closed) return false;
@@ -123,7 +181,12 @@ export function createSoloConnection(opts: SoloOptions): SoloConnection {
         pending.get(m.rid)?.(m.result);
         pending.delete(m.rid);
         return;
+      case 'checkpoint':
+        lastCheckpoint = now();
+        void checkpoint(m.summary, m.state);
+        return;
       case 'ended':
+        ended = true;
         void report(m.reason, m.summary);
         return;
       case 'error':
@@ -132,6 +195,20 @@ export function createSoloConnection(opts: SoloOptions): SoloConnection {
     }
   };
   worker.onerror = (ev) => console.error('[solo] worker failed:', ev.message);
+
+  async function checkpoint(summary: RunSummary, state: SavedSoloRun['state']): Promise<void> {
+    const id = await (runId ?? Promise.resolve(null));
+    if (!id || refused || ended) return;
+    void storeOp((store) => store.put(saved(id, summary, state)));
+    try {
+      await opts.api.checkpointRun(id, summary);
+    } catch (err) {
+      // Offline: the local save and the next checkpoint cover it. Closed: stop, drop the save.
+      if (!isRunClosed(errorCode(err))) return;
+      refused = true;
+      void storeOp((store) => store.delete(loadout.id, id));
+    }
+  }
 
   async function report(reason: string, summary: ResultSummary): Promise<void> {
     const id = await (runId ?? Promise.resolve(null));
@@ -155,6 +232,11 @@ export function createSoloConnection(opts: SoloOptions): SoloConnection {
           await new Promise((r) => setTimeout(r, 800 * 2 ** i));
         }
       }
+      // Credited or refused: nothing left to resume. Unreachable: keep the final summary, so
+      // the menu can report it later ("End run").
+      if (solo.error === null || isRunClosed(solo.error))
+        void storeOp((store) => store.delete(loadout.id, id));
+      else void storeOp((store) => store.put(saved(id, summary.run, null)));
     }
     const results: SoloResults = {
       gameId: game?.gameId ?? 'solo',
@@ -163,7 +245,7 @@ export function createSoloConnection(opts: SoloOptions): SoloConnection {
       reason,
       players: [
         {
-          userId: opts.loadout.id,
+          userId: loadout.id,
           username: opts.username,
           left: false,
           summary: { run, player: summary.player },
@@ -174,23 +256,37 @@ export function createSoloConnection(opts: SoloOptions): SoloConnection {
     conn.handleResults(results);
   }
 
-  // Start the run on the server (in parallel with building the sim and loading).
-  runId = opts.api
-    .startRun()
-    .then((r) => r.runId ?? null)
-    .catch((err: unknown) => {
-      console.warn('[solo] the run will not be credited:', err);
-      return null;
-    });
+  // Start the run on the server (in parallel with building the sim and loading), or continue
+  // the saved one.
+  runId = resume
+    ? Promise.resolve(resume.runId)
+    : opts.api
+        .startRun()
+        .then((r) => r.runId ?? null)
+        .catch((err: unknown) => {
+          console.warn('[solo] the run will not be credited:', err);
+          return null;
+        });
   post({
     type: 'init',
-    seed: opts.seed ?? Math.floor(Math.random() * 2 ** 31),
-    loadout: opts.loadout,
+    seed,
+    loadout,
     username: opts.username,
-    owned: [...opts.owned],
+    owned,
     skipMinutes: opts.skipMinutes,
     invulnerable: opts.invulnerable,
+    restore: resume?.state ?? undefined,
+    checkpointEveryS: opts.checkpointEveryS ?? CHECKPOINT_EVERY_S,
   });
+
+  // Keep-alive: an open run that doesn't advance (paused, choosing) still checkpoints.
+  const keepAlive = setInterval(
+    () => {
+      if (!closed && !ended && conn.phase === 'running' && now() - lastCheckpoint >= keepAliveMs)
+        post({ type: 'checkpoint' });
+    },
+    Math.min(keepAliveMs, 30_000),
+  );
 
   const solo = conn as unknown as SoloConnection;
   solo.setPaused = (paused: boolean) => post({ type: 'pause', paused });
@@ -198,6 +294,7 @@ export function createSoloConnection(opts: SoloOptions): SoloConnection {
   solo.devTrigger = (action) => post({ type: 'debug', action });
   solo.close = () => {
     closed = true;
+    clearInterval(keepAlive);
     worker.terminate();
     for (const resolve of pending.values()) resolve({ ok: false, error: 'closed' });
     pending.clear();

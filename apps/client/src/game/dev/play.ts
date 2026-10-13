@@ -67,6 +67,11 @@ const devApi: SoloApi = {
     if (!ok) throw Object.assign(new Error('start failed'), { code: errorCode(data) });
     return data as { runId: string; startedAt: string };
   },
+  async checkpointRun(runId: string, summary: RunSummary) {
+    const { ok, data } = await api('POST', '/api/runs/checkpoint', { ...summary, runId });
+    if (!ok) throw Object.assign(new Error('checkpoint failed'), { code: errorCode(data) });
+    return data;
+  },
   async reportRun(runId: string, summary: RunSummary) {
     const { ok, data } = await api('POST', '/api/runs', { ...summary, runId });
     if (!ok) throw Object.assign(new Error('report failed'), { code: errorCode(data) });
@@ -124,6 +129,7 @@ async function playSolo(): Promise<void> {
     const skipMinutes = Number(params.get('t')) || undefined;
     const offline: SoloApi = {
       startRun: () => Promise.reject(new Error('fast-forwarded runs are not reported')),
+      checkpointRun: () => Promise.reject(new Error('not reported')),
       reportRun: () => Promise.reject(new Error('not reported')),
     };
     // ?god: can't be hurt (perf tests); not credited either.

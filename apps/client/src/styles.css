@@ -971,6 +971,16 @@ button.stage {
 .menu-right > :first-child {
   margin: auto 0;
 }
+.saved-run {
+  margin-bottom: 12px;
+  border-color: #f0c040;
+}
+.saved-run h4 {
+  margin: 0 0 4px;
+}
+.saved-run .row {
+  gap: 8px;
+}
 .menu-list {
   display: flex;
   flex-direction: column;

@@ -166,6 +166,13 @@ export interface RunReport {
   save: Save;
 }
 
+/** A stored solo run checkpoint (`POST /api/runs/checkpoint`): nothing is credited yet. */
+export interface RunCheckpoint {
+  runId: string;
+  stats: unknown;
+  capped: boolean;
+}
+
 /** An API error: `code` is stable and maps to a UI string (`errors.<code>` in en.json). */
 export class ApiError extends Error {
   constructor(
@@ -324,6 +331,9 @@ export class Api {
     return this.request<{ runId: string; startedAt: string }>('POST', '/api/runs/start', {
       pokemon,
     });
+  }
+  checkpointRun(runId: string, summary: RunSummary) {
+    return this.request<RunCheckpoint>('POST', '/api/runs/checkpoint', { ...summary, runId });
   }
   reportRun(runId: string, summary: RunSummary) {
     return this.request<RunReport>('POST', '/api/runs', { ...summary, runId });

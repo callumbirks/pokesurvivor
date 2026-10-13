@@ -17,6 +17,7 @@
     "@pokesurvivor/netclient": "workspace:*",
     "@pokesurvivor/protocol": "workspace:*",
     "@pokesurvivor/sim": "workspace:*",
+    "fake-indexeddb": "^6.2.5",
     "vite": "^8.3.4"
   }
 }
