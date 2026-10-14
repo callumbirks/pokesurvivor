@@ -9,7 +9,7 @@ import { h, replace, sprite } from '../app/dom.js';
 import { toast } from '../app/toast.js';
 import { loadInto, screenBox } from './common.js';
 
-const dotClass = (p: PresenceStatus) =>
+export const dotClass = (p: PresenceStatus) =>
   ({ offline: '', online: 'on', in_lobby: 'on', in_game: 'play' })[p];
 
 /** Live presence (WebSocket) if known, else what the HTTP list said. */
