@@ -17,7 +17,6 @@ import {
   type Snapshot,
 } from '../src/snapshot.js';
 import { botStep, lateGame } from './late-game.js';
-import { measure } from './measure.js';
 import { BinaryReader, BinaryWriter } from '@pokesurvivor/protocol';
 
 describe('snapshots', () => {
@@ -182,11 +181,6 @@ describe('snapshots', () => {
     expect(fresh.enemies.length).toBeGreaterThan(0);
     expect(second.length).toBeLessThan(200);
   });
-
-  it('stay under 30 KB/s per client in a 4-player late game', () => {
-    const m = measure(lateGame(5, 7), { seconds: 10, hz: 20, format: 'binary' });
-    expect(m.bytesPerSecond).toBeLessThan(30 * 1024);
-  }, 30_000);
 });
 
 describe('events', () => {

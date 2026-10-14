@@ -49,6 +49,7 @@ when the server starts. Override settings in a root `.env` (see [.env.example](.
 | `pnpm start`       | run the built server (serves the built client too)     |
 | `pnpm lint`        | ESLint + Prettier check (`pnpm format` to fix)         |
 | `pnpm typecheck`   | `tsc` in every package                                 |
+| `pnpm test:slow`   | opt-in 20-minute progression/endurance run             |
 | `pnpm test`        | Vitest in every package                                |
 | `pnpm db:generate` | create a migration from `apps/server/src/db/schema.ts` |
 | `pnpm db:migrate`  | apply migrations to `DATABASE_URL`                     |

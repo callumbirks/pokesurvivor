@@ -12,7 +12,7 @@
     "build": "node scripts/build.js",
     "start": "node dist/main.js",
     "typecheck": "tsc",
-    "test": "vitest run",
+    "test": "vitest run --pool=threads --maxWorkers=2",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx --env-file-if-exists=../../.env src/db/migrate-cli.ts"
   },

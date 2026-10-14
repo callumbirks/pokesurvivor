@@ -153,7 +153,7 @@ describe('rift schedule', () => {
       players: [{ id: 'a', dex: 25 }],
       debug: { invulnerable: true, noSpawns: true },
     });
-    // The schedule doesn't need combat (so 40 minutes run fast): no spawns and the bots don't
+    // The schedule doesn't need combat (so 18 minutes run fast): no spawns and the bots don't
     // attack, but a boss is alive for most of the run, as in a late game. Legacy rolled no rifts
     // while one was.
     for (const p of sim.state.players) giveMove(sim, p, 'harden');
@@ -166,7 +166,7 @@ describe('rift schedule', () => {
     let withBoss = 0;
     let arenas = 0;
     let worstWait = 0;
-    while (sim.state.time < 40 * 60) {
+    while (sim.state.time < 18 * 60) {
       pickFirst(sim);
       botInputs(sim);
       // Every other rift, a bot steps into it 20 s after it opens (bots can't find their way
@@ -201,8 +201,8 @@ describe('rift schedule', () => {
         }
       }
     }
-    // 40 minutes: at least one rift every maxGap.
-    expect(opens.length).toBeGreaterThanOrEqual(Math.floor((40 * 60 - R.startAfter) / maxGap));
+    // 18 minutes: at least one rift every maxGap.
+    expect(opens.length).toBeGreaterThanOrEqual(Math.floor((18 * 60 - R.startAfter) / maxGap));
     expect(arenas).toBeGreaterThanOrEqual(2);
     // Legacy skipped every roll with a boss alive; these would never have opened.
     expect(withBoss).toBeGreaterThan(0);

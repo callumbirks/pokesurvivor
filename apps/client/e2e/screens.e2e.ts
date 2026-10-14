@@ -1,9 +1,10 @@
 // Single-player screens against the real server: the shop with its move bans and slots, settings sync,
 // the solo flow up to the game, and logging out and back in.
+import { randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
 
 test('shop, moves, settings, solo and login again', async ({ page }) => {
-  const name = `oak_${Date.now().toString(36).slice(-6)}`;
+  const name = `oak_${randomUUID().slice(0, 8)}`;
   await page.goto('/');
   await page.getByTestId('tab-register').click();
   await page.getByTestId('login-username').fill(name);

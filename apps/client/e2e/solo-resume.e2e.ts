@@ -2,6 +2,7 @@
 // checkpoints to the server (every 2 s of run time in most cases here, through the dev-only
 // `ps.dev.checkpointS` override, instead of every minute). After a reload the menu offers to
 // resume it on the same run id, or to end it, crediting what it had.
+import { randomUUID } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
 
 interface Checkpoint {
@@ -18,7 +19,7 @@ async function newPlayer(page: Page, opts: { fastCheckpoints?: boolean } = {}): 
   if (opts.fastCheckpoints !== false)
     await page.evaluate(() => localStorage.setItem('ps.dev.checkpointS', '2'));
   await page.getByTestId('tab-register').click();
-  await page.getByTestId('login-username').fill(`ash_${Date.now().toString(36).slice(-7)}`);
+  await page.getByTestId('login-username').fill(`ash_${randomUUID().slice(0, 8)}`);
   await page.getByTestId('login-password').fill('password123');
   await page.getByTestId('login-submit').click();
   for (let i = 0; i < 8; i++) await page.getByTestId('answer-1').click();

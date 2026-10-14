@@ -235,6 +235,10 @@ The game server and `packages/netclient` use this; see `docs/protocol.md`.
 
 ## Performance
 
+`pnpm test` runs the targeted regression suite, including a 18-minute calm rift schedule check
+through arenas and living bosses. `pnpm test:slow` opts into the broad 20-minute four-player
+progression run. Benchmarks and shield measurements remain separate opt-in commands.
+
 `pnpm --filter @pokesurvivor/sim bench` (Node 22, one laptop core): a 20-minute 4-player run of
 36,000 ticks takes ~12 s (0.34 ms/tick, rifts, arenas, events and weather included; 0.30–0.32 for
 the 2a sim on the same machine). Late game at the enemy cap: mean 0.35–0.38 ms, p99 2.0–2.5 ms.

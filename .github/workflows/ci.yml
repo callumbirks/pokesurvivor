@@ -10,7 +10,42 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  check:
+  quality:
+    name: ${{ matrix.task }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        task: [lint, typecheck]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm ${{ matrix.task }}
+
+  tests:
+    name: test (${{ matrix.package }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package: [data, protocol, sim, netclient, client]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @pokesurvivor/${{ matrix.package }} test
+
+  server:
+    name: test (server)
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -36,15 +71,44 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm lint
-      - run: pnpm typecheck
-      - run: pnpm test
-      - run: pnpm build
       - name: Apply migrations to an empty database
         run: pnpm db:migrate
-      - name: Install the Playwright browser
-        run: pnpm --filter @pokesurvivor/client exec playwright install --with-deps chromium
-      - name: Browser end-to-end tests (two players, busy blocks the start)
+      - run: pnpm --filter @pokesurvivor/server test
+
+  e2e:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: pokesurvivor
+          POSTGRES_PASSWORD: pokesurvivor
+          POSTGRES_DB: pokesurvivor
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U pokesurvivor"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 15
+    env:
+      DATABASE_URL: postgres://pokesurvivor:pokesurvivor@localhost:5432/pokesurvivor
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+      # Always check OS dependencies, even when the browser download is cached.
+      - name: Install the Playwright browser and OS dependencies
+        run: pnpm --filter @pokesurvivor/client exec playwright install --with-deps --only-shell chromium
+      - name: Browser flows (coop, solo resume, screens and manual aim)
         run: pnpm --filter @pokesurvivor/client e2e
       - uses: actions/upload-artifact@v4
         if: failure()
@@ -55,6 +119,7 @@ jobs:
             apps/client/test-results
           retention-days: 7
 
+  # This builds both apps and verifies the production image, once per run.
   docker:
     runs-on: ubuntu-latest
     steps:

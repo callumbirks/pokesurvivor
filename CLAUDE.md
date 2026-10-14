@@ -51,7 +51,8 @@ docker compose up -d     # local Postgres
 pnpm dev                 # server :3000 + client :5173 (proxies /ws, /api, /healthz, /sprites)
 pnpm lint                # ESLint + Prettier check; `pnpm format` fixes formatting
 pnpm typecheck
-pnpm test
+pnpm test                # fast regression suite
+pnpm test:slow           # opt-in 20-minute progression/endurance run
 pnpm build
 pnpm --filter @pokesurvivor/sim bench   # sim tick times (4 players, late game, stress)
 pnpm --filter @pokesurvivor/client e2e  # Playwright: starts a server (DATABASE_URL) + Vite on 3101/5181
@@ -63,7 +64,12 @@ docker build .
 Run `pnpm lint && pnpm typecheck && pnpm test` before committing. The server tests need Postgres
 (`docker compose up -d`, or `DATABASE_URL`); each test file creates and drops its own database.
 The HTTP API is documented in `docs/api.md` and the WebSocket protocol in `docs/protocol.md`;
-keep them in sync. `pnpm --filter @pokesurvivor/netclient bandwidth` measures snapshot bandwidth.
+keep them in sync. `pnpm --filter @pokesurvivor/netclient bandwidth` measures snapshot bandwidth (opt-in, not part of CI).
+
+CI runs lint, typecheck, each test package, browser flows and Docker in parallel. Docker builds
+both apps; CI does not repeat that build on another runner. Vitest uses two threads per package;
+Playwright runs isolated tests with two workers. pnpm and browser downloads are cached, and only
+the server tests and e2e jobs start Postgres. Lint skips binary sprite directories.
 
 ## Conventions
 
