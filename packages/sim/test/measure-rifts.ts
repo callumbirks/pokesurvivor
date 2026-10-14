@@ -1,6 +1,7 @@
 // Manual measurement only: never imported by the default *.test.ts suite.
 import { execFileSync } from 'node:child_process';
-import { appendFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
+import { gunzipSync } from 'node:zlib';
 import { pathToFileURL } from 'node:url';
 import { DT, TILE } from '../src/constants.js';
 import { equip } from '../src/items.js';
@@ -53,6 +54,13 @@ export interface Trial extends Cell {
   hpRemoved: number;
   fightDps: number;
   dummyDps: number;
+}
+export interface OffenseTrial extends Omit<Trial, 'kind'> {
+  kind: 'offense';
+}
+export interface DamageProbe extends Omit<Trial, 'kind' | 'won' | 'ttk'> {
+  kind: 'probe';
+  probeSeconds: number;
 }
 export const median = (xs: number[]): number => {
   const sorted = xs.slice().sort((a, b) => a - b);
@@ -494,14 +502,23 @@ function encounter(
   minute: number,
   profile: Profile,
   protectedCalibration: boolean,
-): Trial {
+  probeSeconds = 0,
+  protectedFight = false,
+): Trial | DamageProbe | OffenseTrial {
   const dps = dummyDps(sim, cell, seed);
+  if (protectedFight) sim.state.config.invulnerable = true;
   const builds = sim.state.players.map(describe);
   const level = sim.state.team.level;
   sim.debugStartArena();
   const arena = sim.state.arena!;
   const boss = sim.state.enemies.find((e) => e.id === arena.bossId)!;
   const legendHp = boss.hp;
+  if (probeSeconds) {
+    // Isolate sustained delivered damage from bot deaths and early overkill. Keep reference
+    // max HP (including HP-relative statuses), but disable low-health phases in this probe.
+    sim.state.config.invulnerable = true;
+    boss.hp = 1e12;
+  }
   let damageTaken = 0;
   let downs = 0;
   let removed = 0;
@@ -509,7 +526,9 @@ function encounter(
   sim.drainEvents();
   while (
     arena.phase === 'fight' &&
-    ticks < Math.ceil(sim.ctx.d.game.tuning.rift.arenaTime / DT) + 2
+    ticks <
+      Math.ceil((probeSeconds || sim.ctx.d.game.tuning.rift.arenaTime) / DT) +
+        (probeSeconds ? 0 : 2)
   ) {
     pickFirst(sim);
     drive(sim);
@@ -524,8 +543,7 @@ function encounter(
     ticks++;
   }
   const seconds = ticks * DT;
-  return {
-    kind: 'trial',
+  const result = {
     ...cell,
     seed,
     minute,
@@ -538,8 +556,6 @@ function encounter(
     legendHp,
     legendDamage: boss.damage,
     legendShotDamage: boss.def.shotDamage ?? 0,
-    won: arena.phase === 'won',
-    ttk: arena.phase === 'won' ? seconds : null,
     fightSeconds: seconds,
     damageTaken,
     downs,
@@ -547,6 +563,14 @@ function encounter(
     fightDps: removed / seconds,
     dummyDps: dps,
   };
+  return probeSeconds
+    ? { ...result, kind: 'probe', probeSeconds }
+    : {
+        ...result,
+        kind: protectedFight ? 'offense' : 'trial',
+        won: arena.phase === 'won',
+        ttk: arena.phase === 'won' ? seconds : null,
+      };
 }
 
 function main(): void {
@@ -566,6 +590,9 @@ function main(): void {
     'profiles',
     'progression',
     'calibrate-only',
+    'calibration',
+    'probe-seconds',
+    'combat',
   ];
   for (const key of args.keys())
     if (!allowed.includes(key)) throw new Error(`unknown argument --${key}`);
@@ -591,6 +618,25 @@ function main(): void {
   const progression = args.get('progression') ?? 'protected';
   if (!['protected', 'ordinary'].includes(progression)) throw new Error('invalid --progression');
   const protectedRun = progression === 'protected';
+  const combat = args.get('combat') ?? 'ordinary';
+  if (!['ordinary', 'protected'].includes(combat)) throw new Error('invalid --combat');
+  const probeSeconds = Number(args.get('probe-seconds') ?? 0);
+  if (!Number.isFinite(probeSeconds) || probeSeconds < 0 || probeSeconds > 120)
+    throw new Error('--probe-seconds must be between 0 and 120');
+  const calibrationPath = args.get('calibration');
+  const cached: Snapshot[] | undefined = calibrationPath
+    ? (() => {
+        const bytes = readFileSync(calibrationPath);
+        const raw = calibrationPath.endsWith('.gz')
+          ? gunzipSync(bytes).toString('utf8')
+          : bytes.toString('utf8');
+        return raw
+          .trim()
+          .split('\n')
+          .map((line) => JSON.parse(line) as Snapshot)
+          .filter((row) => row.kind === 'snapshot' && row.protected === protectedRun);
+      })()
+    : undefined;
   const out = args.get('out');
   if (out) writeFileSync(out, '');
   const emit = (v: unknown) => {
@@ -611,14 +657,36 @@ function main(): void {
     progression,
     arenaSeconds: 120,
     dummySeconds: 30,
+    calibrationPath,
+    probeSeconds,
+    combat,
+    riftTuning: createSim({ seed: 1, players: [{ id: 'metadata', dex: 25 }] }).ctx.d.game.tuning
+      .rift,
   });
   for (const meta of metas)
     for (const n of players)
       for (const archetype of types) {
         const cell: Cell = { meta, players: n, archetype };
-        const snapshots = seeds.flatMap((seed) =>
-          naturalRun(cell, seed, minutes, protectedRun, emit),
-        );
+        const snapshots = cached
+          ? cached.filter(
+              (r) =>
+                r.meta === meta &&
+                r.players === n &&
+                r.archetype === archetype &&
+                seeds.includes(r.seed) &&
+                minutes.includes(r.minute),
+            )
+          : seeds.flatMap((seed) => naturalRun(cell, seed, minutes, protectedRun, emit));
+        if (cached) {
+          for (const minute of minutes)
+            for (const seed of seeds) {
+              if (snapshots.filter((r) => r.minute === minute && r.seed === seed).length !== 1)
+                throw new Error(
+                  `missing or duplicate cached checkpoint ${meta}/${n}/${archetype}/${minute}/${seed}`,
+                );
+            }
+          snapshots.forEach(emit);
+        }
         if (args.has('calibrate-only')) continue;
         for (const minute of minutes) {
           const calibration = snapshots.filter((s) => s.minute === minute);
@@ -637,7 +705,18 @@ function main(): void {
                 sim.state.team.level = source.level;
                 sim.state.players.forEach((p, i) => loadBuild(sim, p, source.builds[i]!));
               } else synthetic(sim, cell, level, profile, calibration);
-              emit(encounter(sim, cell, seed, minute, profile, protectedRun));
+              emit(
+                encounter(
+                  sim,
+                  cell,
+                  seed,
+                  minute,
+                  profile,
+                  protectedRun,
+                  probeSeconds,
+                  combat === 'protected',
+                ),
+              );
             }
         }
         process.stderr.write(`finished ${meta}/${n}/${archetype}\n`);

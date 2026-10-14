@@ -1,14 +1,24 @@
 {
   "unreleased": {
-    "prs": [],
+    "prs": [59],
     "entries": {
       "new": [],
       "changed": [],
-      "fixed": [],
+      "fixed": ["Server restarts no longer stall when a player reconnects during shutdown."],
       "behindTheScenes": []
     }
   },
   "versions": [
+    {
+      "version": 9,
+      "date": "2026-10-14",
+      "prs": [56],
+      "entries": {
+        "changed": [
+          "Rift legends now get much tougher as a run goes on: mid- and late-game rifts are a real fight again."
+        ]
+      }
+    },
     {
       "version": 8,
       "date": "2026-10-14",

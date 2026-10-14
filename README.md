@@ -60,6 +60,9 @@ when the server starts. Override settings in a root `.env` (see [.env.example](.
 Every pull request that changes something players notice adds a line to the changelog: see
 [CONTRIBUTING.md](CONTRIBUTING.md#changelog).
 
+Manual collection/economy projections are available in [tools/gacha](tools/gacha/README.md).
+They compare hypothetical rates without changing the game or running in CI.
+
 ## License and credits
 
 Code is MIT; see [LICENSE](LICENSE). Third-party content is not MIT: the Pokémon sprites come
