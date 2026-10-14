@@ -7,13 +7,12 @@ host browser.
 
 The types are in `packages/protocol` (`messages.ts`, `validate.ts`, `tables.ts`, `wire.ts`). The
 client side is `packages/netclient`, which the browser and the bot tests share. The server is in
-`apps/server/src/game/`. `PROTOCOL_VERSION` is **8**. Version 3 added the enemies' behaviour column, buff stacks in
+`apps/server/src/game/`. `PROTOCOL_VERSION` is **7**. Version 3 added the enemies' behaviour column, buff stacks in
 `details` and the viewer's `self`. Version 4 added `gameId` to `input` and `intent`. Version 5
 adds remaining shield HP as enemy column 14 (index 13), rounded up to whole points. The enemy
 table width changes from 13 to 14, so this is breaking: deploy client and server together.
 Version 6 added the manual aim, `aim`, to `input`. Version 7 added fire held, `fire`, to
-`input`. Version 8 adds the recipient `enemy-healed` cosmetic event. Its shape codec is additive,
-but this coordinated release bumps the version handshake: deploy client and server together.
+`input`.
 
 ## Connection
 
@@ -237,9 +236,7 @@ for that client.
 
 Enemy healing uses `enemy-healed {id, x, y, amount}` on each successfully healed recipient,
 so clients can draw a green pulse and restored-HP number. This uses the existing shape codec;
-there are no new snapshot columns or changed input contracts. Version 8 explicitly versions
-this release after v7's hold-to-fire input. The handshake rejects older client/server versions,
-so client and server must deploy together.
+there are no new snapshot columns or changed input contracts. Clients ignore unknown cosmetic events.
 
 The filter works on the events' shape, not on a list of types. Events are encoded by shape: the
 first time a connection sees a type with a given set of keys, the shape goes in the JSON part;

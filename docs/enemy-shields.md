@@ -186,7 +186,6 @@ The caster keeps its heart icon, charge animation, green radius ring and heal so
 successful recipient now gets a green pulse, particles and a green `+HP` number (the pulse
 remains when damage numbers are disabled). This uses a new cosmetic `enemy-healed` event through
 the existing shape codec, with position and actual restored amount. HP already travels in the
-snapshot. The shape codec needs no new columns or input contract changes. Following the
-coordinated release decision, this follow-up uses **protocol v8**, on top of PR #27's v7
-manual-aim hold-to-fire changes. The version handshake rejects older versions, so deploy
-client and server together. The before/after balance fixture remains unchanged after syncing #27.
+snapshot. The additive shape codec needs no new columns or input contract changes, and clients
+ignore unknown cosmetic events. This follow-up retains **protocol v7**, including PR #27's
+manual-aim hold-to-fire changes. The before/after balance fixture remains unchanged after syncing #27.
