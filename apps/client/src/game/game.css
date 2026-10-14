@@ -529,6 +529,29 @@ html[data-input='gamepad'] .ps-card.focus .ds {
   .ps-toasts {
     top: 60px;
   }
+  /* Results fit a phone in landscape: wider, the four numbers in one row. */
+  .ps-results {
+    width: min(680px, 100%);
+  }
+  .ps-results h2 {
+    margin-bottom: 2px;
+  }
+  .ps-game .stats {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+    margin: 6px 0 8px;
+  }
+  .ps-game .stats > div,
+  .ps-achievement-rewards {
+    padding: 4px 8px;
+  }
+  .ps-game .stats b,
+  .ps-achievement-rewards b {
+    font-size: 18px;
+  }
+  .ps-results .row {
+    margin-top: 8px;
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   .ps-rotate-ico {
