@@ -28,14 +28,26 @@ if (play) {
     import('./app/ui-sounds.js'),
     import('./input-device.js'),
     import('./menu-nav.js'),
-  ]).then(([{ App }, { routes }, { wireUiSounds }, { installInputDevice }, { installMenuNav }]) => {
-    const root = document.querySelector<HTMLElement>('#app');
-    if (!root) throw new Error('#app is missing');
-    wireUiSounds();
-    // Prompts follow the input device in use; a gamepad moves through the menus.
-    installInputDevice();
-    installMenuNav();
-    const app = new App(root, routes);
-    void app.boot();
-  });
+    import('./ui-scale.js'),
+  ]).then(
+    ([
+      { App },
+      { routes },
+      { wireUiSounds },
+      { installInputDevice },
+      { installMenuNav },
+      { installUiScale },
+    ]) => {
+      const root = document.querySelector<HTMLElement>('#app');
+      if (!root) throw new Error('#app is missing');
+      wireUiSounds();
+      // Prompts follow the input device in use; a gamepad moves through the menus.
+      installInputDevice();
+      installMenuNav();
+      // The menus grow with large windows.
+      installUiScale();
+      const app = new App(root, routes);
+      void app.boot();
+    },
+  );
 }

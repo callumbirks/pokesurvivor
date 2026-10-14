@@ -84,6 +84,44 @@ html[data-input='gamepad'] .nav-focus {
   outline: none;
 }
 
+/* ---------- the UI scale ---------- */
+/* The menus and the in-run overlays grow with large windows (ui-scale.ts sets --ui-scale: 1, 1.5
+   or 2). The run's canvas and the living world behind the menus keep their own scales. */
+main.screens:not([data-screen='play']),
+.topbar,
+.toasts,
+.notices,
+.invite-pop,
+.ps-layer,
+.scr.over-game {
+  zoom: var(--ui-scale, 1);
+}
+
+/* ---------- scrollbars ---------- */
+/* Thin and square, a light thumb on an ink track. Scrolling lists keep the bar's room (gutter)
+   so it never covers their content. */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+  background: var(--ink);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--muted);
+  border: 2px solid var(--ink);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text);
+}
+::-webkit-scrollbar-corner {
+  background: var(--ink);
+}
+@supports not selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--muted) var(--ink);
+  }
+}
+
 /* ---------- windows ---------- */
 /* A window: the 9-slice frame (3px ink, 3px fill, 3px rule) and a hard shadow. `.box` is the
    screens' main window. */
