@@ -1,25 +1,35 @@
 {
   "unreleased": {
-    "prs": [48, 49, 50, 51, 52, 53],
+    "prs": [],
     "entries": {
-      "new": [
-        "See what your friends are up to: the Friends list and room invites show whether they're in the menus or in a solo or co-op run, with their Pokémon and run time.",
-        "In co-op you'll hear and see it when a teammate goes down, so you can go and help.",
-        "Find your Pokémon fast: search, filter and sort when picking a Pokémon for solo runs and in multiplayer rooms."
-      ],
-      "changed": [
-        "Coming back from a rift now heals everyone still standing by 30% of their max HP, as well as reviving the fallen."
-      ],
-      "fixed": [
-        "Upgrades now opens on your current partner after you change it.",
-        "In a room, changing your Pokémon now shows to everyone straight away, not only once you're ready.",
-        "Starting a solo run right after leaving a room no longer gets blocked by the old room.",
-        "Friends see your current activity again after you reconnect."
-      ],
+      "new": [],
+      "changed": [],
+      "fixed": [],
       "behindTheScenes": []
     }
   },
   "versions": [
+    {
+      "version": 8,
+      "date": "2026-10-14",
+      "prs": [48, 49, 50, 51, 52, 53],
+      "entries": {
+        "new": [
+          "See what your friends are up to: the Friends list and room invites show whether they're in the menus or in a solo or co-op run, with their Pokémon and run time.",
+          "In co-op you'll hear and see it when a teammate goes down, so you can go and help.",
+          "Find your Pokémon fast: search, filter and sort when picking a Pokémon for solo runs and in multiplayer rooms."
+        ],
+        "changed": [
+          "Coming back from a rift now heals everyone still standing by 30% of their max HP, as well as reviving the fallen."
+        ],
+        "fixed": [
+          "Upgrades now opens on your current partner after you change it.",
+          "In a room, changing your Pokémon now shows to everyone straight away, not only once you're ready.",
+          "Starting a solo run right after leaving a room no longer gets blocked by the old room.",
+          "Friends see your current activity again after you reconnect."
+        ]
+      }
+    },
     {
       "version": 7,
       "date": "2026-10-14",
