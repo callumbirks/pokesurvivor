@@ -1,8 +1,7 @@
 import { z } from 'zod';
 
 /**
- * The JSONB part of a save (`saves.data`), modelled on the legacy save (`the original game`
- * `newSave()`). Balances and the partner live in typed columns instead. Bump
+ * The JSONB part of a save (`saves.data`). Balances and the partner live in typed columns. Bump
  * `SAVE_DATA_VERSION` and add a step to `migrateSaveData` when the layout changes.
  */
 export const SAVE_DATA_VERSION = 2;

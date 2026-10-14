@@ -1,5 +1,4 @@
-// Drawing the run's entities (the drawing halves of legacy entities/{player,enemy,projectile,
-// pickup}.js, systems/{combat,hazards,rift,events}.js). The snapshots say where things are; the
+// Drawing the run's entities. The snapshots say where things are; the
 // client keeps an animator per Pokémon and plays one-shot animations from events (casts, hits,
 // enemy actions) and a fading Faint for the defeated.
 import { loadGameData, type AnimationName } from '@pokesurvivor/data';

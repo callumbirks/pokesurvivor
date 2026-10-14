@@ -1,6 +1,5 @@
-// Display text for what the sim sends as ids: level-up cards, moves, items, types (legacy
-// systems/levelup.js built these with the cards; the sim sends only ids, and the client turns them
-// into titles and descriptions from the data).
+// Display text for what the sim sends as ids: level-up cards, moves, items and types.
+// The client turns these into titles and descriptions from the data.
 import { loadGameData, t } from '@pokesurvivor/data';
 import type { CardOption } from '@pokesurvivor/sim';
 import { typeColor } from '../icons.js';
