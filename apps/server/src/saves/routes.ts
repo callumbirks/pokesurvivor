@@ -21,6 +21,8 @@ export interface SaveRoutesOptions {
   db: Database;
   secureCookies: boolean;
   economy: EconomyConfig;
+  /** The partner changed (the room, if any, shows the new one to its members). */
+  onPartnerChanged?: (userId: string) => void;
 }
 
 const partnerBody = z.object({ dex: knownDexSchema, shiny: z.boolean().default(false) });
@@ -79,6 +81,7 @@ export function saveRoutes(app: FastifyInstance, opts: SaveRoutesOptions): void 
       if (!ownsPokemon(save.data, dex, shiny)) throw notOwned(dex, shiny);
       save.partner = { dex, shiny };
     });
+    opts.onPartnerChanged?.(userId);
     return getSave(db, userId);
   });
 

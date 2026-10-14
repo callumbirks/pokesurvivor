@@ -9,6 +9,7 @@ import {
   waitFor,
   withTimeout,
 } from '../test/bots.js';
+import { withLockedSave } from '../saves/service.js';
 import type { GameTestServer } from '../test/bots.js';
 
 /** A raw socket (no NetClient) and the messages it got, for protocol-level checks. */
@@ -208,6 +209,28 @@ describe('lobbies', () => {
     await owner!.client.start();
     expect((await loading).game.players.map((p) => p.id).sort()).toEqual(
       [owner!.userId, guest!.userId].sort(),
+    );
+  });
+
+  it('shows a member’s new partner to the room when they change it, even when not ready', async () => {
+    const bots = await t.party(2);
+    await lobby(bots);
+    const [owner, guest] = bots;
+    await guest!.client.setStatus('not-ready');
+    await withLockedSave(t.database.db.db, guest!.userId, (save) => {
+      save.data.owned['4'] = { at: Date.now(), from: 'gacha' };
+    });
+    const res = await t.app.inject({
+      method: 'PUT',
+      url: '/api/save/partner',
+      headers: { cookie: guest!.cookie },
+      payload: { dex: 4 },
+    });
+    expect(res.statusCode).toBe(200);
+    await waitFor(
+      () =>
+        owner!.client.roomView?.members.find((m) => m.userId === guest!.userId)?.partner?.dex === 4,
+      'the new partner shown to the owner',
     );
   });
 

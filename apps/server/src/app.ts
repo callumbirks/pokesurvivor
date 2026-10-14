@@ -121,7 +121,11 @@ export async function buildApp({
       startingCoins: economy.startingCoins,
       rateLimit: config.rateLimits.auth,
     });
-    saveRoutes(app, { ...common, economy });
+    saveRoutes(app, {
+      ...common,
+      economy,
+      onPartnerChanged: (userId) => game?.partnerChanged(userId),
+    });
     runRoutes(app, {
       ...common,
       runCaps: economy.runCaps,

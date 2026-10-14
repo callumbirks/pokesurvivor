@@ -692,5 +692,29 @@
     "unreleased": "Not released yet",
     "noReleasesYet": "No updates yet. Check back after the next release.",
     "version": "Version {0}"
+  },
+  "picker": {
+    "title": "Your Pokémon",
+    "search": "Search by name or number",
+    "searchLabel": "Search",
+    "sort": "Sort: {0}",
+    "sortDex": "No.",
+    "sortName": "Name",
+    "sortUpgrades": "Upgrades",
+    "sortRarity": "Rarity",
+    "sortNewest": "Newest",
+    "filters": "Filters",
+    "filtersOn": "Filters ({0})",
+    "clear": "Clear",
+    "all": "All",
+    "count": "{0} of {1}",
+    "noMatch": "No Pokémon match. Try another name or fewer filters.",
+    "upgradeLevels": "Upgrades: {0} levels",
+    "upgradeTag": "+{0}",
+    "choose": "Choose",
+    "itSYourPokemon": "It's your Pokémon",
+    "change": "Change Pokémon",
+    "isNowYourPokemon": "{0} is your Pokémon for this room",
+    "gameInProgress": "A game is in progress: change your Pokémon after it."
   }
 }

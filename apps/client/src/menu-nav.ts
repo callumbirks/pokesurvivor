@@ -4,6 +4,7 @@
 //                                                  `block` while playing: the pad is its own then)
 //   menuNav.press('down' | … | 'confirm' | 'back')  one step (the pad, or tests)
 //   menuNav.key(code, target)                       a key: the arrows move, Esc goes back
+//   menuNav.moveTo(el)                              the screen moves the focus on itself
 //   installMenuNav(base)                            follows the first gamepad and the keys
 // Directions repeat while held (`NAV_REPEAT_DELAY_MS`, then every `NAV_REPEAT_MS`). Whatever is
 // held when the screen on top changes is ignored until released, so a press or a stick held in
@@ -172,6 +173,9 @@ const FOCUSABLE =
 const EDGE = '.scr-head, .topbar';
 const inEdge = (e: Element | null) => !!e?.closest(EDGE);
 
+/** A screen (`screenBox()`): a lost focus is looked for again only on the same one. */
+const SCREEN = '.scr';
+
 /** The class on the control the gamepad focused (styled while the gamepad is active). */
 export const NAV_FOCUS_CLASS = 'nav-focus';
 
@@ -275,6 +279,11 @@ export class MenuNav {
     return true;
   }
 
+  /** Moves the focus to `e` (a screen leading on: from a pick to its confirm button). */
+  moveTo(e: HTMLElement): void {
+    this.focus(e);
+  }
+
   private changed(): void {
     this.keys.latch();
     this.focused?.classList.remove(NAV_FOCUS_CLASS);
@@ -313,6 +322,9 @@ export class MenuNav {
     const id = lost.dataset.testid;
     const same = id ? stops.find((e) => e.dataset.testid === id) : undefined;
     if (!same) return null;
+    // Only on the same screen: another one (Back on each) starts from its own highlight.
+    const was = lost.closest<HTMLElement>(SCREEN)?.dataset.testid;
+    if (was && was !== same.closest<HTMLElement>(SCREEN)?.dataset.testid) return null;
     this.focus(same);
     return same;
   }

@@ -179,6 +179,16 @@ export class GameServer implements PresenceSource, FriendNotifier {
     return this.roomOf.get(userId) ?? null;
   }
 
+  /**
+   * A player changed their partner (`PUT /api/save/partner`): their room's lobby shows the new
+   * one. Not during a game: its loadouts were read at the start, and presence names its Pokémon.
+   */
+  partnerChanged(userId: string): void {
+    const room = this.roomOf.get(userId);
+    const member = room?.members.get(userId);
+    if (room && member && room.phase === 'lobby') void room.refreshPartner(member);
+  }
+
   private tick(): void {
     for (const game of [...this.games]) {
       try {

@@ -154,6 +154,9 @@ lobby ──room.start (owner; everyone ready)──▶ loading ──everyone l
   partner. Clients set `busy` while in the gacha, shop, collection or settings, so a member in the gacha
   blocks the start and everyone sees who it is. This fixes the legacy bug where the game
   started without them and still showed them as playing.
+- **Partners.** The lobby shows each member's partner from their save. It's read when they join
+  and when they get ready, and when they change it (`PUT /api/save/partner`) while the room is in
+  the lobby; a change during a game shows after it.
 - **Loadouts** come from each member's server save, never from the client: their partner (dex,
   shiny if owned), its upgrades, move bindings and bans, and the legendaries they've beaten.
 - **Loading** waits for `game.loaded` from every member until `LOADING_TIMEOUT_S` (15 s). Members

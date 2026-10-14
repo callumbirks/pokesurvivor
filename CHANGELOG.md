@@ -6,12 +6,13 @@ What changed for players in each release, newest first. Generated from
 
 ## Unreleased
 
-PRs: [#48](https://github.com/callumbirks/pokesurvivor/pull/48), [#49](https://github.com/callumbirks/pokesurvivor/pull/49), [#50](https://github.com/callumbirks/pokesurvivor/pull/50), [#51](https://github.com/callumbirks/pokesurvivor/pull/51), [#53](https://github.com/callumbirks/pokesurvivor/pull/53)
+PRs: [#48](https://github.com/callumbirks/pokesurvivor/pull/48), [#49](https://github.com/callumbirks/pokesurvivor/pull/49), [#50](https://github.com/callumbirks/pokesurvivor/pull/50), [#51](https://github.com/callumbirks/pokesurvivor/pull/51), [#52](https://github.com/callumbirks/pokesurvivor/pull/52), [#53](https://github.com/callumbirks/pokesurvivor/pull/53)
 
 ### New
 
 - See what your friends are up to: the Friends list and room invites show whether they're in the menus or in a solo or co-op run, with their Pokémon and run time.
 - In co-op you'll hear and see it when a teammate goes down, so you can go and help.
+- Find your Pokémon fast: search, filter and sort when picking a Pokémon for solo runs and in multiplayer rooms.
 
 ### Changed
 
@@ -20,6 +21,7 @@ PRs: [#48](https://github.com/callumbirks/pokesurvivor/pull/48), [#49](https://g
 ### Fixed
 
 - Upgrades now opens on your current partner after you change it.
+- In a room, changing your Pokémon now shows to everyone straight away, not only once you're ready.
 - Starting a solo run right after leaving a room no longer gets blocked by the old room.
 - Friends see your current activity again after you reconnect.
 

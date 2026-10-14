@@ -2450,3 +2450,194 @@ canvas.backdrop {
     animation: none;
   }
 }
+
+/* ---------- the Pokémon picker (solo, the room's "Change Pokémon") ---------- */
+/* The search, sort and filters on top, then the grid and the details with the confirm button.
+   The screens fill the window, so only the grid and the details scroll and the button stays in
+   view. */
+.scr-solo .page-col,
+.scr-lobby.picking .page-col {
+  height: 100%;
+}
+.scr-solo .page-col > .box,
+.scr-lobby.picking .page-col > .box {
+  flex: 1 1 0;
+}
+.scr-solo .page-col > .box > .box-body,
+.scr-lobby.picking .page-col > .box > .box-body {
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+.scr-lobby.picking .lobby-content,
+.page-col .box .picker {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.picker {
+  gap: 8px;
+}
+.picker-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.picker-search {
+  flex: 1 1 200px;
+  width: auto;
+  min-width: 120px;
+  padding: 6px 10px;
+}
+.picker-search::placeholder {
+  color: var(--muted);
+}
+.picker-search::-webkit-search-cancel-button {
+  filter: grayscale(1) brightness(1.6);
+}
+.picker-sort {
+  flex: none;
+  min-width: 128px;
+}
+.picker-count {
+  flex: none;
+  margin-left: auto;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.picker-filters-btn {
+  display: none;
+  flex: none;
+}
+.picker-filters-btn.on {
+  color: var(--gold);
+}
+.picker-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.picker-filters .gen-tabs {
+  padding: 2px 2px 4px;
+}
+.picker-filters .filters {
+  margin: 0;
+}
+/* Types as their coloured tags; the chosen one gets a light outline (as the colour swatches). */
+.picker-types .chip {
+  padding: 2px;
+  line-height: 0;
+}
+.picker-types .chip .type {
+  margin: 0;
+}
+.picker-types .chip.on {
+  background: transparent;
+  box-shadow: inset 0 0 0 2px var(--text);
+}
+.picker-split {
+  flex: 1 1 auto;
+  min-height: 0;
+  grid-template-rows: minmax(0, 1fr);
+}
+.picker .grid-col {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.page-col .box .picker .grid {
+  flex: 1 1 auto;
+  max-height: none;
+  min-height: 0;
+  align-content: start;
+}
+.picker-empty {
+  grid-column: 1 / -1;
+}
+.picker-detail {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 10px 12px;
+}
+.stage.compact {
+  min-height: 0;
+  padding: 8px 0;
+}
+.picker-info {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+.picker-foot {
+  flex: none;
+}
+.picker-foot .btn.wide-btn {
+  margin: 8px 0 0;
+}
+.picker-foot .btn.big-btn {
+  padding: 10px 16px;
+}
+.picker-note {
+  margin: 6px 0 0;
+  font-size: 13px;
+}
+/* A cell's rarity and its upgrade levels. */
+.cell-foot {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.cell-tag {
+  font-size: 11px;
+  line-height: 14px;
+  padding: 0 3px;
+}
+/* Phones in portrait: the details under the grid. */
+@media (max-width: 760px) {
+  .picker-split {
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+  .picker-detail {
+    max-height: 42vh;
+  }
+}
+/* Phones in landscape: the filters fold behind a button, and their rows scroll sideways. */
+@media (max-height: 520px) {
+  .picker {
+    gap: 6px;
+  }
+  .picker-filters-btn {
+    display: inline-block;
+  }
+  .picker-filters {
+    display: none;
+    gap: 4px;
+  }
+  .picker.filters-open .picker-filters {
+    display: flex;
+  }
+  .picker-filters .gen-tabs,
+  .picker-filters .filters {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    flex: none;
+  }
+  .picker-filters .gen-tab {
+    padding: 3px 10px;
+  }
+  .picker-count {
+    display: none;
+  }
+  .picker-detail {
+    padding: 6px 8px;
+  }
+  .picker-detail .stage {
+    margin: 2px auto;
+  }
+  .picker-foot .btn.big-btn {
+    font-size: 18px;
+    padding: 6px 12px;
+  }
+}
