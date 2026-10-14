@@ -116,4 +116,10 @@ test('two players: invite, ready, busy blocks the start, then both play', async 
   await pb.waitForTimeout(500);
   await expect(pb.locator('.toasts')).not.toContainText('host now');
   await expect(pb.locator('.toasts')).not.toContainText(`${a} left`);
+
+  // A's Friends list shows what B is doing: the coop game, their Pokémon and its run time.
+  await pa.evaluate(() => (location.hash = '#friends'));
+  await expect(pa.getByTestId(`friend-${b}`).getByTestId('presence')).toHaveText(
+    /^Multiplayer • Charmander • \d+:\d\d$/,
+  );
 });
