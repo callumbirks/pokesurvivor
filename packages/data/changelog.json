@@ -1,10 +1,13 @@
 {
   "unreleased": {
-    "prs": [],
+    "prs": [46],
     "entries": {
       "new": [],
-      "changed": [],
-      "fixed": [],
+      "changed": ["A bigger partner card on the main menu, and a softer selection highlight."],
+      "fixed": [
+        "Menus scale up on large screens, the gacha screen keeps its shape on wide monitors, Esc works after using a drop-down, and the first press on a menu moves from the highlighted entry.",
+        "Controller button prompts no longer flicker to the keyboard's when Steam Input or another remapper is running."
+      ],
       "behindTheScenes": []
     }
   },

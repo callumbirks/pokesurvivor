@@ -136,7 +136,11 @@ export function tabs<T extends string>(
           class: ['tab', it.id === current && 'on'],
           role: 'tab',
           'aria-selected': it.id === current ? 'true' : 'false',
-          dataset: it.testid ? { testid: it.testid } : undefined,
+          // The open tab is where the gamepad's first press starts.
+          dataset: {
+            ...(it.testid ? { testid: it.testid } : {}),
+            ...(it.id === current ? { navDefault: '' } : {}),
+          },
           on: { click: () => onPick(it.id) },
         },
         it.label,

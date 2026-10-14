@@ -31,6 +31,9 @@
   --ink: #141012;
   /* Notices and highlights only. */
   --gold: #ffd65c;
+  /* The selection bar, open tabs and primary buttons: a warm light dimmer than the text, so
+     it doesn't flash (the dark text on it is 9.9:1). */
+  --bar: #d9cdb5;
   /* Titles drawn straight on the field. */
   --title: #f7f0de;
   --red: #ff6b5a;
@@ -82,6 +85,44 @@ html[data-input='gamepad'] .nav-focus {
 }
 :focus:not(:focus-visible) {
   outline: none;
+}
+
+/* ---------- the UI scale ---------- */
+/* The menus and the in-run overlays grow with large windows (ui-scale.ts sets --ui-scale: 1, 1.5
+   or 2). The run's canvas and the living world behind the menus keep their own scales. */
+main.screens:not([data-screen='play']),
+.topbar,
+.toasts,
+.notices,
+.invite-pop,
+.ps-layer,
+.scr.over-game {
+  zoom: var(--ui-scale, 1);
+}
+
+/* ---------- scrollbars ---------- */
+/* Thin and square, a light thumb on an ink track. Scrolling lists keep the bar's room (gutter)
+   so it never covers their content. */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+  background: var(--ink);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--muted);
+  border: 2px solid var(--ink);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text);
+}
+::-webkit-scrollbar-corner {
+  background: var(--ink);
+}
+@supports not selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--muted) var(--ink);
+  }
 }
 
 /* ---------- windows ---------- */
@@ -221,7 +262,7 @@ html[data-input='gamepad'] .nav-focus {
   visibility: hidden;
 }
 .cursor-item.on {
-  background: var(--text);
+  background: var(--bar);
   color: var(--bg);
 }
 .cursor-item.on::before {
@@ -298,8 +339,11 @@ html[data-input='gamepad'] .cursor-item.nav-focus {
 }
 .btn.primary,
 .btn.gold {
-  background: var(--text);
+  background: var(--bar);
   color: var(--bg);
+  box-shadow:
+    inset 0 0 0 3px var(--bar),
+    4px 4px 0 var(--ink);
 }
 .btn.ghost {
   background: transparent;

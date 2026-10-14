@@ -97,18 +97,20 @@ const KEY_ACTIONS: Readonly<Record<string, NavAction>> = {
   ArrowLeft: 'left',
   ArrowRight: 'right',
   Escape: 'back',
+  Enter: 'confirm',
 };
 
-/** Typing in a field (or moving a slider) keeps the arrows and Esc for itself. */
-function editing(target: EventTarget | null): boolean {
+/**
+ * Typing in a field (or moving a slider) keeps the arrows and Esc for itself. A drop-down keeps
+ * the arrows (they change its value) but not Esc: while its list is open the browser takes the
+ * key to close it, so an Esc that reaches the page means it's closed, and goes back.
+ */
+function editing(target: EventTarget | null, action: NavAction): boolean {
   if (!(target instanceof HTMLElement)) return false;
   if (target instanceof HTMLInputElement)
     return target.type !== 'checkbox' && target.type !== 'radio';
-  return (
-    target instanceof HTMLTextAreaElement ||
-    target instanceof HTMLSelectElement ||
-    target.isContentEditable
-  );
+  if (target instanceof HTMLSelectElement) return action !== 'back';
+  return target instanceof HTMLTextAreaElement || target.isContentEditable;
 }
 
 const isDir = (k: string): k is NavDir =>
@@ -166,6 +168,10 @@ export interface NavScope {
 const FOCUSABLE =
   'button, a[href], input:not([type=hidden]), select, textarea, [tabindex]:not([tabindex="-1"])';
 
+/** The rows along a screen's edge (its title row, the top bar) that only up moves enter. */
+const EDGE = '.scr-head, .topbar';
+const inEdge = (e: Element | null) => !!e?.closest(EDGE);
+
 /** The class on the control the gamepad focused (styled while the gamepad is active). */
 export const NAV_FOCUS_CLASS = 'nav-focus';
 
@@ -215,7 +221,22 @@ export class MenuNav {
    */
   key(code: string, target: EventTarget | null): boolean {
     const action = KEY_ACTIONS[code];
-    if (!action || this.stack.length || editing(target)) return false;
+    if (!action || this.stack.length) return false;
+    // Esc in a text field leaves it (the next Esc goes back).
+    if (
+      action === 'back' &&
+      (target instanceof HTMLTextAreaElement ||
+        (target instanceof HTMLInputElement &&
+          !['checkbox', 'radio', 'range'].includes(target.type)))
+    ) {
+      target.blur();
+      return true;
+    }
+    if (editing(target, action)) return false;
+    // Enter on a focused control is the browser's (it presses it); with nothing focused it
+    // presses the highlighted one.
+    if (action === 'confirm' && target instanceof Element && target.matches(FOCUSABLE))
+      return false;
     return this.press(action);
   }
 
@@ -225,17 +246,24 @@ export class MenuNav {
     if (!scope || scope.block) return false;
     if (action === 'back') return this.back(scope);
     const stops = this.stops(scope.root);
-    const current = this.current(scope.root, stops);
+    let current = this.current(scope.root, stops);
     if (!current) {
-      // The first press shows where the focus is.
       const first = this.preferred(scope.root, stops);
       if (!first) return false;
       this.focus(first);
-      return true;
+      // A highlight already on screen (a cursor list's selection bar, the open tab) is where the
+      // focus is: the first press acts from it. Otherwise it shows where the focus is.
+      if (!first.matches('[data-nav-default]')) return true;
+      current = first;
     }
     if (action === 'confirm') return this.activate(current, scope.root);
     if (this.adjust(current, action, scope.root)) return true;
-    const others = stops.filter((e) => e !== current);
+    // The title row's Back and the top bar are reached by going up (or with B), not by a
+    // sideways move that happens to point at them.
+    const sideways = action === 'left' || action === 'right';
+    const others = stops.filter(
+      (e) => e !== current && !(sideways && !inEdge(current) && inEdge(e)),
+    );
     const i = pickNext(
       rectOf(current),
       others.map((e) => rectOf(e)),

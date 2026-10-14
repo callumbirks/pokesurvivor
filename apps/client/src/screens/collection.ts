@@ -127,13 +127,20 @@ export function collectionScreen(app: App, params: URLSearchParams): Screen {
               'button',
               {
                 class: ['cell', !own && 'locked', p.dex === selected && 'on'],
-                dataset: { testid: `dex-${p.dex}` },
+                // The selected Pokémon is where the gamepad's first press starts.
+                dataset: {
+                  testid: `dex-${p.dex}`,
+                  ...(p.dex === selected ? { navDefault: '' } : {}),
+                },
                 on: {
                   click: () => {
                     selected = p.dex;
                     viewShiny = isPartner && s.partner.shiny && ownsShiny(p.dex);
-                    for (const c of grid.querySelectorAll('.cell'))
-                      c.classList.toggle('on', c.getAttribute('data-testid') === `dex-${p.dex}`);
+                    for (const c of grid.querySelectorAll('.cell')) {
+                      const on = c.getAttribute('data-testid') === `dex-${p.dex}`;
+                      c.classList.toggle('on', on);
+                      c.toggleAttribute('data-nav-default', on);
+                    }
                     renderDetail();
                   },
                 },

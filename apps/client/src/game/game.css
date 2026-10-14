@@ -198,7 +198,7 @@
 .ps-card:hover,
 .ps-card:focus-visible,
 html[data-input='gamepad'] .ps-card.focus {
-  background: var(--text);
+  background: var(--bar);
   color: var(--bg);
   outline: none;
 }

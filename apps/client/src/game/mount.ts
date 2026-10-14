@@ -18,6 +18,7 @@ import {
 import { glyphText, inputHint } from '../glyphs.js';
 import { inputDevice, installInputDevice } from '../input-device.js';
 import { installMenuNav, menuNav } from '../menu-nav.js';
+import { installUiScale } from '../ui-scale.js';
 import { CROSSHAIR_COLORS, settings } from '../settings.js';
 import { preloadSprites } from '../sprites.js';
 import { AchievementTracker, type AchievementSave } from './achievements.js';
@@ -115,6 +116,7 @@ class GameScreen {
     host.append(this.root);
     installInputDevice();
     installMenuNav();
+    installUiScale();
     // The gamepad plays (or picks choices, `input.ts`); the pause menu and the results push their
     // own menu scopes over this.
     this.offs.push(menuNav.push({ root: this.root, block: true }));
