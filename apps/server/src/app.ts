@@ -92,6 +92,15 @@ export async function buildApp({
       })
     : null;
   app.decorate('game', game);
+  app.addHook('onRequest', async (_request, reply) => {
+    if (game?.draining)
+      return reply
+        .code(503)
+        .header('retry-after', '1')
+        .send({
+          error: { code: 'server_draining', message: 'The server is restarting' },
+        });
+  });
 
   const runSweeper = db
     ? new RunSweeper({
@@ -102,9 +111,9 @@ export async function buildApp({
       })
     : null;
   app.decorate('runSweeper', runSweeper);
-  app.addHook('onReady', (done) => {
+  app.addHook('onReady', async () => {
+    await game?.restore();
     runSweeper?.start();
-    done();
   });
   app.addHook('preClose', async () => runSweeper?.stop());
   // Sockets close before Fastify waits for connections to end.

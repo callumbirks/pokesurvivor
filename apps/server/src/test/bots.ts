@@ -267,6 +267,8 @@ export interface GameTestServer {
   bot(opts?: BotOptions): Promise<Bot>;
   /** Bots that are all friends with each other, connected. */
   party(n: number, opts?: BotOptions | ((i: number) => BotOptions)): Promise<Bot[]>;
+  /** Real app shutdown/rebuild, same DB and port; existing clients retry automatically. */
+  restart(downtimeMs?: number): Promise<void>;
   close(): Promise<void>;
 }
 
@@ -290,7 +292,7 @@ export async function createGameTestServer(
     choiceTimeoutS: 30,
     ...game,
   };
-  const app = await buildApp({ config, db: database.db, simDebug: options.simDebug });
+  let app = await buildApp({ config, db: database.db, simDebug: options.simDebug });
   const address = await app.listen({ host: '127.0.0.1', port: 0 });
   const url = `${address.replace('http', 'ws')}/ws`;
   const bots: Bot[] = [];
@@ -316,8 +318,12 @@ export async function createGameTestServer(
   }
 
   return {
-    app,
-    game: app.game as GameServer,
+    get app() {
+      return app;
+    },
+    get game() {
+      return app.game as GameServer;
+    },
     database,
     url,
     bot,
@@ -327,6 +333,13 @@ export async function createGameTestServer(
       await makeFriends(database, list);
       await Promise.all(list.map((b) => b.connect()));
       return list;
+    },
+    async restart(downtimeMs = 0) {
+      await app.game!.shutdown();
+      await app.close();
+      if (downtimeMs) await sleep(downtimeMs);
+      app = await buildApp({ config, db: database.db, simDebug: options.simDebug });
+      await app.listen({ host: '127.0.0.1', port: Number(new URL(address).port) });
     },
     async close() {
       for (const b of bots) b.close();

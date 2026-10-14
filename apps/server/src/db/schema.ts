@@ -16,6 +16,14 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 import type { SaveData } from '../saves/schema.js';
+import type { SavedRoom } from '../game/room.js';
+
+/** Consumed once on boot; written atomically before a graceful process exit. */
+export const roomRestartState = pgTable('room_restart_state', {
+  id: integer('id').primaryKey(),
+  format: integer('format').notNull(),
+  rooms: jsonb('rooms').$type<SavedRoom[]>().notNull(),
+});
 
 const createdAt = () => timestamp('created_at', { withTimezone: true }).notNull().defaultNow();
 

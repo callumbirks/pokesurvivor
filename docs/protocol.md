@@ -31,7 +31,8 @@ Version 6 added the manual aim, `aim`, to `input`. Version 7 added fire held, `f
    and reconnects if it has heard nothing for 3 heartbeats.
 5. **Reconnect.** `NetClient` reconnects with backoff from 0.5 s, doubling to 10 s with ±25%
    jitter. It doesn't reconnect after 4401, 4409 or 4426 (`FINAL_CLOSE_CODES`). On 1012 (server
-   restarting) it reconnects, which reaches the new instance after a deploy.
+   restarting) it reconnects to the replacement instance. Retries stop after three minutes
+   (`reconnectTimeoutMs`); a stalled connection/hello is retried after 10 s.
 
 **Limits.** Client messages are JSON text of at most 4 KB (larger ones close the socket with 1009).
 The rate limit is 60 messages/s sustained with a burst of 120: messages over it are dropped, and
@@ -293,20 +294,22 @@ retried after 1 s and 5 s, and then `game.results` has `credited: false`.
 
 ## Deploys
 
-On SIGTERM the server drains:
+On SIGTERM or SIGINT the server rejects new work and freezes its game loop and room timers.
+It sends `notice server-draining {deadline}`, ends active coop runs immediately with reason
+`server-shutdown`, records their earned rewards through the normal results path, and returns
+members to their lobby as not-ready. Loading games are cancelled; existing lobbies retain their
+ready/busy status. It then commits lobby codes, hosts, memberships and partners to Postgres and
+closes sockets with 1012. Active runs are not resumed.
 
-1. It sends `notice server-draining {deadline}` to everyone. `welcome.draining` is true for later
-   connections, and `room.create` / `room.start` fail with `server_draining`.
-2. It closes lobbies and games still loading, and closes their sockets with 1012. Those clients
-   reconnect, which reaches the new instance.
-3. It lets running games finish, up to `DRAIN_TIMEOUT_S` (900 s). When a game ends, its players
-   get results and are sent away with 1012.
-4. At the deadline, it ends the remaining games with reason `server-shutdown` and credits them. It
-   then closes every socket and exits.
+Boot restores the lobbies before accepting sockets. The existing login cookie identifies a
+returning member; no extra token or wire message is needed. `RESTART_RECONNECT_GRACE_S`
+(default 180 s) gives members time to return before ordinary empty-room cleanup removes them.
+Invites aren't persisted. Checkpoints protect graceful restarts, not SIGKILL or host crashes.
 
-Ctrl-C (SIGINT) in development ends games at once. Rooms live in memory: a player who
-disconnects during a drain reconnects to the new instance and can't resume the old game, but is
-still credited when it ends. See [deploy.md](deploy.md) for the stop grace period.
+Use a single replica, `stop-first` update and rollback order, and a stop grace period of at least
+45 s; see [deploy.md](deploy.md). A protocol mismatch after deploy stops automatic retries and
+shows Reload, including during a game. Reloading joins the preserved room with the current client.
+This change keeps protocol v7.
 
 ## Client library (`packages/netclient`)
 
@@ -352,4 +355,6 @@ order), forced drops and offline periods. Scenarios:
 - the run ending and crediting everyone, including a player who left;
 - grace expiry, and everyone gone;
 - an unresponsive loader dropped at loading, and a game cancelled when nobody loads;
-- SIGTERM drain, by timeout and by the last game ending.
+- graceful shutdown/restart preserving lobby state and reconnecting existing clients;
+- shutdown crediting an active run once and returning players to their lobby;
+- cancelling a loading game and expiring absent members after restart.

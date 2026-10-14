@@ -25,7 +25,7 @@ import { Room } from './room.js';
 import { Session } from './session.js';
 import { Ticker } from './ticker.js';
 import { eq, inArray } from 'drizzle-orm';
-import { users } from '../db/schema.js';
+import { users, roomRestartState } from '../db/schema.js';
 
 /** A request failed; the code goes to the client (it maps it to a UI string). */
 export class GameError extends Error {
@@ -83,7 +83,9 @@ export class GameServer implements PresenceSource, FriendNotifier {
   private readonly records = new Set<Promise<unknown>>();
   private readonly ticker: Ticker;
   private readonly heartbeat: NodeJS.Timeout;
-  private settledWaiters: (() => void)[] = [];
+  private readonly requests = new Set<Promise<void>>();
+  private restorePromise: Promise<void> | null = null;
+  private shutdownPromise: Promise<void> | null = null;
 
   constructor(private readonly opts: GameServerOptions) {
     this.db = opts.db;
@@ -128,7 +130,6 @@ export class GameServer implements PresenceSource, FriendNotifier {
   removeRoom(room: Room): void {
     this.rooms.delete(room.id);
     if (room.game && room.game.phase !== 'ended') this.removeGame(room.game);
-    this.roomSettled(room);
   }
 
   addGame(game: Game): void {
@@ -237,6 +238,10 @@ export class GameServer implements PresenceSource, FriendNotifier {
   // ---------------------------------------------------------------- sockets
 
   private accept(socket: WebSocket, request: FastifyRequest): void {
+    if (this.draining) {
+      socket.close(CloseCode.restarting, 'server restarting');
+      return;
+    }
     const conn: Connection = {
       socket,
       session: null,
@@ -329,6 +334,7 @@ export class GameServer implements PresenceSource, FriendNotifier {
     const decoded = decodeClientMessage(raw.toString('utf8'));
     if (!decoded.ok) return this.protocolError(conn, decoded.reason, decoded.rid);
     const m = decoded.message;
+    if (this.draining) return;
     if (conn.session) conn.session.lastHeard = Date.now();
 
     if (m.type === 'hello') return this.hello(conn, m.protocolVersion);
@@ -351,8 +357,11 @@ export class GameServer implements PresenceSource, FriendNotifier {
         if (game?.id === m.gameId) game.resync(session.userId);
         return;
       }
-      default:
-        void this.request(session, m);
+      default: {
+        const request = this.request(session, m);
+        this.requests.add(request);
+        void request.finally(() => this.requests.delete(request));
+      }
     }
   }
 
@@ -442,7 +451,6 @@ export class GameServer implements PresenceSource, FriendNotifier {
     this.presenceChanged(session.userId);
     this.friends.delete(session.userId);
     this.lastUsername.delete(session.userId);
-    if (this.draining) this.checkDrained();
   }
 
   private checkHeartbeats(): void {
@@ -512,6 +520,7 @@ export class GameServer implements PresenceSource, FriendNotifier {
           throw new GameError('not_friends', 'You can only invite friends');
         if (!this.isOnline(target.id))
           throw new GameError('not_online', `${target.username} is offline`);
+        if (this.draining) throw new GameError('server_draining', 'The server is restarting');
         room.invite(userId, { userId: target.id, username: target.username });
         return undefined;
       }
@@ -610,68 +619,64 @@ export class GameServer implements PresenceSource, FriendNotifier {
     return promise;
   }
 
-  /** A room is back in the lobby or closed. While draining, its members move to the new server. */
-  roomSettled(room: Room): void {
-    if (!this.draining) return;
-    if (!room.closed) {
-      const members = [...room.members.keys()];
-      room.close();
-      for (const userId of members)
-        this.sessionOf(userId)?.close(CloseCode.restarting, 'server restarting');
-    }
-    this.checkDrained();
+  // ---------------------------------------------------------------- restarts
+
+  /** Restore before accepting any sockets. Saved state is consumed to avoid resurrecting old rooms
+   * after a later ungraceful crash. This feature guarantees SIGTERM restarts, not SIGKILL. */
+  restore(): Promise<void> {
+    return (this.restorePromise ??= this.restoreRooms());
   }
 
-  // ---------------------------------------------------------------- deploys
-
-  /** Rooms with a game loading or running (what a deploy waits for). */
-  private busyRooms(): Room[] {
-    return [...this.rooms.values()].filter((r) => r.phase !== 'lobby');
+  private async restoreRooms(): Promise<void> {
+    const [saved] = await this.db.select().from(roomRestartState).where(eq(roomRestartState.id, 1));
+    if (!saved) return;
+    if (saved.format !== 1) throw new Error(`Unsupported room checkpoint format ${saved.format}`);
+    for (const data of saved.rooms) {
+      const owner = data.members.find((m) => m.userId === data.ownerId);
+      if (!owner) throw new Error(`Room ${data.id} has no owner in checkpoint`);
+      const room = new Room(this, owner, data);
+      this.rooms.set(room.id, room);
+      room.restoreGrace();
+    }
+    await this.db.delete(roomRestartState).where(eq(roomRestartState.id, 1));
+    this.log.info({ rooms: this.rooms.size }, 'restored rooms after restart');
   }
 
-  private checkDrained(): void {
-    if (this.busyRooms().length || this.records.size) return;
-    for (const waiter of this.settledWaiters.splice(0)) waiter();
+  /** SIGTERM: reject work, freeze timers and the sim, await in-flight work, commit the
+   * checkpoint, then close sockets. A failed write rejects shutdown instead of claiming success. */
+  shutdown(): Promise<void> {
+    return (this.shutdownPromise ??= this.saveAndClose());
   }
 
-  /**
-   * SIGTERM: stop creating rooms and games, tell everyone, send lobby-only clients away (they
-   * reconnect to the new instance), let running games finish for up to `timeoutMs`, then end
-   * the rest (crediting them) and close every socket.
-   */
-  async drain(timeoutMs = this.config.drainTimeoutMs): Promise<void> {
-    if (!this.draining) {
-      this.draining = true;
-      this.drainDeadline = Date.now() + timeoutMs;
-      for (const session of this.sessions.values())
-        session.send({ type: 'notice', code: 'server-draining', deadline: this.drainDeadline });
-      // Lobbies (and games still loading) move to the new instance; running games stay.
-      for (const room of [...this.rooms.values()])
-        if (room.phase === 'lobby' || room.phase === 'loading') room.close();
-      for (const session of [...this.sessions.values()])
-        if (!this.roomOf.has(session.userId))
-          session.close(CloseCode.restarting, 'server restarting');
-    }
-    const settled = new Promise<void>((resolve) => this.settledWaiters.push(resolve));
-    this.checkDrained();
-    let timer: NodeJS.Timeout | undefined;
-    const timedOut = await Promise.race([
-      settled.then(() => false),
-      new Promise<boolean>((resolve) => (timer = setTimeout(() => resolve(true), timeoutMs))),
-    ]);
-    clearTimeout(timer);
-    if (timedOut) {
-      this.log.warn({ rooms: this.busyRooms().length }, 'drain timed out; ending running games');
-      for (const room of this.busyRooms()) room.game?.forceEnd('server-shutdown');
-    }
+  private async saveAndClose(): Promise<void> {
+    this.draining = true;
+    this.drainDeadline = Date.now() + 30_000;
+    this.ticker.stop();
+    clearInterval(this.heartbeat);
+    // A signal during boot must not overwrite rooms that are still being restored.
+    await this.restore();
+    for (const room of this.rooms.values()) room.suspend();
+    for (const session of this.sessions.values())
+      session.send({ type: 'notice', code: 'server-draining', deadline: this.drainDeadline });
+    await Promise.allSettled([...this.requests]);
+    for (const room of this.rooms.values()) room.finishForRestart();
     await Promise.allSettled([...this.records]);
+    // Serialize now: no sim tick, socket callback or request can mutate this checkpoint.
+    const rooms = structuredClone([...this.rooms.values()].map((r) => r.snapshot()));
+    await this.db
+      .insert(roomRestartState)
+      .values({ id: 1, format: 1, rooms })
+      .onConflictDoUpdate({ target: roomRestartState.id, set: { format: 1, rooms } });
+    this.log.info({ rooms: rooms.length }, 'saved rooms for restart');
     this.close();
   }
 
-  /** Closes every socket and stops the loop (after `drain`, or in tests). */
+  /** Closes sockets and stops callbacks without removing membership (also used by tests). */
   close(): void {
+    this.draining = true;
     this.ticker.stop();
     clearInterval(this.heartbeat);
+    for (const room of this.rooms.values()) room.suspend();
     for (const session of [...this.sessions.values()])
       session.close(CloseCode.restarting, 'server restarting');
   }

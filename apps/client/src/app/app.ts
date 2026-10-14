@@ -300,12 +300,14 @@ export class App {
             : t('app.connectionFailed');
       notice('connection', h('span', null, text, ' ', reload), 'error');
     }
+    this.root.classList.toggle('game-notices', this.gameShowsNotices);
     this.renderTopbar();
   }
 
   /** A multiplayer game is on screen: it shows room and connection notices itself. */
   get gameShowsNotices(): boolean {
-    return this.routeName === 'play' && this.game?.kind === 'coop';
+    // A terminal failure needs the shell's reload button even while a run is on screen.
+    return this.routeName === 'play' && this.game?.kind === 'coop' && this.net?.state !== 'failed';
   }
 
   private roomNotice(code: NoticeCode, usernames: string[]): void {

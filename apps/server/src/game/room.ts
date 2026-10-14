@@ -37,6 +37,12 @@ interface Invite {
   timer: NodeJS.Timeout;
 }
 
+export interface SavedRoom {
+  id: string;
+  ownerId: string;
+  members: Omit<Member, 'graceTimer'>[];
+}
+
 const ROOM_ID_CHARS = 'abcdefghjkmnpqrstuvwxyz23456789';
 
 function newRoomId(): string {
@@ -45,7 +51,7 @@ function newRoomId(): string {
 }
 
 export class Room {
-  readonly id = newRoomId();
+  readonly id: string;
   ownerId: string;
   phase: RoomPhase = 'lobby';
   readonly members = new Map<string, Member>();
@@ -59,9 +65,48 @@ export class Room {
   constructor(
     private readonly server: GameServer,
     owner: { userId: string; username: string },
+    saved?: SavedRoom,
   ) {
+    this.id = saved?.id ?? newRoomId();
     this.ownerId = owner.userId;
-    this.addMember(owner.userId, owner.username);
+    if (!saved) this.addMember(owner.userId, owner.username);
+    else {
+      for (const m of saved.members) {
+        this.members.set(m.userId, { ...m, graceTimer: null });
+        this.server.setRoomOf(m.userId, this);
+      }
+    }
+  }
+
+  snapshot(): SavedRoom {
+    return {
+      id: this.id,
+      ownerId: this.ownerId,
+      members: [...this.members.values()].map(({ graceTimer: _timer, ...m }) => m),
+    };
+  }
+
+  /** Running games end with their earned rewards; loading games return to their lobby. */
+  finishForRestart(): void {
+    if (this.phase === 'loading') this.cancelGame();
+    else if (this.phase === 'running') this.game?.forceEnd('server-shutdown');
+  }
+
+  /** Boot starts a fresh grace window, using the normal empty-room cleanup. */
+  restoreGrace(): void {
+    for (const m of this.members.values())
+      this.armGrace(m, this.server.config.restartReconnectGraceMs);
+  }
+
+  /** Stop room callbacks without removing membership. */
+  suspend(): void {
+    if (this.loadingTimer) clearTimeout(this.loadingTimer);
+    this.loadingTimer = null;
+    for (const m of this.members.values()) {
+      if (m.graceTimer) clearTimeout(m.graceTimer);
+      m.graceTimer = null;
+    }
+    for (const i of this.invites.values()) clearTimeout(i.timer);
   }
 
   // ---------------------------------------------------------------- views and messages
@@ -272,19 +317,25 @@ export class Room {
 
   /** The member's socket closed: keep their place for the reconnect grace. */
   disconnected(userId: string): void {
+    if (this.server.draining) return;
     const m = this.members.get(userId);
     if (!m) return;
     if (m.inGame && this.game) {
       this.game.disconnect(userId);
       this.notice('player-disconnected', [m.username], userId);
     }
+    this.armGrace(m, this.server.config.reconnectGraceMs);
+    this.sync();
+  }
+
+  private armGrace(m: Member, timeoutMs: number): void {
+    const userId = m.userId;
     if (m.graceTimer) clearTimeout(m.graceTimer);
     m.graceTimer = setTimeout(() => {
       m.graceTimer = null;
       if (this.members.get(userId) === m && !this.server.isOnline(userId))
         this.leave(userId, 'player-removed');
-    }, this.server.config.reconnectGraceMs);
-    this.sync();
+    }, timeoutMs);
   }
 
   /** The member is back (new socket): resume where they were. */
@@ -341,7 +392,7 @@ export class Room {
     } finally {
       this.starting = false;
     }
-    if (this.closed || this.phase !== 'lobby') return;
+    if (this.closed || this.server.draining || this.phase !== 'lobby') return;
     // Someone may have changed their status or left while the saves were read.
     const stillBlocked = this.blockers();
     if (stillBlocked.length)
@@ -456,7 +507,6 @@ export class Room {
         m.status = 'not-ready';
       }
       this.sync();
-      this.server.roomSettled(this);
     });
   }
 }
