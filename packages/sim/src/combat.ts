@@ -147,8 +147,9 @@ function tickMove(ctx: Ctx, p: PlayerState, m: MoveState): void {
   m.t -= DT;
   if (m.t > 0) return;
   // Targeted moves wait for a target in reach (no animation wasted on thin air). With manual
-  // aim, the auto target still says whether there's anything to fight; a chain, which needs an
-  // enemy to start from, waits for one in the aim cone.
+  // aim, the auto target still says whether there's anything to fight, unless fire is held: then
+  // they fire anyway. A chain, which needs an enemy to start from, always waits for one in the
+  // aim cone.
   if (TARGETED.has(m.kind) && !targetInReach(ctx, p, m)) {
     m.t = 0.05;
     return;
@@ -178,6 +179,7 @@ function tickMove(ctx: Ctx, p: PlayerState, m: MoveState): void {
 
 function targetInReach(ctx: Ctx, p: PlayerState, m: MoveState): boolean {
   if (m.kind === 'chain' && isManualAim(p)) return aimedEnemy(ctx, p, reach(m)) !== null;
+  if (isManualAim(p) && p.input.fire) return true;
   const tg = targetPos(ctx, p);
   return !!tg && dist(p.x, p.y, tg.x, tg.y) <= reach(m);
 }

@@ -68,6 +68,11 @@ export interface MoveInput {
    * null: auto-aim. Persists like movement, so every call sets it.
    */
   aim?: number | null;
+  /**
+   * Fire held (the mouse button or a trigger): with manual aim, aimed moves fire as their
+   * cooldowns allow even with nothing in reach. Ignored in auto-aim. Persists like movement.
+   */
+  fire?: boolean;
 }
 
 export type Intent =
@@ -119,6 +124,7 @@ export class Sim {
     p.input.moveY = clampMoveInput(input.moveY);
     if (input.slot != null && Number.isInteger(input.slot)) p.input.slot = input.slot;
     p.input.aim = clampAimInput(input.aim);
+    p.input.fire = p.input.aim !== null && input.fire === true;
   }
 
   submitIntent(playerId: PlayerId, intent: Intent): ChoiceResult {
@@ -166,6 +172,7 @@ export class Sim {
     if (!connected) {
       p.input.moveX = 0;
       p.input.moveY = 0;
+      p.input.fire = false;
       clearOrbs(this.ctx, p.id);
       autoResolveFor(this.ctx, p.id);
     }

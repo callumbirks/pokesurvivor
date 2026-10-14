@@ -116,6 +116,11 @@ export interface PlayerInput {
    * saved before manual aim existed (read it with `!= null`).
    */
   aim: number | null;
+  /**
+   * Fire held (with manual aim only): aimed moves fire on cooldown even with no target in reach.
+   * Absent in older states (falsy).
+   */
+  fire: boolean;
 }
 
 export interface BuffState {
