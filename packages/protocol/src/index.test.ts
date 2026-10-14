@@ -26,6 +26,7 @@ describe('client messages', () => {
       { type: 'input', gameId: 'g', seq: 3, moveX: 0.5, moveY: -1, slot: 2 },
       { type: 'input', gameId: 'g', seq: 4, moveX: 0, moveY: 0, aim: 0 },
       { type: 'input', gameId: 'g', seq: 5, moveX: 0, moveY: 0, slot: null, aim: 255 },
+      { type: 'input', gameId: 'g', seq: 6, moveX: 0, moveY: 0, aim: 12, fire: true },
       { type: 'room.create', rid: 1 },
       { type: 'room.invite', rid: 2, username: 'misty' },
       { type: 'room.status', rid: 3, status: 'busy' },
@@ -83,6 +84,10 @@ describe('client messages', () => {
       { type: 'input', gameId: 'g', seq: 1, moveX: 0, moveY: 0, aim: -1 },
       { type: 'input', gameId: 'g', seq: 1, moveX: 0, moveY: 0, aim: 1.5 },
       { type: 'input', gameId: 'g', seq: 1, moveX: 0, moveY: 0, aim: null },
+      // Fire is `true` or absent, and needs an aim.
+      { type: 'input', gameId: 'g', seq: 1, moveX: 0, moveY: 0, aim: 3, fire: false },
+      { type: 'input', gameId: 'g', seq: 1, moveX: 0, moveY: 0, aim: 3, fire: 1 },
+      { type: 'input', gameId: 'g', seq: 1, moveX: 0, moveY: 0, fire: true },
     ]) {
       expect(decodeClientMessage(encode(bad)).ok).toBe(false);
     }

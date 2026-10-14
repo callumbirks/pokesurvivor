@@ -35,7 +35,14 @@ let sim: Sim | null = null;
 let encoder: SnapshotEncoder | null = null;
 let playerId = '';
 let owned = new Set<number>();
-let input = { seq: 0, moveX: 0, moveY: 0, slot: null as number | null, aim: null as number | null };
+let input = {
+  seq: 0,
+  moveX: 0,
+  moveY: 0,
+  slot: null as number | null,
+  aim: null as number | null,
+  fire: false,
+};
 let running = false;
 let paused = false;
 let ended = false;
@@ -101,6 +108,7 @@ function loop(): void {
       moveY: input.moveY,
       slot: input.slot,
       aim: input.aim === null ? null : decodeAim(input.aim),
+      fire: input.fire,
     });
     input.slot = null;
     sim.step();
@@ -200,6 +208,7 @@ scope.onmessage = (ev) => {
           moveY: m.moveY,
           slot: m.slot ?? input.slot,
           aim: m.aim,
+          fire: m.fire,
         };
         return;
       case 'intent': {

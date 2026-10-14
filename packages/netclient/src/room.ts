@@ -144,7 +144,10 @@ export class NetRoomConnection implements RoomConnection {
       moveY: input.moveY,
     };
     if (slot !== null) message.slot = slot;
-    if (input.aim != null) message.aim = encodeAim(input.aim);
+    if (input.aim != null) {
+      message.aim = encodeAim(input.aim);
+      if (input.fire) message.fire = true;
+    }
     if (this.transport.send(message)) {
       this.unacked.push({
         seq,
