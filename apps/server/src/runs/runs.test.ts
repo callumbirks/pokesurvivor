@@ -3,6 +3,9 @@ import { eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { currencyLedger, runPlayers, runs } from '../db/schema.js';
 import { DEFAULT_ECONOMY } from '../economy/config.js';
+import { getServerData } from '../data.js';
+import { testRunCaps } from '../test/caps.js';
+import { expectedAchievements, rewardTotals } from '../test/rewards.js';
 import { createTestApp, grantPokemon } from '../test/harness.js';
 import type { TestApp, TestClient } from '../test/harness.js';
 import type { SaveView } from '../saves/service.js';
@@ -10,7 +13,7 @@ import { capRunStats } from './caps.js';
 import type { RunStats } from './caps.js';
 import { recordCoopRun } from './service.js';
 
-const caps = DEFAULT_ECONOMY.runCaps;
+const caps = testRunCaps;
 
 interface FinishResponse {
   runId: string;
@@ -71,7 +74,9 @@ describe('capRunStats', () => {
         coins: 1e6,
         ticketsX1: 50,
         ticketsX10: 9,
-        shiniesCaught: [1, 2, 3, 4, 5, 6, 7],
+        shiniesCaught: getServerData()
+          .pokedex.filter((p) => getServerData().hasShinySprite(p.dex))
+          .map((p) => p.dex),
       }),
       caps,
       120,
@@ -85,7 +90,13 @@ describe('capRunStats', () => {
       coins: caps.coinsFlat + 2 * caps.coinsPerMinute,
       ticketsX1: Math.floor(caps.ticketsX1Flat + 2 * caps.ticketsX1PerMinute),
       ticketsX10: Math.floor(caps.ticketsX10Flat + 2 * caps.ticketsX10PerMinute),
-      shiniesCaught: [1],
+      shiniesCaught: getServerData()
+        .pokedex.filter((p) => getServerData().hasShinySprite(p.dex))
+        .map((p) => p.dex)
+        .slice(
+          0,
+          Math.min(caps.shiniesMax, Math.floor(caps.shiniesFlat + 2 * caps.shiniesPerMinute)),
+        ),
       progress: emptyRunProgress(),
     });
   });
@@ -117,9 +128,15 @@ describe('capRunStats', () => {
       chestsOpened: limit(caps.chestsFlat, caps.chestsPerMinute),
       itemsEquipped: Array(limit(caps.itemsFlat, caps.itemsPerMinute)).fill('leftovers'),
       movesEvolved: Array(limit(caps.evolutionsFlat, caps.evolutionsPerMinute)).fill('tackle'),
-      riftWins: ['fire'],
-      legendariesDefeated: [150],
-      rescued: [16],
+      riftWins: ['fire', 'water', 'grass', 'ice'].slice(
+        0,
+        limit(caps.riftWinsFlat, caps.riftWinsPerMinute),
+      ),
+      legendariesDefeated: limit(caps.riftWinsFlat, caps.riftWinsPerMinute) > 0 ? [150] : [],
+      rescued: [16, 19, 20, 21].slice(
+        0,
+        Math.min(caps.rescuesMax, limit(caps.rescuesFlat, caps.rescuesPerMinute)),
+      ),
     });
   });
 
@@ -132,7 +149,7 @@ describe('capRunStats', () => {
 describe('runs', () => {
   let t: TestApp;
   beforeAll(async () => {
-    t = await createTestApp();
+    t = await createTestApp({ economy: { runCaps: testRunCaps } });
   });
   afterAll(() => t.close());
 
@@ -189,12 +206,21 @@ describe('runs', () => {
     });
     expect(res.statusCode, res.body).toBe(200);
     const body = res.json<FinishResponse>();
+    const rewards = rewardTotals(
+      expectedAchievements({
+        'pokemon-owned': 2,
+        'shinies-owned': 1,
+        'best-time-minutes': Math.floor(590 / 60),
+        'best-level': 25,
+        runs: 1,
+        'total-defeated': 700,
+        'bosses-defeated': 2,
+      }),
+    );
     expect(body).toMatchObject({ runId, capped: false, stats: { durationS: 590, coins: 450 } });
     expect(body.save).toMatchObject({
-      // The run's rewards, plus achievements: own-1 (100 coins), survive-5 (200 coins),
-      // level-15 (2 tickets), boss-1 (2 tickets) and shiny-1 (3 tickets).
-      coins: 500 + 450 + 100 + 200,
-      tickets: { x1: 3 + 2 + 2 + 3, x10: 1 },
+      coins: DEFAULT_ECONOMY.startingCoins + 450 + rewards.coins,
+      tickets: { x1: 3 + rewards.tickets, x10: 1 + rewards.tickets10 },
       owned: { 133: { from: 'wild' } },
       shiny: { 133: { from: 'wild' } },
       stats: {
@@ -230,9 +256,16 @@ describe('runs', () => {
     expect(body.stats.durationS).toBeGreaterThanOrEqual(60);
     expect(body.stats.durationS).toBeLessThan(70);
     expect(body.stats.coins).toBeLessThanOrEqual(caps.coinsFlat + (70 / 60) * caps.coinsPerMinute);
-    // Plus 100 for the own-1 achievement.
-    expect(body.save.coins).toBe(500 + body.stats.coins + 100);
-    expect(body.save.tickets.x10).toBe(0);
+    const rewards = rewardTotals(
+      expectedAchievements({
+        'pokemon-owned': 1,
+        'best-time-minutes': Math.floor(body.stats.durationS / 60),
+        'best-level': 1,
+        runs: 1,
+      }),
+    );
+    expect(body.save.coins).toBe(DEFAULT_ECONOMY.startingCoins + body.stats.coins + rewards.coins);
+    expect(body.save.tickets.x10).toBe(body.stats.ticketsX10 + rewards.tickets10);
 
     const [row] = await t.db.db.select().from(runPlayers).where(eq(runPlayers.runId, runId));
     expect(row?.claimed).toMatchObject({ durationS: 3600, coins: 1_000_000 });
@@ -266,7 +299,12 @@ describe('runs', () => {
       c.post('/api/runs', { ...body, runId: runId2 }),
     ]);
     expect(both.map((r) => r.statusCode).sort()).toEqual([200, 409]);
-    expect((await c.get('/api/save')).json()).toMatchObject({ coins: 520 + 100 });
+    const rewards = rewardTotals(
+      expectedAchievements({ 'pokemon-owned': 1, 'best-level': 1, runs: 2 }),
+    );
+    expect((await c.get('/api/save')).json()).toMatchObject({
+      coins: DEFAULT_ECONOMY.startingCoins + 20 + rewards.coins,
+    });
   });
 
   it('validates the summary', async () => {
@@ -313,32 +351,45 @@ describe('runs', () => {
       },
       TZ,
     );
+    const expectedA = expectedAchievements({
+      'pokemon-owned': 1,
+      'best-time-minutes': 15,
+      'best-level': 40,
+      runs: 1,
+      'total-defeated': 2000,
+      'group-runs': 1,
+    });
+    const rewardsA = rewardTotals(expectedA);
+    const expectedB = expectedAchievements({
+      'pokemon-owned': 1,
+      'best-time-minutes': 15,
+      'best-level': 35,
+      runs: 1,
+      'total-defeated': 1500,
+      'group-runs': 1,
+    });
+    const rewardsB = rewardTotals(expectedB);
     const saveA = (await a.get('/api/save')).json<SaveView>();
     expect(saveA).toMatchObject({
-      // Plus achievements: own-1 and survive-5 (coins); survive-10, level-15, defeat-1k and
-      // group-1 (tickets); survive-15 and level-30 (×10 tickets).
-      coins: 500 + 700 + 100 + 200,
-      tickets: { x1: 2 + 4 + 2 + 2 + 2, x10: 2 },
+      coins: DEFAULT_ECONOMY.startingCoins + 700 + rewardsA.coins,
+      tickets: { x1: 2 + rewardsA.tickets, x10: rewardsA.tickets10 },
       stats: { runs: 1, groupRuns: 1, bestGroupTimeS: 900, bestTimeS: 900, bestLevel: 40 },
     });
-    expect(saveA.achievements).toHaveProperty('group-1');
+    expect(Object.keys(saveA.achievements).sort()).toEqual(expectedA.map((a) => a.id).sort());
     // Each player's unlocks come back with what they credited, for their results screen.
     const unlockedA = achievements.get(a.userId) ?? [];
-    expect(unlockedA.map((u) => u.id).sort()).toEqual(
-      [
-        'defeat-1k',
-        'group-1',
-        'level-15',
-        'level-30',
-        'own-1',
-        'survive-10',
-        'survive-15',
-        'survive-5',
-      ].sort(),
-    );
-    expect(unlockedA.find((u) => u.id === 'own-1')?.reward).toEqual({ coins: 100 });
-    expect(achievements.get(b.userId)?.some((u) => u.id === 'group-1')).toBe(true);
-    expect((await b.get('/api/save')).json()).toMatchObject({ coins: 500 + 600 + 100 + 200 });
+    expect(unlockedA.map((u) => u.id).sort()).toEqual(expectedA.map((a) => a.id).sort());
+    for (const expected of expectedA)
+      expect(unlockedA.find((u) => u.id === expected.id)?.reward).toEqual(expected.reward);
+    expect(
+      achievements
+        .get(b.userId)
+        ?.map((u) => u.id)
+        .sort(),
+    ).toEqual(expectedB.map((a) => a.id).sort());
+    expect((await b.get('/api/save')).json()).toMatchObject({
+      coins: DEFAULT_ECONOMY.startingCoins + 600 + rewardsB.coins,
+    });
     const ledger = await t.db.db
       .select()
       .from(currencyLedger)
@@ -350,7 +401,7 @@ describe('runs', () => {
 describe('leaderboard', () => {
   let t: TestApp;
   beforeAll(async () => {
-    t = await createTestApp();
+    t = await createTestApp({ economy: { runCaps: testRunCaps } });
   });
   afterAll(() => t.close());
 

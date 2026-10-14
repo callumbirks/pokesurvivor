@@ -3,6 +3,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { getServerData } from '../data.js';
 import { currencyLedger, saves } from '../db/schema.js';
 import { upgradeCost, upgradesFromData } from '../economy/config.js';
+import { DEFAULT_ECONOMY } from '../economy/config.js';
+import { expectedAchievements, rewardTotals } from '../test/rewards.js';
 import { createTestApp, grantPokemon } from '../test/harness.js';
 import type { TestApp } from '../test/harness.js';
 import { migrateSaveData, newSaveData } from './schema.js';
@@ -13,11 +15,16 @@ describe('upgrades from packages/data', () => {
   it('uses upgrades.json with the legacy cost formula', () => {
     const upgrades = upgradesFromData();
     expect(Object.keys(upgrades)).toEqual(getServerData().upgrades.map((u) => u.id));
-    expect(upgrades['max-hp']).toEqual({ maxLevel: 10, baseCost: 60, growth: 1.35 });
-    // round(60 · 1.35^l / 10) · 10
-    expect([0, 1, 2, 9].map((l) => upgradeCost(upgrades['max-hp']!, l))).toEqual([
-      60, 80, 110, 890,
-    ]);
+    const def = getServerData().upgradeById.get('max-hp')!;
+    expect(upgrades['max-hp']).toEqual({
+      maxLevel: def.maxLevel,
+      baseCost: def.baseCost,
+      growth: def.costGrowth,
+    });
+    for (const level of [0, 1, 2, def.maxLevel - 1])
+      expect(upgradeCost(upgrades['max-hp']!, level)).toBe(
+        Math.round((def.baseCost * def.costGrowth ** level) / 10) * 10,
+      );
   });
 });
 
@@ -66,24 +73,33 @@ describe('starter and moves', () => {
     const res = await c.post('/api/save/starter', { dex: 4, answers: test.map(() => 0) });
     expect(res.statusCode, res.body).toBe(200);
     const body = res.json<StarterResponse>();
+    const achievements = expectedAchievements({ 'pokemon-owned': 1 });
+    const rewards = rewardTotals(achievements);
     expect(body.save).toMatchObject({
       starter: 4,
       partner: { dex: 4, shiny: false },
       owned: { 4: { from: 'starter' } },
       personality: { trait: expect.any(String) as string },
-      // The own-1 achievement pays 100 coins, as in legacy.
-      coins: 600,
-      tickets: { x1: 0, x10: 0 },
+      coins: DEFAULT_ECONOMY.startingCoins + rewards.coins,
+      tickets: { x1: rewards.tickets, x10: rewards.tickets10 },
     });
-    expect(body.achievements.map((a) => a.id)).toEqual(['own-1']);
+    expect(body.achievements.map((a) => a.id)).toEqual(achievements.map((a) => a.id));
     const ledger = await t.db.db
       .select()
       .from(currencyLedger)
       .where(eq(currencyLedger.userId, c.userId));
-    expect(ledger.map((l) => [l.reason, l.delta, l.refId])).toEqual([
-      ['starting_grant', 500, null],
-      ['achievement_reward', 100, 'own-1'],
-    ]);
+    expect(ledger.filter((l) => l.reason === 'starting_grant').map((l) => l.delta)).toEqual(
+      DEFAULT_ECONOMY.startingCoins > 0 ? [DEFAULT_ECONOMY.startingCoins] : [],
+    );
+    for (const achievement of achievements) {
+      const entries = Object.entries(achievement.reward).filter(([, amount]) => amount > 0);
+      expect(
+        ledger
+          .filter((l) => l.reason === 'achievement_reward' && l.refId === achievement.id)
+          .map((l) => l.delta)
+          .sort(),
+      ).toEqual(entries.map(([, amount]) => amount).sort());
+    }
   });
 
   it('lets you pick any starter directly, once, while you own nothing', async () => {
