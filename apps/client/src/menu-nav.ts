@@ -184,6 +184,66 @@ function rectOf(e: Element): Rect {
   return { x: r.left, y: r.top, w: r.width, h: r.height };
 }
 
+/** A row of tabs or filter chips: left / right go to the previous / next one, in order. */
+export const NAV_ROW = 'data-nav-row';
+/** A grid of cells (Pokémon): moves go by row and column. */
+export const NAV_GRID = 'data-nav-grid';
+
+/**
+ * Where `dir` goes from `current` inside its group, measured on `stops` (the visible, enabled
+ * controls):
+ * - in a row (`data-nav-row`), left / right go to the previous / next control in document order
+ *   (so along a wrapped row too) and stop at its ends; up / down are left to geometry;
+ * - in a grid (`data-nav-grid`, columns counted from its first row), up / down go one row, to the
+ *   same column or the last cell of a shorter row, and left / right stay in the row. From its
+ *   edges geometry takes over, leaving the grid.
+ * `to`: the control, or null to stay put; undefined: use geometry, without the `exclude` ones
+ * and (leaving a grid sideways) only among those `beyond` it.
+ */
+export function groupMove(
+  current: HTMLElement,
+  dir: NavDir,
+  stops: readonly HTMLElement[],
+): { to?: HTMLElement | null; exclude: HTMLElement[]; beyond?: (r: Rect) => boolean } {
+  const sideways = dir === 'left' || dir === 'right';
+  const step = dir === 'right' || dir === 'down' ? 1 : -1;
+  const row = current.parentElement?.closest<HTMLElement>(`[${NAV_ROW}]`);
+  if (row) {
+    if (!sideways) return { exclude: [] };
+    const items = stops.filter((e) => row.contains(e));
+    return { to: items[items.indexOf(current) + step] ?? null, exclude: items };
+  }
+  const grid = current.parentElement?.closest<HTMLElement>(`[${NAV_GRID}]`);
+  if (!grid) return { exclude: [] };
+  const items = stops.filter((e) => grid.contains(e));
+  const i = items.indexOf(current);
+  const top = items[0] ? rectOf(items[0]) : null;
+  const cols = Math.max(
+    1,
+    top ? items.filter((e) => Math.abs(rectOf(e).y - top.y) < top.h / 2).length : 1,
+  );
+  const col = i % cols;
+  let to: HTMLElement | undefined;
+  if (sideways) {
+    const j = col + step;
+    if (j >= 0 && j < cols) to = items[i + step];
+  } else if (step < 0) {
+    to = items[i - cols];
+  } else {
+    // Down: the cell below, or the last one when the next row is shorter.
+    const lastRow = Math.floor((items.length - 1) / cols);
+    if (Math.floor(i / cols) < lastRow) to = items[Math.min(i + cols, items.length - 1)];
+  }
+  // Leaving sideways: only to what lies beyond the grid that way (not the filters above it).
+  const box = items.map(rectOf);
+  const beyond = sideways
+    ? step > 0
+      ? (r: Rect) => r.x >= Math.max(...box.map((b) => b.x + b.w))
+      : (r: Rect) => r.x + r.w <= Math.min(...box.map((b) => b.x))
+    : undefined;
+  return { to, exclude: items, beyond };
+}
+
 export class MenuNav {
   private readonly stack: NavScope[] = [];
   private readonly keys = new KeyRepeater(isDir);
@@ -262,11 +322,23 @@ export class MenuNav {
     }
     if (action === 'confirm') return this.activate(current, scope.root);
     if (this.adjust(current, action, scope.root)) return true;
+    // A row of tabs or chips, or a grid, moves in its own order; at its edges geometry takes
+    // over, but never back into the same group.
+    const grouped = groupMove(current, action, stops);
+    if (grouped.to === null) return true;
+    if (grouped.to) {
+      this.focus(grouped.to);
+      return true;
+    }
     // The title row's Back and the top bar are reached by going up (or with B), not by a
     // sideways move that happens to point at them.
     const sideways = action === 'left' || action === 'right';
     const others = stops.filter(
-      (e) => e !== current && !(sideways && !inEdge(current) && inEdge(e)),
+      (e) =>
+        e !== current &&
+        !grouped.exclude.includes(e) &&
+        (!grouped.beyond || grouped.beyond(rectOf(e))) &&
+        !(sideways && !inEdge(current) && inEdge(e)),
     );
     const i = pickNext(
       rectOf(current),

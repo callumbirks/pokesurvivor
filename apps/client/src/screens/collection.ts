@@ -32,9 +32,9 @@ export function collectionScreen(app: App, params: URLSearchParams): Screen {
   const box = screenBox(app, { id: 'collection', title: t('menu.pokemon') });
   const total = h('span', { class: 'title-tag', dataset: { testid: 'collection-count' } });
   box.title.after(total);
-  const genTabs = h('div', { class: 'gen-tabs' });
-  const filters = h('div', { class: 'filters' });
-  const grid = h('div', { class: 'grid', dataset: { testid: 'collection-grid' } });
+  const genTabs = h('div', { class: 'gen-tabs', dataset: { navRow: '' } });
+  const filters = h('div', { class: 'filters', dataset: { navRow: '' } });
+  const grid = h('div', { class: 'grid', dataset: { testid: 'collection-grid', navGrid: '' } });
   const detail = h('div', { class: 'panel detail', dataset: { testid: 'collection-detail' } });
   box.body.append(
     genTabs,
@@ -78,10 +78,15 @@ export function collectionScreen(app: App, params: URLSearchParams): Screen {
     replace(
       filters,
       chips.map((c) =>
-        chip(c.label, c.id === filter, () => {
-          filter = c.id;
-          render();
-        }),
+        chip(
+          c.label,
+          c.id === filter,
+          () => {
+            filter = c.id;
+            render();
+          },
+          `filter-${c.id}`,
+        ),
       ),
     );
     renderGrid();
