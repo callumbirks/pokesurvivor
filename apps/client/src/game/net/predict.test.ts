@@ -298,6 +298,53 @@ describe('prediction follows simulation time, not packet count', () => {
   const server = (x: number) => ({ x, y: 0, vx: 300, vy: 0, inLiquid: false });
   const input = (seq: number, sentAt: number) => ({ seq, sentAt, moveX: 1, moveY: 0 });
 
+  it('bounds stalled replay to 30 ticks and discards that speculation on reconnect reset', () => {
+    let moves = 0;
+    const p = new Predictor(
+      {
+        move: (...args) => {
+          moves++;
+          world.move(...args);
+        },
+      },
+      12,
+      [],
+    );
+    const ackedInput = input(1, 0);
+    const stalled = {
+      server: server(10),
+      tick: 1,
+      ackSeq: 1,
+      ackedInput,
+      unacked: [],
+      speed: 300,
+      active: true,
+    };
+    p.update({ ...stalled, now: 5000 });
+    expect(moves).toBe(30);
+    const capped = p.x;
+    moves = 0;
+    p.update({ ...stalled, now: 5100 });
+    expect(moves).toBe(30);
+    expect(p.x).toBe(capped);
+    // Run.resumed() resets the predictor while NetRoomConnection clears its input history;
+    // the reconnect's full authoritative frame must be the new baseline immediately.
+    p.reset();
+    moves = 0;
+    p.update({
+      ...stalled,
+      server: server(500),
+      tick: 200,
+      ackSeq: 0,
+      ackedInput: null,
+      now: 6000,
+    });
+    expect(moves).toBe(0);
+    expect(p.x).toBe(500);
+    expect(p.offX).toBe(0);
+    expect(p.fallback).toBe(false);
+  });
+
   it('moves identically with one keepalive or many coalesced inputs', () => {
     const sparse = new Predictor(world, 12, []);
     const dense = new Predictor(world, 12, []);

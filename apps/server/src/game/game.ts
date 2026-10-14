@@ -212,6 +212,9 @@ export class Game {
     this.events.push(...events);
     if (events.some((e) => e.type === 'choice-resolved')) this.snapshotDirty = true;
     const paused = this.sim.paused;
+    // A full resume frame discards the client's sparse paused interpolation history. Keep
+    // the reset even for backpressured sockets: their next writable frame must also be full.
+    if (this.wasPaused && !paused) for (const slot of slots) slot.encoder.reset();
     // Tick choices at 30 Hz (deadlines still run), but a frozen world only needs a heartbeat.
     // Choice mutations and pause/resume transitions are delivered on the very next tick.
     this.snapAcc += paused ? 1 : this.settings.snapshotHz;

@@ -378,7 +378,8 @@ see [deploy.md](deploy.md). No sim snapshot/restore was added.
 
 During choices, the sim still ticks at 30 Hz to enforce deadlines, but unchanged paused
 snapshots are sent at 1 Hz. Entering/leaving a pause, successful intents, connection changes and
-resync requests send a snapshot on the next tick. Snapshot `tick` continues advancing while
+resync requests send a snapshot on the next tick. Leaving a choice pause resets the encoders,
+so the immediate resume frame is full and discards sparse paused interpolation history. Snapshot `tick` continues advancing while
 `time` and movement stay frozen, so choice countdowns continue updating once per second.
 
 Local prediction replays held movement on the server tick grid, using input send timestamps

@@ -62,7 +62,7 @@ describe('input pacing', () => {
     const snapshot = (ack = 0) =>
       room.handleFrame(enc.encode(sim.state, [], ++seq, ack) as Uint8Array, Date.now());
     snapshot();
-    return { room, sent, sim, snapshot, game };
+    return { room, sent, sim, snapshot, game, enc };
   }
 
   it('samples changing input no faster than the simulation rate, independent of rendering', () => {
@@ -113,6 +113,26 @@ describe('input pacing', () => {
     expect(sent).toHaveLength(count + 1);
     expect(sent.at(-1)).toMatchObject({ moveX: 1, fire: true });
     room.setPhase('ended');
+  });
+
+  it('discards paused interpolation history when the server sends a full resume frame', () => {
+    const { room, sim, snapshot, enc } = setup();
+    sim.state.pendingLevels++;
+    sim.step();
+    snapshot();
+    for (let i = 0; i < 60; i++) sim.step();
+    snapshot();
+    expect(room.buffer.size).toBeGreaterThan(1);
+    sim.state.pendingChoices = [];
+    sim.step();
+    enc.reset();
+    const fresh = snapshot()!;
+    expect(fresh.full).toBe(true);
+    expect(fresh.paused).toBe(false);
+    expect(room.buffer.size).toBe(1);
+    const sample = room.buffer.sample(Date.now())!;
+    expect(sample.from).toBe(fresh);
+    expect(sample.to).toBe(fresh);
   });
 
   it('retains acknowledged held movement and resets the timeline on a resumed start', () => {

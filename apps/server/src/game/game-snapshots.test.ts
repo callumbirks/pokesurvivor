@@ -52,6 +52,25 @@ describe('snapshot pacing during choices', () => {
     expect(snapshots.at(-1)!.tick - before.tick).toBe(60);
   });
 
+  it('holds movement across absent keepalives until a changed input or disconnect arrives', () => {
+    const { game, snapshots } = setup();
+    game.input('a', { type: 'input', gameId: game.id, seq: 1, moveX: 1, moveY: 0 });
+    // Two seconds with no refresh, longer than several keepalive periods. Missing packets
+    // don't expire a held input or consume extra movement ticks.
+    for (let i = 0; i < 60; i++) {
+      game.tick();
+      expect(game.sim.state.players[0]!.input.moveX).toBe(1);
+      expect(game.sim.state.players[0]!.walking).toBe(true);
+    }
+    expect(snapshots.at(-1)!.ackSeq).toBe(1);
+    game.input('a', { type: 'input', gameId: game.id, seq: 3, moveX: 1, moveY: 0 });
+    game.tick();
+    expect(game.sim.state.players[0]!.input.moveX).toBe(1);
+    game.disconnect('a');
+    game.tick();
+    expect(game.sim.state.players[0]!.input.moveX).toBe(0);
+  });
+
   it('publishes a timed-out choice immediately even while another choice still pauses the game', () => {
     const { game, snapshots } = setup();
     openChoices(game);
@@ -81,6 +100,8 @@ describe('snapshot pacing during choices', () => {
     game.tick();
     expect(snapshots).toHaveLength(4);
     expect(snapshots.at(-1)!.paused).toBe(false);
+    expect(snapshots.at(-1)!.full).toBe(true);
+    expect(snapshots.at(-1)!.tick).toBe(game.sim.state.tick);
     const count = snapshots.length;
     for (let i = 0; i < 30; i++) game.tick();
     expect(snapshots.length - count).toBe(20);
