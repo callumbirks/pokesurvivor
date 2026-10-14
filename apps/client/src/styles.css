@@ -1056,7 +1056,8 @@ html[data-input='touch'] .back-btn .input-hint {
 }
 .upg-item {
   display: grid;
-  grid-template-columns: 40px 1fr auto;
+  /* The text column gives way (its words and pips wrap) so the price stays inside the card. */
+  grid-template-columns: 40px minmax(0, 1fr) auto;
   gap: 10px;
   align-items: center;
 }
@@ -1066,7 +1067,7 @@ html[data-input='touch'] .back-btn .input-hint {
   align-items: center;
   justify-content: center;
   gap: 4px;
-  min-width: 96px;
+  min-width: 84px;
   white-space: nowrap;
 }
 .upg-item .ic {
@@ -1077,6 +1078,7 @@ html[data-input='touch'] .back-btn .input-hint {
 }
 .pips {
   display: flex;
+  flex-wrap: wrap;
   gap: 3px;
   margin-top: 4px;
 }
