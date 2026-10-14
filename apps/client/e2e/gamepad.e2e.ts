@@ -111,10 +111,16 @@ test('a gamepad: glyphs, menu focus, and the pause menu', async ({ page }) => {
   await page.keyboard.press('Shift');
   await expect(html).toHaveAttribute('data-input', 'keyboard');
 
-  // In a run the pad plays: Start pauses, the d-pad moves through the pause menu, B resumes.
+  // Solo's Pokémon picker: the partner's cell is the focus, so A on it goes on to Play, and A
+  // plays.
   await page.goto('/#solo');
-  await page.getByTestId('solo-start').click();
+  await expect(page.getByTestId('solo-pick-4')).toHaveClass(/\bon\b/);
+  await press(page, A);
+  expect(await focusedId(page)).toBe('solo-start');
+  if (shots) await page.screenshot({ path: `${shots}/solo-gamepad-focus.png` });
+  await press(page, A);
   await expect(page.getByTestId('game-phase')).toHaveText('running', { timeout: 20_000 });
+  // In a run the pad plays: Start pauses, the d-pad moves through the pause menu, B resumes.
   await press(page, DOWN); // walking: no menu focus
   await expect(html).toHaveAttribute('data-input', 'gamepad');
   expect(await focusedId(page)).toBeNull();

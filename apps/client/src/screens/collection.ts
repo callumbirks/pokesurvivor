@@ -3,18 +3,18 @@
 import { t } from '@pokesurvivor/data';
 import { audio } from '../audio.js';
 import type { App, Screen } from '../app/app.js';
+import { gameData, h, replace } from '../app/dom.js';
+import { filterPokemon } from '../app/pokemon-filter.js';
 import {
-  gameData,
-  boxFor,
-  h,
-  icon,
-  rarityInfo,
-  replace,
-  sprite,
-  rarityBall,
-  typeChip,
-} from '../app/dom.js';
-import { movePoolOf, startingMoveOf } from '../app/moves.js';
+  chip,
+  markCell,
+  pokemonCell,
+  pokemonDetail,
+  RARITIES,
+  rarityChipLabel,
+  regionTabs,
+  shinyChipLabel,
+} from '../app/pokemon-views.js';
 import { toast } from '../app/toast.js';
 import { screenBox } from './common.js';
 
@@ -55,51 +55,33 @@ export function collectionScreen(app: App, params: URLSearchParams): Screen {
     total.textContent = `${Object.keys(s.owned).length} / ${data.pokedex.length}`;
     replace(
       genTabs,
-      banners.map((b) => {
-        const all = data.pokedex.filter((p) => p.gen === b.gen);
-        return h(
-          'button',
-          {
-            class: ['gen-tab', b.gen === gen && 'on'],
-            on: {
-              click: () => {
-                gen = b.gen;
-                render();
-              },
-            },
-          },
-          h('b', null, b.name),
-          h('small', null, `${all.filter((p) => owns(p.dex)).length}/${all.length}`),
-        );
-      }),
+      regionTabs(
+        gen,
+        (g) => {
+          gen = g;
+          render();
+        },
+        (g) => {
+          const all = data.pokedex.filter((p) => p.gen === g);
+          return `${all.filter((p) => owns(p.dex)).length}/${all.length}`;
+        },
+      ),
     );
     const chips: { id: Filter; label: string | Node }[] = [
       { id: 'all', label: t('collection.all') },
       { id: 'owned', label: t('collection.owned') },
       { id: 'missing', label: t('collection.missing') },
       // As legacy: the shiny icon, and each rarity's Poké Ball.
-      { id: 'shiny', label: h('span', null, icon('shiny', 12), ' ', t('app.shiny')) },
-      ...([5, 4, 3, 2, 1] as const).map((r) => ({
-        id: String(r) as Filter,
-        label: h('span', null, rarityBall(r, 12), ' ', rarityInfo(r).name),
-      })),
+      { id: 'shiny', label: shinyChipLabel() },
+      ...RARITIES.map((r) => ({ id: String(r) as Filter, label: rarityChipLabel(r) })),
     ];
     replace(
       filters,
       chips.map((c) =>
-        h(
-          'button',
-          {
-            class: ['chip', c.id === filter && 'on'],
-            on: {
-              click: () => {
-                filter = c.id;
-                render();
-              },
-            },
-          },
-          c.label,
-        ),
+        chip(c.label, c.id === filter, () => {
+          filter = c.id;
+          render();
+        }),
       ),
     );
     renderGrid();
@@ -109,66 +91,38 @@ export function collectionScreen(app: App, params: URLSearchParams): Screen {
   const renderGrid = () => {
     const s = app.save;
     if (!s) return;
-    const mons = data.pokedex.filter((p) => {
-      if (p.gen !== gen) return false;
-      if (filter === 'owned') return owns(p.dex);
-      if (filter === 'missing') return !owns(p.dex);
-      if (filter === 'shiny') return ownsShiny(p.dex);
-      if (filter !== 'all') return p.rarity === Number(filter);
-      return true;
-    });
+    const mons = filterPokemon(
+      data.pokedex,
+      {
+        gen,
+        shiny: filter === 'shiny',
+        rarity: /^\d$/.test(filter) ? Number(filter) : 0,
+      },
+      s,
+      (dex) => data.pokemonByDex.get(dex)?.name ?? '',
+    ).filter((p) =>
+      filter === 'owned' ? owns(p.dex) : filter === 'missing' ? !owns(p.dex) : true,
+    );
     replace(
       grid,
       mons.length
         ? mons.map((p) => {
-            const own = owns(p.dex);
             const isPartner = p.dex === s.partner.dex;
-            return h(
-              'button',
-              {
-                class: ['cell', !own && 'locked', p.dex === selected && 'on'],
-                // The selected Pokémon is where the gamepad's first press starts.
-                dataset: {
-                  testid: `dex-${p.dex}`,
-                  ...(p.dex === selected ? { navDefault: '' } : {}),
-                },
-                on: {
-                  click: () => {
-                    selected = p.dex;
-                    viewShiny = isPartner && s.partner.shiny && ownsShiny(p.dex);
-                    for (const c of grid.querySelectorAll('.cell')) {
-                      const on = c.getAttribute('data-testid') === `dex-${p.dex}`;
-                      c.classList.toggle('on', on);
-                      c.toggleAttribute('data-nav-default', on);
-                    }
-                    renderDetail();
-                  },
-                },
+            const shinyPartner = isPartner && s.partner.shiny && ownsShiny(p.dex);
+            return pokemonCell(p, {
+              testid: `dex-${p.dex}`,
+              own: owns(p.dex),
+              selected: p.dex === selected,
+              partner: isPartner,
+              hasShiny: ownsShiny(p.dex),
+              shiny: shinyPartner,
+              onClick: () => {
+                selected = p.dex;
+                viewShiny = shinyPartner;
+                markCell(grid, p.dex);
+                renderDetail();
               },
-              h('span', { class: 'no' }, String(p.dex).padStart(3, '0')),
-              isPartner
-                ? h(
-                    'span',
-                    { class: 'badge-r', title: t('collection.itSYourPartner') },
-                    icon('crown', 14),
-                  )
-                : ownsShiny(p.dex)
-                  ? h('span', { class: 'badge-r' }, icon('shiny', 12))
-                  : null,
-              h(
-                'span',
-                { class: 'cell-stage' },
-                sprite(p.dex, {
-                  scale: 1.5,
-                  silhouette: !own,
-                  shiny: isPartner && s.partner.shiny && ownsShiny(p.dex),
-                  fit: { width: 80, height: 58 },
-                  feet: true,
-                }),
-              ),
-              h('b', null, own ? p.name : '???'),
-              rarityBall(p.rarity, 12),
-            );
+            });
           })
         : h('p', { class: 'sub', style: 'grid-column:1/-1' }, t('collection.noneWithThisFilter')),
     );
@@ -184,18 +138,6 @@ export function collectionScreen(app: App, params: URLSearchParams): Screen {
     const isPartner = p.dex === s.partner.dex;
     const usingThis = isPartner && (!hasShiny || s.partner.shiny === viewShiny);
     const banner = banners.find((b) => b.gen === p.gen);
-    const bar = (label: string, v: number, max: number, text: string) =>
-      h(
-        'div',
-        { class: 'stat' },
-        h('span', null, label),
-        h(
-          'div',
-          { class: 'bar' },
-          h('i', { style: { width: `${Math.min(100, (v / max) * 100)}%` } }),
-        ),
-        h('span', null, text),
-      );
     const pick = h(
       'button',
       {
@@ -221,82 +163,19 @@ export function collectionScreen(app: App, params: URLSearchParams): Screen {
         renderDetail();
       });
     });
-    const shown = own && viewShiny;
     replace(
       detail,
-      h(
-        'div',
-        {
-          class: ['stage', shown && 'shiny'],
+      pokemonDetail(p, {
+        own,
+        hasShiny,
+        viewShiny,
+        onShiny: (shiny) => {
+          viewShiny = shiny;
+          renderDetail();
         },
-        sprite(p.dex, {
-          scale: 3,
-          lively: own,
-          silhouette: !own,
-          shiny: shown,
-          fit: boxFor({ width: 216, height: 150 }, { width: 130, height: 96 }),
-          feet: true,
-        }),
-      ),
-      hasShiny
-        ? h(
-            'div',
-            { class: 'seg' },
-            h(
-              'button',
-              {
-                class: !viewShiny ? 'on' : undefined,
-                on: { click: () => ((viewShiny = false), renderDetail()) },
-              },
-              t('app.normal'),
-            ),
-            h(
-              'button',
-              {
-                class: viewShiny ? 'on' : undefined,
-                dataset: { testid: 'view-shiny' },
-                on: { click: () => ((viewShiny = true), renderDetail()) },
-              },
-              `✦ ${t('app.shiny')}`,
-            ),
-          )
-        : null,
-      h(
-        'div',
-        { class: 'center' },
-        h(
-          'div',
-          { class: 'muted small' },
-          `#${String(p.dex).padStart(3, '0')} · ${banner?.name ?? ''}`,
-        ),
-        h('h3', null, own ? p.name : '???'),
-        h(
-          'div',
-          { style: { color: rarityInfo(p.rarity).color } },
-          rarityBall(p.rarity, 24),
-          ' ',
-          rarityInfo(p.rarity).name,
-        ),
-        own ? h('div', { style: 'margin:6px 0' }, p.types.map(typeChip)) : null,
-      ),
+      }),
       own
-        ? [
-            bar(t('collection.hp'), p.hp, 183, String(p.hp)),
-            bar(t('collection.attack'), p.attack, 1.55, `×${p.attack.toFixed(2)}`),
-            bar(t('collection.speed'), p.speed, 137, String(p.speed)),
-            h(
-              'p',
-              { class: 'small' },
-              `${t('collection.startsWith')} `,
-              h('b', { class: 'gold' }, data.moveById.get(startingMoveOf(p))?.name ?? ''),
-            ),
-            h(
-              'p',
-              { class: 'move-icons', title: t('app.learnableMoves') },
-              movePoolOf(p).map((m) => h('span', { title: m.name }, icon(`move:${m.id}`, 16))),
-            ),
-            pick,
-          ]
+        ? pick
         : h(
             'p',
             { class: 'center muted' },

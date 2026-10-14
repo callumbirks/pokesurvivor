@@ -1,11 +1,16 @@
 // The room (multiplayer lobby): members with their partner, ready / not-ready / busy and
 // connection, invites, kick, leave, and the owner's start button, disabled while anyone blocks
 // (the server's `blockers`). When the game loads, the app moves to the play screen.
+// "Change Pokémon" on your card opens the Pokémon picker in place of the room (Back returns): the
+// pick becomes the partner in the save, and the server shows it to the room. Not during a game.
 import { t } from '@pokesurvivor/data';
 import type { MemberStatus, RoomView } from '@pokesurvivor/protocol';
 import type { App, Screen } from '../app/app.js';
 import type { FriendsList } from '../app/api.js';
+import { audio } from '../audio.js';
 import { h, pokemonName, replace, sprite } from '../app/dom.js';
+import { pokemonPicker, type PokemonPicker } from '../app/pokemon-picker.js';
+import { toast } from '../app/toast.js';
 import { activityLine, dotClass, inviteButton, presenceOf, tickActivities } from './friends.js';
 import { screenBox } from './common.js';
 
@@ -20,10 +25,55 @@ export function lobbyScreen(app: App): Screen {
     { class: 'btn small ghost', dataset: { testid: 'room-leave' } },
     t('friends.leaveTheRoom'),
   );
-  const box = screenBox(app, { id: 'lobby', title: t('friends.room'), extra: [leave] });
-  const content = h('div');
+  const box = screenBox(app, {
+    id: 'lobby',
+    title: t('friends.room'),
+    extra: [leave],
+    onBack: () => (picker ? closePicker() : app.go('menu')),
+  });
+  const content = h('div', { class: 'lobby-content' });
   box.body.append(content);
   let friends: FriendsList | null = null;
+  let picker: PokemonPicker | null = null;
+
+  const inGame = () => app.net?.roomView?.phase !== 'lobby';
+
+  const openPicker = () => {
+    if (picker || inGame()) return;
+    const p = pokemonPicker(app, {
+      id: 'room',
+      confirm: {
+        label: (_, __, isPartner) => (isPartner ? t('picker.itSYourPokemon') : t('picker.choose')),
+        blocked: (_, __, isPartner) =>
+          inGame() ? t('picker.gameInProgress') : isPartner ? '' : null,
+        onConfirm: (mon, shiny, button) => {
+          void app.act(button, async () => {
+            if (inGame()) return;
+            app.setSave(await app.api.setPartner(mon.dex, shiny));
+            audio.sfx('confirm');
+            toast(t('picker.isNowYourPokemon', { 0: mon.name }), 'good');
+            closePicker();
+          });
+        },
+      },
+    });
+    picker = p;
+    box.title.textContent = t('picker.title');
+    box.el.classList.add('picking');
+    leave.classList.add('hidden');
+    replace(content, p.el);
+  };
+
+  const closePicker = () => {
+    if (!picker) return;
+    picker.destroy();
+    picker = null;
+    box.title.textContent = t('friends.room');
+    box.el.classList.remove('picking');
+    render();
+    // Back on the room, the gamepad starts from the button that opened the picker.
+    content.querySelector<HTMLElement>('[data-testid="room-change-partner"]')?.focus();
+  };
 
   leave.addEventListener('click', () => {
     void app.act(leave, async () => {
@@ -49,6 +99,19 @@ export function lobbyScreen(app: App): Screen {
       'click',
       () => void app.act(kick, () => app.net?.kick(m.userId) ?? Promise.resolve()),
     );
+    const change =
+      m.userId === me
+        ? h(
+            'button',
+            {
+              class: 'btn small',
+              disabled: room.phase !== 'lobby',
+              dataset: { testid: 'room-change-partner' },
+              on: { click: openPicker },
+            },
+            t('picker.change'),
+          )
+        : null;
     return h(
       'div',
       {
@@ -83,6 +146,7 @@ export function lobbyScreen(app: App): Screen {
         { class: ['conn', !m.connected && 'wait'] },
         m.connected ? t('friends.connected') : t('app.disconnected'),
       ),
+      change,
       kick,
     );
   };
@@ -91,6 +155,12 @@ export function lobbyScreen(app: App): Screen {
     const net = app.net;
     const room = net?.roomView;
     if (!net) return;
+    if (picker) {
+      // Picking: the room's changes only reach the confirm button (a game starting turns it off).
+      if (room) return picker.refresh();
+      closePicker();
+      return;
+    }
     leave.classList.toggle('hidden', !room);
     if (!room) {
       const create = h(
@@ -237,5 +307,11 @@ export function lobbyScreen(app: App): Screen {
     app.events.on('friends', () => void loadFriends()),
     tickActivities(app, content),
   ];
-  return { el: box.el, destroy: () => offs.forEach((o) => o?.()) };
+  return {
+    el: box.el,
+    destroy: () => {
+      picker?.destroy();
+      offs.forEach((o) => o?.());
+    },
+  };
 }
