@@ -108,7 +108,8 @@ function strings(value: unknown, path: string, out: [string, string][]) {
 }
 
 function spanishIn(text: string): string | undefined {
-  let rest = text;
+  // Placeholders (`{0}`, a controller button's `{y}`) aren't text.
+  let rest = text.replace(/\{\w+\}/g, ' ');
   // Pokémon names (Flabébé…) and a few English words legitimately carry accents.
   for (const name of [...pokemonNames, ...ACCENTED_ENGLISH]) rest = rest.split(name).join(' ');
   const accented = /\S*[À-ÖØ-öø-ÿ]\S*/.exec(rest);

@@ -124,6 +124,15 @@ uso **no comercial** y con atribución a sus artistas.
 | YoukaiMinori | <@91001329228464128> | 252, 253 |
 | ◥θ┴θ◤ | DC:<@215638650434617345> | 157, 445, 501, 504, 505, 566, 577, 595, 627, 650, 651, 658, 661, 676, 684, 707, 724, 726, 728, 729, 730, 761, 763, 790, 823, 872, 907, 991 |
 
+## Controller glyphs
+
+The gamepad button icons (`apps/client/public/glyphs/gamepad.png`) are tiles from
+[Input Prompts Pixel](https://kenney.nl/assets/input-prompts-pixel) by
+[Kenney](https://www.kenney.nl), under
+[CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) (licence in
+`apps/client/public/glyphs/LICENSE-kenney.txt`). Some PlayStation glyphs are two of the pack's
+tiles layered.
+
 ## Datos
 
 Stats base y nombres en español: [PokeAPI](https://pokeapi.co/),

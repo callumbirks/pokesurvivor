@@ -570,3 +570,21 @@
   padding-bottom: 6px;
   overflow: hidden;
 }
+/* The gamepad's highlighted option (choice-ui.ts). */
+html[data-input='gamepad'] .ps-card.focus {
+  border-color: var(--ps-gold);
+  background: rgba(255, 210, 63, 0.16);
+  transform: translateX(4px);
+  box-shadow: 0 0 0 2px rgba(255, 210, 63, 0.35);
+}
+.ps-card .key .pad-only:empty {
+  display: none;
+}
+html[data-input='gamepad'] .ps-card .key:has(.pad-only:empty) {
+  visibility: hidden;
+}
+html[data-input='gamepad'] .ps-card .key {
+  border: 0;
+  padding: 0;
+  line-height: 0;
+}

@@ -1,5 +1,8 @@
 // The choice overlay in the DOM (original implementation level-up cards, item swap and bond screens),
-// rendered from `ChoiceState`. Keys 1–4 pick, R rerolls, Backspace/Esc goes back in a bond.
+// rendered from `ChoiceState`. Keys 1–4 pick, R rerolls, Backspace/Esc goes back in a bond. With a
+// gamepad the d-pad or the stick moves a highlight and A picks it; B/X/Y pick options 2–4, Back
+// rerolls and Start goes back (`input.ts` turns the pad into these keys). Prompts follow the device
+// in use (`inputHint`).
 //
 // The state is re-derived from every snapshot (20–30 a second), so rendering is incremental: the
 // box is created once per choice (its entry animation plays once), the cards are rebuilt only when
@@ -7,6 +10,7 @@
 // of teammates still choosing are updated in place.
 import { t } from '@pokesurvivor/data';
 import { audio } from '../audio.js';
+import { glyph, inputHint, type PadButton } from '../glyphs.js';
 import { typeColor } from '../icons.js';
 import type { ChoiceState, ChoiceView, WaitingView } from './choices.js';
 import { clear, el, icon } from './dom.js';
@@ -14,6 +18,10 @@ import { cardText, itemDescription, itemName, moveName, nameList } from './text.
 
 /** Drop menu input briefly so gameplay presses cannot pick a newly visible reward. */
 export const CHOICE_INPUT_GRACE_MS = 200;
+
+/** The gamepad buttons that pick options 2–4 directly (A picks the highlighted one). */
+const DIRECT_PAD: readonly (PadButton | null)[] = [null, 'b', 'x', 'y'];
+const PAD_MOVE: Record<string, number> = { PadUp: -1, PadLeft: -1, PadDown: 1, PadRight: 1 };
 
 export class ChoiceOverlay {
   readonly root: HTMLElement;
@@ -30,6 +38,9 @@ export class ChoiceOverlay {
   private inputChoice: string | null = null;
   private inputReadyAt = Infinity;
   private pointerPress: HTMLButtonElement | null = null;
+  /** The gamepad's highlighted option, and the cards and their badges' glyph slots. */
+  private highlight = 0;
+  private cards: { el: HTMLElement; pad: HTMLElement }[] = [];
   private details: (moveId: string) => { level: number; type: string } | null = () => null;
 
   constructor(
@@ -131,6 +142,8 @@ export class ChoiceOverlay {
         this.inputChoice = inputChoice;
         this.inputReadyAt = this.clock() + CHOICE_INPUT_GRACE_MS;
         this.pointerPress = null;
+        this.highlight = 0;
+        this.showHighlight();
       }
       this.updateLive(v, w);
     } else {
@@ -142,6 +155,7 @@ export class ChoiceOverlay {
       this.inputChoice = null;
       this.inputReadyAt = Infinity;
       this.pointerPress = null;
+      this.cards = [];
     }
     // Paused for someone else's choice: a bar at the top (our own overlay shows it inside).
     if (!v && w) {
@@ -169,6 +183,20 @@ export class ChoiceOverlay {
   /** Keys while the overlay is open. Returns true if it used the key. */
   key(code: string): boolean {
     if (!this.open) return false;
+    if (code === 'PadA') {
+      if (this.inputReady()) this.pick(this.highlight);
+      return true;
+    }
+    const move = PAD_MOVE[code];
+    if (move) {
+      const n = this.cards.length;
+      if (n) {
+        this.highlight = (this.highlight + move + n) % n;
+        this.showHighlight();
+        audio.sfx('hover');
+      }
+      return true;
+    }
     const digit = /^(?:Digit|Numpad)([1-4])$/.exec(code);
     if (digit) {
       if (this.inputReady()) this.pick(Number(digit[1]) - 1);
@@ -183,6 +211,16 @@ export class ChoiceOverlay {
       return true;
     }
     return false;
+  }
+
+  /** The highlighted card, and each card's gamepad badge: A on it, B/X/Y on the others. */
+  private showHighlight(): void {
+    if (this.highlight >= this.cards.length) this.highlight = 0;
+    this.cards.forEach(({ el, pad }, i) => {
+      el.classList.toggle('focus', i === this.highlight);
+      const b = i === this.highlight ? 'a' : DIRECT_PAD[i];
+      pad.replaceChildren(...(b ? [glyph(b, 32)] : []));
+    });
   }
 
   private pick(i: number): void {
@@ -209,6 +247,7 @@ export class ChoiceOverlay {
     const countdown = el('div', { class: 'ps-deadline hidden', data: { testid: 'deadline' } });
     this.deadline = countdown;
     const cards = el('div', { class: `ps-cards${v.submitted ? ' done' : ''}` });
+    this.cards = [];
     const card = (
       i: number,
       ico: HTMLElement,
@@ -218,6 +257,7 @@ export class ChoiceOverlay {
       tint: string,
     ) => {
       const o = v.options[i];
+      const pad = el('span', { class: 'pad-only' });
       const e = el(
         'button',
         {
@@ -233,8 +273,9 @@ export class ChoiceOverlay {
           el('div', { class: 'nm' }, ...title),
           el('div', { class: 'ds' }, desc),
         ),
-        el('div', { class: 'key' }, String(i + 1)),
+        el('div', { class: 'key' }, el('span', { class: 'kb-only' }, String(i + 1)), pad),
       );
+      this.cards.push({ el: e, pad });
       cards.append(e);
     };
     const chip = (text: string, color: string) =>
@@ -248,11 +289,7 @@ export class ChoiceOverlay {
           { class: 'sub' },
           t('game.chooseReward'),
           ' · ',
-          kbd('1'),
-          ' ',
-          kbd('2'),
-          ' ',
-          kbd('3'),
+          inputHint(['1', '2', '3'], ['dpadV', 'a']),
         ),
       );
       c.options.forEach((o, i) => {
@@ -283,13 +320,19 @@ export class ChoiceOverlay {
             },
             t('game.reroll', { 0: v.rerollsLeft }),
             ' · ',
-            kbd('R'),
+            inputHint(['R'], ['select']),
           ),
         );
     } else if (c.kind === 'item') {
       box.append(
         el('h2', null, t('items.anItem')),
-        el('p', { class: 'sub' }, t('game.holdOnlyOne'), ' · ', kbd('1'), ' ', kbd('2')),
+        el(
+          'p',
+          { class: 'sub' },
+          t('game.holdOnlyOne'),
+          ' · ',
+          inputHint(['1', '2'], ['dpadV', 'a']),
+        ),
       );
       [c.held, c.found].forEach((id, i) =>
         card(
@@ -346,12 +389,15 @@ export class ChoiceOverlay {
               'button',
               { class: 'btn', type: 'button', on: { click: () => this.state.back() } },
               t('hud.back'),
+              ' · ',
+              inputHint(['Esc'], ['start']),
             ),
           ),
         );
     }
     this.waitLine = el('p', { class: 'note hidden' });
     box.append(this.waitLine);
+    this.showHighlight();
   }
 }
 
@@ -364,8 +410,4 @@ function structureKey(v: ChoiceView): string {
     v.submitted,
     v.rerollsLeft,
   ]);
-}
-
-function kbd(k: string): HTMLElement {
-  return el('kbd', null, k);
 }

@@ -1,0 +1,114 @@
+/* Controller glyphs (glyphs.ts) and what follows the active input device (input-device.ts). */
+.glyph {
+  --gs: 16px;
+  display: inline-block;
+  width: var(--gs);
+  height: var(--gs);
+  vertical-align: middle;
+  background: url('/glyphs/gamepad.png') no-repeat;
+  background-size: calc(var(--gs) * 25) var(--gs);
+  background-position: calc(var(--gi, 0) * var(--gs) * -1) 0;
+  image-rendering: pixelated;
+}
+.glyphs {
+  display: inline-flex;
+  gap: 2px;
+  vertical-align: middle;
+}
+.input-hint kbd + kbd {
+  margin-left: 4px;
+}
+.glyph[data-glyph='a'] {
+  --gi: 0;
+}
+.glyph[data-glyph='b'] {
+  --gi: 1;
+}
+.glyph[data-glyph='x'] {
+  --gi: 2;
+}
+.glyph[data-glyph='y'] {
+  --gi: 3;
+}
+.glyph[data-glyph='start'] {
+  --gi: 4;
+}
+.glyph[data-glyph='lb'] {
+  --gi: 5;
+}
+.glyph[data-glyph='rb'] {
+  --gi: 6;
+}
+.glyph[data-glyph='rt'] {
+  --gi: 7;
+}
+.glyph[data-glyph='r3'] {
+  --gi: 8;
+}
+.glyph[data-glyph='dpad'] {
+  --gi: 18;
+}
+.glyph[data-glyph='dpadH'] {
+  --gi: 19;
+}
+.glyph[data-glyph='dpadV'] {
+  --gi: 20;
+}
+.glyph[data-glyph='lstick'] {
+  --gi: 21;
+}
+.glyph[data-glyph='select'] {
+  --gi: 22;
+}
+.glyph[data-glyph='rstick'] {
+  --gi: 24;
+}
+html[data-pad='playstation'] .glyph[data-glyph='a'] {
+  --gi: 9;
+}
+html[data-pad='playstation'] .glyph[data-glyph='b'] {
+  --gi: 10;
+}
+html[data-pad='playstation'] .glyph[data-glyph='x'] {
+  --gi: 11;
+}
+html[data-pad='playstation'] .glyph[data-glyph='y'] {
+  --gi: 12;
+}
+html[data-pad='playstation'] .glyph[data-glyph='start'] {
+  --gi: 13;
+}
+html[data-pad='playstation'] .glyph[data-glyph='lb'] {
+  --gi: 14;
+}
+html[data-pad='playstation'] .glyph[data-glyph='rb'] {
+  --gi: 15;
+}
+html[data-pad='playstation'] .glyph[data-glyph='rt'] {
+  --gi: 16;
+}
+html[data-pad='playstation'] .glyph[data-glyph='r3'] {
+  --gi: 17;
+}
+html[data-pad='playstation'] .glyph[data-glyph='select'] {
+  --gi: 23;
+}
+
+/* Prompts for the device in use: keys (also on touch) or the gamepad's glyphs. */
+html:not([data-input='gamepad']) .pad-only {
+  display: none !important;
+}
+html[data-input='gamepad'] .kb-only {
+  display: none !important;
+}
+/* The mouse cursor hides while the gamepad is in use. */
+html[data-input='gamepad'],
+html[data-input='gamepad'] * {
+  cursor: none !important;
+}
+/* The control the gamepad focused (menu-nav.ts). */
+html[data-input='gamepad'] .nav-focus {
+  outline: 3px solid #ffd23f;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px rgba(255, 210, 63, 0.25);
+}

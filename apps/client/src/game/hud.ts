@@ -5,7 +5,9 @@
 import { loadGameData, t } from '@pokesurvivor/data';
 import { REVIVE_SECONDS } from '@pokesurvivor/sim';
 import type { AimMode } from '../settings.js';
+import { drawGlyph, drawGlyphText, type PadButton } from '../glyphs.js';
 import { drawIcon as drawIconAt, typeColor } from '../icons.js';
+import type { PadLayout } from '../input-device.js';
 import { bodyHeight } from '../sprites.js';
 import type { Frame } from './frame.js';
 import { PLAYER_COLORS, altarPower, pokemonName } from './scene/entities.js';
@@ -27,6 +29,8 @@ const BUFF_COLORS = ['#ff6b4d', '#7fe0ff', '#b0b8c8', '#5fe08a'];
 const BOND = '#ff8ad8';
 const clamp = (v: number, a: number, b: number) => (v < a ? a : v > b ? b : v);
 const TAU = Math.PI * 2;
+/** The gamepad buttons that pick move slots 1–4. */
+const SLOT_PAD: readonly PadButton[] = ['a', 'b', 'x', 'y'];
 
 export function roundRect(
   ctx: CanvasRenderingContext2D,
@@ -96,10 +100,14 @@ export interface HudInput {
   /** Auto or manual aim, and the HUD button that switches (also T). */
   aimMode: AimMode;
   toggleAim(): void;
+  /** A gamepad is the input in use: its prompts, in its layout (null: keys, or touch). */
+  pad: PadLayout | null;
 }
 
 /** The controls line shown early in a run (and in the pause menu). */
-export function controlsHint(touch: boolean, aimMode: AimMode): string {
+export function controlsHint(touch: boolean, aimMode: AimMode, pad = false): string {
+  // With `{lstick}`-style glyph placeholders (`drawGlyphText`, `glyphText`).
+  if (pad) return t('hud.padControls');
   if (!touch) return t('hud.wasdMove14Q');
   return t(aimMode === 'manual' ? 'hud.twinSticks' : 'hud.dragYourFingerToMove');
 }
@@ -445,7 +453,10 @@ export class Hud {
       ctx.font = F(600, 10);
       ctx.textAlign = 'center';
       ctx.fillStyle = 'rgba(180,200,230,.55)';
-      ctx.fillText(controlsHint(touch.active, k.aimMode), w / 2, h - 4);
+      if (k.pad) {
+        ctx.font = F(600, 11);
+        drawGlyphText(ctx, controlsHint(false, k.aimMode, true), w / 2, h - 5, 16, k.pad);
+      } else ctx.fillText(controlsHint(touch.active, k.aimMode), w / 2, h - 4);
     }
 
     // You're down.
@@ -486,7 +497,7 @@ export class Hud {
     const label = t(manual ? 'hud.aimManual' : 'hud.aimAuto');
     ctx.save();
     ctx.font = F(800, 11);
-    const keyW = touch.active ? 0 : 18;
+    const keyW = touch.active && !k.pad ? 0 : 18;
     const bw = Math.ceil(ctx.measureText(label).width) + 36 + keyW;
     const bh = 28;
     let right = w - 16;
@@ -522,7 +533,10 @@ export class Hud {
     ctx.textAlign = 'left';
     ctx.fillStyle = manual ? '#ffd23f' : '#eaf2ff';
     ctx.fillText(label, x + 29, cy + 4);
-    if (keyW) {
+    if (k.pad) {
+      // The button that does the same: R3.
+      drawGlyph(ctx, 'r3', x + bw - keyW - 4, cy - 8, 16, k.pad);
+    } else if (keyW) {
       // The key that does the same.
       const kx = x + bw - keyW - 4;
       roundRect(ctx, kx, cy - 8, 16, 16, 4);
@@ -627,7 +641,9 @@ export class Hud {
       ctx.font = F(800, 9);
       ctx.fillStyle = fused ? BOND : on ? col : 'rgba(180,200,230,.6)';
       ctx.textAlign = 'left';
-      ctx.fillText(String(i + 1), x + 3, y + 10);
+      const button = k.pad ? SLOT_PAD[i] : undefined;
+      if (button) drawGlyph(ctx, button, x + 2, y + 2, 12, k.pad ?? undefined);
+      else ctx.fillText(String(i + 1), x + 3, y + 10);
       // The active one's name on top ("Ember +2" with a bond).
       if (on) {
         ctx.font = F(700, 10);

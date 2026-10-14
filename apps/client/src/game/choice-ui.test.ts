@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CHOICE_INPUT_GRACE_MS, ChoiceOverlay } from './choice-ui.js';
 import { ChoiceState, type ChoiceSnapshot } from './choices.js';
 import { Input } from './input.js';
+import { NAV_REPEAT_DELAY_MS } from '../menu-nav.js';
 
 // The pixel icons paint on a canvas, which happy-dom doesn't have.
 vi.mock('../icons.js', () => ({
@@ -210,7 +211,7 @@ describe('the choice input grace window', () => {
     const h = setup();
     const input = bindInput(h);
     const buttons = Array.from({ length: 12 }, () => ({ pressed: false }));
-    const pad = { connected: true, buttons };
+    const pad = { connected: true, buttons, axes: [] };
     vi.stubGlobal('navigator', { getGamepads: () => [pad] });
     h.show(snap([reward()], 0));
     buttons[button]!.pressed = true;
@@ -229,7 +230,7 @@ describe('the choice input grace window', () => {
     const h = setup();
     const input = bindInput(h);
     const buttons = [{ pressed: true }];
-    const pad = { connected: true, buttons };
+    const pad = { connected: true, buttons, axes: [] };
     vi.stubGlobal('navigator', { getGamepads: () => [pad] });
     input.poll();
     h.show(snap([reward()], 0));
@@ -337,5 +338,85 @@ describe('the choice input grace window', () => {
     pointer(back, 'pointerdown');
     pointer(back, 'click');
     expect(h.state.view()!.first).toBeNull();
+  });
+});
+
+describe('the gamepad in a choice', () => {
+  const glyphs = (h: ReturnType<typeof setup>) =>
+    h.cards().map((c) => c.querySelector<HTMLElement>('.pad-only .glyph')?.dataset.glyph ?? null);
+  const focused = (h: ReturnType<typeof setup>) =>
+    h.cards().findIndex((c) => c.classList.contains('focus'));
+
+  it('moves the highlight with the d-pad (wrapping) and labels it A, the others B/X/Y', () => {
+    const h = setup();
+    h.show(snap([reward()], 0));
+    expect(focused(h)).toBe(0);
+    expect(glyphs(h)).toEqual(['a', 'b', 'x', 'y']);
+    expect(h.overlay.key('PadDown')).toBe(true);
+    expect(h.overlay.key('PadRight')).toBe(true);
+    expect(focused(h)).toBe(2);
+    expect(glyphs(h)).toEqual([null, 'b', 'a', 'y']);
+    h.overlay.key('PadUp');
+    h.overlay.key('PadUp');
+    h.overlay.key('PadLeft');
+    expect(focused(h)).toBe(3);
+    // Keys show the numbers.
+    expect(h.cards().map((c) => c.querySelector('.kb-only')?.textContent)).toEqual([
+      '1',
+      '2',
+      '3',
+      '4',
+    ]);
+  });
+
+  it('A picks the highlighted option, only after the grace window', () => {
+    const h = setup();
+    h.show(snap([reward()], 0));
+    h.overlay.key('PadDown');
+    expect(h.overlay.key('PadA')).toBe(true); // consumed: it can't reach gameplay
+    h.advance(CHOICE_INPUT_GRACE_MS - 1);
+    h.overlay.key('PadA');
+    expect(h.send).not.toHaveBeenCalled();
+    h.advance(1);
+    h.overlay.key('PadA');
+    expect(h.send).toHaveBeenCalledOnce();
+    expect(h.send).toHaveBeenCalledWith(expect.objectContaining({ cardId: 'upgrade:tackle' }));
+  });
+
+  it('starts each new menu (a reroll) on the first option', () => {
+    const h = setup();
+    h.show(snap([reward()], 0));
+    h.overlay.key('PadDown');
+    h.show(snap([levelUp(['new:gust', 'stat:attack', 'stat:regen'])], 10, [], 0));
+    expect(focused(h)).toBe(0);
+  });
+
+  it('leaves A and the d-pad to the game outside a choice', () => {
+    const h = setup();
+    expect(h.overlay.key('PadA')).toBe(false);
+    expect(h.overlay.key('PadDown')).toBe(false);
+  });
+
+  it('ignores a d-pad held from gameplay until released, then repeats it while held', () => {
+    const h = setup();
+    const seen: string[] = [];
+    const input = new Input((code) => (seen.push(code), h.overlay.key(code)));
+    inputs.push(input);
+    const buttons = Array.from({ length: 17 }, () => ({ pressed: false }));
+    const pad = { connected: true, buttons, axes: [0, 0, 0, 0] };
+    vi.stubGlobal('navigator', { getGamepads: () => [pad] });
+    buttons[13]!.pressed = true; // walking down
+    input.poll(0);
+    h.show(snap([reward()], 0));
+    input.latchNav(); // the game does this when a choice opens
+    input.poll(16);
+    input.poll(2000);
+    expect(seen).toEqual(['PadDown']); // the one from gameplay, before the choice
+    buttons[13]!.pressed = false;
+    input.poll(2016);
+    buttons[13]!.pressed = true;
+    input.poll(2032);
+    input.poll(2032 + NAV_REPEAT_DELAY_MS);
+    expect(seen.slice(1)).toEqual(['PadDown', 'PadDown']);
   });
 });

@@ -4,7 +4,10 @@
 //   Q / E / Tab     previous / next   R        reroll cards     Esc / P  pause
 //   T               auto / manual aim (manual: the mouse aims; see aim.ts)
 // Gamepad: left stick or d-pad to move, right stick to aim and RT to fire (manual), LB / RB to cycle moves,
-// A/B/X/Y = options 1–4, R3 (right stick press) auto / manual aim, Start pause.
+// A/B/X/Y = move slots 1–4, R3 (right stick press) auto / manual aim, Start pause. In a choice the
+// d-pad or the stick moves the highlight (`PadUp` … `PadRight`, repeating while held) and A
+// (`PadA`) picks it; B/X/Y pick options 2–4, Back rerolls.
+import { KeyRepeater, padNavKeys } from '../menu-nav.js';
 
 const MOVE_KEYS = {
   up: ['KeyW', 'ArrowUp'],
@@ -15,7 +18,7 @@ const MOVE_KEYS = {
 const NO_SCROLL = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'Tab']);
 /** Gamepad buttons (standard mapping) → the key they act as. */
 const PAD_KEYS: Record<number, string> = {
-  0: 'Digit1',
+  0: 'PadA',
   1: 'Digit2',
   2: 'Digit3',
   3: 'Digit4',
@@ -25,6 +28,13 @@ const PAD_KEYS: Record<number, string> = {
   9: 'Escape',
   11: 'KeyT',
 };
+/** The d-pad and stick directions, as the choice menu's keys. */
+const PAD_NAV: Record<string, string> = {
+  up: 'PadUp',
+  down: 'PadDown',
+  left: 'PadLeft',
+  right: 'PadRight',
+};
 const DEAD_ZONE = 0.22;
 /** The right stick only aims once clearly pushed (it rests a little off centre). */
 const AIM_DEAD_ZONE = 0.35;
@@ -32,6 +42,7 @@ const AIM_DEAD_ZONE = 0.35;
 export class Input {
   private down = new Set<string>();
   private padDown = new Set<number>();
+  private readonly nav = new KeyRepeater(() => true);
   private readonly offs: (() => void)[] = [];
 
   /** `onKey`: a key press (`KeyboardEvent.code`); return true to prevent its default. */
@@ -65,9 +76,14 @@ export class Input {
     return null;
   }
 
-  /** Polls gamepad buttons (call every frame): presses become keys. */
-  poll(): void {
+  /**
+   * Polls gamepad buttons (call every frame): presses become keys, and the d-pad and the stick
+   * `PadUp` … `PadRight`.
+   */
+  poll(now = performance.now()): void {
     const p = this.pad();
+    const dirs = new Set(p ? [...padNavKeys(p)].filter((k) => k in PAD_NAV) : []);
+    for (const dir of this.nav.update(dirs, now)) this.onKey(PAD_NAV[dir] ?? dir);
     if (!p) return;
     p.buttons.forEach((b, i) => {
       const code = PAD_KEYS[i];
@@ -77,6 +93,11 @@ export class Input {
         this.onKey(code);
       } else if (!b.pressed) this.padDown.delete(i);
     });
+  }
+
+  /** Ignores the directions held now until they're let go (a menu opened under them). */
+  latchNav(): void {
+    this.nav.latch();
   }
 
   /** The gamepad's right stick, when pushed (for manual aim); null at rest or with no pad. */

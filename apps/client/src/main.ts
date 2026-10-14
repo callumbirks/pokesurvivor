@@ -25,10 +25,15 @@ if (play) {
     import('./app/app.js'),
     import('./screens/index.js'),
     import('./app/ui-sounds.js'),
-  ]).then(([{ App }, { routes }, { wireUiSounds }]) => {
+    import('./input-device.js'),
+    import('./menu-nav.js'),
+  ]).then(([{ App }, { routes }, { wireUiSounds }, { installInputDevice }, { installMenuNav }]) => {
     const root = document.querySelector<HTMLElement>('#app');
     if (!root) throw new Error('#app is missing');
     wireUiSounds();
+    // Prompts follow the input device in use; a gamepad moves through the menus.
+    installInputDevice();
+    installMenuNav();
     const app = new App(root, routes);
     void app.boot();
   });

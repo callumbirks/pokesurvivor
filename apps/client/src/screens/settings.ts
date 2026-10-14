@@ -3,6 +3,7 @@
 import { t } from '@pokesurvivor/data';
 import type { App, Screen } from '../app/app.js';
 import { h, replace } from '../app/dom.js';
+import { glyph, type PadButton } from '../glyphs.js';
 import {
   CROSSHAIR_COLORS,
   settings,
@@ -166,6 +167,18 @@ function crosshairSwatches(): HTMLElement {
   );
 }
 
+/** A row of the gamepad's controls: its glyphs, then what they do. */
+function padKey(buttons: PadButton[], what: string): Node[] {
+  return [
+    h(
+      'span',
+      { class: 'glyphs' },
+      buttons.map((b) => glyph(b)),
+    ),
+    h('span', null, what),
+  ];
+}
+
 export interface SettingsOptions {
   /** Opened from a run's pause menu: the back button calls this instead of going to the menu. */
   onBack?: () => void;
@@ -323,6 +336,20 @@ export function settingsScreen(
           h('kbd', null, 'Esc'),
           h('span', null, t('pause.pause')),
         ),
+        h('h4', { class: 'set-h' }, t('settings.onGamepad')),
+        h('p', { class: 'small muted' }, t('settings.gamepadHelp')),
+        h(
+          'div',
+          { class: 'keys', dataset: { testid: 'pad-keys' } },
+          padKey(['lstick'], t('app.keyMove')),
+          padKey(['a', 'b', 'x', 'y'], t('app.keySlot')),
+          padKey(['lb', 'rb'], t('app.keyCycle')),
+          padKey(['dpad', 'a'], t('app.keyMenuMove')),
+          padKey(['select'], t('app.keyReroll')),
+          padKey(['r3'], t('app.keyAim')),
+          padKey(['rstick', 'rt'], t('app.keyAimStick')),
+          padKey(['start'], t('pause.pause')),
+        ),
       );
     } else if (tab === 'account') {
       const logout = h(
@@ -351,7 +378,12 @@ export function settingsScreen(
         h('div', { class: 'about-logo' }, 'PokéSurvivor'),
         h('p', { class: 'small' }, t('settings.fanGameNoAdsOr', { 0: '' })),
         h('h4', { class: 'set-h' }, t('settings.credits')),
-        h('ul', { class: 'credits' }, h('li', null, t('settings.pmdSpritecollabAndItsArtists'))),
+        h(
+          'ul',
+          { class: 'credits' },
+          h('li', null, t('settings.pmdSpritecollabAndItsArtists')),
+          h('li', null, t('settings.kenneyInputPrompts')),
+        ),
       );
     }
   };
