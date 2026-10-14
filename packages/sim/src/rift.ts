@@ -30,7 +30,7 @@ import { scaleHp } from './spawner.js';
 import { clearWeather, startWeather } from './weather.js';
 import { arenaTheme, isFree, resetChunks } from './world.js';
 import type { EnemyDef, PlayerState } from './state.js';
-import type { PokemonType } from '@pokesurvivor/data';
+import type { PokemonType, TuningFile } from '@pokesurvivor/data';
 
 /** Touch the rift within this distance (of a point just above its base). */
 const ENTER_RANGE = 30;
@@ -250,6 +250,11 @@ function teleport(p: PlayerState, x: number, y: number): void {
   p.smoothVx = p.smoothVy = 0;
 }
 
+/** Time-only HP uplift. Keep early rifts intact and continue scaling beyond the fit window. */
+export function legendHpMultiplier(minute: number, curve: TuningFile['rift']['hpCurve']): number {
+  return Math.pow(1 + curve.a * Math.max(0, minute - curve.m0), curve.p);
+}
+
 function spawnLegend(ctx: Ctx): void {
   const { s, d } = ctx;
   const a = s.arena;
@@ -261,7 +266,13 @@ function spawnLegend(ctx: Ctx): void {
   const def: EnemyDef = {
     dex: mon.dex,
     behavior: mon.types.some((x) => RANGED_TYPES.includes(x)) ? 'ranged' : 'charger',
-    hp: Math.round((3200 + t * 9) * lk * scaleHp(n) * (n > 1 ? 1.4 : 1)),
+    hp: Math.round(
+      (3200 + t * 9) *
+        lk *
+        scaleHp(n) *
+        (n > 1 ? 1.4 : 1) *
+        legendHpMultiplier(t / 60, d.game.tuning.rift.hpCurve),
+    ),
     speed: Math.round(clamp(48 + (mon.speed - 78) * 0.6, 48, 105)),
     damage: Math.round((36 + t / 20) * Math.pow(lk, 0.7)),
     xp: Math.round(500 + t * 1.2),

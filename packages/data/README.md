@@ -85,3 +85,9 @@ The upgrade cost formula (`round(base · grow^level / 10) · 10`, documented on 
 gacha rules (`poolNear` fallback, pity, ×10 guarantee, shiny re-pick) live in the server
 (`apps/server/src/economy/config.ts`, `apps/server/src/gacha/engine.ts`), which owns the economy.
 The personality-test scoring is shared: `personalityScores`, `topTrait` and `bestStarters`.
+
+Rift legend HP adds a parametric multiplier to its existing time/late-game/co-op base:
+`(1 + a * max(0, minute - m0)) ** p`. `tuning.json` → `rift.hpCurve` exposes the onset
+`m0` in run minutes, growth rate `a`, and exponent `p`; the schema documents and validates
+them. This controls HP only and keeps growing beyond the fitted window. It does not scale
+legend damage or depend on a player's prestige.

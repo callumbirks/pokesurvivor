@@ -33,6 +33,17 @@ export const TuningFileSchema = z.strictObject({
     /** Arena radius in tiles and time limit of the legendary fight. */
     arenaRadius: z.number().int().positive(),
     arenaTime: Seconds,
+    /** Legend HP only: multiply the existing base by (1 + a * max(0, minute - m0)) ** p.
+     * No cap: the curve continues growing after the measured 6–20 minute window.
+     */
+    hpCurve: z.strictObject({
+      /** Run minute where extra HP growth begins; earlier rifts retain the base HP. */
+      m0: z.number().nonnegative(),
+      /** Positive growth per minute after m0, before exponentiation. */
+      a: z.number().positive(),
+      /** Positive exponent; independent of contact/shot damage and player prestige. */
+      p: z.number().positive(),
+    }),
     /** Distance from a player a rift opens at (before the placement fallbacks). */
     distance: RangeSchema,
     /** Chance the legendary is shiny (if it has shiny sprites). */

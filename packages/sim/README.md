@@ -178,7 +178,8 @@ Each is a module of functions over `Ctx`, stepped after hazards: `interact.ts`, 
   walled circle carved into a far corner of the map (`world.arena`), themed after one of the
   legendary's types, with its weather forced. The map's enemies wait in `arena.stash`, projectiles,
   fields and hazards are cleared, nothing spawns and the biome doesn't change. The legendary (a boss
-  with `legend`, walking, 3200 + 9 HP per second played × late-game and co-op scaling) must fall
+  with `legend`, walking, (3200 + 9 HP per second played) × late-game × co-op ×
+  `rift.hpCurve` scaling) must fall
   within 120 s. Win: 3 tickets, 10 × 8 coins, a boss's loot with the ×10 ticket at
   `legendaryTicket10Chance`, a bond for everyone and `riftWins`/`legendariesDefeated`; the reward
   in the arena flies to you; 5 s later everyone is back where they were. Lose (everyone down 1.4 s,
@@ -343,3 +344,41 @@ min–max winning TTK, damage, spawn HP and dummy DPS. `cappedTtk*` substitutes 
 as a comparison score; it is **not** a kill time or a survival-analysis estimate. Never use only
 winning TTK to declare a cell easy: consult win rate and downs too. Three seeds expose gross
 sensitivity, not a precise win-probability estimate; increase `--seeds` before choosing final tuning.
+
+For a controlled before/after tuning comparison, reuse the original earned checkpoints with
+`--calibration=/absolute/path/results.jsonl` (or `.jsonl.gz`). The harness requires exactly one
+matching snapshot per requested cell/seed/minute and includes those snapshots in its new output;
+changing legend HP then cannot silently change the reference loadouts through earlier rift rewards.
+Without this option it still earns fresh builds with the currently installed tuning.
+
+`--probe-seconds=45` emits `kind: "probe"` rows instead of wins/TTK. It measures 45 seconds of
+real arena movement and delivered damage, with incoming damage disabled and the legend's current
+HP raised to prevent an early kill. Reference max HP is retained for HP-relative effects. This
+isolates output from bot survival; it disables low-health boss phases and excludes reactive damage
+that requires hurting a player. It is a damage-fitting diagnostic, not an invulnerable win-rate test.
+The normal matrix continues to run with damage enabled. Metadata includes the rift tuning and probe
+configuration. The CSV win/TTK summarizer intentionally ignores probe rows.
+
+Legend HP tuning: `rift.hpCurve` supplies `m0` (onset in run minutes), `a` (growth per minute)
+and `p` (exponent). The existing HP base is multiplied by
+`(1 + a * max(0, minute - m0)) ** p`, with no cap after minute 20. Contact and shot damage
+keep their existing formula. The curve has no dependency on player upgrades or prestige.
+
+To refit the parametric HP curve, collect max-meta typical `--probe-seconds=45` rows for each
+team size, then run `pnpm --filter @pokesurvivor/sim rifts:fit /tmp/probe-*.jsonl --m0=4 --target=45`.
+This manual tool fits one multiplier against each minute/team median delivered DPS × target
+seconds, with equal weight per group in log space. It removes the input's existing curve using
+recorded tuning, searches the growth rate, solves the exponent, and prints rounded parameters
+and every group's damage-equivalent duration. It never changes tuning or asserts balance values.
+
+`--combat=protected` emits `kind: "offense"` diagnostic fights: real HP, boss phases and the normal
+arena deadline, with player damage disabled. These isolate offensive kill duration from bot survival
+and are never mixed into the ordinary trial win rate. The default remains `--combat=ordinary`.
+Use the sustained damage probe for fitting; protected offense fights are a phase/uptime cross-check.
+
+For the smoother, safety-biased refit, add `--objective=gentle --smooth-max=1.6 --max-seconds=75`.
+It caps the first minute's HP multiplier and every minute/team reference duration, requires `p >= 1`,
+and minimizes squared log error to the target plus extra penalties below 30 s (weight 0.5) and
+above 60 s (weight 8). It searches the growth rate and solves the convex exponent objective by
+bisection, then rechecks the constraints after rounding. `--objective=log` retains the original
+symmetric fit. These constraints and measured balance numbers are manual-only, outside CI.

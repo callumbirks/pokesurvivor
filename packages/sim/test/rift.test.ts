@@ -7,7 +7,7 @@ import { addEnemy, createEnemy, hurtEnemy } from '../src/enemies.js';
 import { createSim, type Sim } from '../src/index.js';
 import { dropPickup } from '../src/pickups.js';
 import { hurtPlayer } from '../src/players.js';
-import { placeRift, updateRift } from '../src/rift.js';
+import { legendHpMultiplier, placeRift, updateRift } from '../src/rift.js';
 import { bossAlive } from '../src/runevents.js';
 import { WALL, isFree, terrainAt } from '../src/world.js';
 import { botInputs, pickFirst } from './bots.js';
@@ -61,6 +61,13 @@ function killLegend(sim: Sim): void {
   const e = sim.state.enemies.find((x) => x.legend)!;
   hurtEnemy(sim.ctx, e, e.hp + e.shield + 1, { by: player(sim).id });
 }
+
+it('applies the configured HP formula only after the curve onset', () => {
+  const curve = R.hpCurve;
+  expect(legendHpMultiplier(curve.m0 - 1, curve)).toBe(1);
+  expect(legendHpMultiplier(curve.m0, curve)).toBe(1);
+  expect(legendHpMultiplier(curve.m0 + 1, curve)).toBeCloseTo((1 + curve.a) ** curve.p);
+});
 
 describe('rift schedule', () => {
   it('rolls every checkEvery s from startAfter, not before', () => {
