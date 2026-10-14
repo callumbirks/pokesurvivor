@@ -6,6 +6,8 @@ What changed for players in each release, newest first. Generated from
 
 ## Unreleased
 
+PRs: [#56](https://github.com/callumbirks/pokesurvivor/pull/56)
+
 ### Changed
 
 - Rift legends now get much tougher as a run goes on: mid- and late-game rifts are a real fight again.
