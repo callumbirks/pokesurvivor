@@ -2,6 +2,7 @@
 // aims on desktop, twin sticks on a phone (the aim stays when the right thumb lifts), in solo and
 // in coop. The sim's aim for us comes back in the snapshots (`serverAim`), so these check that the
 // sim (the solo worker or the game server) aims where we point. E2E_SHOTS=<dir> saves screenshots.
+import { randomUUID } from 'node:crypto';
 import {
   expect,
   test,
@@ -10,7 +11,7 @@ import {
   type Page,
 } from '@playwright/test';
 
-const suffix = Date.now().toString(36).slice(-6);
+const suffix = randomUUID().slice(0, 8);
 const shots = process.env.E2E_SHOTS;
 
 interface Counts {

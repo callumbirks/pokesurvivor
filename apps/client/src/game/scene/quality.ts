@@ -1,5 +1,5 @@
 // Effect quality (Settings → quality): how many particles, sprites and damage numbers are drawn.
-// `auto` starts high and steps down when the frame rate stays low (legacy core/settings.js
+// `auto` starts high and steps down when the frame rate stays low (original implementation
 // `sample`), and back up when it recovers.
 import { settings } from '../../settings.js';
 

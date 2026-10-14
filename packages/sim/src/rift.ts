@@ -1,4 +1,4 @@
-// Rifts and the legendary's arena (legacy systems/rift.js).
+// Rifts and the legendary's arena (original implementation).
 //
 // A few times per run a rift opens near a player and waits `ttl` seconds. Touching it takes the
 // whole team to a walled arena carved into a far corner of the map, against a legendary:

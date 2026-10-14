@@ -166,9 +166,6 @@ importers:
       '@types/pngjs':
         specifier: ^6.0.5
         version: 6.0.5
-      acorn:
-        specifier: ^8.15.0
-        version: 8.19.0
       pngjs:
         specifier: ^7.0.0
         version: 7.0.0

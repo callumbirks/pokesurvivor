@@ -1,4 +1,4 @@
-// Touch controls (port of legacy core/touch.js). A floating joystick: put a finger anywhere on the
+// Touch controls (port of original implementation). A floating joystick: put a finger anywhere on the
 // game and it appears there; drag to move; lift to hide it. If the finger goes past the radius,
 // the base follows (it never gets "stuck").
 //

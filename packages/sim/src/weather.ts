@@ -1,4 +1,4 @@
-// Weather (legacy systems/weather.js): from minute 2, a roll every minute may bring a weather
+// Weather (original implementation): from minute 2, a roll every minute may bring a weather
 // that lasts about a minute. It changes the damage of attacks by type, for players and enemies
 // alike (weather.json):
 //   sun   Fire ×1.5 · Water ×0.5          rain  Water ×1.5 · Electric ×1.2 · Fire ×0.5

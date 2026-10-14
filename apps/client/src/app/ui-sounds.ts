@@ -1,4 +1,4 @@
-// Interface sounds (legacy ui.js `wireSounds`): a soft tick when the pointer moves onto something
+// Interface sounds (original implementation `wireSounds`): a soft tick when the pointer moves onto something
 // clickable, and a click, or "back" on back buttons, when it's pressed. Buttons with their own
 // sound (a purchase, a pull, picking a partner) set `data-sfx`: another effect's name, or "none"
 // when they play it themselves (usually once the server said yes).

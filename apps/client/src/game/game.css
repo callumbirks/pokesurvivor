@@ -1,4 +1,4 @@
-/* The game screen (canvas and overlays), ported from legacy/css/style.css (PMD boxes, level-up
+/* The game screen (canvas and overlays), ported from the original game (PMD boxes, level-up
  * cards, the results grid). Everything is scoped under .ps-game so it doesn't touch the menus. */
 @font-face {
   font-family: 'Pixelify';

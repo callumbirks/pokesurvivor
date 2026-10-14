@@ -6,7 +6,7 @@ export const PokemonSchema = z.strictObject({
   id: IdSchema,
   name: TextSchema,
   types: z.array(PokemonTypeSchema).min(1).max(2),
-  /** Game stats derived from the base stats (see legacy tools/fetch_pokedex.py). */
+  /** Game stats derived from the base stats from PokéAPI. */
   hp: z.number().positive(),
   speed: z.number().positive(),
   attack: z.number().positive(),

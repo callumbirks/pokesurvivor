@@ -9,6 +9,6 @@
   },
   "scripts": {
     "typecheck": "tsc",
-    "test": "vitest run"
+    "test": "vitest run --pool=threads --maxWorkers=2"
   }
 }

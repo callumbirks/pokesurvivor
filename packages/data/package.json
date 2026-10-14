@@ -11,7 +11,7 @@
   },
   "scripts": {
     "typecheck": "tsc && tsc -p test",
-    "test": "vitest run"
+    "test": "vitest run --pool=threads --maxWorkers=2"
   },
   "dependencies": {
     "zod": "^4.6.6"

@@ -47,7 +47,7 @@ interface AppliedRun {
  * Credits a player's run to their locked save: coins and tickets through the ledger; caught
  * wild shinies (and the normal form) and rescued Pokémon into the collection; stats and the
  * per-run progress (items found, moves evolved, arenas won, legendaries beaten); then missions
- * and achievements (legacy `progress.js` events, applied once for the whole run).
+ * and achievements (original `progress.js` events, applied once for the whole run).
  */
 function applyRunToSave(
   save: LockedSave,

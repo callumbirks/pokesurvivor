@@ -19,7 +19,7 @@ export function personalityScores(
   return scores;
 }
 
-/** The trait with the most points; ties go to the one scored first (legacy `personalityResult`). */
+/** The trait with the most points; ties go to the one scored first (original `personalityResult`). */
 export function topTrait(scores: Record<string, number>): string | null {
   let best: string | null = null;
   for (const [trait, points] of Object.entries(scores))

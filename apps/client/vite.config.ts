@@ -8,7 +8,6 @@ export default defineConfig({
     proxy: {
       '/api': server,
       '/healthz': server,
-      '/legacy': server,
       '/sprites': server,
       '/ws': { target: server, ws: true },
     },

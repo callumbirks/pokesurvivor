@@ -3,7 +3,7 @@
 //
 // Solo: the pause menu pauses the run (the worker's sim waits) and it stays paused while the
 // settings are open; closing them goes back to the pause menu. Leaving the app or turning a phone
-// upright pauses it on its own (legacy game.js `autoPause`).
+// upright pauses it on its own (original implementation `autoPause`).
 // Multiplayer: the run never stops for one player. The pause menu and the settings are just
 // overlays; closing the settings goes straight back to the game, and nothing pauses on its own.
 

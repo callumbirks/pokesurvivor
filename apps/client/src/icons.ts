@@ -1,5 +1,5 @@
 // Pixel-art icons drawn from character maps, like the tiles, so the interface shares the style of
-// the Mystery Dungeon sprites (port of legacy ui/icons.js). Shared by the game and the menus.
+// the Mystery Dungeon sprites (port of original implementation). Shared by the game and the menus.
 //   iconCanvas('coin')              the icon at 1× (a canvas)
 //   drawIcon(ctx, 'coin', x, y, 18) on a canvas, snapped to a whole multiple of its size
 //   iconUrl('star') / iconHtml(…)   an SVG data URL / an <img> for the DOM

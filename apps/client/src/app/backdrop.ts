@@ -1,4 +1,4 @@
-// The living world behind the menus (port of legacy game.js `Backdrop`): the run map with a
+// The living world behind the menus (port of original implementation `Backdrop`): the run map with a
 // cast of Pokémon wandering about, now and then "attacking" the air, under a slowly drifting
 // camera that changes biome every 30 s, with the vignette. Drawn with the game's own renderer
 // (`game/scene/`) and moved with the sim's collision (`WorldView.move`).

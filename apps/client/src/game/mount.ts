@@ -659,7 +659,7 @@ class Run {
     );
   }
 
-  /** Phones upright: "rotate your phone" over the game, and solo runs pause (legacy game.js). */
+  /** Phones upright: "rotate your phone" over the game, and solo runs pause (original implementation). */
   private checkOrientation(w: number, h: number): void {
     const portrait = this.touch.active && h > w && !this.results;
     if (portrait === this.portrait) return;

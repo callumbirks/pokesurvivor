@@ -23,7 +23,7 @@ export interface Periods {
 const pad = (n: number) => String(n).padStart(2, '0');
 
 /**
- * The day and ISO week `date` falls in, in `timeZone` (legacy `ranking.js` `periodIds`, which
+ * The day and ISO week `date` falls in, in `timeZone` (original `ranking.js` `periodIds`, which
  * used Europe/Madrid; the server uses `LEADERBOARD_TIME_ZONE`, default Europe/Madrid).
  */
 export function periodsAt(date: Date, timeZone: string): Periods {
@@ -56,7 +56,7 @@ function countOf(kind: MissionKind): number {
   return kind === 'daily' ? missions.dailyCount : missions.weeklyCount;
 }
 
-/** Rolls a goal and, for typed missions, a type (legacy `make`). */
+/** Rolls a goal and, for typed missions, a type (original `make`). */
 function makeMission(def: Mission, rng: Rng): MissionState {
   const goal = def.goals[Math.floor(rng() * def.goals.length)] ?? def.goals[0] ?? 1;
   const param =
@@ -64,7 +64,7 @@ function makeMission(def: Mission, rng: Rng): MissionState {
   return { id: def.id, goal, param, progress: 0, claimed: false };
 }
 
-/** Draws `n` different templates (legacy `pickSet`). */
+/** Draws `n` different templates (original `pickSet`). */
 function pickMissions(
   defs: readonly Mission[],
   n: number,
@@ -88,7 +88,7 @@ export function rollMissions(userId: string, kind: MissionKind, period: string):
   return pickMissions(templates(kind), countOf(kind), seededRng(`${period}:${userId}`));
 }
 
-/** Replaces the daily/weekly missions when their period has passed (legacy `ensure`). */
+/** Replaces the daily/weekly missions when their period has passed (original `ensure`). */
 export function ensureMissions(save: LockedSave, periods: Periods): void {
   for (const kind of ['daily', 'weekly'] as const) {
     const set = save.data.missions[kind];
@@ -147,7 +147,7 @@ function eventValue(def: Mission, mission: MissionState, event: MissionEvent): n
 }
 
 /**
- * Advances the missions that listen to `event` (legacy `advance`). Progress stops at the goal;
+ * Advances the missions that listen to `event` (original `advance`). Progress stops at the goal;
  * claimed and finished missions don't change.
  */
 export function advanceMissions(data: SaveData, event: MissionEvent): void {
@@ -172,7 +172,7 @@ function missionAt(set: MissionSet, index: number): MissionState {
   return mission;
 }
 
-/** Claims a finished mission's reward (legacy `claim`). */
+/** Claims a finished mission's reward (original `claim`). */
 export function claimMission(
   save: LockedSave,
   kind: MissionKind,
@@ -193,7 +193,7 @@ export function claimMission(
 }
 
 /**
- * Swaps an unclaimed daily mission for a different one, once a day (legacy `reroll`). The new
+ * Swaps an unclaimed daily mission for a different one, once a day (original `reroll`). The new
  * mission is random, not seeded, as in legacy.
  */
 export function rerollDailyMission(save: LockedSave, index: number, rng: Rng = cryptoRng): void {

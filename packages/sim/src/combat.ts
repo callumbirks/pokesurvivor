@@ -1,4 +1,4 @@
-// Casting moves and resolving hits (legacy systems/combat.js). Only the active slot fires, each
+// Casting moves and resolving hits (original implementation). Only the active slot fires, each
 // move on its own cooldown. Every attack also damages breakable props. Things a move leaves on
 // the map (mines, meteors, turrets, trail pools) are `fields`.
 import { DT } from './constants.js';

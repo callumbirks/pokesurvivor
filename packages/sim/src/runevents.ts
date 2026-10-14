@@ -1,4 +1,4 @@
-// Mid-run events and treasure thieves (legacy systems/events.js). Every 4–5 minutes (never with a
+// Mid-run events and treasure thieves (original implementation). Every 4–5 minutes (never with a
 // boss alive or in a rift arena) one of these happens, never the same one twice in a row:
 //   horde  30 s in which every spawn is of one type (if your type beats it, it's your moment)
 //   gold   golden hour: 30 s of golden enemies that give double XP and sometimes coins
@@ -36,7 +36,7 @@ export const bossAlive = (ctx: Ctx): boolean => ctx.s.enemies.some((e) => e.boss
 /** Golden hour: new spawns are golden. */
 export const goldenHour = (ctx: Ctx): boolean => ctx.s.events.current?.id === 'gold';
 
-/** During a typed horde only these spawn (legacy `Events.bag()`). */
+/** During a typed horde only these spawn (original `Events.bag()`). */
 export function hordeBag(ctx: Ctx): EnemyDef[] | null {
   const c = ctx.s.events.current;
   return c?.id === 'horde' && c.defs.length ? c.defs : null;

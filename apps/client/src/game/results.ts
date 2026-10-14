@@ -1,4 +1,4 @@
-// The end-of-run screen (legacy run-ui.js `showOver`), from `game.results` (co-op, recorded by the
+// The end-of-run screen (original implementation `showOver`), from `game.results` (co-op, recorded by the
 // server from its own sim) or the solo report (`POST /api/runs`, capped by the server). It shows
 // what was credited, the reward breakdown, moves, tickets and shinies, the players who left early,
 // and the achievements the run unlocked (solo; co-op unlocks arrive with the save).

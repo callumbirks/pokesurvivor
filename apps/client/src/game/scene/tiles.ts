@@ -1,4 +1,4 @@
-// Pixel art of the world, painted in code (port of legacy world/tiles.js). Everything is painted at
+// Pixel art of the world, painted in code (port of original implementation). Everything is painted at
 // ART resolution (16 px per tile) into an ImageData and drawn scaled ×PX without smoothing, so the
 // tiles share their pixel size with the Mystery Dungeon sprites.
 //

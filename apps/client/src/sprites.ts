@@ -1,4 +1,4 @@
-// Pokémon sprites in the Mystery Dungeon style (port of legacy core/sprites.js): SpriteCollab sheets
+// Pokémon sprites in the Mystery Dungeon style (port of original implementation): SpriteCollab sheets
 // under `/sprites/{dex}/[s/]{Animation}.png`, geometry from the sprite manifest
 // (`@pokesurvivor/data/sprites`, loaded lazily: it's large).
 //

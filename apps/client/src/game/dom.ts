@@ -53,7 +53,7 @@ export function clear(e: HTMLElement): void {
 
 /**
  * A Pokémon playing its idle animation (facing down), scaled without smoothing: the sheet as a CSS
- * background stepped through its frames (legacy ui.js `spriteCanvas(…, { lively })`). Fills in
+ * background stepped through its frames (original implementation `spriteCanvas(…, { lively })`). Fills in
  * once the sprite manifest is loaded.
  */
 export function spriteEl(

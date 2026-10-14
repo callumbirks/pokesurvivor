@@ -280,7 +280,6 @@ export async function createGameTestServer(
     DATABASE_URL: database.url,
     AUTH_RATE_LIMIT_MAX: '10000',
     ACTION_RATE_LIMIT_MAX: '10000',
-    LEGACY_DIR: '/nonexistent',
     CLIENT_DIR: '/nonexistent',
     ASSETS_DIR: '/nonexistent',
   });

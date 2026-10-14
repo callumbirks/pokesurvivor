@@ -1,8 +1,6 @@
 # @pokesurvivor/sim
 
-The headless game simulation: a port of the legacy run (`legacy/js/game.js`, `world/world.js`,
-`entities/*`, `systems/{combat,spawner,levelup,pathing,hazards,rift,events,weather,interact}.js`)
-for 1–4 players. The server
+The headless game simulation for 1–4 players. The server
 runs it for co-op rooms; the browser runs it in a Web Worker for solo. No DOM, Canvas or Audio,
 and deterministic: one seeded RNG in the state, a fixed 30 Hz tick, no wall clock (ESLint bans
 `Math.random`, `Date.now`, `performance` and timers in `src/`).
@@ -236,6 +234,10 @@ The game server and `packages/netclient` use this; see `docs/protocol.md`.
   `pathOrigins` after a restore (identical unless a prop broke within the last 0.35 s).
 
 ## Performance
+
+`pnpm test` runs the targeted regression suite, including a 18-minute calm rift schedule check
+through arenas and living bosses. `pnpm test:slow` opts into the broad 20-minute four-player
+progression run. Benchmarks and shield measurements remain separate opt-in commands.
 
 `pnpm --filter @pokesurvivor/sim bench` (Node 22, one laptop core): a 20-minute 4-player run of
 36,000 ticks takes ~12 s (0.34 ms/tick, rifts, arenas, events and weather included; 0.30–0.32 for

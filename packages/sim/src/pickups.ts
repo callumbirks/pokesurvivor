@@ -1,4 +1,4 @@
-// XP gems, coins and the other things on the ground (legacy entities/pickup.js and the collect
+// XP gems, coins and the other things on the ground (original implementation and the collect
 // logic of game.js). They sit still until a player's magnet radius reaches them, then fly to the
 // nearest player. Past `max` on the ground, the oldest XP gems merge.
 import { DT, VIEW_H, VIEW_W } from './constants.js';

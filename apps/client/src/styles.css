@@ -1,5 +1,5 @@
 /* PokéSurvivor menus: blue boxes with a double white edge, like the Mystery Dungeon menus,
- * and the Pixelify Sans pixel font (OFL, with redrawn digits), ported from legacy/css/style.css.
+ * and the Pixelify Sans pixel font (OFL, with redrawn digits), ported from the original game
  * Layout breakpoints: narrow (max-width 760px: stacked) and short (max-height 520px: phones in
  * landscape, compact). */
 @font-face {

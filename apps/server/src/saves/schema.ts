@@ -1,8 +1,7 @@
 import { z } from 'zod';
 
 /**
- * The JSONB part of a save (`saves.data`), modelled on the legacy save (`legacy/js/core/db.js`
- * `newSave()`). Balances and the partner live in typed columns instead. Bump
+ * The JSONB part of a save (`saves.data`). Balances and the partner live in typed columns. Bump
  * `SAVE_DATA_VERSION` and add a step to `migrateSaveData` when the layout changes.
  */
 export const SAVE_DATA_VERSION = 2;
@@ -62,7 +61,7 @@ const missionSetSchema = z.object({
 });
 export type MissionSet = z.infer<typeof missionSetSchema>;
 
-/** Up to 4 move slots; each holds a move id or null (legacy `pbind`). */
+/** Up to 4 move slots; each holds a move id or null (original `pbind`). */
 export const MOVE_SLOTS = 4;
 /** Most moves a Pokémon can ban (the `ban` upgrade's max level decides how many are usable). */
 export const MAX_MOVE_BANS = 3;
@@ -111,9 +110,9 @@ export const saveDataSchema = z.object({
     .nullable(),
   /** dex -> upgrade id -> level bought. */
   upgrades: z.record(dexKey, z.record(z.string().max(32), z.number().int().nonnegative())),
-  /** dex -> move id fixed in each of the 4 slots, or null (legacy `pbind`). */
+  /** dex -> move id fixed in each of the 4 slots, or null (original `pbind`). */
   moveBindings: z.record(dexKey, z.array(z.string().max(32).nullable()).length(MOVE_SLOTS)),
-  /** dex -> moves that never show up in level-up cards (legacy `pban`, `ban` upgrade). */
+  /** dex -> moves that never show up in level-up cards (original `pban`, `ban` upgrade). */
   moveBans: z.record(dexKey, z.array(z.string().max(32)).max(MAX_MOVE_BANS)),
   /** Gacha banner id -> pulls since the last 5★. */
   pity: z.record(z.string().max(32), z.number().int().nonnegative()),

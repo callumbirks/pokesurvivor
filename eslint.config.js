@@ -5,7 +5,7 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
-    ignores: ['legacy/**', '**/dist/**', '**/coverage/**', 'apps/server/drizzle/**'],
+    ignores: ['assets/**', '**/dist/**', '**/coverage/**', 'apps/server/drizzle/**'],
   },
   js.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,

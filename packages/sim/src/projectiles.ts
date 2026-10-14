@@ -1,4 +1,4 @@
-// Everything that flies (legacy entities/projectile.js): player shots, enemy shots and the orbs
+// Everything that flies (original implementation): player shots, enemy shots and the orbs
 // that circle a player (`orb`: anchored to their owner, re-hitting every `rehit` s). Collisions
 // are in combat.ts.
 import { DT } from './constants.js';

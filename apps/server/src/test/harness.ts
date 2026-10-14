@@ -79,7 +79,6 @@ export async function createTestApp(options: TestAppOptions = {}): Promise<TestA
     // Tests make many logins from one address; the rate-limit test lowers these again.
     AUTH_RATE_LIMIT_MAX: '10000',
     ACTION_RATE_LIMIT_MAX: '10000',
-    LEGACY_DIR: '/nonexistent',
     CLIENT_DIR: '/nonexistent',
     ...options.env,
   });

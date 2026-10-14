@@ -6,7 +6,7 @@ import { creditReward } from './rewards.js';
 
 const count = (record: Record<string, unknown>) => Object.keys(record).length;
 
-/** An achievement's current value in a save (legacy `achievements.js` `value(save)`). */
+/** An achievement's current value in a save (original `achievements.js` `value(save)`). */
 export function achievementValue(data: SaveData, achievement: Achievement): number {
   const s = data.stats;
   const metric: AchievementMetric = achievement.metric;
@@ -58,7 +58,7 @@ export interface UnlockedAchievement {
 
 /**
  * Unlocks every achievement the save now qualifies for and credits its reward through the
- * ledger (legacy `checkAch`). Call after anything that changes the stats or collection.
+ * ledger (original `checkAch`). Call after anything that changes the stats or collection.
  * Returns the newly unlocked ones, for the client's toasts.
  */
 export function checkAchievements(save: LockedSave, now = Date.now()): UnlockedAchievement[] {

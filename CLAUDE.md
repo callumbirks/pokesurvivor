@@ -1,6 +1,6 @@
 # PokéSurvivor — working notes
 
-A fork of pokesurvivor.com being rebuilt as a TypeScript monorepo with an authoritative game
+A fork of pokesurvivor.com running as a TypeScript monorepo with an authoritative game
 server. The agreed plan (architecture, phases, decisions) is in the project file
 `plans/rebuild-architecture.md` (in the borkcode project files, not in this repo); read it
 before larger changes.
@@ -8,7 +8,7 @@ before larger changes.
 ## Layout
 
 - `packages/data` — game data (`json/`), zod schemas, and UI strings (`i18n/en.json`); see its
-  README. The JSON is the source of truth (generated once from legacy by `tools/legacy-data`).
+  README. The JSON is the source of truth.
 - `packages/sim` — headless simulation (world, entities, combat, …). Runs in Node and in a Web
   Worker. **No DOM, Canvas, Audio or browser globals, and deterministic**: randomness only from
   the seeded RNG in its state, time only from its fixed tick (ESLint enforces both). See its
@@ -23,7 +23,7 @@ before larger changes.
   harness for game tests. Solo runs are client-simulated: the server caps their reports, stores
   checkpoints and credits the last one if the final report never comes (`src/runs/`; see
   `docs/api.md`, "Checkpoints and the timeout credit").
-  Also serves the built client at `/` and `legacy/` at `/legacy/`.
+  Also serves the built client at `/`.
 - `apps/client` — Vite + Canvas 2D client; see its README. `src/app/` is the app shell (hash
   routes, session, save cache, WebSocket lifecycle, toasts, the typed HTTP API, `BusyStatus`),
   `src/screens/` every screen outside a run (login, starter, menu, collection, gacha, shop, goals,
@@ -32,14 +32,11 @@ before larger changes.
   Web Worker; see the README). Dev-only views: `/?debug-sim` (sim locally), `/?debug-net` (log
   in, rooms, play over the network; use a private window or `127.0.0.1` for a second account),
   and `/?play-solo` / `/?play-net` (the real game client on a test page, `play.html`).
-- `assets/` — sprites (`assets/pokemon/{dex}/`), served at `/sprites/` and, for legacy,
-  `/legacy/assets/pokemon/`. The manifest is `packages/data/json/sprites.json`; regenerate it
-  (`pnpm --filter @pokesurvivor/tools convert-legacy-data --only sprites.json,bodies.json`) if
-  sprites change (`bodies.json` holds the collision sizes the sim derives from them).
-- `tools/` — one-off scripts (legacy data conversion, UI string seeding).
-- `legacy/` — the original vanilla-JS game. **Read-only reference**: don't edit it (except to
-  keep it servable) and don't import from it. Its own `CLAUDE.md`/README describe the old
-  Firebase/GitHub Pages workflow, which no longer applies.
+- `assets/` — sprite sheets (`pokemon/{dex}/`), served at `/sprites/`, and their animation
+  metadata (`sprite-metadata.json`). Regenerate `packages/data/json/sprites.json` and
+  `bodies.json` with `pnpm --filter @pokesurvivor/tools generate-sprites` after changing sprites.
+  See the data README for geometry/timing edits.
+- `tools/` — sprite manifest and collision-body generation from assets.
 
 Workspace packages export TypeScript source (`"exports": "./src/index.ts"`); there is no
 per-package build. Vite, Vitest and tsx compile them, and the server build bundles them with
@@ -51,10 +48,11 @@ esbuild (`apps/server/scripts/build.js`). Runtime npm dependencies of the server
 ```sh
 pnpm install
 docker compose up -d     # local Postgres
-pnpm dev                 # server :3000 + client :5173 (proxies /ws, /api, /healthz, /legacy)
+pnpm dev                 # server :3000 + client :5173 (proxies /ws, /api, /healthz, /sprites)
 pnpm lint                # ESLint + Prettier check; `pnpm format` fixes formatting
 pnpm typecheck
-pnpm test
+pnpm test                # fast regression suite
+pnpm test:slow           # opt-in 20-minute progression/endurance run
 pnpm build
 pnpm --filter @pokesurvivor/sim bench   # sim tick times (4 players, late game, stress)
 pnpm --filter @pokesurvivor/client e2e  # Playwright: starts a server (DATABASE_URL) + Vite on 3101/5181
@@ -66,7 +64,12 @@ docker build .
 Run `pnpm lint && pnpm typecheck && pnpm test` before committing. The server tests need Postgres
 (`docker compose up -d`, or `DATABASE_URL`); each test file creates and drops its own database.
 The HTTP API is documented in `docs/api.md` and the WebSocket protocol in `docs/protocol.md`;
-keep them in sync. `pnpm --filter @pokesurvivor/netclient bandwidth` measures snapshot bandwidth.
+keep them in sync. `pnpm --filter @pokesurvivor/netclient bandwidth` measures snapshot bandwidth (opt-in, not part of CI).
+
+CI runs lint, typecheck, each test package, browser flows and Docker in parallel. Docker builds
+both apps; CI does not repeat that build on another runner. Vitest uses two threads per package;
+Playwright splits isolated tests across two CI shards, with two workers on each runner. pnpm and browser downloads are cached, and only
+the server tests and e2e jobs start Postgres. Lint skips binary sprite directories.
 
 ## Conventions
 

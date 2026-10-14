@@ -1,4 +1,4 @@
-// Held items (legacy data/items.js and game.js offerItem): one per player. Stat effects from
+// Held items (original implementation and game.js offerItem): one per player. Stat effects from
 // items.json apply while held; the reactive ones (Focus Sash, Shell Bell, Life Orb, Rocky Helmet,
 // Choice Band) are checked where they trigger.
 import { DT } from './constants.js';

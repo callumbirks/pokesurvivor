@@ -9,7 +9,7 @@
   },
   "scripts": {
     "typecheck": "tsc && tsc -p test",
-    "test": "vitest run",
+    "test": "vitest run --pool=threads --maxWorkers=2",
     "bandwidth": "tsx test/bandwidth.ts"
   },
   "dependencies": {

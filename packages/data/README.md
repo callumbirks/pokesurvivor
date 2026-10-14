@@ -15,11 +15,19 @@ t('hud.aWildAppeared', { 0: 'Pikachu' }); // "A wild Pikachu appeared!"
 
 ## Files
 
-The JSON was generated from the legacy game by `tools/legacy-data/convert.ts`, with every number
-as the legacy game computed it at load time. **The JSON is now the source of truth**: edit it
-directly (rebalancing, new content). Re-running the converter overwrites it; `--only sprites.json`
-rewrites just the sprite manifest (after sprites change; regenerate `bodies.json` with it: `--only sprites.json,bodies.json`). `tools/legacy-data/legacy-ids.json` maps legacy ids to the
-new ones.
+**The JSON is the source of truth**: edit it directly for rebalancing and new content.
+The only generated files are `sprites.json` and `bodies.json`:
+
+```sh
+pnpm --filter @pokesurvivor/tools generate-sprites
+```
+
+The generator reads only `assets/`. `assets/sprite-metadata.json` records each sheet's frame
+geometry, durations, anchors, shadow size and hovering flag (these cannot be inferred from PNG
+pixels). When replacing a sheet, update that metadata if its geometry or animation timing changes;
+when adding Pokémon, add metadata too. Shiny availability is detected from the `s/` directory.
+The generator validates sheet dimensions, calculates opaque bounds and content hashes, derives
+collision bodies, then validates both outputs against their schemas before writing them.
 
 | File                | Contents                                                                                                                    |
 | ------------------- | --------------------------------------------------------------------------------------------------------------------------- |
@@ -44,7 +52,7 @@ new ones.
 
 ### Rebalanced after the port
 
-These values differ from legacy (the converter emits the new ones):
+These values differ from the original game:
 
 - `gacha.json`: 5★ weight 0.6 (legacy 1.5, the difference moved to 1★: 45.9), soft pity from the
   74th pull (+6 points of 5★ chance per pull; legacy had none) and hard pity 90 (legacy 70).
@@ -52,7 +60,7 @@ These values differ from legacy (the converter emits the new ones):
   a rift legendary with `legendaryTicket10Chance` 0.2 (legacy 0.5).
 - `tuning.json` `events.goldThiefChance`: the chance a treasure thief is Gholdengo, who drops a
   ×10 ticket, instead of Meowth, who drops coins: 0.125 (hard-coded 0.25 in legacy
-  `events.js` `spawnThief()`). The sim's event port reads it.
+  thief spawning). The sim's event port reads it.
 - `items.json` `life-orb`: still +30% damage, but instead of 1% max HP per cast (which pinned
   fast moves and bonds at 1 HP) it drains `drainPerSecond` 1.5% of max HP per second while the
   player is attacking (a cast within `attackingWindowS` 1 s, or the move's cooldown if longer),
@@ -61,20 +69,11 @@ These values differ from legacy (the converter emits the new ones):
 Display text in data files is English. Text for screens (buttons, toasts, HUD) goes in
 `i18n/en.json`, never in code. `test/english.test.ts` fails if anything Spanish appears.
 
-## Left in code for the sim port
+## Logic
 
-Only named constants and tables were extracted. Formula coefficients written inline in legacy
-logic stay with that logic, to be ported (and, if useful, lifted into `tuning.json`) in phase 2:
-
-- `enemies.js`: `behaviorOf()` (type and dex-hash rules), `defFor()` (per-behaviour stat factors,
-  ranged cooldowns and ranges), the runner pick, boss ×1.35 HP / ×1.2 damage, `scale()` and
-  `bossScale()`.
-- `spawner.js`: `rate()`, the `hpK` curve, surge timing; `combat.js` damage resolution;
-  `hazards.js`; `pathing.js`.
-- (Ported in 2b and lifted into the data: `interact.js` spring rates and trap effects are
-  `world.json` `spring`/`traps`; `weather.js` chip damage, slow and fade are in `weather.json`;
-  the `rift.js`/`events.js` placement, reward and chance constants are in `tuning.json`. The rift
-  legendary's stat formulas and the thief's HP stay in `packages/sim/src/rift.ts`/`runevents.ts`.)
+Formula coefficients live in `packages/sim/src/`: enemy behaviours and scaling in `data.ts`,
+spawn rates in `spawner.ts`, damage in `combat.ts`, hazards in `hazards.ts`, and arena/event
+rules in `rift.ts` and `runevents.ts`. Named tuning tables live in the JSON above.
 
 The upgrade cost formula (`round(base · grow^level / 10) · 10`, documented on the schema) and the
 gacha rules (`poolNear` fallback, pity, ×10 guarantee, shiny re-pick) live in the server
