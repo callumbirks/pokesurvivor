@@ -6,8 +6,8 @@
 // binds the parameters to `@pokesurvivor/sim`'s types. Unknown intent types, choice kinds and
 // events pass through unchanged.
 
-/** Coordinated client/server version: breaking changes and explicitly versioned releases. */
-export const PROTOCOL_VERSION = 8;
+/** Bumped on every breaking change to the wire format. */
+export const PROTOCOL_VERSION = 7;
 
 /** Largest client message the server accepts, in bytes. */
 export const MAX_CLIENT_MESSAGE_BYTES = 4096;
