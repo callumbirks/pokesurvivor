@@ -301,7 +301,9 @@ or max; half leaves the one-level Repertoire upgrade unbought. No bans or reroll
 Separate filtered processes can write separate JSONL files, then pass all files to `rifts:summary`.
 
 Natural calibration actually plays to each checkpoint, using the existing `pickFirst` upgrade,
-item and bond policy, with deterministic loot/rift seeking and local obstacle avoidance. The default
+item and bond policy, with deterministic loot/rift seeking, routes from the sim’s navigation field and local obstacle
+avoidance. Natural bots select the slot with the highest summed damage/cooldown, so learning a
+buff does not leave them unable to kill; Choice Band keeps its normal slot lock. The default
 `--progression=protected` enables invulnerability **only during calibration** so late checkpoints
 exist even for weak bots. Run `--progression=ordinary --calibrate-only` to audit ordinary survival;
 omit `--calibrate-only` to measure surviving ordinary builds too. Protected builds are conditional

@@ -5,7 +5,7 @@ import { pathToFileURL } from 'node:url';
 import { DT, TILE } from '../src/constants.js';
 import { equip } from '../src/items.js';
 import { applyCard } from '../src/levelup.js';
-import { activeGroup, evolutionInfo, newMove } from '../src/moves.js';
+import { activeGroup, evolutionInfo, newMove, setActive } from '../src/moves.js';
 import { createSim, type PlayerState, type Sim } from '../src/index.js';
 import { isFree, resetChunks } from '../src/world.js';
 import { botInputs, pickFirst } from './bots.js';
@@ -138,6 +138,76 @@ function engagementDistance(p: PlayerState): number {
   return Math.max(35, Math.min(125, ...distances));
 }
 
+/** Follow the existing reverse BFS field from the goal back to the player's origin.
+ * Loot/rifts can be behind long walls: local angle steering alone systematically underlevels
+ * bots. Navigation is a harness policy; it does not change sim pathfinding or gameplay.
+ */
+function waypoint(sim: Sim, p: PlayerState, goal: { x: number; y: number }) {
+  const field = sim.ctx.paths.get(p.id);
+  if (!field) return goal;
+  const size = Math.sqrt(field.dist.length);
+  const gx = Math.floor(goal.x / TILE) - field.ox;
+  const gy = Math.floor(goal.y / TILE) - field.oy;
+  let best = -1;
+  let score = Infinity;
+  for (let y = gy - 1; y <= gy + 1; y++)
+    for (let x = gx - 1; x <= gx + 1; x++) {
+      if (x < 0 || y < 0 || x >= size || y >= size) continue;
+      const i = y * size + x;
+      const d = field.dist[i]!;
+      if (d === 0x7fff) continue;
+      const candidate = Math.hypot(x - gx, y - gy) + d * 0.001;
+      if (candidate < score) {
+        best = i;
+        score = candidate;
+      }
+    }
+  if (best < 0) return null;
+  const path: { x: number; y: number }[] = [];
+  let at = best;
+  while (field.dist[at]! > 0) {
+    const x = at % size;
+    const y = Math.floor(at / size);
+    path.push({ x: (field.ox + x + 0.5) * TILE, y: (field.oy + y + 0.5) * TILE });
+    let next = -1;
+    for (const [dx, dy] of [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+      [1, 1],
+      [1, -1],
+      [-1, 1],
+      [-1, -1],
+    ]) {
+      const nx = x + dx!;
+      const ny = y + dy!;
+      if (nx < 0 || ny < 0 || nx >= size || ny >= size) continue;
+      if (dx && dy && (!field.open[y * size + nx] || !field.open[ny * size + x])) continue;
+      const i = ny * size + nx;
+      if (field.dist[i]! < field.dist[at]!) {
+        next = i;
+        break;
+      }
+    }
+    if (next < 0) return null;
+    at = next;
+  }
+  path.reverse();
+  // The field origin can be up to 0.35 s old: skip points already passed since its build.
+  let closest = 0;
+  for (let i = 1; i < Math.min(4, path.length); i++) {
+    if (
+      Math.hypot(path[i]!.x - p.x, path[i]!.y - p.y) <
+      Math.hypot(path[closest]!.x - p.x, path[closest]!.y - p.y)
+    )
+      closest = i;
+  }
+  const near = path[closest];
+  if (near && Math.hypot(near.x - p.x, near.y - p.y) > 18) return near;
+  return path[Math.min(closest + 1, path.length - 1)] ?? goal;
+}
+
 /** Deterministic loot/rift seeking; upgrade, item and bond decisions remain pickFirst. */
 function drive(sim: Sim): void {
   botInputs(sim);
@@ -182,6 +252,13 @@ function drive(sim: Sim): void {
       }
     }
     if (!target) continue;
+    if (Math.hypot(target.x - p.x, target.y - p.y) > desired + 60) {
+      const route = waypoint(sim, p, target);
+      if (!route) continue; // Let the existing wandering policy escape unreachable goals.
+      target = route;
+      desired = 0;
+      strafe = 0;
+    }
     const dx = target.x - p.x;
     const dy = target.y - p.y;
     const distance = Math.hypot(dx, dy) || 1;
@@ -202,6 +279,27 @@ function drive(sim: Sim): void {
   }
 }
 
+/** pickFirst may learn a buff into the active slot. A human switches back to an attack;
+ * without slot selection a first-choice bot can stop killing permanently at level three.
+ * Rank slots by damage/cooldown (not learned move count), preserving Choice Band's lock.
+ */
+function selectAttackSlot(sim: Sim): void {
+  for (const p of sim.state.players) {
+    if (p.dead || p.item === 'choice-band') continue;
+    const score = (group: string[]) =>
+      group.reduce((sum, id) => {
+        const m = p.moves.find((m) => m.id === id)!;
+        return sum + (m.stats.damage ?? 0) / (m.stats.cooldown ?? 1);
+      }, 0);
+    const current = score(p.slots[p.active] ?? []);
+    let best = p.active;
+    for (let i = 0; i < p.slots.length; i++) {
+      if (score(p.slots[i]!) > score(p.slots[best]!) + 0.01) best = i;
+    }
+    if (score(p.slots[best]!) > current + 0.01) sim.setInput(p.id, { ...p.input, slot: best });
+  }
+}
+
 function naturalRun(
   cell: Cell,
   seed: number,
@@ -215,6 +313,7 @@ function naturalRun(
     while (sim.state.time + DT / 2 < minute * 60 && !sim.ended) {
       pickFirst(sim);
       drive(sim);
+      selectAttackSlot(sim);
       sim.step();
       sim.drainEvents();
     }
@@ -290,10 +389,14 @@ function synthetic(
     );
     let statIndex = 0;
     const order = [primary, ...p.moves.filter((m) => m !== primary)];
+    const activeIds = source.slots[source.active] ?? [];
+    const earnedOrder = [
+      ...source.moves.filter((m) => activeIds.includes(m.id)),
+      ...source.moves.filter((m) => !activeIds.includes(m.id)),
+    ];
     while (spent < budget) {
       const m = order.find((m) => {
-        const idx = p.moves.indexOf(m);
-        const earned = source.moves[idx];
+        const earned = earnedOrder[order.indexOf(m)];
         return (
           m.level < Math.min(earned?.level ?? 1, sim.ctx.d.maxMoveLevel(m.id)) ||
           (!!earned?.evolved && !!evolutionInfo(sim.ctx, p, m))
@@ -346,7 +449,6 @@ function dummyDps(sim: Sim, cell: Cell, seed: number): number {
     loadBuild(dummy, p, sim.state.players[i]!);
     p.x = p.prevX = 0;
     p.y = p.prevY = i * 8;
-    // Flying target/player positions are in an empty debug arena, avoiding overworld props.
   });
   dummy.debugStartArena();
   const reference = dummy.state.enemies[0]!;
@@ -411,6 +513,7 @@ function encounter(
   ) {
     pickFirst(sim);
     drive(sim);
+    if (profile === 'natural') selectAttackSlot(sim);
     const hp = boss.hp;
     sim.step();
     removed += Math.max(0, hp - Math.max(0, boss.hp));
