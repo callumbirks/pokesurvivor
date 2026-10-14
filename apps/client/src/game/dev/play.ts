@@ -147,14 +147,14 @@ async function playSolo(): Promise<void> {
       api: skipMinutes || invulnerable || devMoves ? offline : devApi,
     });
     // Dev triggers, as in /?debug-sim: F rift · V arena · H horde · J golden hour · K lost Pokémon
-    // · T thief · B weather (runs with triggers aren't reported either).
+    // · G thief · B weather (runs with triggers aren't reported either; T is the aim switch).
     const keys: Record<string, Parameters<typeof conn.devTrigger>[0]> = {
       KeyF: 'rift',
       KeyV: 'arena',
       KeyH: 'horde',
       KeyJ: 'gold',
       KeyK: 'lost',
-      KeyT: 'thief',
+      KeyG: 'thief',
       KeyB: 'weather',
     };
     devKeys =

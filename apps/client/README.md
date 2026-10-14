@@ -123,13 +123,20 @@ fn)` (spinner on the button, toast on error), loads through `loadInto(el, load, 
   events, projected onto `achievements.json` as the server reads the save. Nothing is credited.
 - **Input**: keyboard, gamepad (`input.ts`) and the touch joystick and buttons (`touch.ts`).
   Esc / P pauses: solo stops the worker; in a group the overlay is shown and the run goes on.
+- **Aiming** (`aim.ts`): auto (the default) or manual, `settings.aimMode` (local to the device),
+  switched with T, a gamepad's R3, the HUD's AIM button or the settings. Manual: the mouse aims
+  from our Pokémon; on touch the left half of the screen moves and the right half is an aim
+  stick that keeps its direction when let go; a gamepad's right stick aims. The aim goes out
+  with every input, snapped to the wire's byte (`quantizeAim`); our Pokémon's facing and the
+  arrow-and-arc indicator around it use it at once. The sim decides what it does (see "Aiming"
+  in the sim README).
 - **Results** (`results.ts`): what was credited (solo: the `RunReport`; co-op: `game.results`),
   the reward breakdown, moves, tickets, shinies, and who left early.
 - **Solo** (`solo/`): the sim runs in a Web Worker and sends the same binary snapshots as the
   server, decoded by `NetRoomConnection`; `SoloApi` starts and reports the run.
 
 Dev pages (`play.html`, dev server only): `/?play-solo` plays a solo run from your save
-(`&t=<minutes>` starts late, `&god` is invulnerable, F/V/H/J/K/T/B then trigger a rift, the
+(`&t=<minutes>` starts late, `&god` is invulnerable, F/V/H/J/K/G/B then trigger a rift, the
 arena, events and weather; such runs aren't reported), `/?play-net` a co-op run with a minimal
 lobby. Dev builds expose `window.__psFrames` (per-frame cost) and `window.__psCounts`, and
 read `localStorage['ps.dev.checkpointS']`: solo checkpoints every that many seconds of run time
@@ -146,7 +153,9 @@ instead of 60 (the e2e tests use 2).
   `DATABASE_URL`, default the docker compose Postgres) on port 3101 and Vite on 5181, or tests a
   running client with `E2E_BASE_URL`. `coop.e2e.ts` is the phase 4 exit test: two browsers,
   friends, invite, both ready, one opens the gacha and the start is blocked, both play.
-  `screens.e2e.ts` covers the single-player screens. `solo-resume.e2e.ts` plays a solo run past
+  `screens.e2e.ts` covers the single-player screens. `aim.e2e.ts` switches to manual aim (T,
+  the HUD button, the settings) and aims with the mouse, with twin sticks on a phone viewport,
+  and in co-op, checking that the sim's aim follows. `solo-resume.e2e.ts` plays a solo run past
   a checkpoint, reloads, and resumes and finishes it (or ends it from the menu), checking it was
   credited once; and that hiding the page pauses the run and checkpoints it. Install the browser once with
   `pnpm --filter @pokesurvivor/client exec playwright install chromium`.

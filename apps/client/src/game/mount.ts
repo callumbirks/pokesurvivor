@@ -826,6 +826,10 @@ class Run {
         pickups: frame.pickups.length,
         fx: this.fx.count,
         time: latest.time,
+        // Aim (e2e): what we send (null: auto), the server's aim for us, our Pokémon on screen.
+        aim: this.aim.input(),
+        serverAim: latest.players.find((p) => p.id === this.conn.selfId)?.aim ?? null,
+        self: frame.self ? this.camera.toScreen(frame.self.x, frame.self.y) : null,
       };
   }
 
