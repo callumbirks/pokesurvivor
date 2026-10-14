@@ -3,7 +3,14 @@
 import { t } from '@pokesurvivor/data';
 import type { App, Screen } from '../app/app.js';
 import { h, replace } from '../app/dom.js';
-import { settings, type AimMode, type Quality, type Settings } from '../settings.js';
+import {
+  CROSSHAIR_COLORS,
+  settings,
+  type AimMode,
+  type CrosshairColor,
+  type Quality,
+  type Settings,
+} from '../settings.js';
 import { HUD_SIZE_MAX, HUD_SIZE_MIN, hudScale } from '../game/hudscale.js';
 import { screenBox, tabs } from './common.js';
 
@@ -118,6 +125,42 @@ function hudSizeControl(): HTMLElement {
   const slider = h('span', { class: 'slider' }, input, out);
   show();
   return h('span', { class: 'hud-size' }, auto, slider);
+}
+
+const COLOUR_NAMES = {
+  magenta: 'settings.colourMagenta',
+  white: 'settings.colourWhite',
+  red: 'settings.colourRed',
+  green: 'settings.colourGreen',
+  cyan: 'settings.colourCyan',
+  yellow: 'settings.colourYellow',
+  orange: 'settings.colourOrange',
+  black: 'settings.colourBlack',
+} as const satisfies Record<CrosshairColor, string>;
+const colourName = (c: CrosshairColor) => t(COLOUR_NAMES[c]);
+
+/** The crosshair colour: one swatch per colour, the chosen one ringed. A click redraws the tab. */
+function crosshairSwatches(): HTMLElement {
+  const on = settings.get().crosshairColor;
+  return h(
+    'div',
+    { class: 'chips swatches', role: 'radiogroup', 'aria-label': t('settings.crosshairColour') },
+    (Object.keys(CROSSHAIR_COLORS) as CrosshairColor[]).map((c) =>
+      h(
+        'button',
+        {
+          class: ['chip', 'swatch', on === c && 'on'],
+          role: 'radio',
+          'aria-checked': on === c ? 'true' : 'false',
+          'aria-label': colourName(c),
+          title: colourName(c),
+          dataset: { testid: `set-crosshair-${c}` },
+          on: { click: () => settings.set({ crosshairColor: c }) },
+        },
+        h('span', { class: 'dot', style: `background:${CROSSHAIR_COLORS[c]}` }),
+      ),
+    ),
+  );
 }
 
 export interface SettingsOptions {
@@ -246,6 +289,7 @@ export function settingsScreen(
             ),
           ),
         ),
+        row(t('settings.crosshairColour'), t('settings.crosshairColourHelp'), crosshairSwatches()),
         h('h4', { class: 'set-h' }, t('settings.onMobileOrTablet')),
         row(
           t('settings.joystickSize'),

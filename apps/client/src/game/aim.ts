@@ -179,14 +179,15 @@ export class MouseFire {
 }
 
 /**
- * The mouse crosshair in manual aim (screen CSS px): pixel-art arms with a dark outline, readable
- * on any ground; gold while firing.
+ * The mouse crosshair in manual aim (screen CSS px, the same size whatever the HUD size):
+ * pixel-art arms in the player's colour (`settings.crosshairColor`) with an outline that contrasts
+ * with it, readable on any ground. Firing doesn't change it.
  */
 export function drawCrosshair(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
-  firing: boolean,
+  color: string,
 ): void {
   const cx = Math.round(x);
   const cy = Math.round(y);
@@ -200,9 +201,16 @@ export function drawCrosshair(
     [-0.5, -0.5, 1, 1],
   ].map(([rx, ry, rw, rh]) => [cx + rx! * P, cy + ry! * P, rw! * P, rh! * P]);
   ctx.save();
-  ctx.fillStyle = 'rgba(10,12,20,.9)';
+  ctx.fillStyle = crosshairOutline(color);
   for (const [rx, ry, rw, rh] of rects) ctx.fillRect(rx - P, ry - P, rw + 2 * P, rh + 2 * P);
-  ctx.fillStyle = firing ? '#ffd23f' : '#f4f8ff';
+  ctx.fillStyle = color;
   for (const [rx, ry, rw, rh] of rects) ctx.fillRect(rx, ry, rw, rh);
   ctx.restore();
+}
+
+/** A dark outline for light colours, a light one for dark colours (black). */
+export function crosshairOutline(color: string): string {
+  const n = parseInt(color.slice(1), 16);
+  const lum = 0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255);
+  return lum < 80 ? 'rgba(244,248,255,.95)' : 'rgba(10,12,20,.92)';
 }
