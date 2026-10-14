@@ -1,6 +1,6 @@
 {
   "unreleased": {
-    "prs": [31, 32, 33, 35],
+    "prs": [32, 33, 35],
     "entries": {
       "new": [
         "What's new: a new button on the main menu lists every update. A dot shows when there's one you haven't read.",
@@ -11,14 +11,73 @@
         "HUD size is Auto by default and grows with the window, or pick a fixed size from 75% to 200%.",
         "The crosshair is magenta by default and no longer changes colour while you fire."
       ],
-      "fixed": [
-        "Reward menus ignore clicks and keys for a moment after they appear, so you can't pick a reward by accident.",
-        "The HUD size slider can be dragged all the way again."
-      ],
+      "fixed": ["The HUD size slider can be dragged all the way again."],
       "behindTheScenes": [
         "Each release now gets a version number, shown in Settings, and a changelog."
       ]
     }
   },
-  "versions": []
+  "versions": [
+    {
+      "version": 4,
+      "date": "2026-10-14",
+      "prs": [28, 29, 30, 31],
+      "entries": {
+        "new": [
+          "The in-run HUD grows on large screens, and Settings → Graphics has a HUD size option."
+        ],
+        "changed": [
+          "Enemy healers are weaker: they heal only part of the damage you deal, fewer enemies at a time, and never bosses or shielded enemies.",
+          "Healed enemies show a heal effect, so you can see who's being healed."
+        ],
+        "fixed": [
+          "Reward menus ignore clicks and keys for a moment after they appear, so you can't pick a reward by accident."
+        ]
+      }
+    },
+    {
+      "version": 3,
+      "date": "2026-10-14",
+      "prs": [26, 27],
+      "entries": {
+        "new": [
+          "Manual aim on desktop: a crosshair follows the mouse, and holding the left button (or the right trigger) fires even with no enemy in range."
+        ],
+        "behindTheScenes": ["The original game's code was retired and automated checks are faster."]
+      }
+    },
+    {
+      "version": 2,
+      "date": "2026-10-14",
+      "prs": [24, 25],
+      "entries": {
+        "new": [
+          "Manual aim: point your attacks with the mouse, a second touch stick or the gamepad's right stick. Switch with T, the AIM button or Settings → Controls."
+        ],
+        "changed": [
+          "Enemy shields are weaker, last less long and cover fewer enemies, and a blue bar shows how much shield is left."
+        ]
+      }
+    },
+    {
+      "version": 1,
+      "date": "2026-10-14",
+      "prs": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 23],
+      "entries": {
+        "new": [
+          "PokéSurvivor is here: survive waves of wild Pokémon with your partner, alone or in co-op with up to 3 friends.",
+          "A personality test picks your first partner. Collect over 900 Pokémon and their shinies through the gacha.",
+          "Level up during a run to learn, upgrade and evolve moves, pick up held items and form bonds.",
+          "Rifts lead to legendary arenas, and weather, events, chests and altars change every run.",
+          "Spend PokéCoins on permanent upgrades, including move bans and move slots.",
+          "Daily and weekly missions, achievements, leaderboards and friends.",
+          "Resume a solo run after closing the tab or reloading.",
+          "Play with a keyboard and mouse, a gamepad, or touch on phones and tablets."
+        ],
+        "behindTheScenes": [
+          "Rebuilt from the ground up: the server runs co-op games and keeps your progress in your account."
+        ]
+      }
+    }
+  ]
 }
