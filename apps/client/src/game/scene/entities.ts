@@ -663,16 +663,23 @@ export class EntityLayer {
         ctx,
         icon,
         Math.round(e.x - 6),
-        Math.round(e.y - h - (e.hp < e.maxHp ? 26 : 18)),
+        Math.round(e.y - h - (e.shielded ? 31 : e.hp < e.maxHp || e.boss ? 26 : 18)),
         12,
       );
-    if (e.boss || e.hp < e.maxHp) {
+    if (e.boss || e.hp < e.maxHp || e.shielded) {
       const w = e.boss ? 90 : Math.max(22, e.r * 2);
       const y = e.y - h - 10;
       ctx.fillStyle = 'rgba(0,0,0,.6)';
       ctx.fillRect(e.x - w / 2, y, w, 3.4);
       ctx.fillStyle = e.boss ? '#ffcb3d' : '#ff5f6d';
       ctx.fillRect(e.x - w / 2, y, w * clamp01(e.hp / Math.max(1, e.maxHp)), 3.4);
+      if (e.shielded) {
+        // Same scale as HP: the blue segment shows the actual extra health, including at full HP.
+        ctx.fillStyle = 'rgba(0,0,0,.6)';
+        ctx.fillRect(e.x - w / 2, y - 5, w, 3.4);
+        ctx.fillStyle = '#9fd8ff';
+        ctx.fillRect(e.x - w / 2, y - 5, w * clamp01(e.shield / Math.max(1, e.maxHp)), 3.4);
+      }
     }
   }
 

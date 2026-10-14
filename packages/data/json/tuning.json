@@ -36,6 +36,16 @@
     "rescueOwnedCoins": 150
   },
   "combat": { "critMultiplier": 1.5 },
+  "enemyShields": {
+    "maxHpFraction": 0.3,
+    "duration": 3.5,
+    "cooldown": 12,
+    "initialCooldown": [1, 4],
+    "reapplyCooldown": 12,
+    "radius": 160,
+    "maxTargets": 3,
+    "affectsBosses": false
+  },
   "pickups": {
     "max": 420,
     "ticketDropRate": 0.0025,

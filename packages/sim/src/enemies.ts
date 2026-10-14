@@ -105,7 +105,11 @@ export function createEnemy(
     side: 1,
     shield: 0,
     shieldT: 0,
-    skillCd: rand.range(1, 4),
+    shieldCd: 0,
+    skillCd:
+      def.behavior === 'shielder'
+        ? rand.range(...d.game.tuning.enemyShields.initialCooldown)
+        : rand.range(1, 4),
     minions: [],
     jump: null,
     lagT: 0,
@@ -463,6 +467,12 @@ function updateEnemy(ctx: Ctx, e: EnemyState, pl: PlayerState): void {
   const { rand } = ctx;
   if (e.touchCd > 0) e.touchCd -= dt;
   if (e.losT > 0) e.losT -= dt;
+  // Before behaviour early returns (e.g. thieves), so every recipient's shield expires.
+  e.shieldCd = Math.max(0, e.shieldCd - dt);
+  if (e.shieldT > 0) {
+    e.shieldT = Math.max(0, e.shieldT - dt);
+    if (e.shieldT === 0) e.shield = 0;
+  }
 
   // --- statuses ---
   if (e.slowT > 0) {
@@ -530,7 +540,6 @@ function updateEnemy(ctx: Ctx, e: EnemyState, pl: PlayerState): void {
   }
 
   // --- personality (shields, jumps, explosions) ---
-  if (e.shieldT > 0 && (e.shieldT -= dt) <= 0) e.shield = 0;
   if (e.jump) {
     updateJump(ctx, e);
     return;
@@ -551,7 +560,7 @@ function updateEnemy(ctx: Ctx, e: EnemyState, pl: PlayerState): void {
     e.skillCd -= dt;
     if (e.skillCd <= 0) {
       if (e.behavior === 'shielder') {
-        e.skillCd = 6;
+        e.skillCd = ctx.d.game.tuning.enemyShields.cooldown;
         castShields(ctx, e);
       } else if (d < 250) {
         e.skillCd = rand.range(5, 7);
@@ -756,13 +765,23 @@ function healAround(ctx: Ctx, e: EnemyState): void {
 }
 
 function castShields(ctx: Ctx, e: EnemyState): void {
-  const near = queryEnemies(ctx, e.x, e.y, 160)
-    .filter((o) => !o.dead)
-    .sort((a, b) => dist2(a.x, a.y, e.x, e.y) - dist2(b.x, b.y, e.x, e.y))
-    .slice(0, 6);
+  const tuning = ctx.d.game.tuning.enemyShields;
+  const near = queryEnemies(ctx, e.x, e.y, tuning.radius)
+    .filter(
+      (o) =>
+        !o.dead &&
+        (tuning.affectsBosses || (!o.boss && !o.legend)) &&
+        o.shield <= 0 &&
+        o.shieldCd <= 0,
+    )
+    .sort((a, b) => dist2(a.x, a.y, e.x, e.y) - dist2(b.x, b.y, e.x, e.y) || a.id - b.id)
+    .slice(0, tuning.maxTargets);
   for (const o of near) {
-    o.shield = Math.max(o.shield, o.maxHp * 0.35);
-    o.shieldT = 8;
+    // A live shield is never topped up or extended. The recipient cooldown also prevents a
+    // second caster from replacing a broken/expired shield immediately.
+    o.shield = o.maxHp * tuning.maxHpFraction;
+    o.shieldT = tuning.duration;
+    o.shieldCd = tuning.reapplyCooldown;
   }
   emit(ctx, { type: 'enemy-action', id: e.id, action: 'shield' });
 }
