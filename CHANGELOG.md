@@ -6,7 +6,7 @@ What changed for players in each release, newest first. Generated from
 
 ## Unreleased
 
-PRs: [#48](https://github.com/callumbirks/pokesurvivor/pull/48), [#49](https://github.com/callumbirks/pokesurvivor/pull/49), [#52](https://github.com/callumbirks/pokesurvivor/pull/52)
+PRs: [#48](https://github.com/callumbirks/pokesurvivor/pull/48), [#49](https://github.com/callumbirks/pokesurvivor/pull/49), [#50](https://github.com/callumbirks/pokesurvivor/pull/50), [#52](https://github.com/callumbirks/pokesurvivor/pull/52)
 
 ### New
 
@@ -19,6 +19,7 @@ PRs: [#48](https://github.com/callumbirks/pokesurvivor/pull/48), [#49](https://g
 
 ### Fixed
 
+- Upgrades now opens on your current partner after you change it.
 - In a room, changing your Pokémon now shows to everyone straight away, not only once you're ready.
 
 ## v7 - 2026-10-14
