@@ -5,7 +5,7 @@ import { pathToFileURL } from 'node:url';
 import { DT, TILE } from '../src/constants.js';
 import { equip } from '../src/items.js';
 import { applyCard } from '../src/levelup.js';
-import { activeGroup, evolutionInfo, newMove, setActive } from '../src/moves.js';
+import { activeGroup, evolutionInfo, newMove } from '../src/moves.js';
 import { createSim, type PlayerState, type Sim } from '../src/index.js';
 import { isFree, resetChunks } from '../src/world.js';
 import { botInputs, pickFirst } from './bots.js';
