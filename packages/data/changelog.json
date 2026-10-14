@@ -1,6 +1,6 @@
 {
   "unreleased": {
-    "prs": [32, 33, 35],
+    "prs": [32, 33, 35, 36],
     "entries": {
       "new": [
         "What's new: a new button on the main menu lists every update. A dot shows when there's one you haven't read.",
@@ -9,7 +9,8 @@
       ],
       "changed": [
         "HUD size is Auto by default and grows with the window, or pick a fixed size from 75% to 200%.",
-        "The crosshair is magenta by default and no longer changes colour while you fire."
+        "The crosshair is magenta by default and no longer changes colour while you fire.",
+        "In co-op, when a teammate goes down or leaves, their enemies now come for you gradually over 10–20 seconds instead of all at once."
       ],
       "fixed": ["The HUD size slider can be dragged all the way again."],
       "behindTheScenes": [

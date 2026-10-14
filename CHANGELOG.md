@@ -6,7 +6,7 @@ What changed for players in each release, newest first. Generated from
 
 ## Unreleased
 
-PRs: [#32](https://github.com/callumbirks/pokesurvivor/pull/32), [#33](https://github.com/callumbirks/pokesurvivor/pull/33), [#35](https://github.com/callumbirks/pokesurvivor/pull/35)
+PRs: [#32](https://github.com/callumbirks/pokesurvivor/pull/32), [#33](https://github.com/callumbirks/pokesurvivor/pull/33), [#35](https://github.com/callumbirks/pokesurvivor/pull/35), [#36](https://github.com/callumbirks/pokesurvivor/pull/36)
 
 ### New
 
@@ -18,6 +18,7 @@ PRs: [#32](https://github.com/callumbirks/pokesurvivor/pull/32), [#33](https://g
 
 - HUD size is Auto by default and grows with the window, or pick a fixed size from 75% to 200%.
 - The crosshair is magenta by default and no longer changes colour while you fire.
+- In co-op, when a teammate goes down or leaves, their enemies now come for you gradually over 10–20 seconds instead of all at once.
 
 ### Fixed
 
