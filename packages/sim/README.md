@@ -343,3 +343,17 @@ min–max winning TTK, damage, spawn HP and dummy DPS. `cappedTtk*` substitutes 
 as a comparison score; it is **not** a kill time or a survival-analysis estimate. Never use only
 winning TTK to declare a cell easy: consult win rate and downs too. Three seeds expose gross
 sensitivity, not a precise win-probability estimate; increase `--seeds` before choosing final tuning.
+
+For a controlled before/after tuning comparison, reuse the original earned checkpoints with
+`--calibration=/absolute/path/results.jsonl` (or `.jsonl.gz`). The harness requires exactly one
+matching snapshot per requested cell/seed/minute and includes those snapshots in its new output;
+changing legend HP then cannot silently change the reference loadouts through earlier rift rewards.
+Without this option it still earns fresh builds with the currently installed tuning.
+
+`--probe-seconds=45` emits `kind: "probe"` rows instead of wins/TTK. It measures 45 seconds of
+real arena movement and delivered damage, with incoming damage disabled and the legend's current
+HP raised to prevent an early kill. Reference max HP is retained for HP-relative effects. This
+isolates output from bot survival; it disables low-health boss phases and excludes reactive damage
+that requires hurting a player. It is a damage-fitting diagnostic, not an invulnerable win-rate test.
+The normal matrix continues to run with damage enabled. Metadata includes the rift tuning and probe
+configuration. The CSV win/TTK summarizer intentionally ignores probe rows.
