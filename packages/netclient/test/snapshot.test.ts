@@ -389,8 +389,9 @@ describe('fields', () => {
 
 describe('interpolation across jumps', () => {
   it('never slides an entity the sim relocated (stragglers sent ahead, arena trips)', () => {
-    // A solo run where the player wanders far: enemies left behind are sent back ahead of it.
-    const opts = { players: 1, seconds: 150, seed: 3 };
+    // This seed relocates three stragglers within 30 simulated seconds. Keep the
+    // codec/buffer regression short rather than simulating two full late-game runs.
+    const opts = { players: 1, seconds: 30, seed: 3 };
     const before = measureJumps({ ...opts, snap: false });
     expect(before.simTeleports).toBeGreaterThan(0);
     expect(before.jumps.filter((j) => j.kind === 'enemy').length).toBeGreaterThan(0);

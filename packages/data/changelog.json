@@ -1,6 +1,6 @@
 {
   "unreleased": {
-    "prs": [48, 49, 51],
+    "prs": [48, 49, 50, 51, 53],
     "entries": {
       "new": [
         "See what your friends are up to: the Friends list and room invites show whether they're in the menus or in a solo or co-op run, with their Pokémon and run time.",
@@ -9,7 +9,11 @@
       "changed": [
         "Coming back from a rift now heals everyone still standing by 30% of their max HP, as well as reviving the fallen."
       ],
-      "fixed": [],
+      "fixed": [
+        "Upgrades now opens on your current partner after you change it.",
+        "Starting a solo run right after leaving a room no longer gets blocked by the old room.",
+        "Friends see your current activity again after you reconnect."
+      ],
       "behindTheScenes": []
     }
   },

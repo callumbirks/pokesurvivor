@@ -263,13 +263,13 @@ export class Room {
    * A member leaves (or is kicked, or their reconnect grace ran out). Mid-run they're removed
    * from the game (and credited for what they earned). The owner role passes on.
    */
-  leave(userId: string, code: NoticeCode = 'player-left'): void {
+  leave(userId: string, code: NoticeCode = 'player-left'): Promise<void> | undefined {
     if (this.transferring) return;
     const m = this.members.get(userId);
     if (!m) return;
     if (m.graceTimer) clearTimeout(m.graceTimer);
     this.members.delete(userId);
-    this.server.memberLeft(this.id, userId);
+    const released = this.server.memberLeft(this.id, userId);
     this.server.setRoomOf(userId, null);
     this.server.sessionOf(userId)?.send({ type: 'room', room: null });
     if (code === 'kicked')
@@ -280,7 +280,7 @@ export class Room {
       // The game, if any, ends with everyone gone (and is still credited).
       this.game?.removePlayer(userId);
       this.close();
-      return;
+      return released;
     }
     if (this.ownerId === userId) {
       const next =
@@ -295,13 +295,14 @@ export class Room {
     if (this.phase === 'loading') this.checkLoaded();
     this.game?.removePlayer(userId);
     if (!this.closed) this.sync();
+    return released;
   }
 
-  kick(byUserId: string, userId: string): void {
+  kick(byUserId: string, userId: string): Promise<void> | undefined {
     this.requireOwner(byUserId);
     if (userId === byUserId) throw new GameError('bad_request', 'Use leave instead');
     this.member(userId);
-    this.leave(userId, 'kicked');
+    return this.leave(userId, 'kicked');
   }
 
   setStatus(userId: string, status: MemberStatus): void {
@@ -348,7 +349,7 @@ export class Room {
     m.graceTimer = setTimeout(() => {
       m.graceTimer = null;
       if (this.members.get(userId) === m && !this.server.isOnline(userId))
-        this.leave(userId, 'player-removed');
+        void this.leave(userId, 'player-removed');
     }, timeoutMs);
   }
 
