@@ -41,6 +41,7 @@ export type SfxName =
   | 'shot'
   | 'hit'
   | 'faint'
+  | 'mateDown'
   | 'bossDown'
   | 'xp'
   | 'coin'
@@ -98,6 +99,7 @@ const SHOT_PITCH: Record<string, number> = {
 const MIN_GAP: Partial<Record<SfxName, number>> = {
   hit: 45,
   faint: 60,
+  mateDown: 1500,
   xp: 35,
   coin: 50,
   grass: 70,
@@ -637,6 +639,13 @@ class AudioEngine {
         return this.tone('triangle', 230, 90, 0.045, 0.045);
       case 'faint':
         return this.tone('sine', 720, 240, 0.08, 0.04);
+      case 'mateDown':
+        // A teammate is down: an urgent two-note alarm, twice, over a low thump.
+        for (const at of [0, 0.2]) {
+          this.tone('square', 1175, 1175, 0.08, 0.06, at);
+          this.tone('square', 880, 860, 0.1, 0.06, at + 0.09);
+        }
+        return this.tone('triangle', 160, 70, 0.18, 0.1);
       case 'bossDown':
         this.hiss(0.7, 0.18, 'lowpass', 1500, 100);
         return this.arp('triangle', [262, 330, 392, 523], 0.09, 0.4, 0.08);

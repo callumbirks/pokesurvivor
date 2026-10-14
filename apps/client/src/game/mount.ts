@@ -26,6 +26,7 @@ import { ChoiceOverlay } from './choice-ui.js';
 import { ChoiceState } from './choices.js';
 import { clear, el, icon } from './dom.js';
 import { EventEffects } from './events.js';
+import { MateAlerts, MateBanner } from './mate-alerts.js';
 import { buildFrame, type Frame, type SelfView } from './frame.js';
 import { Hud, controlsHint } from './hud.js';
 import { hudScale } from './hudscale.js';
@@ -35,7 +36,7 @@ import { NOTICE_TEXT } from './notices.js';
 import { PauseFlow, type PauseView } from './pause.js';
 import { renderResults } from './results.js';
 import { Camera } from './scene/camera.js';
-import { EntityLayer, LIFT } from './scene/entities.js';
+import { EntityLayer, LIFT, pokemonName } from './scene/entities.js';
 import { FX } from './scene/fx.js';
 import { sampleFrame } from './scene/quality.js';
 import { WeatherLayer } from './scene/weather.js';
@@ -383,6 +384,7 @@ class Run {
   private readonly weather = new WeatherLayer();
   private readonly hud = new Hud();
   private readonly effects: EventEffects;
+  private readonly mates: MateAlerts;
   private readonly predictor: Predictor;
   private readonly choices: ChoiceState;
   private readonly overlay: ChoiceOverlay;
@@ -436,6 +438,15 @@ class Run {
       say: (text, s) => this.hud.say(text, s),
       flash: (c, s) => this.flash(c, s),
       owns: (dex) => (save ? save.owned[String(dex)] !== undefined : null),
+    });
+    const banner = new MateBanner(toasts.root.parentElement ?? layer);
+    this.offs.push(() => banner.dispose());
+    this.mates = new MateAlerts({
+      banner: (text, hint) => banner.show(text, hint),
+      toast: (text) => toasts.show(text, 'good', 2.5),
+      sfx: (name) => audio.sfx(name),
+      now: () => performance.now(),
+      pokemonName,
     });
     // Our Pokémon's collision radius and types, as the sim derives them (bodies.json, pokedex).
     const dex = game.players.find((p) => p.id === conn.selfId)?.dex ?? 25;
@@ -830,6 +841,7 @@ class Run {
         this.tracker?.event(e);
       }
       this.effects.play(q.events, frame);
+      this.mates.play(q.events, frame);
     }
     if (this.queue.length > 60) this.queue.splice(0, this.queue.length - 60);
 
