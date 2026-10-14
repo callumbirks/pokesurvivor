@@ -18,6 +18,14 @@
   gap: 2px;
   vertical-align: middle;
 }
+/* A control in a hint line (`glyphText`): its glyphs and label never wrap apart. */
+.glyph-group {
+  white-space: nowrap;
+}
+/* A hint line may wrap: its glyphs take their full height so wrapped lines don't overlap. */
+.glyph-group .glyph {
+  margin-block: 0;
+}
 /* Glyphs side by side (`glyphText`), apart like on the HUD. */
 .glyph + .glyph {
   margin-left: 4px;
