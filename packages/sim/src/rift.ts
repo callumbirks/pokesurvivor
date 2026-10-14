@@ -255,6 +255,14 @@ export function legendHpMultiplier(minute: number, curve: TuningFile['rift']['hp
   return Math.pow(1 + curve.a * Math.max(0, minute - curve.m0), curve.p);
 }
 
+/** Playtest-calibrated large-team uplift from the first rift; solo/duo stay intact. */
+export function legendCoopHpMultiplier(
+  players: number,
+  coop: TuningFile['rift']['coopHp'],
+): number {
+  return 1 + coop.perPlayerAfterDuo * Math.max(0, players - 2);
+}
+
 function spawnLegend(ctx: Ctx): void {
   const { s, d } = ctx;
   const a = s.arena;
@@ -271,7 +279,8 @@ function spawnLegend(ctx: Ctx): void {
         lk *
         scaleHp(n) *
         (n > 1 ? 1.4 : 1) *
-        legendHpMultiplier(t / 60, d.game.tuning.rift.hpCurve),
+        legendHpMultiplier(t / 60, d.game.tuning.rift.hpCurve) *
+        legendCoopHpMultiplier(n, d.game.tuning.rift.coopHp),
     ),
     speed: Math.round(clamp(48 + (mon.speed - 78) * 0.6, 48, 105)),
     damage: Math.round((36 + t / 20) * Math.pow(lk, 0.7)),

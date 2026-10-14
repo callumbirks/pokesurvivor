@@ -44,6 +44,14 @@ export const TuningFileSchema = z.strictObject({
       /** Positive exponent; independent of contact/shot damage and player prestige. */
       p: z.number().positive(),
     }),
+    /** Extra legend HP from the first rift for coordinated teams larger than two:
+     * multiply HP by 1 + perPlayerAfterDuo * max(0, players - 2).
+     * Solo/duo HP and legend damage remain unchanged.
+     */
+    coopHp: z.strictObject({
+      /** Extra multiplier per player beyond the first two, at every run time. */
+      perPlayerAfterDuo: z.number().nonnegative(),
+    }),
     /** Distance from a player a rift opens at (before the placement fallbacks). */
     distance: RangeSchema,
     /** Chance the legendary is shiny (if it has shiny sprites). */
@@ -79,6 +87,12 @@ export const TuningFileSchema = z.strictObject({
     rescueOwnedCoins: z.number().int().nonnegative(),
   }),
   combat: z.strictObject({ critMultiplier: z.number().positive() }),
+  poison: z.strictObject({
+    /** Scale only poison's percent-max-HP damage against map bosses and rift legends.
+     * Flat damage, tick interval, stacks and regular-enemy poison stay unchanged.
+     */
+    bossFactor: z.number().nonnegative().max(1),
+  }),
   enemyShields: z.strictObject({
     /** Shield HP is capped at this fraction of the recipient's max HP. */
     maxHpFraction: Chance,

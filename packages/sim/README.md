@@ -179,7 +179,7 @@ Each is a module of functions over `Ctx`, stepped after hazards: `interact.ts`, 
   legendary's types, with its weather forced. The map's enemies wait in `arena.stash`, projectiles,
   fields and hazards are cleared, nothing spawns and the biome doesn't change. The legendary (a boss
   with `legend`, walking, (3200 + 9 HP per second played) × late-game × co-op ×
-  `rift.hpCurve` scaling) must fall
+  `rift.hpCurve` and `rift.coopHp` scaling) must fall
   within 120 s. Win: 3 tickets, 10 × 8 coins, a boss's loot with the ×10 ticket at
   `legendaryTicket10Chance`, a bond for everyone and `riftWins`/`legendariesDefeated`; the reward
   in the arena flies to you; 5 s later everyone is back where they were. Lose (everyone down 1.4 s,
@@ -382,3 +382,15 @@ and minimizes squared log error to the target plus extra penalties below 30 s (w
 above 60 s (weight 8). It searches the growth rate and solves the convex exponent objective by
 bisection, then rechecks the constraints after rounding. `--objective=log` retains the original
 symmetric fit. These constraints and measured balance numbers are manual-only, outside CI.
+
+Iteration 3 co-op HP tuning: `rift.coopHp` adds
+`1 + perPlayerAfterDuo * max(0, players - 2)` on top of the existing base/time/co-op HP,
+from the very first rift. Solo/duo HP, legend damage and prestige behavior stay unchanged.
+Fit tools remove recorded time and co-op multipliers (including the superseded draft ramp)
+when deriving a reference base HP. The v9 playtest is the iteration-3 anchor: old first-choice
+half-meta fixtures underestimate that human group's output and are retained as diagnostics.
+
+`poison.bossFactor` reduces the percent-HP part of poison against bosses and rift legends;
+flat tick damage and regular enemies are unchanged. Neutral dummy DPS in the rift harness now
+uses a legend target's status resistance, retaining a still, neutral target without boss AI.
+Metadata records both rift and poison tuning. See the shared R5 report for measured results.

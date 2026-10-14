@@ -1,12 +1,13 @@
 {
   "unreleased": {
-    "prs": [59, 61, 62, 63, 64],
+    "prs": [59, 61, 62, 63, 64, 65],
     "entries": {
       "new": [
         "Show network stats (Settings → Graphics, or add ?netstats to the address): see your ping, packet timing, corrections and frame rate during co-op, to tell whether hiccups come from your connection, your browser or the server."
       ],
       "changed": [
-        "Legendaries are rarer in the gacha: base chance 0.15%, with pity starting at pull 180 and guaranteed by 220. Collect the rest of a region first!"
+        "Legendaries are rarer in the gacha: base chance 0.15%, with pity starting at pull 180 and guaranteed by 220. Collect the rest of a region first!",
+        "Rifts hit harder in 3–4 player co-op from the very first one, and poison no longer melts rift legends and bosses."
       ],
       "fixed": [
         "Server restarts no longer stall when a player reconnects during shutdown.",

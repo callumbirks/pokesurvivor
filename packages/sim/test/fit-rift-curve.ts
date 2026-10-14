@@ -1,7 +1,7 @@
 // Manual curve fits: no balance assertions or CI test registration.
 import { readFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
-import { legendHpMultiplier } from '../src/rift.js';
+import { legendCoopHpMultiplier, legendHpMultiplier } from '../src/rift.js';
 import { median, type DamageProbe } from './measure-rifts.js';
 import type { TuningFile } from '@pokesurvivor/data';
 
@@ -35,15 +35,22 @@ for (const path of args.filter((a) => !a.startsWith('--'))) {
   const bytes = readFileSync(path);
   const raw = path.endsWith('.gz') ? gunzipSync(bytes).toString('utf8') : bytes.toString('utf8');
   let curve: TuningFile['rift']['hpCurve'] | undefined;
+  // Optional ramp fields preserve measurements from the superseded iteration-3 draft.
+  type RecordedCoop = TuningFile['rift']['coopHp'] & { rampMinutes?: number; rampPower?: number };
+  let coop: RecordedCoop | undefined;
   for (const line of raw.trim().split('\n')) {
     const row = JSON.parse(line) as
       | DamageProbe
       | {
           kind: 'metadata';
-          riftTuning?: { hpCurve?: TuningFile['rift']['hpCurve'] };
+          riftTuning?: {
+            hpCurve?: TuningFile['rift']['hpCurve'];
+            coopHp?: RecordedCoop;
+          };
         };
     if (row.kind === 'metadata') {
       curve = row.riftTuning?.hpCurve;
+      coop = row.riftTuning?.coopHp;
       continue;
     }
     if (row.kind !== 'probe' || row.meta !== 'max' || row.profile !== 'typical' || row.minute <= m0)
@@ -52,7 +59,14 @@ for (const path of args.filter((a) => !a.startsWith('--'))) {
     const identity = `${key}/${row.archetype}/${row.seed}`;
     if (seen.has(identity)) throw new Error(`duplicate probe ${identity}`);
     seen.add(identity);
-    const baseHp = row.legendHp / (curve ? legendHpMultiplier(row.minute, curve) : 1);
+    const timeMultiplier = curve ? legendHpMultiplier(row.minute, curve) : 1;
+    const ramp =
+      curve && coop?.rampMinutes
+        ? Math.min(1, Math.max(0, (row.minute - curve.m0) / coop.rampMinutes)) **
+          (coop.rampPower ?? 1)
+        : 1;
+    const coopMultiplier = coop ? 1 + (legendCoopHpMultiplier(row.players, coop) - 1) * ramp : 1;
+    const baseHp = row.legendHp / (timeMultiplier * coopMultiplier);
     const ratios = groups.get(key) ?? [];
     ratios.push((row.fightDps * targetSeconds) / baseHp);
     groups.set(key, ratios);
