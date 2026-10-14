@@ -303,17 +303,24 @@ describe('rollPulls', () => {
   }
 
   it('single-pull frequency follows the configured pity distribution and bounds the gap', () => {
-    const { rate, maxGap, shinies } = simulate(1, 100_000, 'pity');
+    const n = 100_000;
+    const { rate, maxGap, shinies } = simulate(1, n, 'pity');
     expect(maxGap).toBeLessThanOrEqual(config.hardPity);
     // Expected wait = sum of the probability of surviving each pull without a 5★.
     let survival = 1;
     let expectedWait = 0;
+    let secondMoment = 0;
     for (let pull = 1; pull <= config.hardPity; pull++) {
       expectedWait += survival;
+      secondMoment += (2 * pull - 1) * survival;
       survival *= 1 - fiveStarChance(config, pull);
     }
-    expect(Math.abs(rate * expectedWait - 1)).toBeLessThan(0.05);
-    expect(shinies).toBeGreaterThan(0);
+    const variance = Math.max(0, secondMoment - expectedWait ** 2);
+    // Renewal-count sampling error, plus one unfinished waiting interval.
+    const tolerance = 5 * Math.sqrt(variance / (n * expectedWait)) + config.hardPity / n;
+    expect(Math.abs(rate * expectedWait - 1)).toBeLessThanOrEqual(tolerance);
+    // Each eligible shiny can be granted once; a tiny configured rate may yield none here.
+    expect(shinies).toBeLessThanOrEqual(kanto.all.filter((p) => data.hasShinySprite(p.dex)).length);
   });
 
   it('multi-pulls keep the configured guarantee and never exceed the hard-pity gap', () => {
