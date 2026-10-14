@@ -12,7 +12,6 @@ import {
   sprite,
   rarityBall,
   typeChip,
-  typeColor,
 } from '../app/dom.js';
 import { screenBox } from './common.js';
 
@@ -75,7 +74,6 @@ export function soloScreen(app: App): Screen {
             'div',
             {
               class: ['stage', shiny && 'shiny'],
-              style: { '--stage-c': shiny ? '#9ae6ff' : typeColor(mon?.types[0] ?? 'normal') },
             },
             sprite(dex, {
               scale: 4,

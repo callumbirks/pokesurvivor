@@ -13,7 +13,6 @@ import {
   sprite,
   rarityBall,
   typeChip,
-  typeColor,
 } from '../app/dom.js';
 import { movePoolOf, startingMoveOf } from '../app/moves.js';
 import { toast } from '../app/toast.js';
@@ -222,9 +221,6 @@ export function collectionScreen(app: App, params: URLSearchParams): Screen {
         'div',
         {
           class: ['stage', shown && 'shiny'],
-          style: {
-            '--stage-c': !own ? '#5b83d6' : shown ? '#9ae6ff' : typeColor(p.types[0] ?? 'normal'),
-          },
         },
         sprite(p.dex, {
           scale: 3,

@@ -1949,7 +1949,7 @@ html[data-input='touch'] .back-btn .input-hint {
 .dot {
   width: 10px;
   height: 10px;
-  background: #6b7a94;
+  background: var(--muted);
   flex: 0 0 10px;
 }
 .dot.on {
@@ -2011,7 +2011,7 @@ html[data-input='touch'] .back-btn .input-hint {
   padding: 1px 8px;
   text-shadow: none;
   color: #10131a;
-  background: #9fb1c9;
+  background: var(--muted);
 }
 .status-chip.ready {
   background: var(--green);
