@@ -1,19 +1,28 @@
 {
   "unreleased": {
-    "prs": [41, 42, 43, 44],
+    "prs": [],
     "entries": {
-      "new": [
-        "The arrow keys move through the menus and Esc goes back, like a gamepad's D-pad and B."
-      ],
-      "changed": [
-        "A whole new look: pixel windows across every menu and in-run screen, and your partner talks you through the main menu. Settings → About now credits everyone behind the game, music included.",
-        "Controller button prompts are twice as big and easier to read, in the menus and in runs."
-      ],
+      "new": [],
+      "changed": [],
       "fixed": [],
       "behindTheScenes": []
     }
   },
   "versions": [
+    {
+      "version": 6,
+      "date": "2026-10-14",
+      "prs": [41, 42, 43, 44],
+      "entries": {
+        "new": [
+          "The arrow keys move through the menus and Esc goes back, like a gamepad's D-pad and B."
+        ],
+        "changed": [
+          "A whole new look: pixel windows across every menu and in-run screen, and your partner talks you through the main menu. Settings → About now credits everyone behind the game, music included.",
+          "Controller button prompts are twice as big and easier to read, in the menus and in runs."
+        ]
+      }
+    },
     {
       "version": 5,
       "date": "2026-10-14",
