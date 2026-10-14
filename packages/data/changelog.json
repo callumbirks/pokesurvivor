@@ -2,7 +2,9 @@
   "unreleased": {
     "prs": [],
     "entries": {
-      "new": [],
+      "new": [
+        "See what your friends are up to: the Friends list and room invites show whether they're in the menus or in a solo or co-op run, with their Pokémon and run time."
+      ],
       "changed": [],
       "fixed": [],
       "behindTheScenes": []

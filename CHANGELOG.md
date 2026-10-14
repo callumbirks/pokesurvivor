@@ -6,6 +6,10 @@ What changed for players in each release, newest first. Generated from
 
 ## Unreleased
 
+### New
+
+- See what your friends are up to: the Friends list and room invites show whether they're in the menus or in a solo or co-op run, with their Pokémon and run time.
+
 ## v7 - 2026-10-14
 
 PRs: [#46](https://github.com/callumbirks/pokesurvivor/pull/46)

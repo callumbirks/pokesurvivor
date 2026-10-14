@@ -62,6 +62,7 @@ after 20 invalid messages the socket is closed with 4400.
 | `input {gameId, seq, moveX, moveY, slot?, aim?, fire?}` | while playing, every tick (30/s). `seq` counts from 1 in each game. Movement is clamped to [−1, 1] and persists. `slot` is a one-shot move switch. `aim`: manual aim, an integer in [0, 256) for the angle × 256 / 2π (`encodeAim` / `decodeAim`); absent means auto-aim. Like movement it persists, so it's in every input while manual aim is on. `fire: true`: fire held (only with `aim`; absent while not held) |
 | `game.loaded {gameId}`                                  | assets loaded (during `loading`)                                                                                                                                                                                                                                                                                                                                                                                     |
 | `game.resync {gameId}`                                  | the client couldn't apply a snapshot; the next one must be full                                                                                                                                                                                                                                                                                                                                                      |
+| `activity {solo: {runId, elapsedS, paused} \| null}`    | your solo run's clock, for friends' presence (see [Friend activity](#friend-activity))                                                                                                                                                                                                                                                                                                                               |
 | `room.create {rid}`                                     | → `RoomView`                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `room.invite {rid, username}`                           | online friends only                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `room.join {rid, roomId}`                               | accepts an invite (you must have one) → `RoomView`                                                                                                                                                                                                                                                                                                                                                                   |
@@ -95,8 +96,8 @@ game already started), `room_full`, `already_member`, `no_invite`, `user_not_fou
 | `invite {roomId, from, expiresAt}`                                               | you were invited (expires in 2 min)                                                                                                                                |
 | `invite.revoked {roomId}`                                                        | the invite expired, or the room started or closed                                                                                                                  |
 | `invite.declined {roomId, username}`                                             | to the owner                                                                                                                                                       |
-| `presence {friends: [{username, status}]}`                                       | on connect                                                                                                                                                         |
-| `presence.update {username, status}`                                             | a friend's presence changed                                                                                                                                        |
+| `presence {friends: [{username, status, activity?}]}`                            | on connect                                                                                                                                                         |
+| `presence.update {username, status, activity?}`                                  | a friend's presence or activity changed (see [Friend activity](#friend-activity))                                                                                  |
 | `friend {event, username}`                                                       | `request_received`, `request_accepted`, `friend_removed` (from the HTTP friend routes)                                                                             |
 | `notice {code, usernames?, deadline?}`                                           | `dropped-at-loading`, `player-disconnected`, `player-reconnected`, `player-left`, `player-removed`, `owner-changed`, `kicked`, `game-cancelled`, `server-draining` |
 | `game.loading {game, deadline}`                                                  | a game is loading: load what it needs, then send `game.loaded`                                                                                                     |
@@ -113,6 +114,31 @@ again on resume: `roomId`, `gameId`, `seed` (the world), `tickHz`, `snapshotHz`,
 `choiceTimeoutS`, `roster` (the sim's `RosterState`: this run's wild Pokémon and bosses, for
 preloading sprites), and `players` (`{id, username, index, dex, shiny}` per player, in join
 order).
+
+## Friend activity
+
+Presence carries what an online friend is doing (`activity`, absent when offline; added in
+protocol 7 without a version bump, so older clients just ignore it):
+
+- `{kind: "menu"}`: anywhere outside a run. In a room's lobby the status is `in_lobby` and the
+  client says "In a room" rather than "Main Menu" (it matters to whoever wants to invite them).
+- `{kind: "solo" | "coop", dex, shiny, elapsedS, paused?}`: in a run, with their Pokémon and the
+  run time in seconds when the message was sent. The client ticks the clock on locally unless
+  `paused` (paused, a pending choice, loading, or a coop game with nobody connected). Status is
+  `in_game` for both.
+
+The server never sends it every second: it re-checks runs every heartbeat and sends a
+`presence.update` only when the kind, the Pokémon or the pause changes, or when the friend's
+local clock would be off by more than 2 s (`MAX_CLOCK_DRIFT_S` in `apps/server/src/game/activity.ts`).
+
+Coop activity comes from the server's own game. Solo runs are simulated by the client, which
+reports their clock with `activity {solo}`: as the run starts, when it pauses (after 2 s, so a
+card pick doesn't flicker) or resumes, at each checkpoint, again after a reconnect, and `solo:
+null` when it's over. The server only accepts a `runId` that is the player's own open solo run,
+takes the Pokémon from that run, and caps the clock at the wall-clock time since its start. The
+activity falls back to the menus when the run is reported (`POST /api/runs`), credited by the
+timeout sweep, unreported for 5 minutes (the client reports at least every 3 minutes with its
+keep-alive checkpoints), or when the session ends.
 
 ## Rooms
 
