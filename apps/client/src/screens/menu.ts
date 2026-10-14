@@ -178,10 +178,10 @@ export function menuScreen(app: App): Screen {
           on: { click: () => app.go('collection', { dex: String(dex) }) },
         },
         sprite(dex, {
-          scale: 4,
+          scale: 5,
           lively: true,
           shiny,
-          fit: { width: 196, height: 170 },
+          fit: { width: 276, height: 230 },
           feet: true,
         }),
       ),
@@ -234,7 +234,8 @@ export function menuScreen(app: App): Screen {
       ),
     );
     replace(whatsNew, whatsNewButton(app));
-    replace(portrait, sprite(dex, { scale: 3, shiny, fit: { width: 84, height: 110 } }));
+    // Centred and fitted to the frame, whatever the sprite's shape (wide Regieleki, tall Wailord).
+    replace(portrait, sprite(dex, { scale: 3, shiny, fit: { width: 84, height: 84 } }));
     portrait.style.setProperty('--portrait', typeColor(mon?.types[0] ?? 'normal'));
     who.textContent = name;
 

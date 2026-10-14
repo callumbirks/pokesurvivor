@@ -128,6 +128,13 @@ describe('MenuNav', () => {
     field.focus();
     expect(nav.key('ArrowDown', field)).toBe(false);
     expect(nav.key('Escape', field)).toBe(false);
+    // A drop-down keeps the arrows (they change its value), but Esc goes back.
+    const select = document.createElement('select');
+    root.append(select);
+    select.focus();
+    expect(nav.key('ArrowDown', select)).toBe(false);
+    expect(nav.key('Escape', select)).toBe(true);
+    expect(backs).toBe(2);
     // A run or an overlay on top handles its own keys.
     const pop = nav.push({ root: screen() });
     expect(nav.key('ArrowDown', document.body)).toBe(false);

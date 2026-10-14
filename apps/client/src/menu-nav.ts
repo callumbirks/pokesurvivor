@@ -99,16 +99,17 @@ const KEY_ACTIONS: Readonly<Record<string, NavAction>> = {
   Escape: 'back',
 };
 
-/** Typing in a field (or moving a slider) keeps the arrows and Esc for itself. */
-function editing(target: EventTarget | null): boolean {
+/**
+ * Typing in a field (or moving a slider) keeps the arrows and Esc for itself. A drop-down keeps
+ * the arrows (they change its value) but not Esc: while its list is open the browser takes the
+ * key to close it, so an Esc that reaches the page means it's closed, and goes back.
+ */
+function editing(target: EventTarget | null, action: NavAction): boolean {
   if (!(target instanceof HTMLElement)) return false;
   if (target instanceof HTMLInputElement)
     return target.type !== 'checkbox' && target.type !== 'radio';
-  return (
-    target instanceof HTMLTextAreaElement ||
-    target instanceof HTMLSelectElement ||
-    target.isContentEditable
-  );
+  if (target instanceof HTMLSelectElement) return action !== 'back';
+  return target instanceof HTMLTextAreaElement || target.isContentEditable;
 }
 
 const isDir = (k: string): k is NavDir =>
@@ -215,7 +216,7 @@ export class MenuNav {
    */
   key(code: string, target: EventTarget | null): boolean {
     const action = KEY_ACTIONS[code];
-    if (!action || this.stack.length || editing(target)) return false;
+    if (!action || this.stack.length || editing(target, action)) return false;
     return this.press(action);
   }
 
