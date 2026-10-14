@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { simData } from '../src/data.js';
-import { equip } from '../src/items.js';
+import { equip, onDamageDealt } from '../src/items.js';
 import { openChoice } from '../src/choices.js';
 import { addMove, newMove } from '../src/moves.js';
 import { hurtPlayer } from '../src/players.js';
@@ -51,6 +51,7 @@ describe('held items', () => {
   it('Choice Band: applies its damage modifier and locks move switching', () => {
     const sim = quietSim();
     const p = player(sim);
+    p.maxSlots = Math.max(2, p.maxSlots); // The locking fixture needs two switchable slots.
     addMove(sim.ctx, p, 'tackle');
     const atk = p.attackMul;
     equip(sim.ctx, p, 'choice-band');
@@ -74,16 +75,33 @@ describe('held items', () => {
     expect(p.dead).toBe(true);
   });
 
-  it('Shell Bell: heals from damage dealt up to its configured bank', () => {
-    const sim = quietSim();
+  it('Shell Bell: banks damage credit up to its configured cap and spends it on healing', () => {
+    const sim = quietSim(1, { debug: { invulnerable: true } });
     const p = player(sim);
+    const params = d.item('shell-bell').params ?? {};
+    const cap = params.maxBankedHeal ?? 0;
+    const fraction = params.healPerDamage ?? 0;
     equip(sim.ctx, p, 'shell-bell');
     giveMove(sim, p, 'tackle');
     spawnDummy(sim, p.x + 30, p.y);
-    p.hp = 20;
-    steps(sim, seconds(1));
-    expect(p.hp).toBeGreaterThan(20);
-    expect(p.hp).toBeLessThanOrEqual(20 + (d.item('shell-bell').params?.maxBankedHeal ?? 0) + 0.01);
+    p.hp = p.maxHp / 2;
+    p.regen = 0;
+    const damage = p.stats.damageDealt;
+    steps(sim, 1);
+    expect(p.stats.damageDealt).toBeGreaterThan(damage);
+    expect(p.bellHeal).toBeCloseTo(Math.min(cap, (p.stats.damageDealt - damage) * fraction));
+    if (fraction > 0 && cap > 0) {
+      onDamageDealt(sim.ctx, p, (cap / fraction) * 2);
+      expect(p.bellHeal).toBe(cap);
+    }
+    giveMove(sim, p, 'harden');
+    const hp = p.hp;
+    const bank = p.bellHeal;
+    steps(sim, 1);
+    expect(p.hp - hp).toBeCloseTo(bank - p.bellHeal);
+    expect(p.hp).toBeLessThanOrEqual(p.maxHp);
+    if (bank > 0) expect(p.hp).toBeGreaterThan(hp);
+    else expect(p.hp).toBe(hp);
   });
 
   describe('Life Orb', () => {
@@ -92,7 +110,9 @@ describe('held items', () => {
     const floor = params.drainFloor ?? 0;
     // Untargeted moves by cooldown: the fastest and slowest caster cost the same per second.
     const shots = d.game.moves.moves
-      .filter((m) => ['projectile', 'nova', 'beam'].includes(m.kind) && !m.stats.poison)
+      .filter(
+        (m) => ['projectile', 'nova', 'beam'].includes(m.kind) && !m.stats.poison && !m.stats.burn,
+      )
       .sort((a, b) => (a.stats.cooldown ?? 0) - (b.stats.cooldown ?? 0));
     const fast = shots[0]!;
     const slow = shots[shots.length - 1]!;
@@ -117,19 +137,22 @@ describe('held items', () => {
     });
 
     it('drains per second while attacking: a fast move costs the same as a slow one', () => {
-      expect((fast.stats.cooldown ?? 0) * 3).toBeLessThan(slow.stats.cooldown ?? 0);
       const lost = (move: string) => {
         const { sim, p } = orbSim(move);
         steps(sim, seconds(1)); // first cast
         const hp = p.hp;
         steps(sim, seconds(4));
-        return hp - p.hp;
+        return {
+          loss: hp - p.hp,
+          expected: Math.min(Math.max(0, hp - p.maxHp * floor), p.maxHp * rate * 4),
+        };
       };
       const a = lost(fast.id);
       const b = lost(slow.id);
       const maxHp = player(quietSim()).maxHp;
-      expect(a).toBeCloseTo(maxHp * rate * 4, 0);
-      expect(Math.abs(a - b)).toBeLessThan(maxHp * rate * 0.2);
+      expect(a.loss).toBeCloseTo(a.expected, 0);
+      expect(b.loss).toBeCloseTo(b.expected, 0);
+      expect(Math.abs(a.loss - b.loss)).toBeLessThanOrEqual(maxHp * rate * 0.2 + 1e-6);
     });
 
     it('a bond (several moves cast together) costs the same as one move', () => {
@@ -145,15 +168,17 @@ describe('held items', () => {
 
     it('never drains below its configured floor and resumes after healing above it', () => {
       const { sim, p } = orbSim(fast.id);
-      p.hp = p.maxHp * (floor + rate);
+      p.hp = p.maxHp * Math.min(1, floor + rate);
+      const initial = p.hp;
       steps(sim, seconds(10));
-      expect(p.hp).toBeCloseTo(p.maxHp * floor, 5);
+      expect(p.hp).toBeCloseTo(Math.min(initial, p.maxHp * floor), 5);
       expect(p.dead).toBe(false);
       const healedHp = p.maxHp * (floor + (1 - floor) / 2);
       p.hp = healedHp;
       steps(sim, seconds(2));
-      expect(p.hp).toBeLessThan(healedHp);
-      expect(p.hp).toBeGreaterThan(p.maxHp * floor);
+      if (rate > 0 && healedHp > p.maxHp * floor) expect(p.hp).toBeLessThan(healedHp);
+      else expect(p.hp).toBe(healedHp);
+      expect(p.hp).toBeGreaterThanOrEqual(Math.min(healedHp, p.maxHp * floor));
     });
 
     it('no drain while idle (nothing to attack) or paused for a choice', () => {

@@ -135,7 +135,9 @@ describe('players', () => {
       { id: 'a', dex: 25, upgrades: { experience: 8 } },
       { id: 'b', dex: 25 },
     ]);
-    expect(teamXpFactor(duo.ctx)).toBeCloseTo((1 + bonus / 2) / 1.6);
+    const base = teamXpFactor(quietSim(2).ctx);
+    expect(base).toBeLessThanOrEqual(teamXpFactor(quietSim().ctx));
+    expect(teamXpFactor(duo.ctx)).toBeCloseTo((1 + bonus / 2) * base);
     duo.setConnected('b', false);
     expect(teamXpFactor(duo.ctx)).toBeCloseTo(1 + bonus);
   });

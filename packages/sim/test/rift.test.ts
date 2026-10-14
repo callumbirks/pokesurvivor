@@ -1,17 +1,18 @@
 // Rifts and the legendary's arena: the schedule (and its guarantee, the legacy "no rifts" bug),
 // placement, entering, winning, losing and going back.
 import { describe, expect, it } from 'vitest';
-import { DT, TILE } from '../src/constants.js';
+import { BIOME_SECONDS, DT, TILE } from '../src/constants.js';
 import { simData } from '../src/data.js';
 import { addEnemy, createEnemy, hurtEnemy } from '../src/enemies.js';
 import { createSim, type Sim } from '../src/index.js';
 import { dropPickup } from '../src/pickups.js';
 import { hurtPlayer } from '../src/players.js';
 import { placeRift, updateRift } from '../src/rift.js';
+import { addMove } from '../src/moves.js';
 import { bossAlive } from '../src/runevents.js';
 import { WALL, isFree, terrainAt } from '../src/world.js';
 import { botInputs, pickFirst } from './bots.js';
-import { giveMove, player, quietSim, seconds, spawnDummy, steps } from './helpers.js';
+import { giveMove, patchTuning, player, quietSim, seconds, spawnDummy, steps } from './helpers.js';
 
 const d = simData();
 const R = d.game.tuning.rift;
@@ -332,7 +333,8 @@ describe('the arena', () => {
       debug: { invulnerable: true },
     });
     giveMove(sim, player(sim), 'harden');
-    sim.state.time = 235;
+    patchTuning(sim, 'rift', { arenaTime: Math.max(R.arenaTime, 20) });
+    sim.state.time = Math.max(0, BIOME_SECONDS - 5);
     sim.debugStartArena('fire');
     steps(sim, seconds(10));
     expect(sim.state.enemies.every((e) => e.legend)).toBe(true);
@@ -340,7 +342,7 @@ describe('the arena', () => {
     killLegend(sim);
     play(sim, seconds(R.returnAfterWin + 1));
     expect(sim.state.arena).toBeNull();
-    expect(sim.state.world.biome).toBe(1);
+    expect(sim.state.world.biome).toBe(Math.floor(sim.state.time / BIOME_SECONDS));
   });
 
   it("forces the arena's weather and clears it on the way back", () => {
@@ -354,6 +356,10 @@ describe('the arena', () => {
 
   it('winning: rewards, a bond each, progress, then back to where everyone was', () => {
     const sim = calmSim(2);
+    for (const p of sim.state.players) {
+      p.maxSlots = Math.max(2, p.maxSlots);
+      addMove(sim.ctx, p, 'tackle'); // Give the reward fixture a bindable pair.
+    }
     const [a, b] = [player(sim, 0), player(sim, 1)];
     a.x = 300;
     b.x = -300;

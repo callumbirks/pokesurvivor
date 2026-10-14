@@ -4,10 +4,9 @@ import { simData } from '../src/data.js';
 import { DT } from '../src/constants.js';
 import { addEnemy, createEnemy, hurtEnemy } from '../src/enemies.js';
 import { createSim, type Sim } from '../src/index.js';
-import type { EnemyState } from '../src/state.js';
 import { hordeTypes, spawnThief, startEvent } from '../src/runevents.js';
 import { spawnOne } from '../src/spawner.js';
-import { giveMove, player, quietSim, seconds, spawnDummy, steps } from './helpers.js';
+import { giveMove, patchTuning, player, quietSim, seconds, spawnDummy, steps } from './helpers.js';
 
 const d = simData();
 const T = d.game.tuning.events;
@@ -65,14 +64,10 @@ describe('treasure thieves', () => {
     expect(sim.state.enemies.find((e) => e.id === thief.id)).toBeUndefined();
 
     const s2 = quietSim();
-    let gold: EnemyState | undefined;
-    for (let i = 0; i < 100 && !gold; i++) {
-      spawnThief(s2.ctx);
-      const last = s2.state.enemies[s2.state.enemies.length - 1];
-      if (last?.dex === 1000) gold = last;
-      else s2.state.enemies.pop();
-    }
-    if (!gold) throw new Error('no Gholdengo in 100 thieves');
+    patchTuning(s2, 'events', { goldThiefChance: 1 });
+    spawnThief(s2.ctx);
+    const gold = s2.state.enemies[0]!;
+    expect(gold.dex).toBe(1000);
     hurtEnemy(s2.ctx, gold, 1e9);
     expect(s2.state.pickups.some((k) => k.kind === 'ticket10')).toBe(true);
   });

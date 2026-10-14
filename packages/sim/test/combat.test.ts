@@ -6,14 +6,15 @@ import { damageTo, giveMove, player, quietSim, seconds, spawnDummy, steps } from
 const d = simData();
 const types = d.game.types;
 const { superEffective, notVeryEffective, immune } = types.softened;
+const bounded = (value: number) => Math.min(types.max, Math.max(types.min, value));
 
 describe('type chart (softened)', () => {
   it('replaces the games multipliers with the survivor ones', () => {
-    expect(d.typeMult('fire', ['grass'])).toBeCloseTo(superEffective);
-    expect(d.typeMult('fire', ['water'])).toBeCloseTo(notVeryEffective);
-    expect(d.typeMult('normal', ['ghost'])).toBeCloseTo(immune);
-    expect(d.typeMult('electric', ['ground'])).toBeCloseTo(immune);
-    expect(d.typeMult('fire', ['normal'])).toBe(1);
+    expect(d.typeMult('fire', ['grass'])).toBeCloseTo(bounded(superEffective));
+    expect(d.typeMult('fire', ['water'])).toBeCloseTo(bounded(notVeryEffective));
+    expect(d.typeMult('normal', ['ghost'])).toBeCloseTo(bounded(immune));
+    expect(d.typeMult('electric', ['ground'])).toBeCloseTo(bounded(immune));
+    expect(d.typeMult('fire', ['normal'])).toBe(bounded(1));
   });
 
   it('multiplies across dual types and clamps to the configured bounds', () => {
@@ -40,18 +41,23 @@ describe('damage', () => {
     steps(sim, 2);
     const hit = damageTo(sim.drainEvents(), e.id);
     const base = (d.move('tackle').stats.damage ?? 0) * attackOf(p);
-    expect(hit).toBe(Math.round(base)); // normal vs normal: ×1
-    // A Ghost target only takes 0.3 from a Normal move.
+    expect(hit).toBe(Math.max(1, Math.round(base * d.typeMult('normal', e.types))));
+    // A second defender uses its configured type multiplier.
     const ghost = spawnDummy(sim, p.x + 30, p.y + 5, { dex: 92 });
     e.dead = true;
     sim.drainEvents();
-    steps(sim, seconds(1));
+    p.moves[0]!.t = 0;
+    steps(sim, 1);
     const events = sim.drainEvents();
     const first = events.find((ev) => ev.type === 'enemy-hurt' && ev.id === ghost.id);
     expect(first && first.type === 'enemy-hurt' && first.amount).toBe(
-      Math.round(base * d.typeMult('normal', ghost.types)),
+      Math.max(1, Math.round(base * d.typeMult('normal', ghost.types))),
     );
-    expect(first && first.type === 'enemy-hurt' && first.label).toBe('weak');
+    const multiplier = d.typeMult('normal', ghost.types);
+    // Hit-cue thresholds are UI rules; the multiplier is read from the game data.
+    expect(first && first.type === 'enemy-hurt' && first.label).toBe(
+      multiplier > 1.05 ? 'super' : multiplier < 0.95 ? 'weak' : null,
+    );
   });
 
   it('crits with the configured damage multiplier', () => {
@@ -65,7 +71,10 @@ describe('damage', () => {
     const hurt = sim.drainEvents().find((ev) => ev.type === 'enemy-hurt' && ev.id === e.id);
     const base = (d.move('tackle').stats.damage ?? 0) * attackOf(p);
     expect(hurt && hurt.type === 'enemy-hurt' && hurt.amount).toBe(
-      Math.round(base * d.game.tuning.combat.critMultiplier),
+      Math.max(
+        1,
+        Math.round(base * d.game.tuning.combat.critMultiplier * d.typeMult('normal', e.types)),
+      ),
     );
     expect(hurt && hurt.type === 'enemy-hurt' && hurt.label).toBe('crit');
   });

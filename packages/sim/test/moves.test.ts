@@ -1,9 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import { simData } from '../src/data.js';
+import { DT, TILE } from '../src/constants.js';
 import { MOVE_KINDS } from '@pokesurvivor/data';
 import { applyCard, offerCards } from '../src/levelup.js';
 import { evolutionInfo, levelUpMove } from '../src/moves.js';
-import { damageTo, giveMove, player, quietSim, seconds, spawnDummy, steps } from './helpers.js';
+import {
+  damageTo,
+  giveMove,
+  player,
+  postponeAmbientSystems,
+  quietSim,
+  seconds,
+  spawnDummy,
+  steps,
+} from './helpers.js';
 
 const d = simData();
 
@@ -99,10 +109,18 @@ describe('move kinds', () => {
     const p = player(sim);
     giveMove(sim, p, 'swords-dance');
     const buff = d.move('swords-dance').stats;
-    steps(sim, seconds((buff.cooldown ?? 0) * (buff.stacks ?? 1) + 1));
+    // A short casting cadence exercises stacking independently of shipped cooldown/duration.
+    const ticks = (buff.stacks ?? 1) + 2;
+    p.moves[0]!.stats.duration = Math.max(buff.duration ?? 0, ticks * DT);
+    const duration = p.moves[0]!.stats.duration;
+    postponeAmbientSystems(sim, duration + ticks * DT + 1);
+    for (let i = 0; i < ticks; i++) {
+      p.moves[0]!.t = 0;
+      sim.step();
+    }
     expect(p.buffs.attack.n).toBe(d.move('swords-dance').stats.stacks);
     giveMove(sim, p, 'tackle');
-    steps(sim, seconds((buff.duration ?? 0) + 1));
+    steps(sim, seconds(duration) + 2);
     expect(p.buffs.attack.n).toBe(0);
   });
 
@@ -234,17 +252,24 @@ describe('move kinds', () => {
     expect(damageTo(sim.drainEvents(), e.id)).toBeGreaterThan(0);
   });
 
-  it('trail: leaves damaging pools as you walk (not stacked when standing)', () => {
+  it('trail: creates spaced pools without stacking fresh stationary pools', () => {
     const sim = quietSim();
     const p = player(sim);
     giveMove(sim, p, 'flame-wheel');
-    steps(sim, seconds(1));
+    const move = p.moves[0]!;
+    // Keep the patches alive while exercising placement independently of cast cadence.
+    move.stats.duration = Math.max(move.stats.duration ?? 0, 1);
+    steps(sim, 1);
+    move.t = 0;
+    steps(sim, 1);
     expect(sim.state.fields.filter((f) => f.kind === 'patch').length).toBe(1);
-    sim.setInput(p.id, { moveX: 1, moveY: 0 });
-    steps(sim, seconds(1));
+    for (let i = 0; i < 3; i++) {
+      p.x += Math.max((move.stats.radius ?? 0) * 4, TILE * 4);
+      move.t = 0;
+      steps(sim, 1);
+    }
     expect(sim.state.fields.filter((f) => f.kind === 'patch').length).toBeGreaterThan(2);
     const f = sim.state.fields[0]!;
-    sim.setInput(p.id, { moveX: 0, moveY: 0 });
     const e = spawnDummy(sim, f.x, f.y);
     sim.drainEvents();
     steps(sim, seconds(0.6));

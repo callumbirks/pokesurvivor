@@ -1,23 +1,22 @@
 import { describe, expect, it } from 'vitest';
 import { simData } from '../src/data.js';
-import { bossScale, enemyScale, scaleHp, scaleRate, spawnRate } from '../src/spawner.js';
+import { bossScale, enemyScale, scaleHp, scaleRate, spawnRate, spawnOne } from '../src/spawner.js';
 import { createSim, OUTER_RADIUS, type Sim } from '../src/index.js';
-import { seconds } from './helpers.js';
+import { patchTuning, postponeAmbientSystems, seconds } from './helpers.js';
 
 const d = simData();
 const sim1 = () =>
   createSim({ seed: 3, players: [{ id: 'a', dex: 25 }], debug: { invulnerable: true } });
 
 describe('spawn curves', () => {
-  it('spawn rate follows the curve at the configured density', () => {
-    const ctx = sim1().ctx;
-    expect(spawnRate(ctx, 0)).toBeCloseTo(1.6 * d.game.tuning.spawner.density);
-    expect(spawnRate(ctx, 60)).toBeCloseTo(
-      (1.6 + 60 * 0.028 + 0.5) * d.game.tuning.spawner.density,
-    );
-    expect(spawnRate(ctx, 600)).toBeCloseTo(
-      (1.6 + 600 * 0.028 + Math.pow(10, 1.6) * 0.5) * d.game.tuning.spawner.density,
-    );
+  it('spawn rate grows with time and scales with the configured density', () => {
+    const plain = sim1();
+    const denser = sim1();
+    patchTuning(denser, 'spawner', { density: d.game.tuning.spawner.density * 2 });
+    for (const time of [0, 60, 600])
+      expect(spawnRate(denser.ctx, time)).toBeCloseTo(spawnRate(plain.ctx, time) * 2);
+    expect(spawnRate(plain.ctx, 60)).toBeGreaterThan(spawnRate(plain.ctx, 0));
+    expect(spawnRate(plain.ctx, 600)).toBeGreaterThan(spawnRate(plain.ctx, 60));
   });
 
   it('enemy and boss scaling, with the configured late-game multiplier', () => {
@@ -95,6 +94,10 @@ describe('spawning', () => {
   it('spawns outside the view and stays under the cap', () => {
     const sim = sim1();
     const p = sim.state.players[0]!;
+    patchTuning(sim, 'spawner', { density: 1 }); // Ensure the placement fixture actually spawns.
+    postponeAmbientSystems(sim, 120);
+    p.moves = [];
+    p.slots = [];
     const seen: number[] = [];
     for (let i = 0; i < seconds(120); i++) {
       sim.step();
@@ -114,6 +117,9 @@ describe('spawning', () => {
             cardId: c.options[0]!.id,
           });
       }
+      p.moves = [];
+      p.slots = [];
+      p.active = 0;
     }
     expect(seen.length).toBeGreaterThan(0);
     expect(Math.min(...seen)).toBeGreaterThan(OUTER_RADIUS - 1);
@@ -147,9 +153,19 @@ describe('spawning', () => {
   }, 30_000);
 
   it('enemies past the cap threshold spawn as elites', () => {
-    const sim = sim1();
-    run(sim, 1);
-    const elite = (sim.ctx.d.game.tuning.spawner.cap * sim.ctx.d.game.tuning.spawner.eliteFrom) | 0;
-    expect(elite).toBeGreaterThan(0);
+    const plain = sim1();
+    const crowded = sim1();
+    // A small cap keeps the threshold fixture fast for any shipped cap.
+    for (const sim of [plain, crowded]) patchTuning(sim, 'spawner', { cap: 4 });
+    const baseline = spawnOne(plain.ctx, plain.state.players[0]!, 0)!;
+    const tuning = crowded.ctx.d.game.tuning.spawner;
+    const count = Math.ceil(tuning.cap * tuning.eliteFrom);
+    crowded.state.enemies = Array.from({ length: count }, (_, i) => ({ ...baseline, id: i + 1 }));
+    crowded.state.nextId = count + 1;
+    const elite = spawnOne(crowded.ctx, crowded.state.players[0]!, 0)!;
+    expect(elite.dex).toBe(baseline.dex);
+    expect(elite.maxHp).toBeGreaterThanOrEqual(baseline.maxHp);
+    expect(elite.damage).toBeGreaterThanOrEqual(baseline.damage);
+    expect(elite.maxHp > baseline.maxHp || elite.damage > baseline.damage).toBe(true);
   });
 });

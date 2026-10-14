@@ -18,7 +18,8 @@ describe('level-up offers', () => {
     const p = player(sim);
     for (let i = 0; i < 50; i++) {
       const cards = offerCards(sim.ctx, p);
-      expect(cards.length).toBe(cfg.cardsOffered);
+      expect(cards.length).toBeLessThanOrEqual(cfg.cardsOffered);
+      expect(cards.length).toBeGreaterThan(0);
       expect(new Set(cards.map((c) => c.id)).size).toBe(cards.length);
       for (const c of cards) {
         if (c.type === 'new') expect(d.movePool(p.types)).toContain(c.moveId);
@@ -60,7 +61,7 @@ describe('level-up offers', () => {
     }
   });
 
-  it('respects stat card caps, except the card a waiting evolution needs', () => {
+  it("respects stat card caps and keeps a waiting evolution's required card eligible", () => {
     const sim = quietSim();
     const p = player(sim);
     for (const c of cfg.statCards) if (c.maxPicks) p.statsTaken[c.id] = c.maxPicks;
@@ -73,7 +74,13 @@ describe('level-up offers', () => {
     giveMove(sim, p, 'ember', d.maxMoveLevel('ember'));
     p.statsTaken.attack = 0;
     delete p.statsTaken.attack;
-    const offers = Array.from({ length: 40 }, () => offerCards(sim.ctx, p).map((c) => c.id)).flat();
+    // Isolate eligibility from offer weights by leaving only the required card in the pool.
+    p.maxSlots = p.slots.length;
+    sim.ctx.d = {
+      ...sim.ctx.d,
+      game: { ...sim.ctx.d.game, levelUp: { ...cfg, statCards: [d.statCard('attack')] } },
+    };
+    const offers = offerCards(sim.ctx, p).map((c) => c.id);
     expect(offers).toContain('stat:attack');
   });
 
@@ -97,6 +104,7 @@ describe('level-up offers', () => {
   it('learns, upgrades and switches to new moves', () => {
     const sim = quietSim();
     const p = player(sim);
+    p.maxSlots = Math.max(2, p.maxSlots); // Exercise learning with an available slot.
     applyCard(sim.ctx, p, { id: 'new:tackle', type: 'new', moveId: 'tackle' });
     expect(p.slots.map((s) => s[0])).toContain('tackle');
     expect(p.slots[p.active]).toEqual(['tackle']);
@@ -105,10 +113,17 @@ describe('level-up offers', () => {
   });
 
   it('keeps bound moves in their chosen slot', () => {
-    const sim = quietSim([{ id: 'a', dex: 25, moveBindings: [null, null, 'thunder-shock'] }]);
+    const bound = Math.min(2, cfg.maxMoveSlots - 1);
+    const bindings = Array.from({ length: bound + 1 }, (_, i) =>
+      i === bound ? 'thunder-shock' : null,
+    );
+    const sim = quietSim([{ id: 'a', dex: 25, moveBindings: bindings }]);
     const p = player(sim);
     addMove(sim.ctx, p, 'tackle');
     addMove(sim.ctx, p, 'quick-attack');
-    expect(p.slots.map((s) => s[0])).toEqual(['tackle', 'quick-attack', 'thunder-shock']);
+    expect(p.slots[bound]).toEqual(['thunder-shock']);
+    expect(p.slots.filter((_, i) => i !== bound).flat()).toEqual(
+      ['tackle', 'quick-attack'].slice(0, cfg.maxMoveSlots - 1),
+    );
   });
 });

@@ -81,3 +81,11 @@ export function patchTuning<K extends keyof Sim['ctx']['d']['game']['tuning']>(
     },
   };
 }
+
+/** Keep automatic ambient systems outside a focused test's observation window. */
+export function postponeAmbientSystems(sim: Sim, duration: number): void {
+  sim.state.rift.checkT = duration + 1;
+  sim.state.weather.checkT = duration + 1;
+  sim.state.events.nextT = duration + 1;
+  sim.state.events.thiefT = duration + 1;
+}

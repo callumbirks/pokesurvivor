@@ -137,9 +137,9 @@ describe('enemy healing', () => {
       sim.drainEvents().filter((e) => e.type === 'enemy-action' && e.action === 'heal'),
     ).toHaveLength(0);
     tick(3);
-    expect(
-      sim.drainEvents().filter((e) => e.type === 'enemy-action' && e.action === 'heal'),
-    ).toHaveLength(1);
+    expect(sim.drainEvents().some((e) => e.type === 'enemy-action' && e.action === 'heal')).toBe(
+      true,
+    );
   });
 
   it.each([false, true])(

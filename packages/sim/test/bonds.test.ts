@@ -151,6 +151,7 @@ describe('the bond choice', () => {
     p.bonds = 1;
     steps(sim, 30);
     expect(sim.state.pendingChoices).toEqual([]);
+    p.maxSlots = Math.max(2, p.maxSlots); // The pair fixture needs room for its second move.
     addMove(sim.ctx, p, 'ember');
     sim.step();
     expect(bondOf(sim, p.id)?.loose).toEqual(['tackle', 'ember']);
