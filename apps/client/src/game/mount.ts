@@ -32,6 +32,7 @@ import { Hud, controlsHint } from './hud.js';
 import { hudScale } from './hudscale.js';
 import { Input } from './input.js';
 import { Predictor } from './net/predict.js';
+import { NetStatsPanel } from './netstats-ui.js';
 import { NOTICE_TEXT } from './notices.js';
 import { PauseFlow, type PauseView } from './pause.js';
 import { renderResults } from './results.js';
@@ -74,7 +75,8 @@ export interface MountGameOptions {
   openSettings?(onClose: () => void): () => void;
 }
 
-export type GameClient = Pick<NetClient, 'on' | 'state'> & { readonly draining?: boolean };
+export type GameClient = Pick<NetClient, 'on' | 'state'> &
+  Partial<Pick<NetClient, 'stats'>> & { readonly draining?: boolean };
 
 export interface GameHandle {
   dispose(): void;
@@ -102,6 +104,9 @@ class GameScreen {
   private loadingEl: HTMLElement | null = null;
   private save: AchievementSave | null = null;
   private exited = false;
+  /** The network stats (co-op; frame times only in solo). */
+  readonly netStats: NetStatsPanel;
+  private lastTs = 0;
 
   constructor(
     host: HTMLElement,
@@ -122,6 +127,8 @@ class GameScreen {
     // own menu scopes over this.
     this.offs.push(menuNav.push({ root: this.root, block: true }));
     this.toasts = new Toasts(this.root);
+    this.netStats = new NetStatsPanel(this.layer, conn, opts.client ?? null);
+    this.offs.push(() => this.netStats.dispose());
     // For end-to-end tests: the connection's phase (loading / running / ended), hidden.
     const phase = el('span', { class: 'hidden', data: { testid: 'game-phase' } }, conn.phase);
     this.root.append(phase);
@@ -319,6 +326,8 @@ class GameScreen {
       this.resize();
       if (this.run) this.run.frame(ts, this.ctx);
       else this.clear();
+      this.netStats.frame(this.lastTs ? ts - this.lastTs : 0, !!this.run && !this.run.results);
+      this.lastTs = ts;
       if (import.meta.env.DEV) devFrameStats(performance.now() - t0);
     } catch (err) {
       // A frame that throws must not freeze the game: log and keep going.
@@ -456,6 +465,7 @@ class Run {
       data.bodyByDex.get(dex)?.radius ?? 12,
       data.pokemonByDex.get(dex)?.types ?? [],
     );
+    this.predictor.onCorrection = (units) => screen.netStats.correction(units);
     const name = (id: string) => game.players.find((p) => p.id === id)?.username ?? id;
     this.choices = new ChoiceState(conn.selfId, game.tickHz, name, (i) => conn.intent(i));
     this.overlay = new ChoiceOverlay(layer, this.choices);
@@ -980,6 +990,7 @@ class Run {
         pad: inputDevice.device === 'gamepad' ? inputDevice.layout : null,
       });
       this.touch.draw(ctx);
+      this.screen.netStats.placeBelow(this.hud.topLeftBottom);
     }
     if (this.flashT > 0) {
       this.flashT -= frame.dt;

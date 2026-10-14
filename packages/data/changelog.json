@@ -1,8 +1,10 @@
 {
   "unreleased": {
-    "prs": [59, 61, 62, 63],
+    "prs": [59, 61, 62, 63, 64],
     "entries": {
-      "new": [],
+      "new": [
+        "Show network stats (Settings → Graphics, or add ?netstats to the address): see your ping, packet timing, corrections and frame rate during co-op, to tell whether hiccups come from your connection, your browser or the server."
+      ],
       "changed": [
         "Legendaries are rarer in the gacha: base chance 0.15%, with pity starting at pull 180 and guaranteed by 220. Collect the rest of a region first!"
       ],

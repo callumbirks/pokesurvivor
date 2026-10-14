@@ -111,6 +111,8 @@ export class Predictor {
   private divergedSince: number | null = null;
   /** Showing the server position until the prediction agrees again. */
   fallback = false;
+  /** Each correction's size in world units, teleports excluded (the network stats count them). */
+  onCorrection: ((units: number) => void) | null = null;
 
   constructor(
     private readonly world: Mover,
@@ -169,6 +171,8 @@ export class Predictor {
       if (a && b) {
         this.offX += a.x - b.x;
         this.offY += a.y - b.y;
+        const units = Math.hypot(a.x - b.x, a.y - b.y);
+        if (units > 0 && units <= SNAP_DISTANCE) this.onCorrection?.(units);
       }
     }
     if (Math.hypot(this.offX, this.offY) > SNAP_DISTANCE) this.offX = this.offY = 0;

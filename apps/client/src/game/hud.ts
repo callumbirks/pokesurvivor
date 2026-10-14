@@ -130,6 +130,8 @@ export class Hud {
 
   /** The scale the current frame is drawn at. */
   private scale = 1;
+  /** Where the top-left block (HP, buffs, the team) ends, in CSS px (the network stats go under). */
+  topLeftBottom = 0;
 
   /** The iPhone's margins (CSS px) in HUD px, so they stay the same on screen at any scale. */
   private safeArea(touch: TouchControls) {
@@ -305,7 +307,10 @@ export class Hud {
       ctx.restore();
     }
 
-    if (frame.game.players.length > 1) this.drawTeam(ctx, k, px, py + (bx > px ? 56 : 40));
+    const teamTop = py + (bx > px ? 56 : 40);
+    const mates = frame.players.filter((p) => p.id !== frame.selfId && !p.left).length;
+    this.topLeftBottom = (teamTop + mates * 15) * s;
+    if (frame.game.players.length > 1) this.drawTeam(ctx, k, px, teamTop);
 
     // ---------- rift: a big arrow on the edge, or a bouncing one over it ----------
     const rift = snap.misc.rift;

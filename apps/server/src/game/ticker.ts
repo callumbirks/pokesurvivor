@@ -7,6 +7,8 @@ export interface TickerOptions {
   maxCatchUp?: number;
   /** …and if still further behind, skip ahead instead of fast-forwarding. */
   onSkip?: (skippedMs: number) => void;
+  /** A tick ran more than one tick late (the loop fell behind; it catches up). */
+  onLate?: (lateMs: number) => void;
   now?: () => number;
 }
 
@@ -47,6 +49,8 @@ export class Ticker {
 
   private run(): void {
     const { tickMs } = this.opts;
+    const late = this.now() - this.next;
+    if (late >= tickMs) this.opts.onLate?.(late);
     let n = 0;
     while (this.now() >= this.next && n < this.maxCatchUp) {
       this.next += tickMs;
