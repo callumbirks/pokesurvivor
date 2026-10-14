@@ -1,6 +1,6 @@
 {
   "unreleased": {
-    "prs": [41, 42, 43],
+    "prs": [41, 42, 43, 44],
     "entries": {
       "new": [
         "The arrow keys move through the menus and Esc goes back, like a gamepad's D-pad and B."
