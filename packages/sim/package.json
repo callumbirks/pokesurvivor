@@ -13,7 +13,9 @@
     "bench": "tsx test/bench.ts",
     "shields": "tsx test/measure-shields.ts",
     "heals": "tsx test/measure-heals.ts",
-    "test:slow": "vitest run --config vitest.slow.config.ts"
+    "test:slow": "vitest run --config vitest.slow.config.ts",
+    "rifts": "tsx test/measure-rifts.ts",
+    "rifts:summary": "tsx test/summarize-rifts.ts"
   },
   "dependencies": {
     "@pokesurvivor/data": "workspace:*",
