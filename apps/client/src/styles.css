@@ -1574,6 +1574,18 @@ img.pix {
   text-align: right;
   font-size: 14px;
 }
+/* Settings → HUD size: Auto (default) and a fixed scale; the slider is dimmed while on Auto but
+   still draggable (moving it turns Auto off). */
+.hud-size {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.slider.dim {
+  opacity: 0.45;
+}
 input[type='range'] {
   appearance: none;
   width: 100%;

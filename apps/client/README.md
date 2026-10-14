@@ -117,10 +117,12 @@ fn)` (spinner on the button, toast on error), loads through `loadInto(el, load, 
   teammates, shinies, the lost Pokémon, thieves), event timers, banners. Toasts (DOM) for
   teammates leaving and coming back, server notices (with `client`) and achievements.
 - **HUD size** (`hudscale.ts`): the HUD is laid out in CSS px at the original sizes (made for
-  windows up to ~1280 × 720) and drawn under one scale: automatic `min(w / 1280, h / 720)`, never
-  below 1 (phones look as before) and at most 2 (1.5 at 1920 × 1080), times the per-device "HUD
-  size" setting (75–150%, Settings → Graphics). Touch and click hit-testing use the same scale;
-  HUD icons snap to whole device pixels. The manual-aim crosshair isn't scaled.
+  windows up to ~1280 × 720) and drawn under one scale. The "HUD size" setting (Settings →
+  Graphics, per device) is Auto by default: `min(w / 1280, h / 720)`, never below 1 (phones look
+  as before) and at most 2 (1.5 at 1920 × 1080); or a fixed scale, 75–200% (moving the slider
+  turns Auto off). Touch and click hit-testing use the same scale; HUD icons snap to whole device
+  pixels. The manual-aim crosshair isn't scaled. Settings sliders are in `SLIDER_KEYS`
+  (`screens/settings.ts`) so the screen doesn't redraw under a drag.
 - **Choices** (`choices.ts` state, `choice-ui.ts` DOM): level-up cards with reroll, item swaps,
   two-step bonds; the deadline countdown and who's still choosing. Derived from every snapshot,
   so it closes when the choice leaves it; a pick with no answer is offered again.

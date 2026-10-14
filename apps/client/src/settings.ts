@@ -25,16 +25,17 @@ export interface Settings {
    */
   aimMode: AimMode;
   /**
-   * The in-run HUD's size, 0.75–1.5 times its automatic size (which grows with the window). Local
-   * only: it depends on the screen.
+   * The in-run HUD's size: `auto` (it grows with the window, `autoHudScale`) or a fixed scale,
+   * 0.75–2. Local only: it depends on the screen. (It replaced `hudScale`, a multiplier of the
+   * automatic size, which is dropped from old saves: they start on auto.)
    */
-  hudScale: number;
+  hudSize: 'auto' | number;
   /** Placeholder until there are translations: only `en` exists. Local only. */
   language: 'en';
 }
 
 /**
- * The fields stored in the server save (its `settings`); `aimMode`, `hudScale` and `language` stay
+ * The fields stored in the server save (its `settings`); `aimMode`, `hudSize` and `language` stay
  * local.
  */
 export const SYNCED_KEYS = [
@@ -60,7 +61,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = {
   sfxVolume: 0.7,
   muted: false,
   aimMode: 'auto',
-  hudScale: 1,
+  hudSize: 'auto',
   language: 'en',
 };
 
@@ -86,8 +87,11 @@ export function sanitizeSettings(raw: unknown): Partial<Settings> {
   const sfx = num(r.sfxVolume, 0, 1);
   if (sfx !== undefined) out.sfxVolume = sfx;
   if (r.aimMode === 'auto' || r.aimMode === 'manual') out.aimMode = r.aimMode;
-  const hud = num(r.hudScale, 0.75, 1.5);
-  if (hud !== undefined) out.hudScale = hud;
+  if (r.hudSize === 'auto') out.hudSize = 'auto';
+  else {
+    const hud = num(r.hudSize, 0.75, 2);
+    if (hud !== undefined) out.hudSize = hud;
+  }
   if (r.language === 'en') out.language = 'en';
   return out;
 }

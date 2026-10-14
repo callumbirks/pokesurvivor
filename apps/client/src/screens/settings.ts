@@ -3,7 +3,8 @@
 import { t } from '@pokesurvivor/data';
 import type { App, Screen } from '../app/app.js';
 import { h, replace } from '../app/dom.js';
-import { settings, type AimMode, type Quality } from '../settings.js';
+import { settings, type AimMode, type Quality, type Settings } from '../settings.js';
+import { HUD_SIZE_MAX, HUD_SIZE_MIN, hudScale } from '../game/hudscale.js';
 import { screenBox, tabs } from './common.js';
 
 type Tab = 'sound' | 'graphics' | 'controls' | 'account' | 'about';
@@ -32,8 +33,22 @@ function toggle(key: 'damageNumbers' | 'calmMode' | 'showFps' | 'muted'): HTMLEl
   );
 }
 
+/**
+ * The settings edited with a slider. The screen must not redraw when one of them changes: that
+ * would replace the `<input type=range>` mid-drag and end the drag after one step.
+ */
+export const SLIDER_KEYS = [
+  'musicVolume',
+  'sfxVolume',
+  'stickScale',
+  'hudSize',
+] as const satisfies readonly (keyof Settings)[];
+type SliderKey = (typeof SLIDER_KEYS)[number];
+const isSliderKey = (k: keyof Settings): k is SliderKey =>
+  (SLIDER_KEYS as readonly string[]).includes(k);
+
 function slider(
-  key: 'musicVolume' | 'sfxVolume' | 'stickScale' | 'hudScale',
+  key: Exclude<SliderKey, 'hudSize'>,
   min: number,
   max: number,
   step: number,
@@ -58,6 +73,51 @@ function slider(
     settings.set({ [key]: Number(input.value) });
   });
   return h('span', { class: 'slider' }, input, out);
+}
+
+/**
+ * HUD size: an Auto button (the default: it grows with the window, shown as e.g. "Auto (150%)")
+ * and a fixed scale, 75–200%. Moving the slider turns Auto off; pressing Auto turns it back on.
+ * It updates itself in place (it's in `SLIDER_KEYS`), so a drag isn't cut short.
+ */
+function hudSizeControl(): HTMLElement {
+  const input = h('input', {
+    type: 'range',
+    min: HUD_SIZE_MIN,
+    max: HUD_SIZE_MAX,
+    step: 0.05,
+    dataset: { testid: 'set-hudSize' },
+  });
+  const out = h('span', { class: 'val' });
+  const auto = h('button', {
+    class: 'chip',
+    type: 'button',
+    dataset: { testid: 'set-hudSize-auto' },
+  });
+  const pct = (k: number) => `${Math.round(k * 100)}%`;
+  const show = () => {
+    const size = settings.get().hudSize;
+    // On Auto the slider shows the automatic size for this window, dimmed.
+    const k = size === 'auto' ? hudScale(innerWidth, innerHeight, 'auto') : size;
+    input.value = String(k);
+    out.textContent = pct(k);
+    auto.textContent =
+      size === 'auto' ? t('settings.hudSizeAutoNow', { 0: pct(k) }) : t('settings.hudSizeAuto');
+    auto.classList.toggle('on', size === 'auto');
+    auto.setAttribute('aria-pressed', size === 'auto' ? 'true' : 'false');
+    slider.classList.toggle('dim', size === 'auto');
+  };
+  input.addEventListener('input', () => {
+    settings.set({ hudSize: Number(input.value) });
+    show();
+  });
+  auto.addEventListener('click', () => {
+    settings.set({ hudSize: 'auto' });
+    show();
+  });
+  const slider = h('span', { class: 'slider' }, input, out);
+  show();
+  return h('span', { class: 'hud-size' }, auto, slider);
 }
 
 export interface SettingsOptions {
@@ -124,7 +184,7 @@ export function settingsScreen(
           ),
         ),
         h('h4', { class: 'set-h' }, t('settings.display')),
-        row(t('settings.hudSize'), t('settings.hudSizeHelp'), slider('hudScale', 0.75, 1.5, 0.05)),
+        row(t('settings.hudSize'), t('settings.hudSizeHelp'), hudSizeControl()),
         row(
           t('settings.damageNumbers'),
           t('settings.theNumbersThatPopUp'),
@@ -247,8 +307,8 @@ export function settingsScreen(
   render();
   const off = settings.subscribe((_s, changed) => {
     // Sliders update themselves; redraw for the rest (toggles, chips).
-    if (changed.some((k) => k !== 'musicVolume' && k !== 'sfxVolume' && k !== 'stickScale'))
-      render();
+    // A slider's own changes don't redraw (see `SLIDER_KEYS`); anything else does.
+    if (changed.some((k) => !isSliderKey(k))) render();
   });
   return { el: box.el, destroy: off };
 }

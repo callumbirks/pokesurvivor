@@ -124,16 +124,51 @@ test('desktop: T and the HUD button switch the aim; the mouse aims and fires', a
   await page.getByTestId('set-aim-manual').click();
   await expect.poll(() => storedMode(page)).toBe('manual');
   await page.getByTestId('set-tab-graphics').click();
-  await page.getByTestId('set-hudScale').fill('1.25');
+  // HUD size: Auto by default (1.5× here), dragged to a fixed size, back to Auto.
+  const hudSize = () =>
+    page.evaluate(
+      () =>
+        (JSON.parse(localStorage.getItem('ps.settings') ?? '{}') as { hudSize?: number | 'auto' })
+          .hudSize ?? 'auto',
+    );
+  const auto = page.getByTestId('set-hudSize-auto');
+  await expect(auto).toHaveText('Auto (150%)');
+  const range = page.getByTestId('set-hudSize');
+  const node = await range.elementHandle();
+  /** Drags the slider's thumb from `from` to `to` (0–1 along the track) in small steps. */
+  const drag = async (from: number, to: number) => {
+    const box = (await range.boundingBox())!;
+    const y = box.y + box.height / 2;
+    await page.mouse.move(box.x + box.width * from, y);
+    await page.mouse.down();
+    for (let i = 1; i <= 12; i++)
+      await page.mouse.move(box.x + box.width * (from + ((to - from) * i) / 12), y);
+    await page.mouse.up();
+  };
+  // A drag goes all the way (a redraw mid-drag used to stop it after one step)...
+  await drag(0.6, 1);
+  await expect.poll(hudSize).toBe(2);
+  await expect(auto).toHaveText('Auto');
+  // ...on the same input element, which keeps working.
+  expect(
+    await node.evaluate(
+      (el) => el.isConnected && el === document.querySelector('[data-testid=set-hudSize]'),
+    ),
+  ).toBe(true);
+  await drag(0.97, 0);
+  await expect.poll(hudSize).toBe(0.75);
+  await auto.click();
+  await expect.poll(hudSize).toBe('auto');
+  await expect(auto).toHaveText('Auto (150%)');
+  await drag(0.6, 0.2);
+  // Off Auto again, at about a fifth of the way along (the thumb's width shifts it a little).
   await expect
-    .poll(() =>
-      page.evaluate(
-        () =>
-          (JSON.parse(localStorage.getItem('ps.settings') ?? '{}') as { hudScale?: number })
-            .hudScale,
-      ),
-    )
-    .toBe(1.25);
+    .poll(async () => {
+      const v = await hudSize();
+      return typeof v === 'number' && v >= 0.85 && v <= 1.1;
+    })
+    .toBe(true);
+  expect(await node.evaluate((el) => el.isConnected)).toBe(true);
   if (shots) await page.screenshot({ path: `${shots}/settings-controls.png` });
   await page.context().close();
 });
