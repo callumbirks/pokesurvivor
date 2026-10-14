@@ -1,3 +1,4 @@
+import { simData } from '../src/data.js';
 import { describe, expect, it } from 'vitest';
 import { hurtPlayer, REVIVE_SECONDS } from '../src/players.js';
 import { teamXpFactor } from '../src/team.js';
@@ -14,11 +15,25 @@ describe('players', () => {
       ],
     });
     const [a, b] = sim.state.players;
-    expect(b!.maxHp).toBe(a!.maxHp + 80);
-    expect(b!.attackMul).toBeCloseTo(1.4); // capped at max level 10
-    expect(b!.speedMul).toBeCloseTo(1.06);
+    expect(b!.maxHp).toBe(
+      a!.maxHp +
+        Math.min(10, sim.ctx.d.game.upgradeById.get('max-hp')!.maxLevel) *
+          sim.ctx.d.game.upgradeById.get('max-hp')!.perLevel,
+    );
+    expect(b!.attackMul).toBeCloseTo(
+      1 +
+        Math.min(99, sim.ctx.d.game.upgradeById.get('attack')!.maxLevel) *
+          sim.ctx.d.game.upgradeById.get('attack')!.perLevel,
+    );
+    expect(b!.speedMul).toBeCloseTo(
+      1 +
+        Math.min(2, sim.ctx.d.game.upgradeById.get('speed')!.maxLevel) *
+          sim.ctx.d.game.upgradeById.get('speed')!.perLevel,
+    );
     expect(a!.moves.map((m) => m.id)).toEqual(['ember']); // Charmander's starting move
-    expect(b!.moves.length).toBe(2); // "Repertoire": a random second attacking move
+    expect(b!.moves.length).toBe(
+      Math.min(b!.maxSlots, 1 + sim.ctx.d.game.upgradeById.get('extra-move')!.perLevel),
+    ); // "Repertoire": a random second attacking move
     expect(b!.active).toBe(0);
   });
 
@@ -113,14 +128,16 @@ describe('players', () => {
 
   it('team XP: average of the bonuses, split across the team', () => {
     const solo = quietSim([{ id: 'a', dex: 25, upgrades: { experience: 8 } }]);
-    expect(teamXpFactor(solo.ctx)).toBeCloseTo(1.4);
+    const upgrade = simData().game.upgradeById.get('experience')!;
+    const bonus = Math.min(8, upgrade.maxLevel) * upgrade.perLevel;
+    expect(teamXpFactor(solo.ctx)).toBeCloseTo(1 + bonus);
     const duo = quietSim([
       { id: 'a', dex: 25, upgrades: { experience: 8 } },
       { id: 'b', dex: 25 },
     ]);
-    expect(teamXpFactor(duo.ctx)).toBeCloseTo(1.2 / 1.6);
+    expect(teamXpFactor(duo.ctx)).toBeCloseTo((1 + bonus / 2) / 1.6);
     duo.setConnected('b', false);
-    expect(teamXpFactor(duo.ctx)).toBeCloseTo(1.4);
+    expect(teamXpFactor(duo.ctx)).toBeCloseTo(1 + bonus);
   });
 
   it('switch slots on request, cycle with Q/E', () => {

@@ -6,6 +6,11 @@ import { giveMove, player, quietSim } from './helpers.js';
 
 const d = simData();
 const cfg = d.game.levelUp;
+const hpEffect = d.statCard('max-hp').effect;
+const attackEffect = d.statCard('attack').effect;
+const defenseEffect = d.statCard('defense').effect;
+if (hpEffect.type !== 'maxHp' || attackEffect.type !== 'stat' || defenseEffect.type !== 'stat')
+  throw new Error('Expected max-HP, attack and defense stat cards');
 
 describe('level-up offers', () => {
   it('offers distinct cards, of the known kinds', () => {
@@ -26,21 +31,27 @@ describe('level-up offers', () => {
   it('offers no new moves once the slots are full', () => {
     const sim = quietSim();
     const p = player(sim);
-    for (const id of ['tackle', 'quick-attack', 'body-slam']) addMove(sim.ctx, p, id);
+    for (const id of d.movePool(p.types)) {
+      if (p.slots.length >= cfg.maxMoveSlots) break;
+      addMove(sim.ctx, p, id);
+    }
     expect(p.slots.length).toBe(cfg.maxMoveSlots);
     for (let i = 0; i < 50; i++) {
       expect(offerCards(sim.ctx, p).some((c) => c.type === 'new')).toBe(false);
     }
   });
 
-  it('never offers banned moves or a third buff', () => {
+  it('never offers banned moves or buffs beyond the configured cap', () => {
     const sim = quietSim([
       { id: 'a', dex: 25, upgrades: { ban: 1 }, bannedMoves: ['thunderbolt', 'discharge'] },
     ]);
     const p = player(sim);
-    expect(p.banned).toEqual(['thunderbolt']); // only as many as the upgrade allows
-    addMove(sim.ctx, p, 'swords-dance');
-    addMove(sim.ctx, p, 'agility');
+    const ban = d.game.upgradeById.get('ban')!;
+    expect(p.banned).toEqual(
+      ['thunderbolt', 'discharge'].slice(0, Math.min(1, ban.maxLevel) * ban.perLevel),
+    );
+    const buffs = d.game.moves.moves.filter((m) => m.kind === 'buff');
+    for (const buff of buffs.slice(0, cfg.maxBuffMoves)) addMove(sim.ctx, p, buff.id);
     for (let i = 0; i < 100; i++) {
       for (const c of offerCards(sim.ctx, p)) {
         expect(c.moveId).not.toBe('thunderbolt');
@@ -59,7 +70,7 @@ describe('level-up offers', () => {
         if (c.type === 'stat') expect(capped.has(c.statId!)).toBe(false);
     }
     // A max-level move waiting for the (capped) attack card: that card shows up again.
-    giveMove(sim, p, 'ember', 5);
+    giveMove(sim, p, 'ember', d.maxMoveLevel('ember'));
     p.statsTaken.attack = 0;
     delete p.statsTaken.attack;
     const offers = Array.from({ length: 40 }, () => offerCards(sim.ctx, p).map((c) => c.id)).flat();
@@ -71,13 +82,15 @@ describe('level-up offers', () => {
     const p = player(sim);
     const hp = p.maxHp;
     applyCard(sim.ctx, p, { id: 'stat:max-hp', type: 'stat', statId: 'max-hp' });
-    expect(p.maxHp).toBe(hp + 20);
+    expect(p.maxHp).toBe(hp + hpEffect.value);
     const atk = p.attackMul;
     applyCard(sim.ctx, p, { id: 'stat:attack', type: 'stat', statId: 'attack' });
-    expect(p.attackMul).toBeCloseTo(atk * 1.1);
+    expect(p.attackMul).toBeCloseTo(atk * attackEffect.value);
     for (let i = 0; i < 20; i++)
       applyCard(sim.ctx, p, { id: 'stat:defense', type: 'stat', statId: 'defense' });
-    expect(p.damageReduction).toBeCloseTo(0.7);
+    expect(p.damageReduction).toBeCloseTo(
+      Math.min(defenseEffect.cap ?? Infinity, 20 * defenseEffect.value),
+    );
     expect(p.statsTaken).toMatchObject({ 'max-hp': 1, attack: 1, defense: 20 });
   });
 

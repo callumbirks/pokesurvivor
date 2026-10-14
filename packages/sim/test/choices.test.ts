@@ -153,10 +153,11 @@ describe('level-up choices', () => {
     levelUp(sim);
     steps(sim, 1);
     const c = sim.state.pendingChoices[0]!;
-    for (let i = 0; i < 3; i++)
+    const rerolls = 1 + player(sim).rerollBonus;
+    for (let i = 0; i < rerolls; i++)
       expect(sim.submitIntent('a', { type: 'reroll', choiceId: c.id }).ok).toBe(true);
     expect(sim.submitIntent('a', { type: 'reroll', choiceId: c.id }).ok).toBe(false);
-    expect(c.kind === 'level-up' && c.options.length).toBe(3);
+    expect(c.kind === 'level-up' && c.options.length).toBe(sim.ctx.d.game.levelUp.cardsOffered);
   });
 });
 

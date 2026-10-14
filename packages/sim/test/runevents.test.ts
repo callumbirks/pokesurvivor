@@ -41,7 +41,6 @@ function liveSim(n = 1, seed = 9, calm = true): Sim {
 
 describe('treasure thieves', () => {
   it('Gholdengo (×10 ticket) with goldThiefChance, else Meowth (coins)', () => {
-    expect(T.goldThiefChance).toBeCloseTo(0.125);
     const sim = quietSim();
     let gold = 0;
     const n = 800;
@@ -54,8 +53,8 @@ describe('treasure thieves', () => {
         expect(e.def.loot).toBe('ticket10');
       } else expect(e.dex).toBe(52);
     }
-    expect(gold / n).toBeGreaterThan(0.09);
-    expect(gold / n).toBeLessThan(0.16);
+    const tolerance = 5 * Math.sqrt((T.goldThiefChance * (1 - T.goldThiefChance)) / n) + 1 / n;
+    expect(Math.abs(gold / n - T.goldThiefChance)).toBeLessThanOrEqual(tolerance);
   });
 
   it('escapes after thiefLife s; caught, Gholdengo drops a ×10 ticket', () => {

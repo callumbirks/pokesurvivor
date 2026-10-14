@@ -95,7 +95,7 @@ describe('world', () => {
     const { d } = sim.ctx;
     const lava = d.game.biomes.runBiomes.findIndex((b) => b.liquid === 'lava');
     expect(d.biomeLiquid(0)).toBe('water');
-    expect(d.liquidEffect('water', ['electric']).slow).toBe(0.6);
+    expect(d.liquidEffect('water', ['electric']).slow).toBe(d.game.world.liquids.water.slow);
     expect(d.liquidEffect('water', ['water'])).toEqual({});
     expect(lava).toBeGreaterThan(0);
     expect(d.biomeLiquid(lava)).toBe('lava');

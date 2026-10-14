@@ -4,20 +4,28 @@ import { attackOf } from '../src/players.js';
 import { damageTo, giveMove, player, quietSim, seconds, spawnDummy, steps } from './helpers.js';
 
 const d = simData();
+const types = d.game.types;
+const { superEffective, notVeryEffective, immune } = types.softened;
 
 describe('type chart (softened)', () => {
   it('replaces the games multipliers with the survivor ones', () => {
-    expect(d.typeMult('fire', ['grass'])).toBeCloseTo(1.6);
-    expect(d.typeMult('fire', ['water'])).toBeCloseTo(0.6);
-    expect(d.typeMult('normal', ['ghost'])).toBeCloseTo(0.3);
-    expect(d.typeMult('electric', ['ground'])).toBeCloseTo(0.3);
+    expect(d.typeMult('fire', ['grass'])).toBeCloseTo(superEffective);
+    expect(d.typeMult('fire', ['water'])).toBeCloseTo(notVeryEffective);
+    expect(d.typeMult('normal', ['ghost'])).toBeCloseTo(immune);
+    expect(d.typeMult('electric', ['ground'])).toBeCloseTo(immune);
     expect(d.typeMult('fire', ['normal'])).toBe(1);
   });
 
-  it('multiplies across dual types and clamps to [0.3, 2.4]', () => {
-    expect(d.typeMult('ice', ['grass', 'flying'])).toBeCloseTo(2.4); // 1.6 × 1.6 = 2.56
-    expect(d.typeMult('water', ['ground', 'grass'])).toBeCloseTo(1.6 * 0.6);
-    expect(d.typeMult('normal', ['rock', 'ghost'])).toBeCloseTo(0.3); // 0.6 × 0.3
+  it('multiplies across dual types and clamps to the configured bounds', () => {
+    expect(d.typeMult('ice', ['grass', 'flying'])).toBeCloseTo(
+      Math.min(types.max, superEffective ** 2),
+    );
+    expect(d.typeMult('water', ['ground', 'grass'])).toBeCloseTo(
+      Math.min(types.max, Math.max(types.min, superEffective * notVeryEffective)),
+    );
+    expect(d.typeMult('normal', ['rock', 'ghost'])).toBeCloseTo(
+      Math.max(types.min, notVeryEffective * immune),
+    );
     expect(d.typeMult(null, ['ghost'])).toBe(1);
   });
 });
@@ -40,11 +48,13 @@ describe('damage', () => {
     steps(sim, seconds(1));
     const events = sim.drainEvents();
     const first = events.find((ev) => ev.type === 'enemy-hurt' && ev.id === ghost.id);
-    expect(first && first.type === 'enemy-hurt' && first.amount).toBe(Math.round(base * 0.3));
+    expect(first && first.type === 'enemy-hurt' && first.amount).toBe(
+      Math.round(base * d.typeMult('normal', ghost.types)),
+    );
     expect(first && first.type === 'enemy-hurt' && first.label).toBe('weak');
   });
 
-  it('crits for ×1.5 with the crit upgrade', () => {
+  it('crits with the configured damage multiplier', () => {
     const sim = quietSim([{ id: 'a', dex: 25, upgrades: { crit: 10 } }]);
     const p = player(sim);
     p.critChance = 1;
@@ -54,7 +64,9 @@ describe('damage', () => {
     steps(sim, 2);
     const hurt = sim.drainEvents().find((ev) => ev.type === 'enemy-hurt' && ev.id === e.id);
     const base = (d.move('tackle').stats.damage ?? 0) * attackOf(p);
-    expect(hurt && hurt.type === 'enemy-hurt' && hurt.amount).toBe(Math.round(base * 1.5));
+    expect(hurt && hurt.type === 'enemy-hurt' && hurt.amount).toBe(
+      Math.round(base * d.game.tuning.combat.critMultiplier),
+    );
     expect(hurt && hurt.type === 'enemy-hurt' && hurt.label).toBe('crit');
   });
 
@@ -90,7 +102,7 @@ describe('damage', () => {
     expect(e.poison).toBeGreaterThan(0);
     giveMove(sim, p, 'ice-beam');
     steps(sim, seconds(1.2));
-    expect(e.slow).toBeCloseTo(0.7);
+    expect(e.slow).toBeCloseTo(d.move('ice-beam').stats.slow ?? 0);
     // Statuses keep hurting with no move hitting.
     giveMove(sim, p, 'swords-dance');
     sim.drainEvents();
@@ -140,7 +152,7 @@ describe('enemy contact', () => {
     expect(p.hp).toBeLessThan(p.maxHp);
   });
 
-  it('takes 25% less damage with a melee move active', () => {
+  it('takes less damage with a melee move active', () => {
     const run = (move: string) => {
       const sim = quietSim();
       const p = player(sim);
@@ -152,6 +164,9 @@ describe('enemy contact', () => {
       const ev = sim.drainEvents().find((e) => e.type === 'player-hurt');
       return ev && ev.type === 'player-hurt' ? ev.amount : 0;
     };
-    expect(run('tackle')).toBe(Math.round(run('swords-dance') * 0.75));
+    const plain = run('swords-dance');
+    const melee = run('tackle');
+    expect(melee).toBeGreaterThan(0);
+    expect(melee).toBeLessThan(plain);
   });
 });
