@@ -207,7 +207,7 @@ describe('the choice input grace window', () => {
     expect(h.send).toHaveBeenCalledOnce();
   });
 
-  it.each([0, 1, 2, 3, 8])('drops gamepad button %s until released and pressed again', (button) => {
+  it.each([0, 8])('drops gamepad button %s until released and pressed again', (button) => {
     const h = setup();
     const input = bindInput(h);
     const buttons = Array.from({ length: 12 }, () => ({ pressed: false }));
@@ -347,15 +347,15 @@ describe('the gamepad in a choice', () => {
   const focused = (h: ReturnType<typeof setup>) =>
     h.cards().findIndex((c) => c.classList.contains('focus'));
 
-  it('moves the highlight with the d-pad (wrapping) and labels it A, the others B/X/Y', () => {
+  it('moves the highlight with the d-pad (wrapping); only it shows a glyph (A)', () => {
     const h = setup();
     h.show(snap([reward()], 0));
     expect(focused(h)).toBe(0);
-    expect(glyphs(h)).toEqual(['a', 'b', 'x', 'y']);
+    expect(glyphs(h)).toEqual(['a', null, null, null]);
     expect(h.overlay.key('PadDown')).toBe(true);
     expect(h.overlay.key('PadRight')).toBe(true);
     expect(focused(h)).toBe(2);
-    expect(glyphs(h)).toEqual([null, 'b', 'a', 'y']);
+    expect(glyphs(h)).toEqual([null, null, 'a', null]);
     h.overlay.key('PadUp');
     h.overlay.key('PadUp');
     h.overlay.key('PadLeft');
@@ -383,6 +383,25 @@ describe('the gamepad in a choice', () => {
     expect(h.send).toHaveBeenCalledWith(expect.objectContaining({ cardId: 'upgrade:tackle' }));
   });
 
+  it('B, X and Y never pick (and are consumed, so they cannot switch move slots)', () => {
+    const h = setup();
+    const input = bindInput(h);
+    const buttons = Array.from({ length: 17 }, () => ({ pressed: false }));
+    const pad = { connected: true, buttons, axes: [0, 0, 0, 0] };
+    vi.stubGlobal('navigator', { getGamepads: () => [pad] });
+    h.show(snap([reward()], 0));
+    h.advance(CHOICE_INPUT_GRACE_MS);
+    for (const b of [1, 2, 3]) {
+      buttons[b]!.pressed = true;
+      input.poll();
+      buttons[b]!.pressed = false;
+      input.poll();
+    }
+    for (const code of ['PadB', 'PadX', 'PadY']) expect(h.overlay.key(code)).toBe(true);
+    expect(h.send).not.toHaveBeenCalled();
+    expect(h.state.view()).not.toBeNull();
+  });
+
   it('starts each new menu (a reroll) on the first option', () => {
     const h = setup();
     h.show(snap([reward()], 0));
@@ -391,9 +410,9 @@ describe('the gamepad in a choice', () => {
     expect(focused(h)).toBe(0);
   });
 
-  it('leaves A and the d-pad to the game outside a choice', () => {
+  it('leaves the face buttons and the d-pad to the game outside a choice', () => {
     const h = setup();
-    expect(h.overlay.key('PadA')).toBe(false);
+    for (const code of ['PadA', 'PadB', 'PadX', 'PadY']) expect(h.overlay.key(code)).toBe(false);
     expect(h.overlay.key('PadDown')).toBe(false);
   });
 

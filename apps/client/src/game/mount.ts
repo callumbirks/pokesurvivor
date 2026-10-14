@@ -43,6 +43,14 @@ import { Toasts } from './toasts.js';
 import { TouchControls } from './touch.js';
 import './game.css';
 
+/** The face buttons (`input.ts`) as the move-slot keys, in play. */
+const PAD_SLOT_KEYS: Record<string, string> = {
+  PadA: 'Digit1',
+  PadB: 'Digit2',
+  PadX: 'Digit3',
+  PadY: 'Digit4',
+};
+
 export interface MountGameOptions {
   /** The player closed the results, or left the run; `results` if the run ended. */
   onExit(results?: Results): void;
@@ -556,8 +564,8 @@ class Run {
       return true;
     }
     if (this.overlay.key(code)) return true;
-    // A is move slot 1 outside a choice.
-    if (code === 'PadA') code = 'Digit1';
+    // A/B/X/Y are move slots 1–4 outside a choice.
+    code = PAD_SLOT_KEYS[code] ?? code;
     if (code === 'Escape' || code === 'KeyP') {
       this.togglePause();
       return true;

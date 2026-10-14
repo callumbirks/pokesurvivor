@@ -1,6 +1,6 @@
 // The choice overlay in the DOM (original implementation level-up cards, item swap and bond screens),
 // rendered from `ChoiceState`. Keys 1–4 pick, R rerolls, Backspace/Esc goes back in a bond. With a
-// gamepad the d-pad or the stick moves a highlight and A picks it; B/X/Y pick options 2–4, Back
+// gamepad the d-pad or the stick moves a highlight and A picks it (B, X and Y do nothing here), Back
 // rerolls and Start goes back (`input.ts` turns the pad into these keys). Prompts follow the device
 // in use (`inputHint`).
 //
@@ -10,7 +10,7 @@
 // of teammates still choosing are updated in place.
 import { t } from '@pokesurvivor/data';
 import { audio } from '../audio.js';
-import { glyph, inputHint, type PadButton } from '../glyphs.js';
+import { glyph, inputHint } from '../glyphs.js';
 import { typeColor } from '../icons.js';
 import type { ChoiceState, ChoiceView, WaitingView } from './choices.js';
 import { clear, el, icon } from './dom.js';
@@ -19,8 +19,8 @@ import { cardText, itemDescription, itemName, moveName, nameList } from './text.
 /** Drop menu input briefly so gameplay presses cannot pick a newly visible reward. */
 export const CHOICE_INPUT_GRACE_MS = 200;
 
-/** The gamepad buttons that pick options 2–4 directly (A picks the highlighted one). */
-const DIRECT_PAD: readonly (PadButton | null)[] = [null, 'b', 'x', 'y'];
+/** Face buttons that don't pick in a choice (only A does, the highlighted card). */
+const PAD_IGNORED = new Set(['PadB', 'PadX', 'PadY']);
 const PAD_MOVE: Record<string, number> = { PadUp: -1, PadLeft: -1, PadDown: 1, PadRight: 1 };
 
 export class ChoiceOverlay {
@@ -187,6 +187,8 @@ export class ChoiceOverlay {
       if (this.inputReady()) this.pick(this.highlight);
       return true;
     }
+    // Consumed, so they can't switch move slots under the menu.
+    if (PAD_IGNORED.has(code)) return true;
     const move = PAD_MOVE[code];
     if (move) {
       const n = this.cards.length;
@@ -213,13 +215,12 @@ export class ChoiceOverlay {
     return false;
   }
 
-  /** The highlighted card, and each card's gamepad badge: A on it, B/X/Y on the others. */
+  /** The highlighted card, and the gamepad's badge: A on it, nothing on the others. */
   private showHighlight(): void {
     if (this.highlight >= this.cards.length) this.highlight = 0;
     this.cards.forEach(({ el, pad }, i) => {
       el.classList.toggle('focus', i === this.highlight);
-      const b = i === this.highlight ? 'a' : DIRECT_PAD[i];
-      pad.replaceChildren(...(b ? [glyph(b, 32)] : []));
+      pad.replaceChildren(...(i === this.highlight ? [glyph('a', 32)] : []));
     });
   }
 

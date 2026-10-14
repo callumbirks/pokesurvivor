@@ -131,7 +131,8 @@ fn)` (spinner on the button, toast on error), loads through `loadInto(el, load, 
 - **Input**: keyboard, gamepad (`input.ts`) and the touch joystick and buttons (`touch.ts`).
   Esc / P pauses: solo stops the worker; in a group the overlay is shown and the run goes on.
   In a choice the gamepad's d-pad or left stick moves a highlight and A picks it (after the
-  same grace window as keys); B/X/Y pick options 2–4, Back rerolls, Start goes back in a bond.
+  same grace window as keys); B, X and Y do nothing there, Back rerolls, Start goes back in a
+  bond. Only the highlighted card shows a pad glyph (A).
   A direction held when a choice opens waits for release.
 - **Prompts and menus with a gamepad** (shared with the shell, `src/`): `input-device.ts`
   tracks the device in use (keyboard and mouse, gamepad, touch; a button or a stick past half

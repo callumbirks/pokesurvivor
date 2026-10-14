@@ -6,7 +6,7 @@
 // Gamepad: left stick or d-pad to move, right stick to aim and RT to fire (manual), LB / RB to cycle moves,
 // A/B/X/Y = move slots 1–4, R3 (right stick press) auto / manual aim, Start pause. In a choice the
 // d-pad or the stick moves the highlight (`PadUp` … `PadRight`, repeating while held) and A
-// (`PadA`) picks it; B/X/Y pick options 2–4, Back rerolls.
+// (`PadA`) picks it; B/X/Y (`PadB` …) do nothing there, Back rerolls.
 import { KeyRepeater, padNavKeys } from '../menu-nav.js';
 
 const MOVE_KEYS = {
@@ -19,9 +19,9 @@ const NO_SCROLL = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'S
 /** Gamepad buttons (standard mapping) → the key they act as. */
 const PAD_KEYS: Record<number, string> = {
   0: 'PadA',
-  1: 'Digit2',
-  2: 'Digit3',
-  3: 'Digit4',
+  1: 'PadB',
+  2: 'PadX',
+  3: 'PadY',
   4: 'KeyQ',
   5: 'KeyE',
   8: 'KeyR',
