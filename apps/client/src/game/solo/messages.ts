@@ -62,6 +62,8 @@ export type FromWorker =
    * to the server as a checkpoint.
    */
   | { type: 'checkpoint'; summary: RunSummary; state: SimState; report: boolean }
+  /** The run time, and whether it stands still (paused or choosing): on a change and at checkpoints. */
+  | { type: 'clock'; elapsedS: number; paused: boolean }
   /** The run is over: the player's results, to report. */
   | { type: 'ended'; reason: string; summary: ResultSummary }
   | { type: 'error'; message: string };
