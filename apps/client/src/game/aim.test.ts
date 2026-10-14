@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { quantizeAim } from '@pokesurvivor/protocol';
 import { SettingsStore } from '../settings.js';
-import { AIM_KEY, AimTracker, aimKey, toggleAimMode } from './aim.js';
+import { AIM_KEY, AimTracker, MouseFire, aimKey, toggleAimMode } from './aim.js';
 import { Hud, type HudInput } from './hud.js';
 import type { TouchControls } from './touch.js';
 
@@ -146,9 +146,57 @@ describe('input: T and the gamepad', () => {
       expect(input.aimAxis()).toBeNull();
       pad.axes = [0, 0, -0.9, 0];
       expect(input.aimAxis()).toEqual([-0.9, 0]);
+      // The right trigger fires.
+      expect(input.fireHeld()).toBe(false);
+      pad.buttons[7] = { pressed: false, value: 0.8 } as never;
+      expect(input.fireHeld()).toBe(true);
       input.dispose();
     } finally {
       vi.unstubAllGlobals();
     }
+  });
+});
+
+describe('fire held with the mouse', () => {
+  const pointer = (type: string, init: Record<string, unknown>) =>
+    Object.assign(new Event(type), {
+      pointerType: 'mouse',
+      button: 0,
+      clientX: 0,
+      clientY: 0,
+      ...init,
+    });
+
+  function setup() {
+    const canvas = new EventTarget();
+    const win = new EventTarget();
+    // A HUD button in the top right corner.
+    const fire = new MouseFire(canvas, win, (x, y) => x > 700 && y < 100);
+    return { canvas, win, fire };
+  }
+
+  it('holding the left button over the game fires until it is released', () => {
+    const { canvas, win, fire } = setup();
+    canvas.dispatchEvent(pointer('pointerdown', { clientX: 300, clientY: 300 }));
+    expect(fire.held).toBe(true);
+    // Released anywhere (even off the canvas).
+    win.dispatchEvent(pointer('pointerup', {}));
+    expect(fire.held).toBe(false);
+    canvas.dispatchEvent(pointer('pointerdown', { clientX: 300, clientY: 300 }));
+    win.dispatchEvent(new Event('blur'));
+    expect(fire.held).toBe(false);
+  });
+
+  it('holding over a HUD button, the right button or a finger does not fire', () => {
+    const { canvas, fire } = setup();
+    canvas.dispatchEvent(pointer('pointerdown', { clientX: 750, clientY: 60 }));
+    expect(fire.held).toBe(false);
+    canvas.dispatchEvent(pointer('pointerdown', { clientX: 300, clientY: 300, button: 2 }));
+    expect(fire.held).toBe(false);
+    canvas.dispatchEvent(
+      pointer('pointerdown', { clientX: 300, clientY: 300, pointerType: 'touch' }),
+    );
+    expect(fire.held).toBe(false);
+    fire.dispose();
   });
 });

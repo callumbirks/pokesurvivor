@@ -128,7 +128,10 @@ fn)` (spinner on the button, toast on error), loads through `loadInto(el, load, 
   from our Pokémon; on touch the left half of the screen moves and the right half is an aim
   stick that keeps its direction when let go; a gamepad's right stick aims. The aim goes out
   with every input, snapped to the wire's byte (`quantizeAim`); our Pokémon's facing and the
-  arrow-and-arc indicator around it use it at once. The sim decides what it does (see "Aiming"
+  arrow-and-arc indicator around it use it at once. With a mouse, a pixel-art crosshair replaces
+  the system cursor over the game (not on HUD buttons, in menus, choices or pause, or on touch).
+  Holding the left button over the game (not on a HUD button), or a gamepad's right trigger, is
+  fire held (`fire` in the input): aimed moves fire on cooldown even with nothing in reach. The sim decides what it does (see "Aiming"
   in the sim README).
 - **Results** (`results.ts`): what was credited (solo: the `RunReport`; co-op: `game.results`),
   the reward breakdown, moves, tickets, shinies, and who left early.

@@ -18,6 +18,7 @@ interface Counts {
   aim: number | null;
   serverAim: number | null;
   self: [number, number] | null;
+  fire: boolean;
 }
 
 const counts = (page: Page) =>
@@ -71,7 +72,9 @@ async function mouseAim(page: Page, dx: number, dy: number): Promise<void> {
   await expect.poll(async () => gap((await counts(page))?.serverAim ?? 99, want)).toBeLessThan(0.1);
 }
 
-test('desktop: T and the HUD button switch the aim; the mouse aims', async ({ browser }) => {
+test('desktop: T and the HUD button switch the aim; the mouse aims and fires', async ({
+  browser,
+}) => {
   const page = await newPlayer(browser, `aim_${suffix}`, {
     viewport: { width: 1280, height: 720 },
   });
@@ -83,7 +86,16 @@ test('desktop: T and the HUD button switch the aim; the mouse aims', async ({ br
   await mouseAim(page, 220, 0);
   await mouseAim(page, 0, -160);
   await mouseAim(page, -150, 120);
+  // Holding the left button over the game fires (the crosshair turns gold); releasing stops.
+  await page.mouse.down();
+  await expect.poll(async () => (await counts(page))?.fire).toBe(true);
+  // The crosshair replaces the system cursor over the game.
+  expect(await page.locator('canvas.ps-canvas').evaluate((c) => getComputedStyle(c).cursor)).toBe(
+    'none',
+  );
   if (shots) await page.screenshot({ path: `${shots}/desktop-manual.png` });
+  await page.mouse.up();
+  await expect.poll(async () => (await counts(page))?.fire).toBe(false);
 
   // The HUD button (top right) goes back to auto.
   await page.mouse.click(1280 - 40, 62);

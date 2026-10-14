@@ -3,7 +3,7 @@
 //   WASD / arrows   move              1–4      move slot (or pick an option)
 //   Q / E / Tab     previous / next   R        reroll cards     Esc / P  pause
 //   T               auto / manual aim (manual: the mouse aims; see aim.ts)
-// Gamepad: left stick or d-pad to move, right stick to aim (manual), LB / RB to cycle moves,
+// Gamepad: left stick or d-pad to move, right stick to aim and RT to fire (manual), LB / RB to cycle moves,
 // A/B/X/Y = options 1–4, R3 (right stick press) auto / manual aim, Start pause.
 
 const MOVE_KEYS = {
@@ -86,6 +86,12 @@ export class Input {
     const x = p.axes[2] ?? 0;
     const y = p.axes[3] ?? 0;
     return Math.hypot(x, y) > AIM_DEAD_ZONE ? [x, y] : null;
+  }
+
+  /** The gamepad's right trigger held (fire, in manual aim). */
+  fireHeld(): boolean {
+    const b = this.pad()?.buttons[7];
+    return !!b && (b.pressed || b.value > 0.35);
   }
 
   /** The movement vector (length ≤ 1): the joystick if given, else the gamepad, else keys. */

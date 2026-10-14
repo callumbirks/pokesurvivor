@@ -1,6 +1,7 @@
 // Manual aim on the client: the auto/manual switch (T, the HUD button), which way the player
-// points (the mouse, the right touch joystick, a gamepad's right stick) and the indicator around
-// our Pokémon. The sim decides what the aim does: this only sends it with each input (`aim`, null
+// points (the mouse, the right touch joystick, a gamepad's right stick), fire held (the left mouse
+// button over the game, a gamepad's right trigger), the indicator around our Pokémon and the
+// mouse crosshair. The sim decides what the aim does: this only sends it with each input (`aim`, null
 // in auto) and shows it at once (the indicator, and our Pokémon's facing while it attacks).
 import { quantizeAim } from '@pokesurvivor/protocol';
 import { MANUAL_AIM_CONE } from '@pokesurvivor/sim';
@@ -36,10 +37,24 @@ export class AimTracker {
     return this.store.get().aimMode === 'manual';
   }
 
+  /** The mouse over the game (CSS px in the canvas), or null once it left. */
+  private over: [number, number] | null = null;
+
   /** The mouse moved over the game: it aims from now on (until a stick is used). */
   mouseMove(x: number, y: number): void {
     this.mouse = [x, y];
+    this.over = [x, y];
     this.byMouse = true;
+  }
+
+  /** The mouse left the game: the aim stays where it was. */
+  mouseLeave(): void {
+    this.over = null;
+  }
+
+  /** Where the mouse is over the game, or null (for the crosshair). */
+  get pointer(): readonly [number, number] | null {
+    return this.over;
   }
 
   /**
@@ -117,5 +132,77 @@ export function drawAimIndicator(
   ctx.closePath();
   ctx.stroke();
   ctx.fill();
+  ctx.restore();
+}
+
+/** Pointer events as far as `MouseFire` reads them (DOM `PointerEvent`s in the game). */
+type PointerLike = Event & {
+  pointerType?: string;
+  button?: number;
+  clientX?: number;
+  clientY?: number;
+};
+
+/**
+ * Fire held with the mouse: the left button pressed over the game, unless on a HUD button (the
+ * aim switch, move slots, pause), until it's released anywhere or the window loses focus.
+ */
+export class MouseFire {
+  held = false;
+  private readonly offs: (() => void)[] = [];
+
+  constructor(
+    el: EventTarget,
+    win: EventTarget,
+    /** Is this point (client px) on a HUD button? */
+    onButton: (clientX: number, clientY: number) => boolean,
+  ) {
+    const on = (target: EventTarget, type: string, fn: (e: PointerLike) => void) => {
+      target.addEventListener(type, fn);
+      this.offs.push(() => target.removeEventListener(type, fn));
+    };
+    on(el, 'pointerdown', (e) => {
+      if (e.pointerType !== 'mouse' || e.button !== 0) return;
+      if (!onButton(e.clientX ?? 0, e.clientY ?? 0)) this.held = true;
+    });
+    const release = (e: PointerLike) => {
+      if (e.type === 'blur' || e.button === 0 || e.pointerType !== 'mouse') this.held = false;
+    };
+    on(win, 'pointerup', release);
+    on(el, 'pointercancel', release);
+    on(win, 'blur', release);
+  }
+
+  dispose(): void {
+    for (const off of this.offs) off();
+  }
+}
+
+/**
+ * The mouse crosshair in manual aim (screen CSS px): pixel-art arms with a dark outline, readable
+ * on any ground; gold while firing.
+ */
+export function drawCrosshair(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  firing: boolean,
+): void {
+  const cx = Math.round(x);
+  const cy = Math.round(y);
+  // In 2 px "pixels": arms 1 thick and 3 long, 2 from the centre, and the centre dot.
+  const P = 2;
+  const rects: [number, number, number, number][] = [
+    [-5, -0.5, 3, 1],
+    [2, -0.5, 3, 1],
+    [-0.5, -5, 1, 3],
+    [-0.5, 2, 1, 3],
+    [-0.5, -0.5, 1, 1],
+  ].map(([rx, ry, rw, rh]) => [cx + rx! * P, cy + ry! * P, rw! * P, rh! * P]);
+  ctx.save();
+  ctx.fillStyle = 'rgba(10,12,20,.9)';
+  for (const [rx, ry, rw, rh] of rects) ctx.fillRect(rx - P, ry - P, rw + 2 * P, rh + 2 * P);
+  ctx.fillStyle = firing ? '#ffd23f' : '#f4f8ff';
+  for (const [rx, ry, rw, rh] of rects) ctx.fillRect(rx, ry, rw, rh);
   ctx.restore();
 }
