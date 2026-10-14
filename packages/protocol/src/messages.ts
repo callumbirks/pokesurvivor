@@ -7,7 +7,7 @@
 // events pass through unchanged.
 
 /** Bumped on every breaking change to the wire format. */
-export const PROTOCOL_VERSION = 5;
+export const PROTOCOL_VERSION = 6;
 
 /** Largest client message the server accepts, in bytes. */
 export const MAX_CLIENT_MESSAGE_BYTES = 4096;

@@ -60,6 +60,20 @@ export const TuningFileSchema = z.strictObject({
     rescueOwnedCoins: z.number().int().nonnegative(),
   }),
   combat: z.strictObject({ critMultiplier: z.number().positive() }),
+  enemyShields: z.strictObject({
+    /** Shield HP is capped at this fraction of the recipient's max HP. */
+    maxHpFraction: Chance,
+    duration: Seconds,
+    cooldown: Seconds,
+    initialCooldown: RangeSchema,
+    /** Per recipient, measured from application: overlapping casters cannot refill a shield. */
+    reapplyCooldown: Seconds,
+    /** Query circle touches the recipient's body, as in legacy. */
+    radius: z.number().positive(),
+    /** Includes the caster if it is among the nearest eligible targets. */
+    maxTargets: z.number().int().positive(),
+    affectsBosses: z.boolean(),
+  }),
   pickups: z.strictObject({
     max: z.number().int().positive(),
     /** Chance a regular enemy drops a gacha ticket. */

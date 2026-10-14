@@ -410,6 +410,8 @@ export interface EnemyState {
   side: number;
   shield: number;
   shieldT: number;
+  /** Time until any caster can shield this enemy again, counted from application. */
+  shieldCd: number;
   skillCd: number;
   minions: EntityId[];
   jump: JumpState | null;
