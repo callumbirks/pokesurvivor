@@ -50,6 +50,12 @@ collision bodies, then validates both outputs against their schemas before writi
 | `weather.json`      | Weather kinds (multipliers, immune types, slow), weights per biome, schedule                                                |
 | `tuning.json`       | Named constants from the legacy spawner, rifts, events, combat and pickups                                                  |
 
+`changelog.json` (at the package root, not in `json/`) is the player-facing changelog: released
+versions newest first and an `unreleased` block that pull requests add lines to. `loadChangelog()`
+validates it, `versionLabel()` gives the build's version (`v7`, `v7+dev`, `dev`), and
+`renderChangelogMarkdown()` / `releaseChangelog()` back `pnpm changelog` and `pnpm release`
+(`tools/changelog/cli.ts`). See [CONTRIBUTING.md](../../CONTRIBUTING.md#changelog).
+
 ### Rebalanced after the port
 
 These values differ from the original game:

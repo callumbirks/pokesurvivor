@@ -48,12 +48,17 @@ when the server starts. Override settings in a root `.env` (see [.env.example](.
 | `pnpm build`       | build the client and bundle the server                 |
 | `pnpm start`       | run the built server (serves the built client too)     |
 | `pnpm lint`        | ESLint + Prettier check (`pnpm format` to fix)         |
+| `pnpm changelog`   | regenerate `CHANGELOG.md` from the changelog JSON      |
+| `pnpm release`     | number a release and tag it (see docs/deploy.md)       |
 | `pnpm typecheck`   | `tsc` in every package                                 |
 | `pnpm test:slow`   | opt-in 20-minute progression/endurance run             |
 | `pnpm test`        | Vitest in every package                                |
 | `pnpm db:generate` | create a migration from `apps/server/src/db/schema.ts` |
 | `pnpm db:migrate`  | apply migrations to `DATABASE_URL`                     |
 | `docker build .`   | the production image                                   |
+
+Every pull request that changes something players notice adds a line to the changelog: see
+[CONTRIBUTING.md](CONTRIBUTING.md#changelog).
 
 ## License and credits
 

@@ -1,5 +1,6 @@
 // Every screen outside a run, by route (`#name`). `busy` screens set the room status to busy.
 import type { Route } from '../app/app.js';
+import { changelogScreen } from './changelog.js';
 import { collectionScreen } from './collection.js';
 import { friendsScreen } from './friends.js';
 import { gachaScreen } from './gacha.js';
@@ -27,6 +28,7 @@ export const routes: Record<string, Route> = {
   settings: { create: settingsScreen, busy: true },
   goals: { create: goalsScreen, topbar: true },
   ranking: { create: rankingScreen, topbar: true },
+  changelog: { create: changelogScreen, topbar: true },
   play: { create: playScreen },
 };
 

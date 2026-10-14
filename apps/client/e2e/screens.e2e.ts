@@ -1,7 +1,21 @@
 // Single-player screens against the real server: the shop with its move bans and slots, settings sync,
-// the solo flow up to the game, and logging out and back in.
+// the solo flow up to the game, What's new, and logging out and back in. E2E_SHOTS=<dir> saves
+// screenshots of the menu and What's new.
 import { randomUUID } from 'node:crypto';
-import { expect, test } from '@playwright/test';
+import { readFileSync } from 'node:fs';
+import { expect, test, type Page } from '@playwright/test';
+
+const shots = process.env.E2E_SHOTS;
+const changelog = JSON.parse(
+  readFileSync(new URL('../../../packages/data/changelog.json', import.meta.url), 'utf8'),
+) as { versions: { version: number }[] };
+const latest = changelog.versions[0]?.version;
+/** A screenshot once the screen's pop-in animation is over. */
+const shot = async (page: Page, name: string) => {
+  if (!shots) return;
+  await page.waitForTimeout(500);
+  await page.screenshot({ path: `${shots}/${name}.png` });
+};
 
 test('shop, moves, settings, solo and login again', async ({ page }) => {
   const name = `oak_${randomUUID().slice(0, 8)}`;
@@ -21,6 +35,31 @@ test('shop, moves, settings, solo and login again', async ({ page }) => {
   await expect(page.locator('.menu-item .mi-ico img.pix')).toHaveCount(9);
   await expect(page.locator('.topbar img.pix')).toHaveCount(4);
   await expect(page.locator('canvas.backdrop')).toBeVisible();
+
+  // What's new: a new device sees a dot while there's a release (it never opens by itself);
+  // opening the screen marks it seen. Before the first release: no dot, an empty state.
+  await expect(page.getByTestId('menu-changelog-dot')).toHaveCount(latest ? 1 : 0);
+  await expect(page.getByTestId('screen-changelog')).toHaveCount(0);
+  await shot(page, 'menu-dot');
+  await page.getByTestId('menu-changelog').click();
+  await expect(page.getByTestId('screen-changelog')).toBeVisible();
+  await expect(page.getByTestId(latest ? `cl-v${latest}` : 'cl-empty')).toBeVisible();
+  await shot(page, 'whats-new');
+  if (shots && latest) {
+    // The releases below the dev build's unreleased lines, opened up, and on a phone in landscape.
+    await page.getByTestId(`cl-v${latest}`).scrollIntoViewIfNeeded();
+    await page.locator('[data-testid="cl-bts"] summary').first().click();
+    await shot(page, 'whats-new-releases');
+    await page.setViewportSize({ width: 844, height: 390 });
+    await shot(page, 'whats-new-phone');
+    await page.getByTestId('back').click();
+    await shot(page, 'menu-phone-seen');
+    await page.getByTestId('menu-changelog').click();
+    await page.setViewportSize({ width: 1280, height: 720 });
+  }
+  await page.getByTestId('back').click();
+  await expect(page.getByTestId('screen-menu')).toBeVisible();
+  await expect(page.getByTestId('menu-changelog-dot')).toHaveCount(0);
 
   // Shop: 500 coins + 100 from the first-partner achievement buys a level of "ban" (300).
   await page.getByTestId('menu-shop').click();
@@ -49,6 +88,11 @@ test('shop, moves, settings, solo and login again', async ({ page }) => {
 
   // Settings sync to the account: change one, reload, it's still set.
   await page.goto('/#settings');
+  // The build's version in a corner: `vN`, `vN+dev` with unreleased changes, `dev` before v1.
+  await expect(page.getByTestId('version')).toHaveText(
+    latest ? new RegExp(`^v${latest}(\\+dev)?$`) : 'dev',
+  );
+  await shot(page, 'settings-version');
   await page.getByTestId('set-tab-graphics').click();
   await page.getByTestId('set-showFps').click();
   await expect(page.getByTestId('set-showFps')).toHaveText('Yes');

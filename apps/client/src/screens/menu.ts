@@ -1,10 +1,11 @@
 // Main menu: the partner on the left, the menu list on the right (original implementation). Above the
 // list, a solo run left unfinished in this browser (closed tab, crash, reload): resume or end it.
-import { t } from '@pokesurvivor/data';
+import { latestRelease, loadChangelog, t } from '@pokesurvivor/data';
 import type { App, Screen } from '../app/app.js';
 import type { Save } from '../app/api.js';
 import type { SavedSoloRun } from '../app/game.js';
 import { endSavedRun, resumeSolo, savedSoloRun } from '../app/solo-runs.js';
+import { hasUnseenRelease } from '../changelog.js';
 import {
   gameData,
   h,
@@ -38,6 +39,36 @@ const MENU_ICON: Record<string, string> = {
   friends: 'user',
   settings: 'gear',
 };
+
+/**
+ * What's new, under the partner's stats: the newest version, and a dot until it has been seen on
+ * this device. It never opens the changelog by itself.
+ */
+function whatsNewButton(app: App): HTMLElement {
+  const changelog = loadChangelog();
+  const latest = latestRelease(changelog);
+  const unseen = hasUnseenRelease(changelog);
+  return h(
+    'button',
+    {
+      class: ['btn', 'small', 'ghost', 'whats-new', unseen && 'unseen'],
+      dataset: { testid: 'menu-changelog' },
+      on: { click: () => app.go('changelog') },
+    },
+    icon('star', 16),
+    ` ${t('changelog.whatsNew')}`,
+    latest ? h('span', { class: 'ver' }, `v${latest.version}`) : null,
+    unseen
+      ? h('span', {
+          class: 'new-dot',
+          role: 'img',
+          'aria-label': t('changelog.newUpdate'),
+          title: t('changelog.newUpdate'),
+          dataset: { testid: 'menu-changelog-dot' },
+        })
+      : null,
+  );
+}
 
 export function menuScreen(app: App): Screen {
   const left = h('div', { class: 'menu-left' });
@@ -157,6 +188,7 @@ export function menuScreen(app: App): Screen {
         ` · ${t('pause.defeated')} `,
         h('b', null, num(s.stats.totalKills)),
       ),
+      whatsNewButton(app),
     );
 
     const owned = Object.keys(s.owned).length;

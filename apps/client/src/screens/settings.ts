@@ -1,6 +1,6 @@
 // Settings: sound, graphics, controls, account and about (original implementation). Edits the
 // settings store, which saves locally and syncs the account's copy.
-import { t } from '@pokesurvivor/data';
+import { loadChangelog, t, versionLabel } from '@pokesurvivor/data';
 import type { App, Screen } from '../app/app.js';
 import { h, replace } from '../app/dom.js';
 import { glyph, type PadButton } from '../glyphs.js';
@@ -198,7 +198,17 @@ export function settingsScreen(
   const tabRow = h('div');
   const body = h('div', { class: 'set-body' });
   box.body.append(tabRow, body);
-  box.el.querySelector('.box')?.classList.add('settings');
+  const settingsBox = box.el.querySelector('.box');
+  settingsBox?.classList.add('settings');
+  // The build's version in the corner: the newest release bundled from changelog.json, "+dev"
+  // with unreleased changes on top, "dev" before the first release.
+  settingsBox?.append(
+    h(
+      'span',
+      { class: 'version-tag', dataset: { testid: 'version' } },
+      versionLabel(loadChangelog()),
+    ),
+  );
 
   const render = () => {
     replace(
