@@ -1,6 +1,6 @@
 {
   "unreleased": {
-    "prs": [59, 61, 62, 63],
+    "prs": [59, 61, 62, 63, 64],
     "entries": {
       "new": [
         "Show network stats (Settings → Graphics, or add ?netstats to the address): see your ping, packet timing, corrections and frame rate during co-op, to tell whether hiccups come from your connection, your browser or the server."
