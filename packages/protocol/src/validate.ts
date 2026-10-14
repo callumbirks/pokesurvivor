@@ -1,5 +1,6 @@
 // Validation of everything a client sends. The server never trusts a client message's shape:
 // anything that doesn't match exactly is rejected (with the request id, if one could be read).
+import { AIM_STEPS } from './messages.js';
 import type {
   ClientMessage,
   IntentValue,
@@ -127,13 +128,16 @@ export function decodeClientMessage(raw: string): Decoded<ClientMessage> {
     case 'input': {
       const slot = m.slot;
       const slotOk = slot === undefined || slot === null || (isUint(slot) && slot < 16);
+      const aim = m.aim;
+      const aimOk = aim === undefined || (isUint(aim) && aim < AIM_STEPS);
       if (
         !isStr(m.gameId, 64) ||
         !isUint(m.seq) ||
         !isFinite(m.moveX) ||
         !isFinite(m.moveY) ||
         !slotOk ||
-        !onlyKeys(m, ['gameId', 'seq', 'moveX', 'moveY', 'slot'])
+        !aimOk ||
+        !onlyKeys(m, ['gameId', 'seq', 'moveX', 'moveY', 'slot', 'aim'])
       )
         return fail('bad input');
       const clamp = (v: number) => Math.max(-1, Math.min(1, v));
@@ -146,6 +150,7 @@ export function decodeClientMessage(raw: string): Decoded<ClientMessage> {
           moveX: clamp(m.moveX),
           moveY: clamp(m.moveY),
           ...(slot !== undefined ? { slot } : {}),
+          ...(aim !== undefined ? { aim } : {}),
         },
       };
     }

@@ -7,7 +7,7 @@
 // events pass through unchanged.
 
 /** Bumped on every breaking change to the wire format. */
-export const PROTOCOL_VERSION = 4;
+export const PROTOCOL_VERSION = 5;
 
 /** Largest client message the server accepts, in bytes. */
 export const MAX_CLIENT_MESSAGE_BYTES = 4096;
@@ -142,7 +142,30 @@ export interface InputMessage {
   moveY: number;
   /** Switch to this move slot (send once per key press). */
   slot?: number | null;
+  /**
+   * Manual aim, quantised to `AIM_STEPS` (`encodeAim` / `decodeAim`): attacks go this way.
+   * Absent: auto-aim. Persists like movement, so it's in every input while manual aim is on.
+   */
+  aim?: number;
 }
+
+/** Steps of a quantised aim angle (one byte: ~1.4° each). */
+export const AIM_STEPS = 256;
+
+/** An angle (radians, any range) as an `InputMessage.aim`: an integer in [0, AIM_STEPS). */
+export function encodeAim(angle: number): number {
+  const q = Math.round((angle / (2 * Math.PI)) * AIM_STEPS) % AIM_STEPS;
+  return q < 0 ? q + AIM_STEPS : q;
+}
+
+/** An `InputMessage.aim` back to radians, in (−π, π]. */
+export function decodeAim(q: number): number {
+  const a = (q / AIM_STEPS) * 2 * Math.PI;
+  return a > Math.PI ? a - 2 * Math.PI : a;
+}
+
+/** An angle snapped to what the server will see (what `decodeAim(encodeAim(angle))` gives). */
+export const quantizeAim = (angle: number): number => decodeAim(encodeAim(angle));
 
 export type IntentValue = string | number | boolean | null;
 

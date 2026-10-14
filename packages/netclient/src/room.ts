@@ -1,7 +1,7 @@
 // RoomConnection: what the game screen talks to while a run is on. The network implementation
 // is below; the solo adapter (phase 4: the sim in a Web Worker) implements the same interface,
 // so the renderer, HUD and input code don't care whether the run is local or on the server.
-import type { InputMessage } from '@pokesurvivor/protocol';
+import { encodeAim, type InputMessage } from '@pokesurvivor/protocol';
 import type { Intent, MoveInput } from '@pokesurvivor/sim';
 import { TICK_MS } from '@pokesurvivor/sim';
 import { SnapshotBuffer, type SnapshotBufferOptions } from './buffer.js';
@@ -47,7 +47,10 @@ export interface RoomConnection {
 
   /** Tell the server the assets are loaded (during `loading`). */
   loaded(): void;
-  /** Sends movement (persists until changed) and an optional one-shot slot switch. */
+  /**
+   * Sends movement and the manual aim (both persist until changed; `aim` is quantised to a byte)
+   * and an optional one-shot slot switch.
+   */
   sendInput(input: MoveInput): number;
   /** Samples `read` every tick and sends it while the game runs. Returns a stop function. */
   startInputLoop(read: () => MoveInput): () => void;
@@ -141,6 +144,7 @@ export class NetRoomConnection implements RoomConnection {
       moveY: input.moveY,
     };
     if (slot !== null) message.slot = slot;
+    if (input.aim != null) message.aim = encodeAim(input.aim);
     if (this.transport.send(message)) {
       this.unacked.push({
         seq,

@@ -1,13 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import {
+  AIM_STEPS,
   BinaryReader,
   BinaryWriter,
   JsonReader,
   JsonWriter,
   TableDecoder,
   TableEncoder,
+  decodeAim,
   decodeClientMessage,
   encode,
+  encodeAim,
+  quantizeAim,
   readFrame,
   validateIntent,
   writeFrame,
@@ -20,6 +24,8 @@ describe('client messages', () => {
       { type: 'hello', protocolVersion: 2 },
       { type: 'ping', id: 7, sentAt: 123.5 },
       { type: 'input', gameId: 'g', seq: 3, moveX: 0.5, moveY: -1, slot: 2 },
+      { type: 'input', gameId: 'g', seq: 4, moveX: 0, moveY: 0, aim: 0 },
+      { type: 'input', gameId: 'g', seq: 5, moveX: 0, moveY: 0, slot: null, aim: 255 },
       { type: 'room.create', rid: 1 },
       { type: 'room.invite', rid: 2, username: 'misty' },
       { type: 'room.status', rid: 3, status: 'busy' },
@@ -73,9 +79,33 @@ describe('client messages', () => {
       { type: 'input', gameId: 'g', seq: -1, moveX: 0, moveY: 0 },
       { type: 'input', gameId: 'g', seq: 1, moveX: 'a', moveY: 0 },
       { type: 'input', gameId: 'g', seq: 1, moveX: 0, moveY: 0, slot: 1.5 },
+      { type: 'input', gameId: 'g', seq: 1, moveX: 0, moveY: 0, aim: 256 },
+      { type: 'input', gameId: 'g', seq: 1, moveX: 0, moveY: 0, aim: -1 },
+      { type: 'input', gameId: 'g', seq: 1, moveX: 0, moveY: 0, aim: 1.5 },
+      { type: 'input', gameId: 'g', seq: 1, moveX: 0, moveY: 0, aim: null },
     ]) {
       expect(decodeClientMessage(encode(bad)).ok).toBe(false);
     }
+  });
+
+  it('round-trips the aim, quantised to a byte', () => {
+    const gap = (a: number, b: number) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
+    for (const angle of [0, 1, -1, Math.PI, -Math.PI, Math.PI / 2, 3, -3, 7, -7, 2 * Math.PI]) {
+      const aim = encodeAim(angle);
+      expect(Number.isInteger(aim) && aim >= 0 && aim < AIM_STEPS).toBe(true);
+      const d = decodeClientMessage(
+        encode({ type: 'input', gameId: 'g', seq: 1, moveX: 0, moveY: 0, aim }),
+      );
+      expect(d).toMatchObject({ ok: true, message: { aim } });
+      const back = decodeAim(d.ok && d.message.type === 'input' ? (d.message.aim ?? -1) : -1);
+      expect(gap(back, angle)).toBeLessThanOrEqual(Math.PI / AIM_STEPS + 1e-9);
+      expect(back).toBeGreaterThan(-Math.PI);
+      expect(back).toBeLessThanOrEqual(Math.PI);
+      expect(quantizeAim(back)).toBe(back);
+    }
+    expect(encodeAim(0)).toBe(0);
+    expect(encodeAim(Math.PI / 2)).toBe(64);
+    expect(encodeAim(-Math.PI / 2)).toBe(192);
   });
 
   it('limits intents to a few primitive fields', () => {
