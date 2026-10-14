@@ -277,6 +277,27 @@ describe('MenuNav', () => {
     expect(focusedId()).toBe('next');
   });
 
+  it('starts a new screen from its highlight, not from a control with the same id', () => {
+    const root = screen();
+    const show = (id: string) => {
+      const scr = document.createElement('section');
+      scr.className = 'scr';
+      scr.dataset.testid = id;
+      root.replaceChildren(scr);
+      return scr;
+    };
+    const nav = new MenuNav(() => root);
+    button('back', 0, 0, show('screen-gacha'));
+    nav.press('down');
+    expect(focusedId()).toBe('back');
+    const solo = show('screen-solo');
+    button('back', 0, 0, solo);
+    button('pick', 0, 40, solo).dataset.navDefault = '';
+    button('play', 0, 80, solo);
+    nav.press('down');
+    expect(focusedId()).toBe('play');
+  });
+
   it('does nothing under a blocking scope (gameplay), and the top scope wins', () => {
     const { nav, root } = menu();
     const game = screen();

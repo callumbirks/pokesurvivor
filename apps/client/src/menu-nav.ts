@@ -172,6 +172,9 @@ const FOCUSABLE =
 const EDGE = '.scr-head, .topbar';
 const inEdge = (e: Element | null) => !!e?.closest(EDGE);
 
+/** A screen (`screenBox()`): a lost focus is looked for again only on the same one. */
+const SCREEN = '.scr';
+
 /** The class on the control the gamepad focused (styled while the gamepad is active). */
 export const NAV_FOCUS_CLASS = 'nav-focus';
 
@@ -313,6 +316,9 @@ export class MenuNav {
     const id = lost.dataset.testid;
     const same = id ? stops.find((e) => e.dataset.testid === id) : undefined;
     if (!same) return null;
+    // Only on the same screen: another one (Back on each) starts from its own highlight.
+    const was = lost.closest<HTMLElement>(SCREEN)?.dataset.testid;
+    if (was && was !== same.closest<HTMLElement>(SCREEN)?.dataset.testid) return null;
     this.focus(same);
     return same;
   }
