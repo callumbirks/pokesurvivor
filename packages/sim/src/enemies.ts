@@ -119,6 +119,8 @@ export function createEnemy(
     minions: [],
     jump: null,
     lagT: 0,
+    targetId: nearestAlive(activePlayers(ctx.s), x, y)?.id ?? null,
+    transferFromId: null,
     zig: 0,
     life: null,
     losT: 0,
@@ -395,10 +397,23 @@ export function updateEnemies(ctx: Ctx): void {
   const players = activePlayers(s);
   const fallback = players[0] ?? presentPlayers(s)[0];
   if (!fallback) return;
+  const tuning = ctx.d.game.tuning.stragglers;
+  const available = new Set(players.filter((p) => !p.dead).map((p) => p.id));
+  for (const p of players) {
+    p.relocationTokens = Math.min(
+      tuning.burst,
+      p.relocationTokens + tuning.relocationsPerSecond * DT,
+    );
+  }
   rebuildGrid(ctx);
   // (Minions summoned during the loop are appended and updated this tick too, as in legacy.)
   for (const e of s.enemies) {
-    if (!e.dead) updateEnemy(ctx, e, nearestAlive(players, e.x, e.y) ?? fallback);
+    if (e.dead) continue;
+    const target = nearestAlive(players, e.x, e.y) ?? fallback;
+    if (e.targetId !== null && !available.has(e.targetId)) e.transferFromId = e.targetId;
+    if (e.transferFromId !== null && available.has(e.transferFromId)) e.transferFromId = null;
+    e.targetId = target.id;
+    updateEnemy(ctx, e, target);
   }
   separate(ctx);
   const list = s.enemies;
@@ -429,6 +444,8 @@ export function updateEnemies(ctx: Ctx): void {
     const d2 = dist2(e.x, e.y, near.x, near.y);
     const R = OUTER_RADIUS + 40;
     const unseen = d2 > R * R && !seenByAny(s, e.x, e.y, 60);
+    // Walking into the nearest survivor's surroundings also completes a transfer.
+    if (d2 <= R * R) e.transferFromId = null;
     const sp = Math.hypot(near.smoothVx, near.smoothVy);
     const behind =
       sp > 40 &&
@@ -436,6 +453,13 @@ export function updateEnemies(ctx: Ctx): void {
     if (unseen && behind) e.lagT += DT;
     else if (!unseen) e.lagT = 0;
     if ((unseen && e.lagT > LAG_T) || d2 > 1400 * 1400) {
+      if (e.transferFromId !== null) {
+        // Keep walking and retry next tick without spending RNG or resetting the lag timer.
+        if (near.relocationTokens < 1 - 1e-9) continue;
+        near.relocationTokens = Math.max(0, near.relocationTokens - 1);
+      }
+      e.transferFromId = null;
+      e.targetId = near.id;
       e.lagT = 0;
       if (!aheadOfPlayer(ctx, e, near)) removeEnemy(ctx, i);
     }

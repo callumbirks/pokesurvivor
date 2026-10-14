@@ -54,6 +54,7 @@ export function createPlayer(
     shiny: !!cfg.shiny && body.shiny,
     types: [...mon.types],
     index,
+    relocationTokens: d.game.tuning.stragglers.burst,
     connected: true,
     left: false,
     input: { moveX: 0, moveY: 0, slot: null, aim: null, fire: false },

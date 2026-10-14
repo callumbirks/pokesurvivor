@@ -17,6 +17,12 @@ export const TuningFileSchema = z.strictObject({
     xpK: z.number().positive(),
     shinyRate: Chance,
   }),
+  stragglers: z.strictObject({
+    /** Per living target, only when an enemy's previous target went down or left. */
+    relocationsPerSecond: z.number().positive(),
+    /** Maximum saved relocations; ordinary catch-up remains unrestricted. */
+    burst: z.number().int().positive(),
+  }),
   rift: z.strictObject({
     /** Every `checkEvery` s after `startAfter` s, a rift opens with `chance` (rising per miss). */
     checkEvery: Seconds,

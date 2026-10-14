@@ -158,6 +158,8 @@ export interface PlayerState {
   types: PokemonType[];
   /** Join order: the colour/tag slot. */
   index: number;
+  /** Token bucket for enemies transferred from unavailable teammates. */
+  relocationTokens: number;
   connected: boolean;
   left: boolean;
   input: PlayerInput;
@@ -426,6 +428,10 @@ export interface EnemyState {
   jump: JumpState | null;
   /** Seconds lagging behind out of everyone's view. */
   lagT: number;
+  /** Most recent movement target; initialized at spawn so a death next tick is covered. */
+  targetId: PlayerId | null;
+  /** Unavailable former target until this enemy arrives, relocates, or that player returns. */
+  transferFromId: PlayerId | null;
   /** Thief zig-zag phase and seconds left before escaping (null: stays). */
   zig: number;
   life: number | null;
