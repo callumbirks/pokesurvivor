@@ -294,6 +294,14 @@ export type ServerMessage<Roster = unknown, Summary = unknown> =
   | { type: 'game.loading'; game: GameStatic<Roster>; deadline: number }
   /** The game runs (or you resumed it): a full snapshot follows. */
   | { type: 'game.start'; game: GameStatic<Roster>; resumed: boolean }
-  | { type: 'game.results'; results: GameResults<Summary> };
+  | { type: 'game.results'; results: GameResults<Summary> }
+  /**
+   * The server's game loop fell behind (diagnostics for the in-game network stats). Sent to the
+   * players of running games when it happens, at most once a second, adding up since the last
+   * one: `late` ticks that ran over a tick late (it caught up), `skipped` times it was so far
+   * behind that it skipped ticks, `worstMs` the most it was behind. Optional: older clients
+   * ignore it (no version bump).
+   */
+  | { type: 'server.lag'; late: number; skipped: number; worstMs: number };
 
 export type ServerMessageType = ServerMessage['type'];

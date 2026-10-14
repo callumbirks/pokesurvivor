@@ -103,6 +103,7 @@ game already started), `room_full`, `already_member`, `no_invite`, `user_not_fou
 | `game.loading {game, deadline}`                                                  | a game is loading: load what it needs, then send `game.loaded`                                                                                                     |
 | `game.start {game, resumed}`                                                     | the game runs (or you resumed it); a full snapshot follows straight away                                                                                           |
 | `game.results {results}`                                                         | the run is over and recorded                                                                                                                                       |
+| `server.lag {late, skipped, worstMs}`                                            | the game loop fell behind (in a running game, at most 1/s; see [Server lag](#server-lag))                                                                          |
 | binary frame                                                                     | a snapshot                                                                                                                                                         |
 
 `RoomView` is `{id, phase, ownerId, members, invited, maxMembers: 4, blockers, loadingDeadline}`.
@@ -114,6 +115,16 @@ again on resume: `roomId`, `gameId`, `seed` (the world), `tickHz`, `snapshotHz`,
 `choiceTimeoutS`, `roster` (the sim's `RosterState`: this run's wild Pokémon and bosses, for
 preloading sprites), and `players` (`{id, username, index, dex, shiny}` per player, in join
 order).
+
+## Server lag
+
+The server runs every game on one 30 Hz loop. When that loop runs a tick more than a tick late
+(a GC pause, a blocked event loop, a slow tick) it catches up; when it is still behind after
+five catch-up ticks it skips ahead. Players in running games then get
+`server.lag {late, skipped, worstMs}`: how many times each happened since the last one, and the
+most the loop was behind (ms). It is sent at most once a second, only when something happened,
+and is for diagnostics only (the in-game network stats show "Server: struggling"). It was added
+within protocol 7: older clients ignore unknown message types.
 
 ## Friend activity
 

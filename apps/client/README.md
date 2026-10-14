@@ -119,6 +119,13 @@ fn)` (spinner on the button, toast on error), loads through `loadInto(el, load, 
   except our Pokémon: `net/predict.ts` replays the unacked inputs from the server's position with
   the sim's own movement step (`WorldView.move`, speed from the snapshot's `self`), blends across
   the current tick and eases corrections out (teleports snap). Gaps resync in `NetRoomConnection`.
+- **Network stats** (`netstats-ui.ts` DOM, `net/netstats.ts` numbers): Settings → Graphics →
+  "Show network stats" (per device) or `?netstats` in the URL. A small window under the HUD's
+  top-left block, redrawn at 4 Hz, with ten-second rolling numbers: ping (now, median, p95),
+  snapshot rate, largest gap and jitter (spacing against the server's ticks; paused snapshots
+  don't count), inputs/s and unacked, prediction corrections (`Predictor.onCorrection`), FPS and
+  the worst frame, and the server's `server.lag`; above them a verdict for the network, the
+  browser and the server. All thresholds are in `NETSTATS`. Solo shows only the frame times.
 - **HUD** (`hud.ts`, canvas): XP, HP and level, clock, weather, boss bar, move slots with
   cooldowns, held item, bonds, teammates (HP, down, choosing, offline), edge arrows (rift,
   teammates, shinies, the lost Pokémon, thieves), event timers, banners. Toasts (DOM) for
