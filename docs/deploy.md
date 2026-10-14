@@ -41,6 +41,9 @@ In the Dokploy project: **Create Service → Database → PostgreSQL**.
   | `RECONNECT_GRACE_S`        | `60`                                      | optional; how long a dropped player's place is kept                                                                                          |
   | `LOADING_TIMEOUT_S`        | `15`                                      | optional; members who haven't loaded by then are dropped from the game                                                                       |
 
+  `RESTART_RECONNECT_GRACE_S` defaults to `180`: the reconnect window after a lobby handoff is adopted,
+  and the TTL of a handoff nobody has claimed.
+
   `NODE_ENV=production` is already set in the image.
 
 ## 3. Domain and WebSockets
@@ -109,6 +112,75 @@ new and reconnecting clients go to the new one while the old one finishes its ga
 drops during the drain reconnects to the new instance and can't resume the old game (rooms live
 in memory), but is still credited when it ends.
 
+### Lobby handoff during the overlap
+
+The run drain above is unchanged. Lobby/main-menu rooms now survive a graceful deploy using a
+per-room Postgres handoff, which the replacement can adopt **after it is already running**.
+Migration 0004 adds `game_rooms` (ownership, expiry and a pending lobby payload) and
+`game_room_members` (one reserved room per user).
+Migrations still apply automatically on startup. These tables contain no simulation snapshots.
+
+- **Before SIGTERM:** the old instance remains fully live. Players can join, leave, be kicked,
+  change readiness or update partners normally while the replacement is booting. No lobby is
+  snapshotted at deploy/build start.
+- **At SIGTERM:** the old instance freezes lobby/loading rooms against new mutations, waits for
+  room requests already in flight, cancels any loading game, and snapshots the final lobby code,
+  host, membership, ready/busy state and partners. Publishing the payload and releasing ownership
+  happen atomically in Postgres. Only then does it detach the local room and close its clients
+  with 1012. Partner refreshes and grace callbacks cannot change a frozen room. Pending invites
+  are transient and must be sent again; there are no per-room configurable settings today.
+- **Running games:** they keep their original ticks, inputs, choices, leave/kick and disconnect
+  behaviour on the old server. When a game ends normally (or at the drain timeout), rewards are
+  recorded as before, then its current members' lobby is handed off in the same way. Those
+  members are not-ready, as after any run. Players who left or were removed are absent from that
+  lobby; their run rewards are still credited normally.
+- **A player disconnecting mid-drain:** their in-game slot cannot resume on the replacement,
+  exactly as before. The replacement shows a waiting notice and holds their existing room
+  reservation, preventing a duplicate room or solo run. It polls only connected users waiting for their room every heartbeat
+  (2 s) and adopts their lobby once published, without requiring another reconnect. The old
+  server still applies the normal `RECONNECT_GRACE_S` (60 s): if the game has not ended by then,
+  that player's membership expires and they are removed/credited for the time played. The
+  replacement clears the waiting notice and explains the expiry; they can then choose a new
+  room. They are not automatically added back to the original lobby after leaving/expiry.
+- **Before adoption on the replacement:** joining a code still owned by the old instance,
+  creating another room for a reserved member, or inviting a member still on the old instance
+  returns the explicit `room_pending` message. Shared unique room codes and memberships prevent
+  competing rooms. Adoption takes a row lock, consumes the payload once, and keeps only members
+  whose current reservation still belongs to it; it does not overwrite a newer room or reapply
+  an old snapshot after membership changes on the new server.
+
+Handed-off rooms nobody claims expire after `RESTART_RECONNECT_GRACE_S` (default 180 s), including
+while no replacement is running; expired rows are never adopted. The same fresh 180 s window
+starts on adoption for members who have not reconnected. Normal cleanup removes absent members,
+transfers the host, and closes empty rooms. A consumed payload is cleared while the shared
+ownership/membership reservations remain for the live room. Live reservations are renewed by
+the owner every heartbeat in one batch, and expire after 30 seconds if that process disappears.
+Expired memberships stop blocking solo immediately; create/join reclaim their expired reservations
+on demand, without waiting for cleanup. These reservations are not a crash-safe room save.
+Graceful handoff writes must succeed before clients are released.
+
+Global expiry cleanup runs at startup and then about every 30 seconds. Background renewal, cleanup
+and waiting-member polling run outside the lobby request queue; only the brief in-memory attachment
+after a successful adoption is serialized with lobby mutations. Slow maintenance queries therefore
+do not delay local readiness/leave requests or the game ticker. Actions needing their own DB queries
+(create/join, for example) still require the database to respond.
+
+Authentication uses the existing persisted login cookie; no new resume token is needed. Clients
+retain their lobby UI, show “Reconnecting…”, and retry with jittered exponential backoff (500 ms
+to 10 s) for up to three minutes. A stalled connection/hello retries in 10 s. A protocol-version
+mismatch stops retries and shows Reload, including over a game. Reloading obtains the current
+client and rejoins the handed-off lobby if its reservation has not expired. The two waiting
+notices are additive; protocol v7 is unchanged.
+
+Keep **one replica** with `start-first` updates; brief deploy overlap is supported, arbitrary
+active multi-replica routing is not. Keep the **16-minute stop grace** for the default 900 s drain. For plain Docker use `--stop-timeout 960`; for an app in Compose use
+`stop_grace_period: 16m`. The repository's Compose file only starts the development database.
+Dockerfile `STOPSIGNAL SIGTERM` specifies the signal, not its grace period.
+
+The first deploy from the old version cannot preserve its lobbies, because that version does not
+publish handoffs. Subsequent graceful deploys do. Host crashes and SIGKILL are outside this scope;
+run recording retains its existing database retries and failure limitations.
+
 ## 5. Verify
 
 ```sh
@@ -158,7 +230,7 @@ the stale spec goes away (`docker service rm <app>`), and redeploy from Dokploy.
 
 ```sh
 docker build -t pokesurvivor .
-docker run -p 3000:3000 -e DATABASE_URL=postgres://user:pass@host:5432/db pokesurvivor
+docker run --stop-timeout 960 -p 3000:3000 -e DATABASE_URL=postgres://user:pass@host:5432/db pokesurvivor
 ```
 
 ## Migrations

@@ -102,13 +102,16 @@ export async function buildApp({
       })
     : null;
   app.decorate('runSweeper', runSweeper);
-  app.addHook('onReady', (done) => {
+  app.addHook('onReady', async () => {
+    await game?.registry.cleanup();
     runSweeper?.start();
-    done();
   });
   app.addHook('preClose', async () => runSweeper?.stop());
   // Sockets close before Fastify waits for connections to end.
-  app.addHook('preClose', () => game?.close());
+  app.addHook('preClose', async () => {
+    game?.close();
+    await game?.flush();
+  });
 
   if (db) {
     const common = { db: db.db, secureCookies: config.secureCookies };
@@ -123,7 +126,8 @@ export async function buildApp({
       runCaps: economy.runCaps,
       leaderboardTimeZone: config.leaderboardTimeZone,
       rateLimit: config.rateLimits.actions,
-      inRoom: (userId) => game?.roomOfUser(userId) != null,
+      inRoom: async (userId) =>
+        game?.roomOfUser(userId) != null || !!(await game?.registry.membership(userId)),
     });
     gachaRoutes(app, { ...common, rateLimit: config.rateLimits.actions });
     missionRoutes(app, { ...common, timeZone: config.leaderboardTimeZone });

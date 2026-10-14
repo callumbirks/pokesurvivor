@@ -16,6 +16,23 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 import type { SaveData } from '../saves/schema.js';
+import type { SavedRoom } from '../game/room.js';
+
+/** Shared reservations fence ownership while two containers overlap during a deploy. */
+export const gameRooms = pgTable('game_rooms', {
+  id: text('id').primaryKey(),
+  instanceId: uuid('instance_id'),
+  handoff: jsonb('handoff').$type<SavedRoom>(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+});
+
+/** Unique membership across both instances, including rooms waiting to be adopted. */
+export const gameRoomMembers = pgTable('game_room_members', {
+  userId: uuid('user_id').primaryKey(),
+  roomId: text('room_id')
+    .notNull()
+    .references(() => gameRooms.id, { onDelete: 'cascade' }),
+});
 
 const createdAt = () => timestamp('created_at', { withTimezone: true }).notNull().defaultNow();
 

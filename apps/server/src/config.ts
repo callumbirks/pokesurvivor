@@ -39,12 +39,14 @@ export interface GameConfig {
   choiceTimeoutS: number;
   /** A disconnected player's slot is kept this long (idle, invulnerable) before they're removed. */
   reconnectGraceMs: number;
+  /** Fresh reconnect window after restoring rooms on boot. */
+  restartReconnectGraceMs: number;
   /** Members who haven't acked "loaded" by then are dropped from the game. */
   loadingTimeoutMs: number;
   inviteTtlMs: number;
   /** Clients ping this often; sockets silent for 5 of these are dropped. */
   heartbeatMs: number;
-  /** On SIGTERM, running games may finish for this long before they're ended (and credited). */
+  /** Running games may finish for this long during SIGTERM drain. */
   drainTimeoutMs: number;
 }
 
@@ -103,6 +105,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       snapshotHz: positiveInt('SNAPSHOT_HZ', env.SNAPSHOT_HZ, 20),
       choiceTimeoutS: positiveInt('CHOICE_TIMEOUT_S', env.CHOICE_TIMEOUT_S, 30),
       reconnectGraceMs: positiveInt('RECONNECT_GRACE_S', env.RECONNECT_GRACE_S, 60) * 1000,
+      restartReconnectGraceMs:
+        positiveInt('RESTART_RECONNECT_GRACE_S', env.RESTART_RECONNECT_GRACE_S, 180) * 1000,
       loadingTimeoutMs: positiveInt('LOADING_TIMEOUT_S', env.LOADING_TIMEOUT_S, 15) * 1000,
       inviteTtlMs: 120_000,
       heartbeatMs: 2000,

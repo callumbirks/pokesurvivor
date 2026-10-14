@@ -37,15 +37,21 @@ interface Invite {
   timer: NodeJS.Timeout;
 }
 
+export interface SavedRoom {
+  id: string;
+  ownerId: string;
+  members: Omit<Member, 'graceTimer'>[];
+}
+
 const ROOM_ID_CHARS = 'abcdefghjkmnpqrstuvwxyz23456789';
 
-function newRoomId(): string {
+export function newRoomId(): string {
   const bytes = randomBytes(8);
   return [...bytes].map((b) => ROOM_ID_CHARS[b % ROOM_ID_CHARS.length]).join('');
 }
 
 export class Room {
-  readonly id = newRoomId();
+  readonly id: string;
   ownerId: string;
   phase: RoomPhase = 'lobby';
   readonly members = new Map<string, Member>();
@@ -55,13 +61,60 @@ export class Room {
   private loadingDeadline: number | null = null;
   private starting = false;
   closed = false;
+  transferring = false;
 
   constructor(
     private readonly server: GameServer,
     owner: { userId: string; username: string },
+    saved?: SavedRoom,
+    id = newRoomId(),
   ) {
+    this.id = saved?.id ?? id;
     this.ownerId = owner.userId;
-    this.addMember(owner.userId, owner.username);
+    if (!saved) this.addMember(owner.userId, owner.username);
+    else {
+      for (const m of saved.members) {
+        this.members.set(m.userId, { ...m, graceTimer: null });
+        this.server.setRoomOf(m.userId, this);
+      }
+    }
+  }
+
+  snapshot(): SavedRoom {
+    return {
+      id: this.id,
+      ownerId: this.ownerId,
+      members: [...this.members.values()].map(({ graceTimer: _timer, ...m }) => m),
+    };
+  }
+
+  cancelLoadingForHandoff(): void {
+    if (this.phase === 'loading') this.cancelGame();
+  }
+
+  /** Drop the old process's ownership only after the DB handoff commits. */
+  detach(): void {
+    this.closed = true;
+    this.suspend();
+    for (const m of this.members.values()) this.server.setRoomOf(m.userId, null);
+    this.server.removeRoom(this, true);
+  }
+
+  /** Boot starts a fresh grace window, using the normal empty-room cleanup. */
+  restoreGrace(): void {
+    for (const m of this.members.values())
+      this.armGrace(m, this.server.config.restartReconnectGraceMs);
+  }
+
+  /** Stop room callbacks without removing membership. */
+  suspend(): void {
+    if (this.loadingTimer) clearTimeout(this.loadingTimer);
+    this.loadingTimer = null;
+    for (const m of this.members.values()) {
+      if (m.graceTimer) clearTimeout(m.graceTimer);
+      m.graceTimer = null;
+    }
+    for (const i of this.invites.values()) clearTimeout(i.timer);
   }
 
   // ---------------------------------------------------------------- views and messages
@@ -96,6 +149,7 @@ export class Room {
 
   /** Sends the room to every member and updates their presence. */
   sync(): void {
+    if (this.transferring || this.closed) return;
     const view = this.view();
     for (const m of this.members.values()) {
       this.server.sessionOf(m.userId)?.send({ type: 'room', room: view });
@@ -143,6 +197,7 @@ export class Room {
     try {
       const partner = partnerOf(await getSave(this.server.db, member.userId));
       if (JSON.stringify(partner) === JSON.stringify(member.partner)) return;
+      if (this.transferring || this.closed) return;
       member.partner = partner;
       if (this.members.get(member.userId) === member) this.sync();
     } catch (err) {
@@ -151,6 +206,7 @@ export class Room {
   }
 
   invite(fromUserId: string, target: { userId: string; username: string }): void {
+    if (this.transferring) throw new GameError('server_draining', 'Room is moving');
     this.member(fromUserId);
     if (this.phase !== 'lobby') throw new GameError('room_busy', 'The game has already started');
     if (this.members.has(target.userId))
@@ -208,10 +264,12 @@ export class Room {
    * from the game (and credited for what they earned). The owner role passes on.
    */
   leave(userId: string, code: NoticeCode = 'player-left'): void {
+    if (this.transferring) return;
     const m = this.members.get(userId);
     if (!m) return;
     if (m.graceTimer) clearTimeout(m.graceTimer);
     this.members.delete(userId);
+    this.server.memberLeft(this.id, userId);
     this.server.setRoomOf(userId, null);
     this.server.sessionOf(userId)?.send({ type: 'room', room: null });
     if (code === 'kicked')
@@ -247,6 +305,7 @@ export class Room {
   }
 
   setStatus(userId: string, status: MemberStatus): void {
+    if (this.transferring) throw new GameError('server_draining', 'Room is moving');
     const m = this.member(userId);
     m.status = status;
     this.sync();
@@ -272,19 +331,25 @@ export class Room {
 
   /** The member's socket closed: keep their place for the reconnect grace. */
   disconnected(userId: string): void {
+    if (this.transferring || this.closed || this.server.stopped) return;
     const m = this.members.get(userId);
     if (!m) return;
     if (m.inGame && this.game) {
       this.game.disconnect(userId);
       this.notice('player-disconnected', [m.username], userId);
     }
+    this.armGrace(m, this.server.config.reconnectGraceMs);
+    this.sync();
+  }
+
+  private armGrace(m: Member, timeoutMs: number): void {
+    const userId = m.userId;
     if (m.graceTimer) clearTimeout(m.graceTimer);
     m.graceTimer = setTimeout(() => {
       m.graceTimer = null;
       if (this.members.get(userId) === m && !this.server.isOnline(userId))
         this.leave(userId, 'player-removed');
-    }, this.server.config.reconnectGraceMs);
-    this.sync();
+    }, timeoutMs);
   }
 
   /** The member is back (new socket): resume where they were. */
@@ -341,7 +406,7 @@ export class Room {
     } finally {
       this.starting = false;
     }
-    if (this.closed || this.phase !== 'lobby') return;
+    if (this.closed || this.server.draining || this.phase !== 'lobby') return;
     // Someone may have changed their status or left while the saves were read.
     const stillBlocked = this.blockers();
     if (stillBlocked.length)
@@ -378,6 +443,7 @@ export class Room {
   }
 
   loaded(userId: string, gameId: string): void {
+    if (this.transferring) return;
     const m = this.members.get(userId);
     if (!m || this.phase !== 'loading' || this.game?.id !== gameId || !m.inGame) return;
     m.loaded = true;

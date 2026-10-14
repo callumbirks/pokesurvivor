@@ -29,6 +29,13 @@
       "when": 1791903689933,
       "tag": "0003_solo_run_checkpoints",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791944863453,
+      "tag": "0004_room_handoffs",
+      "breakpoints": true
     }
   ]
 }

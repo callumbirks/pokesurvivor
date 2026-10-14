@@ -239,6 +239,11 @@ export class App {
     ) => this.netOffs.push(net.on(event, fn));
     on('state', (s) => this.connectionState(s));
     on('room', () => {
+      if (net.roomView) {
+        notice('room-pending', null);
+        if (this.waitingForRoom && this.routeName === 'menu') this.go('lobby');
+        this.waitingForRoom = false;
+      }
       this.busy.onRoom();
       this.renderTopbar();
     });
@@ -269,6 +274,8 @@ export class App {
     this.net?.close();
     this.net = null;
     notice('connection', null);
+    notice('room-pending', null);
+    this.waitingForRoom = false;
     this.renderInvite();
   }
 
@@ -300,15 +307,30 @@ export class App {
             : t('app.connectionFailed');
       notice('connection', h('span', null, text, ' ', reload), 'error');
     }
+    this.root.classList.toggle('game-notices', this.gameShowsNotices);
     this.renderTopbar();
   }
 
   /** A multiplayer game is on screen: it shows room and connection notices itself. */
   get gameShowsNotices(): boolean {
-    return this.routeName === 'play' && this.game?.kind === 'coop';
+    // A terminal failure needs the shell's reload button even while a run is on screen.
+    return this.routeName === 'play' && this.game?.kind === 'coop' && this.net?.state !== 'failed';
   }
 
+  private waitingForRoom = false;
+
   private roomNotice(code: NoticeCode, usernames: string[]): void {
+    if (code === 'room-handoff-expired') {
+      this.waitingForRoom = false;
+      notice('room-pending', null);
+      toast(t('notices.room-handoff-expired'));
+      return;
+    }
+    if (code === 'room-handoff-pending') {
+      this.waitingForRoom = true;
+      notice('room-pending', t('notices.room-handoff-pending'), 'gold');
+      return;
+    }
     if (code === 'server-draining') {
       // Sticky: kept (hidden during a game) so it's still there after it.
       notice('draining', t('app.serverUpdating'), 'gold');

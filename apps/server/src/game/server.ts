@@ -21,11 +21,12 @@ import type { FriendEvent, FriendNotifier, PresenceSource } from '../friends/pre
 import { friendIds } from '../friends/service.js';
 import { recordCoopRun } from '../runs/service.js';
 import type { Game, GameOutcome, GameSettings } from './game.js';
-import { Room } from './room.js';
+import { Room, newRoomId } from './room.js';
 import { Session } from './session.js';
 import { Ticker } from './ticker.js';
 import { eq, inArray } from 'drizzle-orm';
 import { users } from '../db/schema.js';
+import { RoomRegistry } from './registry.js';
 
 /** A request failed; the code goes to the client (it maps it to a UI string). */
 export class GameError extends Error {
@@ -71,6 +72,7 @@ export class GameServer implements PresenceSource, FriendNotifier {
   readonly log: FastifyBaseLogger;
   readonly gameSettings: GameSettings;
   draining = false;
+  stopped = false;
   private drainDeadline: number | null = null;
   private readonly sessions = new Map<string, Session>();
   private readonly rooms = new Map<string, Room>();
@@ -83,10 +85,23 @@ export class GameServer implements PresenceSource, FriendNotifier {
   private readonly records = new Set<Promise<unknown>>();
   private readonly ticker: Ticker;
   private readonly heartbeat: NodeJS.Timeout;
+  private readonly requests = new Set<Promise<void>>();
+  readonly registry: RoomRegistry;
+  private mutationQueue: Promise<unknown> = Promise.resolve();
+  private readonly handoffs = new Set<Promise<void>>();
+  private readonly handoffErrors: unknown[] = [];
   private settledWaiters: (() => void)[] = [];
+  private polling = false;
+  private renewing = false;
+  private cleaning = false;
+  private nextCleanupAt = Date.now() + 30_000;
+  private readonly maintenance = new Set<Promise<void>>();
+  private readonly adoptions = new Set<Promise<void>>();
+  private readonly pendingRoomNotices = new Set<string>();
 
   constructor(private readonly opts: GameServerOptions) {
     this.db = opts.db;
+    this.registry = new RoomRegistry(this.db);
     this.config = opts.config;
     this.log = opts.log;
     this.gameSettings = {
@@ -121,14 +136,17 @@ export class GameServer implements PresenceSource, FriendNotifier {
   }
 
   setRoomOf(userId: string, room: Room | null): void {
-    if (room) this.roomOf.set(userId, room);
-    else this.roomOf.delete(userId);
+    if (room) {
+      this.roomOf.set(userId, room);
+      this.pendingRoomNotices.delete(userId);
+    } else this.roomOf.delete(userId);
   }
 
-  removeRoom(room: Room): void {
+  removeRoom(room: Room, handedOff = false): void {
     this.rooms.delete(room.id);
+    if (!handedOff) this.background(() => this.registry.remove(room.id));
     if (room.game && room.game.phase !== 'ended') this.removeGame(room.game);
-    this.roomSettled(room);
+    if (this.draining) this.checkDrained();
   }
 
   addGame(game: Game): void {
@@ -351,8 +369,11 @@ export class GameServer implements PresenceSource, FriendNotifier {
         if (game?.id === m.gameId) game.resync(session.userId);
         return;
       }
-      default:
-        void this.request(session, m);
+      default: {
+        const request = this.request(session, m);
+        this.requests.add(request);
+        void request.finally(() => this.requests.delete(request));
+      }
     }
   }
 
@@ -378,7 +399,11 @@ export class GameServer implements PresenceSource, FriendNotifier {
     const session = new Session(user.id, user.username, conn.socket);
     conn.session = session;
     this.sessions.set(user.id, session);
-    void this.welcome(session);
+    this.pendingRoomNotices.delete(user.id);
+    void this.welcome(session).catch((err: unknown) => {
+      this.log.error({ err }, 'could not restore room membership');
+      session.close(1011, 'room restore failed');
+    });
   }
 
   private async welcome(session: Session): Promise<void> {
@@ -393,9 +418,17 @@ export class GameServer implements PresenceSource, FriendNotifier {
     });
     if (this.draining && this.drainDeadline !== null)
       session.send({ type: 'notice', code: 'server-draining', deadline: this.drainDeadline });
+    if (!this.draining) await this.adoptFor(session.userId);
     const room = this.roomOf.get(session.userId);
     if (room) room.reconnected(session.userId);
-    else session.send({ type: 'room', room: null });
+    else {
+      session.send({ type: 'room', room: null });
+      if (this.draining)
+        setTimeout(
+          () => session.close(CloseCode.restarting, 'server restarting'),
+          this.config.heartbeatMs,
+        ).unref();
+    }
     for (const r of this.rooms.values()) {
       const invite = r.invites.get(session.userId);
       if (invite)
@@ -437,6 +470,7 @@ export class GameServer implements PresenceSource, FriendNotifier {
     // Superseded: the new session took over; nothing changes for the room.
     if (this.sessions.get(session.userId) !== session) return;
     this.sessions.delete(session.userId);
+    this.pendingRoomNotices.delete(session.userId);
     this.lastUsername.set(session.userId, session.username);
     this.roomOf.get(session.userId)?.disconnected(session.userId);
     this.presenceChanged(session.userId);
@@ -446,6 +480,27 @@ export class GameServer implements PresenceSource, FriendNotifier {
   }
 
   private checkHeartbeats(): void {
+    // Background I/O never holds the lobby mutation queue. Keep one in-flight job of
+    // each kind, so a slow database neither queues work nor delays a local ready/leave.
+    if (!this.renewing && this.rooms.size) {
+      this.renewing = true;
+      this.runMaintenance(this.registry.renew([...this.rooms.keys()]), () => {
+        this.renewing = false;
+      });
+    }
+    if (!this.cleaning && Date.now() >= this.nextCleanupAt) {
+      this.cleaning = true;
+      this.nextCleanupAt = Date.now() + 30_000;
+      this.runMaintenance(this.registry.cleanup(), () => {
+        this.cleaning = false;
+      });
+    }
+    if (!this.draining && !this.polling && this.pendingRoomNotices.size) {
+      this.polling = true;
+      this.runMaintenance(this.pollPendingRooms(), () => {
+        this.polling = false;
+      });
+    }
     const deadline = Date.now() - this.config.heartbeatMs * 5;
     for (const session of this.sessions.values()) {
       if (session.lastHeard < deadline) session.close(CloseCode.timeout, 'heartbeat timeout');
@@ -456,7 +511,34 @@ export class GameServer implements PresenceSource, FriendNotifier {
 
   private async request(session: Session, m: ClientMessage & { rid: number }): Promise<void> {
     try {
-      const data = await this.handleRequest(session, m);
+      const current = this.roomOf.get(session.userId);
+      if (
+        current?.transferring ||
+        (this.draining && (!current || current.phase === 'lobby' || current.phase === 'loading'))
+      )
+        throw new GameError('server_draining', 'Your room is moving to the new server');
+      // On-demand adoption does its DB work before entering the local mutation queue.
+      if (m.type === 'room.join' && !this.rooms.has(m.roomId)) {
+        const reserved = await this.registry.room(m.roomId);
+        if (reserved?.handoff) await this.adoptRoom(m.roomId);
+        else if (reserved)
+          throw new GameError('room_pending', 'That room is still on the previous server');
+      }
+      const mutateLobby = () =>
+        this.exclusive(async () => {
+          const room = this.roomOf.get(session.userId);
+          if (
+            room?.transferring ||
+            (this.draining && (!room || room.phase === 'lobby' || room.phase === 'loading'))
+          )
+            throw new GameError('server_draining', 'Your room is moving to the new server');
+          return this.handleRequest(session, m);
+        });
+      // Existing running-game intents/leave/kick stay independent of registry I/O.
+      const data =
+        current?.phase === 'running' && m.type !== 'room.join' && m.type !== 'room.create'
+          ? await this.handleRequest(session, m)
+          : await mutateLobby();
       session.send({
         type: 'reply',
         rid: m.rid,
@@ -499,7 +581,20 @@ export class GameServer implements PresenceSource, FriendNotifier {
         if (this.draining) throw new GameError('server_draining', 'The server is restarting');
         if (this.roomOf.has(userId))
           throw new GameError('already_in_room', 'Leave your room first');
-        const room = new Room(this, { userId, username });
+        if (await this.registry.membership(userId))
+          throw new GameError(
+            'room_pending',
+            'Your existing room is waiting for its game to finish or to reconnect',
+          );
+        let id: string;
+        for (;;) {
+          id = newRoomId();
+          const reserved = await this.registry.create(id, userId);
+          if (reserved === 'ok') break;
+          if (reserved === 'member_taken')
+            throw new GameError('room_pending', 'Already reserved in another room');
+        }
+        const room = new Room(this, { userId, username }, undefined, id);
         this.rooms.set(room.id, room);
         room.sync();
         return room.view();
@@ -510,8 +605,15 @@ export class GameServer implements PresenceSource, FriendNotifier {
         if (!target || target.id === userId) throw new GameError('user_not_found', 'No such user');
         if (!this.friends.get(userId)?.has(target.id))
           throw new GameError('not_friends', 'You can only invite friends');
+        const reserved = await this.registry.membership(target.id);
+        if (reserved && reserved.instanceId !== this.registry.instanceId)
+          throw new GameError(
+            'room_pending',
+            'That player is waiting for their existing room to finish or reconnect',
+          );
         if (!this.isOnline(target.id))
           throw new GameError('not_online', `${target.username} is offline`);
+        if (this.draining) throw new GameError('server_draining', 'The server is restarting');
         room.invite(userId, { userId: target.id, username: target.username });
         return undefined;
       }
@@ -525,6 +627,8 @@ export class GameServer implements PresenceSource, FriendNotifier {
         // Validate before leaving the current room.
         if (!room.invites.has(userId))
           throw new GameError('no_invite', 'No pending invite to this room');
+        if (!(await this.registry.join(userId, room.id, current?.id)))
+          throw new GameError('room_pending', 'Your existing room is still on the previous server');
         current?.leave(userId);
         room.join(userId, username);
         return room.view();
@@ -611,48 +715,170 @@ export class GameServer implements PresenceSource, FriendNotifier {
       }),
     }));
     this.records.add(promise);
-    void promise.finally(() => this.records.delete(promise));
+    void promise.finally(() => {
+      this.records.delete(promise);
+      if (this.draining) this.checkDrained();
+    });
     return promise;
   }
 
-  /** A room is back in the lobby or closed. While draining, its members move to the new server. */
+  /** Serialize adoption and lobby requests so an await never overwrites newer local changes. */
+  private exclusive<T>(work: () => T | Promise<T>): Promise<T> {
+    const task = this.mutationQueue.then(work);
+    this.mutationQueue = task.catch(() => {});
+    return task;
+  }
+
+  private background(work: () => Promise<void>): void {
+    void this.exclusive(work).catch((err: unknown) =>
+      this.log.error({ err }, 'room reservation update failed'),
+    );
+  }
+
+  async flush(): Promise<void> {
+    await Promise.allSettled([...this.maintenance, ...this.adoptions]);
+    await this.mutationQueue;
+  }
+
+  private runMaintenance(work: Promise<void>, finished: () => void): void {
+    const task = work.catch((err: unknown) => this.log.warn({ err }, 'room maintenance failed'));
+    this.maintenance.add(task);
+    void task.finally(() => {
+      this.maintenance.delete(task);
+      finished();
+    });
+  }
+
+  private async pollPendingRooms(): Promise<void> {
+    for (const userId of [...this.pendingRoomNotices]) {
+      if (this.stopped || this.draining) return;
+      if (this.isOnline(userId) && !this.roomOf.has(userId)) await this.adoptFor(userId);
+    }
+  }
+
+  memberLeft(roomId: string, userId: string): void {
+    this.background(() => this.registry.leave(userId, roomId));
+  }
+
+  private async adoptFor(userId: string): Promise<void> {
+    if (this.roomOf.has(userId)) return;
+    const reserved = await this.registry.membership(userId);
+    if (this.roomOf.has(userId) || this.stopped || this.draining || !this.isOnline(userId)) return;
+    if (!reserved) {
+      if (this.pendingRoomNotices.delete(userId))
+        this.sessionOf(userId)?.send({ type: 'notice', code: 'room-handoff-expired' });
+      return;
+    }
+    if (reserved.handoff) await this.adoptRoom(reserved.id);
+    else if (
+      reserved.instanceId !== this.registry.instanceId &&
+      !this.pendingRoomNotices.has(userId)
+    ) {
+      this.pendingRoomNotices.add(userId);
+      this.sessionOf(userId)?.send({ type: 'notice', code: 'room-handoff-pending' });
+    }
+  }
+
+  private adoptRoom(id: string): Promise<void> {
+    if (this.rooms.has(id) || this.draining || this.stopped) return Promise.resolve();
+    const task = this.claimAndAttachRoom(id);
+    this.adoptions.add(task);
+    void task.then(
+      () => this.adoptions.delete(task),
+      () => this.adoptions.delete(task),
+    );
+    return task;
+  }
+
+  private async claimAndAttachRoom(id: string): Promise<void> {
+    const saved = await this.registry.adopt(id);
+    if (!saved) return;
+    // Claiming can be slow. Only the synchronous attachment uses the local mutation queue;
+    // re-check ownership/membership after the await rather than overwriting newer state.
+    const attached = await this.exclusive(() => {
+      if (this.draining || this.stopped) return false;
+      saved.members = saved.members.filter((m) => !this.roomOf.has(m.userId));
+      if (!saved.members.length) {
+        this.background(() => this.registry.remove(id));
+        return true;
+      }
+      if (!saved.members.some((m) => m.userId === saved.ownerId))
+        saved.ownerId = saved.members[0]!.userId;
+      const owner = saved.members.find((m) => m.userId === saved.ownerId)!;
+      const room = new Room(this, owner, saved);
+      this.rooms.set(id, room);
+      room.restoreGrace();
+      for (const m of room.members.values()) {
+        this.pendingRoomNotices.delete(m.userId);
+        if (this.isOnline(m.userId)) room.reconnected(m.userId);
+      }
+      return true;
+    });
+    // A signal during the claim must not consume a room without handing it onward.
+    if (!attached) await this.registry.handoff(saved, this.config.restartReconnectGraceMs);
+  }
+
+  /** Publish a lobby, then detach it without a room:null message; clients keep their UI. */
+  private async handoff(room: Room): Promise<void> {
+    if (room.closed) return;
+    room.transferring = true;
+    room.cancelLoadingForHandoff();
+    room.suspend();
+    await this.registry.handoff(
+      structuredClone(room.snapshot()),
+      this.config.restartReconnectGraceMs,
+    );
+    const ids = [...room.members.keys()];
+    room.detach();
+    for (const id of ids) this.sessionOf(id)?.close(CloseCode.restarting, 'server restarting');
+  }
+
   roomSettled(room: Room): void {
     if (!this.draining) return;
     if (!room.closed) {
-      const members = [...room.members.keys()];
-      room.close();
-      for (const userId of members)
-        this.sessionOf(userId)?.close(CloseCode.restarting, 'server restarting');
+      room.transferring = true;
+      const task = this.exclusive(() => this.handoff(room));
+      this.handoffs.add(task);
+      void task
+        .catch((err: unknown) => {
+          this.handoffErrors.push(err);
+          this.log.error({ err }, 'room handoff failed');
+        })
+        .finally(() => {
+          this.handoffs.delete(task);
+          this.checkDrained();
+        });
     }
     this.checkDrained();
   }
 
-  // ---------------------------------------------------------------- deploys
-
-  /** Rooms with a game loading or running (what a deploy waits for). */
   private busyRooms(): Room[] {
     return [...this.rooms.values()].filter((r) => r.phase !== 'lobby');
   }
 
   private checkDrained(): void {
-    if (this.busyRooms().length || this.records.size) return;
+    if (this.busyRooms().length || this.records.size || this.handoffs.size) return;
     for (const waiter of this.settledWaiters.splice(0)) waiter();
   }
 
-  /**
-   * SIGTERM: stop creating rooms and games, tell everyone, send lobby-only clients away (they
-   * reconnect to the new instance), let running games finish for up to `timeoutMs`, then end
-   * the rest (crediting them) and close every socket.
-   */
+  /** Running games retain main's drain: ticks, inputs, choices and ordinary disconnect grace. */
   async drain(timeoutMs = this.config.drainTimeoutMs): Promise<void> {
     if (!this.draining) {
       this.draining = true;
       this.drainDeadline = Date.now() + timeoutMs;
+      for (const room of this.rooms.values())
+        if (room.phase === 'lobby' || room.phase === 'loading') {
+          room.transferring = true;
+          room.suspend();
+        }
       for (const session of this.sessions.values())
         session.send({ type: 'notice', code: 'server-draining', deadline: this.drainDeadline });
-      // Lobbies (and games still loading) move to the new instance; running games stay.
-      for (const room of [...this.rooms.values()])
-        if (room.phase === 'lobby' || room.phase === 'loading') room.close();
+      // Already-running requests finish first; guards prevent new lobby mutations.
+      await Promise.allSettled([...this.requests, ...this.adoptions]);
+      await this.exclusive(async () => {
+        for (const room of [...this.rooms.values()])
+          if (room.phase === 'lobby' || room.phase === 'loading') await this.handoff(room);
+      });
       for (const session of [...this.sessions.values()])
         if (!this.roomOf.has(session.userId))
           session.close(CloseCode.restarting, 'server restarting');
@@ -662,7 +888,13 @@ export class GameServer implements PresenceSource, FriendNotifier {
     let timer: NodeJS.Timeout | undefined;
     const timedOut = await Promise.race([
       settled.then(() => false),
-      new Promise<boolean>((resolve) => (timer = setTimeout(() => resolve(true), timeoutMs))),
+      new Promise<boolean>(
+        (resolve) =>
+          (timer = setTimeout(
+            () => resolve(true),
+            Math.max(0, (this.drainDeadline ?? Date.now()) - Date.now()),
+          )),
+      ),
     ]);
     clearTimeout(timer);
     if (timedOut) {
@@ -670,13 +902,17 @@ export class GameServer implements PresenceSource, FriendNotifier {
       for (const room of this.busyRooms()) room.game?.forceEnd('server-shutdown');
     }
     await Promise.allSettled([...this.records]);
+    await Promise.all([...this.handoffs]);
+    await this.mutationQueue;
+    if (this.handoffErrors.length) throw this.handoffErrors[0];
     this.close();
   }
 
-  /** Closes every socket and stops the loop (after `drain`, or in tests). */
   close(): void {
+    this.stopped = true;
     this.ticker.stop();
     clearInterval(this.heartbeat);
+    for (const room of this.rooms.values()) room.suspend();
     for (const session of [...this.sessions.values()])
       session.close(CloseCode.restarting, 'server restarting');
   }

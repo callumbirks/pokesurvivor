@@ -31,7 +31,8 @@ Version 6 added the manual aim, `aim`, to `input`. Version 7 added fire held, `f
    and reconnects if it has heard nothing for 3 heartbeats.
 5. **Reconnect.** `NetClient` reconnects with backoff from 0.5 s, doubling to 10 s with ±25%
    jitter. It doesn't reconnect after 4401, 4409 or 4426 (`FINAL_CLOSE_CODES`). On 1012 (server
-   restarting) it reconnects, which reaches the new instance after a deploy.
+   restarting) it reconnects to the replacement instance. Retries stop after three minutes
+   (`reconnectTimeoutMs`); a stalled connection/hello is retried after 10 s.
 
 **Limits.** Client messages are JSON text of at most 4 KB (larger ones close the socket with 1009).
 The rate limit is 60 messages/s sustained with a burst of 120: messages over it are dropped, and
@@ -296,20 +297,31 @@ run's own coins and tickets. It was added without a version bump: older clients 
 
 ## Deploys
 
-On SIGTERM the server drains:
+On SIGTERM the server retains the existing drain: `notice server-draining {deadline}` stops
+new room/game starts while running games continue on the old instance for `DRAIN_TIMEOUT_S`
+(default 900 s). At the deadline, remaining games end with `server-shutdown` and are credited.
+SIGINT in development uses a zero-second drain. Inputs, choices, leaves and normal disconnect
+grace remain active during the drain.
 
-1. It sends `notice server-draining {deadline}` to everyone. `welcome.draining` is true for later
-   connections, and `room.create` / `room.start` fail with `server_draining`.
-2. It closes lobbies and games still loading, and closes their sockets with 1012. Those clients
-   reconnect, which reaches the new instance.
-3. It lets running games finish, up to `DRAIN_TIMEOUT_S` (900 s). When a game ends, its players
-   get results and are sent away with 1012.
-4. At the deadline, it ends the remaining games with reason `server-shutdown` and credits them. It
-   then closes every socket and exits.
+Lobby/loading rooms are handed to the replacement: freeze new lobby mutations, wait for
+in-flight requests, cancel loading, persist the latest lobby, then close those sockets with 1012.
+A game that finishes during the drain first records results, then hands off its current lobby.
+The already-running replacement adopts a persisted room on a member's connect or via heartbeat
+polling. Shared reservations prevent duplicate codes/memberships; each payload is consumed once.
 
-Ctrl-C (SIGINT) in development ends games at once. Rooms live in memory: a player who
-disconnects during a drain reconnects to the new instance and can't resume the old game, but is
-still credited when it ends. See [deploy.md](deploy.md) for the stop grace period.
+A reconnect to the replacement while a game is still on the old server receives
+`notice room-handoff-pending`. Joining that code, creating another room or inviting a reserved
+member fails with `room_pending`, explained in the UI. The game slot cannot transfer; ordinary
+old-instance disconnect grace still applies. If that membership expires, the replacement sends
+`notice room-handoff-expired`; otherwise its lobby is adopted when the game ends.
+
+`RESTART_RECONNECT_GRACE_S` (180 s) controls unclaimed-handoff expiry and absent-member grace
+after adoption. Expired rows are not restored. The existing login cookie identifies returning
+members; there is no new token. Invites are transient. These notices are additive, with no
+protocol bump (v7). A mismatch after deploy stops retries and offers Reload, including in-game.
+
+Use one replica, `start-first` updates and stop grace exceeding the drain (16 min by default);
+see [deploy.md](deploy.md). No sim snapshot/restore was added.
 
 ## Client library (`packages/netclient`)
 
@@ -355,4 +367,6 @@ order), forced drops and offline periods. Scenarios:
 - the run ending and crediting everyone, including a player who left;
 - grace expiry, and everyone gone;
 - an unresponsive loader dropped at loading, and a game cancelled when nobody loads;
-- SIGTERM drain, by timeout and by the last game ending.
+- the existing drain (deadline and early finish), plus two-instance lobby/run-end handoff;
+- snapshotting in-flight membership changes and rejecting lobby mutations after SIGTERM;
+- pending members, duplicate reservations, loading cancellation and expiry without resurrection.

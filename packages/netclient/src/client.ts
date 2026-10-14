@@ -93,6 +93,8 @@ export interface NetClientOptions {
   /** First reconnect delay; doubles up to `maxBackoffMs` (each with ±25% jitter). */
   minBackoffMs?: number;
   maxBackoffMs?: number;
+  /** Give a redeploy time to return before offering a manual reload. Default three minutes. */
+  reconnectTimeoutMs?: number;
   /** Ack loading as soon as a game loads (bots, debug views with nothing to load). */
   autoLoad?: boolean;
   buffer?: SnapshotBufferOptions;
@@ -141,6 +143,8 @@ export class NetClient {
   private heartbeatMs = 2000;
   private pingTimer: unknown = null;
   private reconnectTimer: unknown = null;
+  private retryDeadlineTimer: unknown = null;
+  private connectTimer: unknown = null;
   private lastHeard = 0;
   private nextPingId = 1;
   private readonly snapshotRate = new Rate();
@@ -151,6 +155,7 @@ export class NetClient {
       now: () => Date.now(),
       minBackoffMs: 500,
       maxBackoffMs: 10_000,
+      reconnectTimeoutMs: 180_000,
       autoLoad: false,
       manual: false,
       ...options,
@@ -240,6 +245,10 @@ export class NetClient {
     const socket = factory(this.opts.url);
     socket.binaryType = 'arraybuffer';
     this.socket = socket;
+    // An upgrade or hello that never completes must not stop retries indefinitely.
+    this.connectTimer = timers.setTimeout(() => {
+      if (this.socket === socket && this.state !== 'open') this.dropConnection();
+    }, 10_000);
     socket.onopen = () => {
       this.lastHeard = this.opts.now();
       socket.send(encode({ type: 'hello', protocolVersion: PROTOCOL_VERSION }));
@@ -282,6 +291,10 @@ export class NetClient {
   }
 
   private closed(code: number, reason: string): void {
+    timers.clearTimeout(this.connectTimer);
+    this.connectTimer = null;
+    timers.clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = null;
     timers.clearInterval(this.pingTimer);
     this.pingTimer = null;
     this.socket = null;
@@ -290,12 +303,26 @@ export class NetClient {
       p.reject(new RequestError('disconnected', 'Connection lost'));
     this.pending.clear();
     this.room?.handleDisconnect();
-    if (this.state === 'closed' || this.state === 'failed') return;
+    if (this.state === 'closed' || this.state === 'failed') {
+      timers.clearTimeout(this.retryDeadlineTimer);
+      this.retryDeadlineTimer = null;
+      return;
+    }
     if (FINAL_CLOSE_CODES.includes(code)) {
       this.failure = { code, reason };
       this.setState('failed');
+      timers.clearTimeout(this.retryDeadlineTimer);
+      this.retryDeadlineTimer = null;
       return;
     }
+    if (this.retryDeadlineTimer === null)
+      this.retryDeadlineTimer = timers.setTimeout(() => {
+        this.failure = { code: CloseCode.timeout, reason: 'Reconnect timed out; reload the page' };
+        this.setState('failed');
+        const socket = this.socket;
+        this.closed(1000, 'reconnect timed out');
+        socket?.close(1000, 'reconnect timed out');
+      }, this.opts.reconnectTimeoutMs);
     this.setState('reconnecting');
     const base = Math.min(this.opts.maxBackoffMs, this.opts.minBackoffMs * 2 ** this.attempt++);
     const delay = base * (0.75 + Math.random() * 0.5);
@@ -339,6 +366,10 @@ export class NetClient {
   private handle(m: ServerMsg, now: number): void {
     switch (m.type) {
       case 'welcome':
+        timers.clearTimeout(this.connectTimer);
+        this.connectTimer = null;
+        timers.clearTimeout(this.retryDeadlineTimer);
+        this.retryDeadlineTimer = null;
         this.attempt = 0;
         this.failure = null;
         this.user = { id: m.userId, username: m.username };
