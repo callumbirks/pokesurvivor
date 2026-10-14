@@ -25,7 +25,7 @@ import { addEnemy, createEnemy, makeShiny, pokemonName, rebuildGrid } from './en
 import { TAU, clamp, dist2 } from './math.js';
 import { resetPaths } from './pathing.js';
 import { pullAll } from './pickups.js';
-import { revivePlayer } from './players.js';
+import { healPlayer, revivePlayer } from './players.js';
 import { scaleHp } from './spawner.js';
 import { clearWeather, startWeather } from './weather.js';
 import { arenaTheme, isFree, resetChunks } from './world.js';
@@ -353,7 +353,7 @@ function lost(ctx: Ctx): void {
   emit(ctx, { type: 'say', key: 'hud.theRiftThrewYouOut', seconds: 2.6 });
 }
 
-/** Back to the map: everything as it was, the downed revived. */
+/** Back to the map: the downed revived and everyone still standing healed. */
 function finishArena(ctx: Ctx): void {
   const { s } = ctx;
   const a = s.arena;
@@ -381,10 +381,12 @@ function finishArena(ctx: Ctx): void {
   s.hazards = [];
   const players = presentPlayers(s);
   const first = players.map((p) => a.back[p.id]).find((b) => b) ?? { x: 0, y: 0 };
+  const exitHeal = ctx.d.game.tuning.rift.exitHeal;
   for (const p of players) {
     const b = a.back[p.id] ?? first;
     teleport(p, b.x, b.y);
-    if (p.dead) revivePlayer(ctx, p, 0.3, null);
+    if (p.dead) revivePlayer(ctx, p, exitHeal, null);
+    else healPlayer(ctx, p, p.maxHp * exitHeal);
   }
   emit(ctx, { type: 'arena-left', result: a.phase === 'won' ? 'won' : 'lost' });
   if (a.phase === 'won') {

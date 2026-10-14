@@ -6,11 +6,15 @@ What changed for players in each release, newest first. Generated from
 
 ## Unreleased
 
-PRs: [#49](https://github.com/callumbirks/pokesurvivor/pull/49)
+PRs: [#48](https://github.com/callumbirks/pokesurvivor/pull/48), [#49](https://github.com/callumbirks/pokesurvivor/pull/49)
 
 ### New
 
 - See what your friends are up to: the Friends list and room invites show whether they're in the menus or in a solo or co-op run, with their Pokémon and run time.
+
+### Changed
+
+- Coming back from a rift now heals everyone still standing by 30% of their max HP, as well as reviving the fallen.
 
 ## v7 - 2026-10-14
 

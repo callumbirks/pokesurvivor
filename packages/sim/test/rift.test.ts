@@ -7,7 +7,7 @@ import { addEnemy, createEnemy, hurtEnemy } from '../src/enemies.js';
 import { createSim, type Sim } from '../src/index.js';
 import { dropPickup } from '../src/pickups.js';
 import { hurtPlayer } from '../src/players.js';
-import { placeRift } from '../src/rift.js';
+import { placeRift, updateRift } from '../src/rift.js';
 import { bossAlive } from '../src/runevents.js';
 import { WALL, isFree, terrainAt } from '../src/world.js';
 import { botInputs, pickFirst } from './bots.js';
@@ -211,6 +211,85 @@ describe('rift schedule', () => {
 });
 
 describe('the arena', () => {
+  describe.each(['won', 'lost'] as const)('%s rift exit', (result) => {
+    /** Resolve the fight, then run the return tick without unrelated combat or level-ups. */
+    function leave(sim: Sim): void {
+      if (result === 'won') killLegend(sim);
+      else sim.state.arena!.t = R.arenaTime;
+      updateRift(sim.ctx);
+      expect(sim.state.arena?.phase).toBe(result);
+      sim.state.arena!.endT = 0;
+      sim.drainEvents();
+      updateRift(sim.ctx);
+      expect(sim.state.arena).toBeNull();
+    }
+
+    it.each([1, 2])('heals low-HP survivors by 30%% of max HP with %i player(s)', (n) => {
+      const sim = calmSim(n);
+      sim.debugStartArena('water');
+      for (const p of sim.state.players) p.hp = p.maxHp * 0.1;
+
+      leave(sim);
+
+      const events = sim.drainEvents();
+      for (const p of sim.state.players) {
+        expect(p.dead).toBe(false);
+        expect(p.hp).toBeCloseTo(p.maxHp * 0.4);
+        expect(events).toContainEqual({
+          type: 'player-healed',
+          playerId: p.id,
+          amount: Math.round(p.maxHp * 0.3),
+        });
+      }
+    });
+
+    it('caps healing at max HP and reports only the amount restored', () => {
+      const sim = calmSim();
+      sim.debugStartArena('water');
+      const p = player(sim);
+      p.hp = p.maxHp - 2;
+
+      leave(sim);
+
+      expect(p.hp).toBe(p.maxHp);
+      expect(sim.drainEvents()).toContainEqual({
+        type: 'player-healed',
+        playerId: p.id,
+        amount: 2,
+      });
+    });
+
+    it('revives downed players at 30% without also healing them', () => {
+      const sim = calmSim(2, false);
+      sim.debugStartArena('water');
+      const p = player(sim, 1);
+      hurtPlayer(sim.ctx, p, 1e9, null);
+
+      leave(sim);
+
+      expect(p.dead).toBe(false);
+      expect(p.hp).toBeCloseTo(p.maxHp * 0.3);
+      const events = sim.drainEvents();
+      expect(events).toContainEqual({ type: 'player-revived', playerId: p.id, by: null });
+      expect(events.some((e) => e.type === 'player-healed' && e.playerId === p.id)).toBe(false);
+    });
+
+    it('includes disconnected players still present and skips players who left', () => {
+      const sim = calmSim(3);
+      sim.debugStartArena('water');
+      const disconnected = player(sim, 1);
+      const left = player(sim, 2);
+      disconnected.connected = false;
+      left.left = true;
+      for (const p of [disconnected, left]) p.hp = p.maxHp * 0.1;
+
+      leave(sim);
+
+      expect(disconnected.hp).toBeCloseTo(disconnected.maxHp * 0.4);
+      expect(left.hp).toBeCloseTo(left.maxHp * 0.1);
+    });
+  });
+
   it('touching the rift takes the whole team in; the map waits', () => {
     const sim = quietSim(2);
     const [a, b] = [player(sim, 0), player(sim, 1)];

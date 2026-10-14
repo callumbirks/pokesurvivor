@@ -46,6 +46,8 @@ export const TuningFileSchema = z.strictObject({
     /** Seconds before the team is sent back to the map after a win / a loss. */
     returnAfterWin: Seconds,
     returnAfterLoss: Seconds,
+    /** Fraction of max HP restored on exit: revive the downed or heal the living by this much. */
+    exitHeal: z.number().positive().max(1),
   }),
   events: z.strictObject({
     /** A mid-run event (horde, golden hour, lost Pokémon) every `every` s. */
