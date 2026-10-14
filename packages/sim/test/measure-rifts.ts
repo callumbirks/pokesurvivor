@@ -55,6 +55,9 @@ export interface Trial extends Cell {
   fightDps: number;
   dummyDps: number;
 }
+export interface OffenseTrial extends Omit<Trial, 'kind'> {
+  kind: 'offense';
+}
 export interface DamageProbe extends Omit<Trial, 'kind' | 'won' | 'ttk'> {
   kind: 'probe';
   probeSeconds: number;
@@ -500,8 +503,10 @@ function encounter(
   profile: Profile,
   protectedCalibration: boolean,
   probeSeconds = 0,
-): Trial | DamageProbe {
+  protectedFight = false,
+): Trial | DamageProbe | OffenseTrial {
   const dps = dummyDps(sim, cell, seed);
+  if (protectedFight) sim.state.config.invulnerable = true;
   const builds = sim.state.players.map(describe);
   const level = sim.state.team.level;
   sim.debugStartArena();
@@ -562,7 +567,7 @@ function encounter(
     ? { ...result, kind: 'probe', probeSeconds }
     : {
         ...result,
-        kind: 'trial',
+        kind: protectedFight ? 'offense' : 'trial',
         won: arena.phase === 'won',
         ttk: arena.phase === 'won' ? seconds : null,
       };
@@ -587,6 +592,7 @@ function main(): void {
     'calibrate-only',
     'calibration',
     'probe-seconds',
+    'combat',
   ];
   for (const key of args.keys())
     if (!allowed.includes(key)) throw new Error(`unknown argument --${key}`);
@@ -612,6 +618,8 @@ function main(): void {
   const progression = args.get('progression') ?? 'protected';
   if (!['protected', 'ordinary'].includes(progression)) throw new Error('invalid --progression');
   const protectedRun = progression === 'protected';
+  const combat = args.get('combat') ?? 'ordinary';
+  if (!['ordinary', 'protected'].includes(combat)) throw new Error('invalid --combat');
   const probeSeconds = Number(args.get('probe-seconds') ?? 0);
   if (!Number.isFinite(probeSeconds) || probeSeconds < 0 || probeSeconds > 120)
     throw new Error('--probe-seconds must be between 0 and 120');
@@ -651,6 +659,7 @@ function main(): void {
     dummySeconds: 30,
     calibrationPath,
     probeSeconds,
+    combat,
     riftTuning: createSim({ seed: 1, players: [{ id: 'metadata', dex: 25 }] }).ctx.d.game.tuning
       .rift,
   });
@@ -696,7 +705,18 @@ function main(): void {
                 sim.state.team.level = source.level;
                 sim.state.players.forEach((p, i) => loadBuild(sim, p, source.builds[i]!));
               } else synthetic(sim, cell, level, profile, calibration);
-              emit(encounter(sim, cell, seed, minute, profile, protectedRun, probeSeconds));
+              emit(
+                encounter(
+                  sim,
+                  cell,
+                  seed,
+                  minute,
+                  profile,
+                  protectedRun,
+                  probeSeconds,
+                  combat === 'protected',
+                ),
+              );
             }
         }
         process.stderr.write(`finished ${meta}/${n}/${archetype}\n`);

@@ -370,3 +370,8 @@ This manual tool fits one multiplier against each minute/team median delivered D
 seconds, with equal weight per group in log space. It removes the input's existing curve using
 recorded tuning, searches the growth rate, solves the exponent, and prints rounded parameters
 and every group's damage-equivalent duration. It never changes tuning or asserts balance values.
+
+`--combat=protected` emits `kind: "offense"` diagnostic fights: real HP, boss phases and the normal
+arena deadline, with player damage disabled. These isolate offensive kill duration from bot survival
+and are never mixed into the ordinary trial win rate. The default remains `--combat=ordinary`.
+Use the sustained damage probe for fitting; protected offense fights are a phase/uptime cross-check.
