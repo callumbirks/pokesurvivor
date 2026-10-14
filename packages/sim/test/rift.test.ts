@@ -369,8 +369,18 @@ describe('the arena', () => {
     expect(near.filter((pk) => pk.kind === 'ticket').length).toBeGreaterThanOrEqual(
       R.rewardTickets,
     );
-    expect(near.filter((pk) => pk.kind === 'coin' && pk.value === R.rewardCoinValue).length).toBe(
-      R.rewardCoinDrops,
+    // Rifts add their configured loot to ordinary boss loot, even if both coin values match.
+    const control = calmSim();
+    const ordinaryBoss = spawnBoss(control, 1000, 1000);
+    hurtEnemy(control.ctx, ordinaryBoss, ordinaryBoss.hp + ordinaryBoss.shield + 1);
+    const bossCoins = control.state.pickups
+      .filter((pk) => pk.kind === 'coin')
+      .map((pk) => pk.value);
+    const coins = near.filter((pk) => pk.kind === 'coin').map((pk) => pk.value);
+    expect(coins.sort((a, b) => a - b)).toEqual(
+      [...bossCoins, ...Array<number>(R.rewardCoinDrops).fill(R.rewardCoinValue)].sort(
+        (a, b) => a - b,
+      ),
     );
     expect(near.every((pk) => pk.pulled)).toBe(true);
     for (const p of [a, b]) {

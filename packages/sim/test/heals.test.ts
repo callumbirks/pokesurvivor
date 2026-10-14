@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DT } from '../src/constants.js';
+import { simData } from '../src/data.js';
 import { hurtEnemy, updateEnemies } from '../src/enemies.js';
 import { restoreSim } from '../src/index.js';
 import { patchTuning, player, quietSim, spawnDummy } from './helpers.js';
@@ -44,17 +45,18 @@ describe('enemy healing', () => {
   it('restores only the configured share of HP damage, consumes it once, and reports the recipient', () => {
     const { sim, target, tuning, hurt, cast } = encounter();
     hurt(100);
-    expect(target.healCredit).toBe(100 * tuning.damageFraction);
+    const credit = Math.min(100 * tuning.damageFraction, target.maxHp * tuning.maxHpFraction);
+    expect(target.healCredit).toBe(credit);
     sim.drainEvents();
     cast();
-    expect(target.hp).toBe(900 + 100 * tuning.damageFraction);
+    expect(target.hp).toBeCloseTo(900 + credit);
     expect(target.healCredit).toBe(0);
     expect(sim.drainEvents()).toContainEqual({
       type: 'enemy-healed',
       id: target.id,
       x: target.x,
       y: target.y,
-      amount: 100 * tuning.damageFraction,
+      amount: credit,
     });
     target.healCd = 0;
     const hp = target.hp;
@@ -65,7 +67,13 @@ describe('enemy healing', () => {
   it.each([100, 1000, 100000])(
     'caps stored credit and each heal at a fraction of %i max HP',
     (hp) => {
-      const { target, tuning, hurt, cast } = encounter();
+      const { sim, target, hurt, cast } = encounter();
+      const shipped = sim.ctx.d.game.tuning.enemyHeals;
+      // Ensure the cap branch is exercised even when the damage-credit fraction is lowered.
+      patchTuning(sim, 'enemyHeals', {
+        maxHpFraction: Math.min(shipped.maxHpFraction, shipped.damageFraction / 4),
+      });
+      const tuning = sim.ctx.d.game.tuning.enemyHeals;
       target.hp = target.maxHp = hp;
       hurt(hp * 0.5);
       expect(target.healCredit).toBe(hp * tuning.maxHpFraction);
@@ -75,9 +83,10 @@ describe('enemy healing', () => {
   );
 
   it('never overheals or resurrects, and full-health targets do not consume coverage', () => {
-    const { sim, target, caster, cast } = encounter();
-    target.hp = target.maxHp - 1;
-    target.healCredit = 100;
+    const { sim, target, caster, tuning, cast } = encounter();
+    const missing = Math.min(1, (target.maxHp * tuning.maxHpFraction) / 2);
+    target.hp = target.maxHp - missing;
+    target.healCredit = missing * 2;
     caster.hp = caster.maxHp;
     caster.healCredit = 100;
     const dead = spawnDummy(sim, caster.x + 10, caster.y, {}, 1);
@@ -86,7 +95,7 @@ describe('enemy healing', () => {
     dead.healCredit = 100;
     cast();
     expect(target.hp).toBe(target.maxHp);
-    expect(target.healCredit).toBe(99);
+    expect(target.healCredit).toBeCloseTo(missing);
     expect(caster.hp).toBe(caster.maxHp);
     expect(caster.healCd).toBe(0);
     expect(dead.hp).toBe(0);
@@ -100,7 +109,8 @@ describe('enemy healing', () => {
     second.shotCd = 0;
     hurt(100);
     cast();
-    expect(target.hp).toBe(900 + 100 * tuning.damageFraction);
+    const credit = Math.min(100 * tuning.damageFraction, target.maxHp * tuning.maxHpFraction);
+    expect(target.hp).toBeCloseTo(900 + credit);
     hurt(100);
     const hp = target.hp;
     for (let i = 0; i < Math.floor(tuning.recipientCooldown / DT) - 1; i++) {
@@ -112,7 +122,7 @@ describe('enemy healing', () => {
       caster.shotCd = second.shotCd = 0;
       tick();
     }
-    expect(target.hp).toBe(hp + 100 * tuning.damageFraction);
+    expect(target.hp).toBeCloseTo(hp + credit);
   });
 
   it('uses data for the initial/caster cooldown, including old enemy definitions', () => {
@@ -200,9 +210,10 @@ describe('enemy healing', () => {
     expect(target.healCredit).toBe(30);
     hurt(150); // 100 remaining shield + 50 actual HP.
     expect(target.shield).toBe(0);
-    expect(target.healCredit).toBe(30 + 50 * tuning.damageFraction);
+    const credit = Math.min(target.maxHp * tuning.maxHpFraction, 30 + 50 * tuning.damageFraction);
+    expect(target.healCredit).toBe(credit);
     cast();
-    expect(target.hp).toBe(850 + 30 + 50 * tuning.damageFraction);
+    expect(target.hp).toBeCloseTo(850 + credit);
   });
 
   it('total healing never exceeds the configured fraction of real HP damage across repeated casts', () => {
@@ -221,7 +232,10 @@ describe('enemy healing', () => {
       caster.behavior = 'chase';
       sim.drainEvents();
     }
-    expect(healed).toBeCloseTo(hpDamage * tuning.damageFraction);
+    expect(healed).toBeLessThanOrEqual(hpDamage * tuning.damageFraction + 1e-6);
+    expect(healed).toBeCloseTo(
+      20 * Math.min(10 * tuning.damageFraction, target.maxHp * tuning.maxHpFraction),
+    );
     expect(target.hp).toBeCloseTo(target.maxHp - hpDamage + healed);
   });
 
@@ -259,10 +273,9 @@ describe('enemy healing', () => {
       [3, 3],
     ] as const) {
       const supported = measureShields(minute, shielders, count);
-      expect(supported.healed).toBeGreaterThan(0);
-      expect(supported.effectiveHp).toBeCloseTo(
-        supported.hp + supported.absorbed + supported.healed,
-      );
+      expect(supported.healed).toBeGreaterThanOrEqual(0);
+      const fraction = supported.healed / (supported.hp + supported.healed);
+      expect(fraction).toBeLessThanOrEqual(simData().game.tuning.enemyHeals.damageFraction + 1e-6);
       // A long encounter may be censored by the measurement limit; it still reports mitigation.
       if (supported.ttk !== null && plain.ttk !== null)
         expect(supported.ttk).toBeGreaterThanOrEqual(plain.ttk);

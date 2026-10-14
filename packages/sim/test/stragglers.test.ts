@@ -36,7 +36,8 @@ const incapacitate = (source: ReturnType<typeof player>) => {
 
 describe('straggler transfers', () => {
   it('limits arrivals by the configured rate plus burst and eventually transfers the horde', () => {
-    const { sim, source, survivor, horde } = transferSetup();
+    const hordeSize = Math.ceil(tuning.burst + tuning.relocationsPerSecond * 15);
+    const { sim, source, survivor, horde } = transferSetup(hordeSize);
     incapacitate(source);
     const arrived = () => horde.filter((e) => distance(e, survivor) < 1200).length;
     const ticks = Math.ceil(horde.length / (tuning.relocationsPerSecond * DT)) + 2;
