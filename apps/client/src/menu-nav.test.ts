@@ -310,6 +310,94 @@ describe('MenuNav', () => {
     expect(focusedId()).toBe('settings');
   });
 
+  describe('rows and grids', () => {
+    /**
+     * Region tabs (one row), filter chips of uneven widths wrapping onto a second line, a grid of
+     * 7 cells in 3 columns (the last row short), and a button right of the grid.
+     */
+    function collection() {
+      const root = screen();
+      const group = (attr: 'navRow' | 'navGrid') => {
+        const g = document.createElement('div');
+        g.dataset[attr] = '';
+        root.append(g);
+        return g;
+      };
+      const tabs = group('navRow');
+      for (let i = 0; i < 3; i++) button(`tab-${i}`, i * 90, 0, tabs);
+      const chips = group('navRow');
+      place(button('chip-0', 0, 40, chips), 0, 40, 60, 24);
+      place(button('chip-1', 0, 40, chips), 70, 40, 200, 24);
+      place(button('chip-2', 0, 72, chips), 0, 72, 40, 24);
+      const grid = group('navGrid');
+      for (let i = 0; i < 7; i++)
+        place(button(`cell-${i}`, 0, 0, grid), (i % 3) * 90, 110 + Math.floor(i / 3) * 90, 80, 80);
+      button('choose', 300, 120, root);
+      const nav = new MenuNav(() => root);
+      const from = (id: string) =>
+        root.querySelector<HTMLElement>(`[data-testid="${id}"]`)!.focus();
+      return { nav, from };
+    }
+
+    it('moves along a row in order, onto its wrapped line, and stops at its ends', () => {
+      const { nav, from } = collection();
+      from('chip-0');
+      nav.press('right');
+      expect(focusedId()).toBe('chip-1');
+      nav.press('right');
+      expect(focusedId()).toBe('chip-2');
+      expect(nav.press('right')).toBe(true);
+      expect(focusedId()).toBe('chip-2');
+      nav.press('left');
+      nav.press('left');
+      expect(focusedId()).toBe('chip-0');
+      nav.press('left');
+      expect(focusedId()).toBe('chip-0');
+      // The last tab doesn't jump to another row.
+      from('tab-2');
+      nav.press('right');
+      expect(focusedId()).toBe('tab-2');
+      // Up and down leave the row by geometry.
+      from('chip-0');
+      nav.press('up');
+      expect(focusedId()).toBe('tab-0');
+    });
+
+    it('moves up and down a grid by one row, to the same column or the end of a short row', () => {
+      const { nav, from } = collection();
+      from('cell-4');
+      nav.press('up');
+      expect(focusedId()).toBe('cell-1');
+      nav.press('down');
+      nav.press('down');
+      // The last row has one cell: the nearest one.
+      expect(focusedId()).toBe('cell-6');
+      from('cell-5');
+      nav.press('down');
+      expect(focusedId()).toBe('cell-6');
+      // Only the top row goes up to the filters.
+      from('cell-1');
+      nav.press('up');
+      expect(focusedId()).toMatch(/^chip-/);
+    });
+
+    it('moves sideways within a grid row, and leaves the grid only from its edges', () => {
+      const { nav, from } = collection();
+      from('cell-3');
+      nav.press('right');
+      expect(focusedId()).toBe('cell-4');
+      nav.press('left');
+      nav.press('left');
+      // Nothing to the left of the grid: it stays, rather than wrapping to the row above.
+      expect(focusedId()).toBe('cell-3');
+      from('cell-2');
+      nav.press('right');
+      expect(focusedId()).toBe('choose');
+      from('cell-6');
+      expect(nav.press('down')).toBe(false);
+    });
+  });
+
   it('does nothing under a blocking scope (gameplay), and the top scope wins', () => {
     const { nav, root } = menu();
     const game = screen();
