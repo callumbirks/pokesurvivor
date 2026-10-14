@@ -92,6 +92,11 @@ export class GameServer implements PresenceSource, FriendNotifier {
   private readonly handoffErrors: unknown[] = [];
   private settledWaiters: (() => void)[] = [];
   private polling = false;
+  private renewing = false;
+  private cleaning = false;
+  private nextCleanupAt = Date.now() + 30_000;
+  private readonly maintenance = new Set<Promise<void>>();
+  private readonly adoptions = new Set<Promise<void>>();
   private readonly pendingRoomNotices = new Set<string>();
 
   constructor(private readonly opts: GameServerOptions) {
@@ -131,8 +136,10 @@ export class GameServer implements PresenceSource, FriendNotifier {
   }
 
   setRoomOf(userId: string, room: Room | null): void {
-    if (room) this.roomOf.set(userId, room);
-    else this.roomOf.delete(userId);
+    if (room) {
+      this.roomOf.set(userId, room);
+      this.pendingRoomNotices.delete(userId);
+    } else this.roomOf.delete(userId);
   }
 
   removeRoom(room: Room, handedOff = false): void {
@@ -393,7 +400,7 @@ export class GameServer implements PresenceSource, FriendNotifier {
     conn.session = session;
     this.sessions.set(user.id, session);
     this.pendingRoomNotices.delete(user.id);
-    void this.exclusive(() => this.welcome(session)).catch((err: unknown) => {
+    void this.welcome(session).catch((err: unknown) => {
       this.log.error({ err }, 'could not restore room membership');
       session.close(1011, 'room restore failed');
     });
@@ -473,18 +480,26 @@ export class GameServer implements PresenceSource, FriendNotifier {
   }
 
   private checkHeartbeats(): void {
-    if (!this.polling) {
+    // Background I/O never holds the lobby mutation queue. Keep one in-flight job of
+    // each kind, so a slow database neither queues work nor delays a local ready/leave.
+    if (!this.renewing && this.rooms.size) {
+      this.renewing = true;
+      this.runMaintenance(this.registry.renew([...this.rooms.keys()]), () => {
+        this.renewing = false;
+      });
+    }
+    if (!this.cleaning && Date.now() >= this.nextCleanupAt) {
+      this.cleaning = true;
+      this.nextCleanupAt = Date.now() + 30_000;
+      this.runMaintenance(this.registry.cleanup(), () => {
+        this.cleaning = false;
+      });
+    }
+    if (!this.draining && !this.polling && this.pendingRoomNotices.size) {
       this.polling = true;
-      void this.exclusive(async () => {
-        await this.registry.renew([...this.rooms.keys()]);
-        await this.registry.cleanup();
-        if (!this.draining)
-          for (const session of this.sessions.values()) await this.adoptFor(session.userId);
-      })
-        .catch((err: unknown) => this.log.warn({ err }, 'room handoff polling failed'))
-        .finally(() => {
-          this.polling = false;
-        });
+      this.runMaintenance(this.pollPendingRooms(), () => {
+        this.polling = false;
+      });
     }
     const deadline = Date.now() - this.config.heartbeatMs * 5;
     for (const session of this.sessions.values()) {
@@ -502,6 +517,13 @@ export class GameServer implements PresenceSource, FriendNotifier {
         (this.draining && (!current || current.phase === 'lobby' || current.phase === 'loading'))
       )
         throw new GameError('server_draining', 'Your room is moving to the new server');
+      // On-demand adoption does its DB work before entering the local mutation queue.
+      if (m.type === 'room.join' && !this.rooms.has(m.roomId)) {
+        const reserved = await this.registry.room(m.roomId);
+        if (reserved?.handoff) await this.adoptRoom(m.roomId);
+        else if (reserved)
+          throw new GameError('room_pending', 'That room is still on the previous server');
+      }
       const mutateLobby = () =>
         this.exclusive(async () => {
           const room = this.roomOf.get(session.userId);
@@ -559,7 +581,6 @@ export class GameServer implements PresenceSource, FriendNotifier {
         if (this.draining) throw new GameError('server_draining', 'The server is restarting');
         if (this.roomOf.has(userId))
           throw new GameError('already_in_room', 'Leave your room first');
-        await this.registry.cleanup();
         if (await this.registry.membership(userId))
           throw new GameError(
             'room_pending',
@@ -597,12 +618,6 @@ export class GameServer implements PresenceSource, FriendNotifier {
         return undefined;
       }
       case 'room.join': {
-        if (!this.rooms.has(m.roomId)) {
-          const reserved = await this.registry.room(m.roomId);
-          if (reserved?.handoff) await this.adoptRoom(m.roomId);
-          else if (reserved)
-            throw new GameError('room_pending', 'That room is still on the previous server');
-        }
         const room = this.rooms.get(m.roomId);
         if (!room) throw new GameError('no_invite', 'That room no longer exists');
         if (this.roomOf.get(userId) === room) return room.view();
@@ -703,7 +718,7 @@ export class GameServer implements PresenceSource, FriendNotifier {
   }
 
   /** Serialize adoption and lobby requests so an await never overwrites newer local changes. */
-  private exclusive<T>(work: () => Promise<T>): Promise<T> {
+  private exclusive<T>(work: () => T | Promise<T>): Promise<T> {
     const task = this.mutationQueue.then(work);
     this.mutationQueue = task.catch(() => {});
     return task;
@@ -716,7 +731,24 @@ export class GameServer implements PresenceSource, FriendNotifier {
   }
 
   async flush(): Promise<void> {
+    await Promise.allSettled([...this.maintenance, ...this.adoptions]);
     await this.mutationQueue;
+  }
+
+  private runMaintenance(work: Promise<void>, finished: () => void): void {
+    const task = work.catch((err: unknown) => this.log.warn({ err }, 'room maintenance failed'));
+    this.maintenance.add(task);
+    void task.finally(() => {
+      this.maintenance.delete(task);
+      finished();
+    });
+  }
+
+  private async pollPendingRooms(): Promise<void> {
+    for (const userId of [...this.pendingRoomNotices]) {
+      if (this.stopped || this.draining) return;
+      if (this.isOnline(userId) && !this.roomOf.has(userId)) await this.adoptFor(userId);
+    }
   }
 
   memberLeft(roomId: string, userId: string): void {
@@ -726,6 +758,7 @@ export class GameServer implements PresenceSource, FriendNotifier {
   private async adoptFor(userId: string): Promise<void> {
     if (this.roomOf.has(userId)) return;
     const reserved = await this.registry.membership(userId);
+    if (this.roomOf.has(userId) || this.stopped || this.draining || !this.isOnline(userId)) return;
     if (!reserved) {
       if (this.pendingRoomNotices.delete(userId))
         this.sessionOf(userId)?.send({ type: 'notice', code: 'room-handoff-expired' });
@@ -741,26 +774,43 @@ export class GameServer implements PresenceSource, FriendNotifier {
     }
   }
 
-  private async adoptRoom(id: string): Promise<void> {
-    if (this.rooms.has(id)) return;
+  private adoptRoom(id: string): Promise<void> {
+    if (this.rooms.has(id) || this.draining || this.stopped) return Promise.resolve();
+    const task = this.claimAndAttachRoom(id);
+    this.adoptions.add(task);
+    void task.then(
+      () => this.adoptions.delete(task),
+      () => this.adoptions.delete(task),
+    );
+    return task;
+  }
+
+  private async claimAndAttachRoom(id: string): Promise<void> {
     const saved = await this.registry.adopt(id);
     if (!saved) return;
-    // Reservations exclude members who left or joined another room before this adoption.
-    saved.members = saved.members.filter((m) => !this.roomOf.has(m.userId));
-    if (!saved.members.length) {
-      await this.registry.remove(id);
-      return;
-    }
-    if (!saved.members.some((m) => m.userId === saved.ownerId))
-      saved.ownerId = saved.members[0]!.userId;
-    const owner = saved.members.find((m) => m.userId === saved.ownerId)!;
-    const room = new Room(this, owner, saved);
-    this.rooms.set(id, room);
-    room.restoreGrace();
-    for (const m of room.members.values()) {
-      this.pendingRoomNotices.delete(m.userId);
-      if (this.isOnline(m.userId)) room.reconnected(m.userId);
-    }
+    // Claiming can be slow. Only the synchronous attachment uses the local mutation queue;
+    // re-check ownership/membership after the await rather than overwriting newer state.
+    const attached = await this.exclusive(() => {
+      if (this.draining || this.stopped) return false;
+      saved.members = saved.members.filter((m) => !this.roomOf.has(m.userId));
+      if (!saved.members.length) {
+        this.background(() => this.registry.remove(id));
+        return true;
+      }
+      if (!saved.members.some((m) => m.userId === saved.ownerId))
+        saved.ownerId = saved.members[0]!.userId;
+      const owner = saved.members.find((m) => m.userId === saved.ownerId)!;
+      const room = new Room(this, owner, saved);
+      this.rooms.set(id, room);
+      room.restoreGrace();
+      for (const m of room.members.values()) {
+        this.pendingRoomNotices.delete(m.userId);
+        if (this.isOnline(m.userId)) room.reconnected(m.userId);
+      }
+      return true;
+    });
+    // A signal during the claim must not consume a room without handing it onward.
+    if (!attached) await this.registry.handoff(saved, this.config.restartReconnectGraceMs);
   }
 
   /** Publish a lobby, then detach it without a room:null message; clients keep their UI. */
@@ -819,7 +869,7 @@ export class GameServer implements PresenceSource, FriendNotifier {
       for (const session of this.sessions.values())
         session.send({ type: 'notice', code: 'server-draining', deadline: this.drainDeadline });
       // Already-running requests finish first; guards prevent new lobby mutations.
-      await Promise.allSettled([...this.requests]);
+      await Promise.allSettled([...this.requests, ...this.adoptions]);
       await this.exclusive(async () => {
         for (const room of [...this.rooms.values()])
           if (room.phase === 'lobby' || room.phase === 'loading') await this.handoff(room);

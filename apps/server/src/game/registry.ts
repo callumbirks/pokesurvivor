@@ -1,11 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import { and, eq, gt, inArray, isNull, lte } from 'drizzle-orm';
-import type { Database } from '../db/index.js';
+import type { Database, Transaction } from '../db/index.js';
 import { gameRoomMembers, gameRooms } from '../db/schema.js';
 import { isUniqueViolation } from '../db/errors.js';
 import type { SavedRoom } from './room.js';
 
-const LIVE_LEASE_MS = 300_000;
+export const LIVE_LEASE_MS = 30_000;
 
 /** A reservation has no sim state: it only fences codes/membership during start-first overlap. */
 export class RoomRegistry {
@@ -24,9 +24,29 @@ export class RoomRegistry {
       .where(and(eq(gameRooms.instanceId, this.instanceId), inArray(gameRooms.id, ids)));
   }
 
+  private async reclaimExpiredMembership(tx: Transaction, userId: string): Promise<void> {
+    // Cleanup is periodic. Reclaim this user's expired reservation immediately so the
+    // 30-second crash lease doesn't turn into a lease + cleanup-interval lockout.
+    await tx
+      .delete(gameRooms)
+      .where(
+        and(
+          lte(gameRooms.expiresAt, new Date()),
+          inArray(
+            gameRooms.id,
+            tx
+              .select({ roomId: gameRoomMembers.roomId })
+              .from(gameRoomMembers)
+              .where(eq(gameRoomMembers.userId, userId)),
+          ),
+        ),
+      );
+  }
+
   async create(id: string, userId: string): Promise<'ok' | 'code_taken' | 'member_taken'> {
     try {
       return await this.db.transaction(async (tx) => {
+        await this.reclaimExpiredMembership(tx, userId);
         const inserted = await tx
           .insert(gameRooms)
           .values({
@@ -67,6 +87,7 @@ export class RoomRegistry {
   async join(userId: string, id: string, previousId?: string): Promise<boolean> {
     try {
       await this.db.transaction(async (tx) => {
+        await this.reclaimExpiredMembership(tx, userId);
         if (previousId)
           await tx
             .delete(gameRoomMembers)

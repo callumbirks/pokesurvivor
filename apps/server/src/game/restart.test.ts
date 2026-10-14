@@ -243,10 +243,8 @@ describe('start-first room handoffs', () => {
       bots[0]!.net.offline = true;
       await old.game.drain(1000);
       await waitFor(
-        async () =>
-          (await old.database.db.db.select().from(gameRooms).where(eq(gameRooms.id, id))).length ===
-          0,
-        'expired handoff',
+        async () => (await next.game.registry.room(id)) === null,
+        'expired handoff cannot be claimed before periodic cleanup',
       );
       expect(next.game.liveRooms.size).toBe(0);
       bots[0]!.net.offline = false;
@@ -256,6 +254,9 @@ describe('start-first room handoffs', () => {
       );
       const created = await bots[0]!.client.createRoom();
       expect(created.id).not.toBe(id);
+      expect(await old.database.db.db.select().from(gameRooms).where(eq(gameRooms.id, id))).toEqual(
+        [],
+      );
       expect(next.game.liveRooms.has(id)).toBe(false);
     } finally {
       await next.close();
@@ -390,6 +391,216 @@ describe('start-first room handoffs', () => {
       await waitFor(() => next.game.liveRooms.get(id)?.members.size === 1, 'absent owner expires');
       expect(next.game.liveRooms.get(id)!.ownerId).toBe(bots[1]!.userId);
     } finally {
+      await next.close();
+      await old.close();
+    }
+  });
+
+  it('releases crash reservations at the 30-second lease deadline, without waiting for cleanup', async () => {
+    const old = await createGameTestServer({ heartbeatMs: 200 });
+    const next = await replacement(old);
+    try {
+      const bots = await old.party(2);
+      const id = await lobby(bots);
+      bots.forEach((b) => {
+        b.routeTo(next.url);
+        b.net.offline = true;
+      });
+      // Stop the process's callbacks/sockets without SIGTERM/drain: no handoff is written.
+      await old.app.close();
+      const [reserved] = await old.database.db.db
+        .select()
+        .from(gameRooms)
+        .where(eq(gameRooms.id, id));
+      expect(reserved!.handoff).toBeNull();
+      expect(reserved!.expiresAt.getTime() - Date.now()).toBeGreaterThan(20_000);
+      expect(reserved!.expiresAt.getTime() - Date.now()).toBeLessThanOrEqual(30_000);
+      bots.forEach((b) => {
+        b.net.offline = false;
+      });
+      await waitFor(
+        () => bots.every((b) => next.game.isOnline(b.userId) && b.client.state === 'open'),
+        'crashed clients reach replacement',
+      );
+      await expect(bots[1]!.client.createRoom()).rejects.toMatchObject({ code: 'room_pending' });
+      const solo = () =>
+        next.app.inject({
+          method: 'POST',
+          url: '/api/runs/start',
+          headers: { cookie: bots[0]!.cookie },
+          payload: { pokemon: { dex: 25, shiny: false } },
+        });
+      expect((await solo()).statusCode).toBe(409);
+      // Simulate the lease's elapsed wall time in the DB so this regression costs no 30 s in CI.
+      await old.database.db.db
+        .update(gameRooms)
+        .set({ expiresAt: new Date(Date.now() - 1) })
+        .where(eq(gameRooms.id, id));
+      expect((await solo()).statusCode).toBe(201);
+      const created = await bots[1]!.client.createRoom();
+      expect(created.id).not.toBe(id);
+      expect(next.game.roomOfUser(bots[1]!.userId)?.id).toBe(created.id);
+      expect(await old.database.db.db.select().from(gameRooms).where(eq(gameRooms.id, id))).toEqual(
+        [],
+      );
+    } finally {
+      await next.close();
+      await old.close();
+    }
+  });
+
+  it('keeps renewing a draining game lease, which a freshly booted replacement cannot adopt or steal', async () => {
+    const old = await createGameTestServer({ heartbeatMs: 200 });
+    let next: GameTestServer | undefined;
+    try {
+      const bots = await old.party(1);
+      const id = await lobby(bots);
+      await startGame(bots);
+      const game = old.game.liveRooms.get(id)!.game!;
+      const drained = old.game.drain(5000);
+      next = await replacement(old);
+      bots[0]!.routeTo(next.url);
+      const renew = vi.spyOn(old.game.registry, 'renew');
+      await old.database.db.db
+        .update(gameRooms)
+        .set({ expiresAt: new Date(Date.now() + 500) })
+        .where(eq(gameRooms.id, id));
+      await waitFor(async () => {
+        const row = await next!.game.registry.room(id);
+        return renew.mock.calls.length > 0 && row!.expiresAt.getTime() > Date.now() + 20_000;
+      }, 'draining lease is renewed');
+      expect(await next.game.registry.adopt(id)).toBeNull();
+      expect(await next.game.registry.create('other-code', bots[0]!.userId)).toBe('member_taken');
+      expect(game.phase).toBe('running');
+      game.forceEnd('all-down');
+      await drained;
+    } finally {
+      await next?.close();
+      await old.close();
+    }
+  });
+
+  it('does not poll ordinary idle users or local room members, and renews rooms in one batch', async () => {
+    const t = await createGameTestServer({ heartbeatMs: 200 });
+    try {
+      const bots = await t.party(2);
+      await lobby(bots);
+      const idle = await t.bot();
+      const presence = idle.client.next('presence');
+      await idle.connect();
+      await presence;
+      const membership = vi.spyOn(t.game.registry, 'membership');
+      const cleanup = vi.spyOn(t.game.registry, 'cleanup');
+      const renew = vi.spyOn(t.game.registry, 'renew');
+      await waitFor(() => renew.mock.calls.length >= 2, 'two heartbeat renewals');
+      expect(membership).not.toHaveBeenCalled();
+      expect(cleanup).not.toHaveBeenCalled();
+      expect(renew.mock.calls.every(([ids]) => ids.length === 1)).toBe(true);
+    } finally {
+      await t.close();
+    }
+  });
+
+  it('runs cleanup every 30 seconds rather than every heartbeat', async () => {
+    const t = await createGameTestServer({ heartbeatMs: 200 });
+    const clock = vi.spyOn(Date, 'now');
+    try {
+      const cleanup = vi.spyOn(t.game.registry, 'cleanup');
+      const now = Date.now();
+      clock.mockReturnValue(now + 29_000);
+      await sleep(250);
+      expect(cleanup).not.toHaveBeenCalled();
+      clock.mockReturnValue(now + 31_000);
+      await waitFor(() => cleanup.mock.calls.length === 1, 'scheduled cleanup');
+      await sleep(250);
+      expect(cleanup).toHaveBeenCalledTimes(1);
+    } finally {
+      clock.mockRestore();
+      await t.close();
+    }
+  });
+
+  it('does not let slow background renew/cleanup queries block ready requests or game ticks', async () => {
+    const t = await createGameTestServer({ heartbeatMs: 200 });
+    let release!: () => void;
+    try {
+      const bots = await t.party(2);
+      await lobby([bots[0]!]);
+      await startGame([bots[0]!]);
+      await lobby([bots[1]!]);
+      const gate = new Promise<void>((r) => {
+        release = r;
+      });
+      const renew = vi.spyOn(t.game.registry, 'renew').mockImplementation(() => gate);
+      const cleanup = vi.spyOn(t.game.registry, 'cleanup').mockImplementation(() => gate);
+      // Make cleanup due without jumping the heartbeat/snapshot clocks of real sockets.
+      (t.game as unknown as { nextCleanupAt: number }).nextCleanupAt = 0;
+      await waitFor(
+        () => renew.mock.calls.length === 1 && cleanup.mock.calls.length === 1,
+        'slow maintenance began',
+      );
+      const tick = bots[0]!.latest!.tick;
+      await withTimeout(
+        bots[1]!.client.setStatus('busy'),
+        1000,
+        'ready request bypasses maintenance',
+      );
+      await bots[0]!.until((s) => s.tick > tick + 5);
+      expect(renew).toHaveBeenCalledTimes(1);
+      expect(cleanup).toHaveBeenCalledTimes(1);
+    } finally {
+      release?.();
+      await t.close();
+    }
+  });
+
+  it('does not hold the lobby request queue while a waiting room adoption query is slow', async () => {
+    const old = await createGameTestServer({ heartbeatMs: 200 });
+    const next = await replacement(old);
+    let release!: () => void;
+    try {
+      const players = await old.party(2);
+      const id = await lobby(players);
+      await startGame(players);
+      const game = old.game.liveRooms.get(id)!.game!;
+      players.forEach((b) => b.routeTo(next.url));
+      const drained = old.game.drain(5000);
+      const waiting = players[1]!.client.next('notice', (n) => n.code === 'room-handoff-pending');
+      players[1]!.client.dropConnection();
+      await withTimeout(waiting, 3000, 'waiting player on replacement');
+      const local = await next.bot();
+      await local.connect();
+      const localRoom = await local.client.createRoom();
+      let entered!: () => void;
+      const started = new Promise<void>((r) => {
+        entered = r;
+      });
+      const gate = new Promise<void>((r) => {
+        release = r;
+      });
+      const adopt = next.game.registry.adopt.bind(next.game.registry);
+      vi.spyOn(next.game.registry, 'adopt').mockImplementation(async (...args) => {
+        entered();
+        await gate;
+        return adopt(...args);
+      });
+      game.forceEnd('all-down');
+      await drained;
+      await withTimeout(started, 3000, 'adoption query began');
+      await withTimeout(
+        local.client.setStatus('busy'),
+        1000,
+        'local status bypasses slow adoption',
+      );
+      release();
+      await waitFor(
+        () => next.game.roomOfUser(players[1]!.userId)?.id === id,
+        'waiting room attached',
+      );
+      expect(next.game.roomOfUser(local.userId)?.id).toBe(localRoom.id);
+      expect(next.game.liveRooms.get(localRoom.id)!.member(local.userId).status).toBe('busy');
+    } finally {
+      release?.();
       await next.close();
       await old.close();
     }

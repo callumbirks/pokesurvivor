@@ -136,7 +136,7 @@ Migrations still apply automatically on startup. These tables contain no simulat
   lobby; their run rewards are still credited normally.
 - **A player disconnecting mid-drain:** their in-game slot cannot resume on the replacement,
   exactly as before. The replacement shows a waiting notice and holds their existing room
-  reservation, preventing a duplicate room or solo run. It polls connected users every heartbeat
+  reservation, preventing a duplicate room or solo run. It polls only connected users waiting for their room every heartbeat
   (2 s) and adopts their lobby once published, without requiring another reconnect. The old
   server still applies the normal `RECONNECT_GRACE_S` (60 s): if the game has not ended by then,
   that player's membership expires and they are removed/credited for the time played. The
@@ -154,8 +154,16 @@ while no replacement is running; expired rows are never adopted. The same fresh 
 starts on adoption for members who have not reconnected. Normal cleanup removes absent members,
 transfers the host, and closes empty rooms. A consumed payload is cleared while the shared
 ownership/membership reservations remain for the live room. Live reservations are renewed by
-the owner and expire after five minutes if that process disappears; they are not a crash-safe
-room save. Graceful handoff writes must succeed before clients are released.
+the owner every heartbeat in one batch, and expire after 30 seconds if that process disappears.
+Expired memberships stop blocking solo immediately; create/join reclaim their expired reservations
+on demand, without waiting for cleanup. These reservations are not a crash-safe room save.
+Graceful handoff writes must succeed before clients are released.
+
+Global expiry cleanup runs at startup and then about every 30 seconds. Background renewal, cleanup
+and waiting-member polling run outside the lobby request queue; only the brief in-memory attachment
+after a successful adoption is serialized with lobby mutations. Slow maintenance queries therefore
+do not delay local readiness/leave requests or the game ticker. Actions needing their own DB queries
+(create/join, for example) still require the database to respond.
 
 Authentication uses the existing persisted login cookie; no new resume token is needed. Clients
 retain their lobby UI, show “Reconnecting…”, and retry with jittered exponential backoff (500 ms
