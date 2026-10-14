@@ -12,6 +12,9 @@ import type { ChoiceState, ChoiceView, WaitingView } from './choices.js';
 import { clear, el, icon } from './dom.js';
 import { cardText, itemDescription, itemName, moveName, nameList } from './text.js';
 
+/** Drop menu input briefly so gameplay presses cannot pick a newly visible reward. */
+export const CHOICE_INPUT_GRACE_MS = 200;
+
 export class ChoiceOverlay {
   readonly root: HTMLElement;
   private readonly waitBar: HTMLElement;
@@ -24,11 +27,15 @@ export class ChoiceOverlay {
   private built = '';
   private deadline: HTMLElement | null = null;
   private waitLine: HTMLElement | null = null;
+  private inputChoice: string | null = null;
+  private inputReadyAt = Infinity;
+  private pointerPress: HTMLButtonElement | null = null;
   private details: (moveId: string) => { level: number; type: string } | null = () => null;
 
   constructor(
     parent: HTMLElement,
     private readonly state: ChoiceState,
+    private readonly clock: () => number = () => performance.now(),
   ) {
     this.root = el('div', { class: 'ps-choice hidden', data: { testid: 'choice' } });
     this.waitBarText = el('p', { class: 'note' });
@@ -38,6 +45,46 @@ export class ChoiceOverlay {
       this.waitBarText,
     );
     parent.append(this.root, this.waitBar);
+    // Gate the whole menu, including secondary buttons. A click must come from a press that
+    // started after the grace window; releasing a held mouse/touch press cannot choose a card.
+    this.root.addEventListener('pointerdown', (e) => {
+      this.pointerPress = e.button === 0 && this.inputReady() ? this.button(e.target) : null;
+    });
+    this.root.addEventListener('pointercancel', () => {
+      this.pointerPress = null;
+    });
+    this.root.addEventListener(
+      'click',
+      (e) => {
+        const button = this.button(e.target);
+        if (!button) return;
+        const pointer = e.detail > 0 || (e instanceof PointerEvent && !!e.pointerType);
+        const allowed = this.inputReady() && (!pointer || this.pointerPress === button);
+        this.pointerPress = null;
+        if (!allowed) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+        }
+      },
+      true,
+    );
+    // Native Enter/Space activation also needs a fresh press: never defer Space to keyup,
+    // and suppress repeats from a key held before the menu appeared.
+    this.root.addEventListener('keydown', (e) => {
+      if (e.code !== 'Enter' && e.code !== 'NumpadEnter' && e.code !== 'Space') return;
+      const button = this.button(e.target);
+      if (!button) return;
+      e.preventDefault();
+      if (!e.repeat && this.inputReady()) button.click();
+    });
+  }
+
+  private button(target: EventTarget | null): HTMLButtonElement | null {
+    return target instanceof Element ? target.closest('button') : null;
+  }
+
+  private inputReady(): boolean {
+    return this.open && this.clock() >= this.inputReadyAt;
   }
 
   /** How to show a bond's moves (their level and type from the player's details). */
@@ -73,6 +120,18 @@ export class ChoiceOverlay {
         this.built = key;
         this.render(this.box, v);
       }
+      // Choice contents identify a new menu (including rerolls and bond steps). Submission,
+      // countdown and teammate updates can rebuild/render without restarting the window.
+      const inputChoice = JSON.stringify([
+        { ...v.choice, deadlineTick: null },
+        v.first,
+        v.rerollsLeft,
+      ]);
+      if (inputChoice !== this.inputChoice) {
+        this.inputChoice = inputChoice;
+        this.inputReadyAt = this.clock() + CHOICE_INPUT_GRACE_MS;
+        this.pointerPress = null;
+      }
       this.updateLive(v, w);
     } else {
       this.root.classList.add('hidden');
@@ -80,6 +139,9 @@ export class ChoiceOverlay {
       this.box = this.deadline = this.waitLine = null;
       this.boxChoice = null;
       this.built = '';
+      this.inputChoice = null;
+      this.inputReadyAt = Infinity;
+      this.pointerPress = null;
     }
     // Paused for someone else's choice: a bar at the top (our own overlay shows it inside).
     if (!v && w) {
@@ -109,15 +171,15 @@ export class ChoiceOverlay {
     if (!this.open) return false;
     const digit = /^(?:Digit|Numpad)([1-4])$/.exec(code);
     if (digit) {
-      this.pick(Number(digit[1]) - 1);
+      if (this.inputReady()) this.pick(Number(digit[1]) - 1);
       return true;
     }
     if (code === 'KeyR') {
-      if (this.state.reroll()) audio.sfx('select');
+      if (this.inputReady() && this.state.reroll()) audio.sfx('select');
       return true;
     }
     if (code === 'Backspace' || code === 'Escape') {
-      this.state.back();
+      if (this.inputReady()) this.state.back();
       return true;
     }
     return false;

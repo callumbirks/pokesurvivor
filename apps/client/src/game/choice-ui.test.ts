@@ -1,9 +1,10 @@
 // @vitest-environment happy-dom
 import type { ChoiceRef } from '@pokesurvivor/netclient';
 import type { PendingChoice } from '@pokesurvivor/sim';
-import { describe, expect, it, vi } from 'vitest';
-import { ChoiceOverlay } from './choice-ui.js';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { CHOICE_INPUT_GRACE_MS, ChoiceOverlay } from './choice-ui.js';
 import { ChoiceState, type ChoiceSnapshot } from './choices.js';
+import { Input } from './input.js';
 
 // The pixel icons paint on a canvas, which happy-dom doesn't have.
 vi.mock('../icons.js', () => ({
@@ -26,20 +27,27 @@ const levelUp = (cards: string[], deadlineTick: number | null = 900): PendingCho
 const theirs: ChoiceRef = { id: 2, playerId: 'p2', kind: 'level-up', deadlineTick: 900 };
 
 function setup() {
+  let now = 0;
+  const send = vi.fn(() => Promise.resolve({ ok: true as const }));
   const parent = document.createElement('div');
-  const state = new ChoiceState(
-    'me',
-    30,
-    (id) => (id === 'p2' ? 'Misty' : id),
-    () => Promise.resolve({ ok: true }),
-  );
-  const overlay = new ChoiceOverlay(parent, state);
+  const state = new ChoiceState('me', 30, (id) => (id === 'p2' ? 'Misty' : id), send);
+  const overlay = new ChoiceOverlay(parent, state, () => now);
   const show = (s: ChoiceSnapshot) => {
     state.sync(s);
     overlay.update();
   };
   const cards = () => [...parent.querySelectorAll('.ps-card')];
-  return { parent, state, overlay, show, cards };
+  return {
+    parent,
+    state,
+    overlay,
+    show,
+    cards,
+    send,
+    advance(ms: number) {
+      now += ms;
+    },
+  };
 }
 
 const snap = (
@@ -115,5 +123,219 @@ describe('the choice overlay DOM', () => {
     const h = setup();
     h.show(snap([levelUp(['new:ember', 'upgrade:tackle', 'stat:speed'])], 0, [], 2));
     expect(h.parent.querySelector('[data-testid=reroll]')?.textContent).toBe('Reroll (2) · R');
+  });
+});
+
+const reward = () => levelUp(['new:ember', 'upgrade:tackle', 'stat:speed', 'stat:attack']);
+const inputs: Input[] = [];
+afterEach(() => {
+  for (const input of inputs.splice(0)) input.dispose();
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
+
+function bindInput(h: ReturnType<typeof setup>): Input {
+  const input = new Input((code) => h.overlay.key(code));
+  inputs.push(input);
+  return input;
+}
+
+function key(type: 'keydown' | 'keyup', code: string, repeat = false): void {
+  window.dispatchEvent(new KeyboardEvent(type, { code, repeat, cancelable: true }));
+}
+
+function pointer(button: Element, type: 'pointerdown' | 'click', pointerType = 'mouse'): void {
+  button.dispatchEvent(
+    new PointerEvent(type, { bubbles: true, cancelable: true, button: 0, detail: 1, pointerType }),
+  );
+}
+
+describe('the choice input grace window', () => {
+  it.each(['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Numpad1', 'Numpad4', 'KeyR'])(
+    'drops %s inside the window and accepts it at 200 ms',
+    (code) => {
+      const h = setup();
+      h.show(snap([reward()], 0));
+      h.advance(CHOICE_INPUT_GRACE_MS - 1);
+      expect(h.overlay.key(code)).toBe(true); // consumed, so it cannot reach gameplay
+      expect(h.send).not.toHaveBeenCalled();
+      h.advance(1);
+      h.overlay.update();
+      expect(h.send).not.toHaveBeenCalled(); // the dropped press is never queued
+      expect(h.overlay.key(code)).toBe(true);
+      expect(h.send).toHaveBeenCalledOnce();
+    },
+  );
+
+  it.each(['mouse', 'touch'])(
+    'requires a fresh %s press after the window, for both cards and reroll',
+    (pointerType) => {
+      for (const selector of ['[data-testid=option-0]', '[data-testid=reroll]']) {
+        const h = setup();
+        h.show(snap([reward()], 0));
+        const button = h.parent.querySelector(selector)!;
+        pointer(button, 'pointerdown', pointerType);
+        pointer(button, 'click', pointerType);
+        expect(h.send).not.toHaveBeenCalled();
+        h.advance(CHOICE_INPUT_GRACE_MS - 1);
+        pointer(button, 'pointerdown', pointerType);
+        h.advance(1);
+        pointer(button, 'click', pointerType); // down before the window ended, up afterwards
+        expect(h.send).not.toHaveBeenCalled();
+        pointer(button, 'click', pointerType); // no down on the menu (e.g. held gameplay fire)
+        expect(h.send).not.toHaveBeenCalled();
+        pointer(button, 'pointerdown', pointerType);
+        pointer(button, 'click', pointerType);
+        expect(h.send).toHaveBeenCalledOnce();
+      }
+    },
+  );
+
+  it.each([false, true])('requires release of a number key held %s before opening', (before) => {
+    const h = setup();
+    bindInput(h);
+    if (before) key('keydown', 'Digit1');
+    h.show(snap([reward()], 0));
+    if (!before) key('keydown', 'Digit1');
+    h.advance(CHOICE_INPUT_GRACE_MS);
+    key('keydown', 'Digit1', true);
+    h.overlay.update();
+    expect(h.send).not.toHaveBeenCalled();
+    key('keyup', 'Digit1');
+    key('keydown', 'Digit1');
+    expect(h.send).toHaveBeenCalledOnce();
+  });
+
+  it.each([0, 1, 2, 3, 8])('drops gamepad button %s until released and pressed again', (button) => {
+    const h = setup();
+    const input = bindInput(h);
+    const buttons = Array.from({ length: 12 }, () => ({ pressed: false }));
+    const pad = { connected: true, buttons };
+    vi.stubGlobal('navigator', { getGamepads: () => [pad] });
+    h.show(snap([reward()], 0));
+    buttons[button]!.pressed = true;
+    input.poll();
+    h.advance(CHOICE_INPUT_GRACE_MS);
+    input.poll();
+    expect(h.send).not.toHaveBeenCalled();
+    buttons[button]!.pressed = false;
+    input.poll();
+    buttons[button]!.pressed = true;
+    input.poll();
+    expect(h.send).toHaveBeenCalledOnce();
+  });
+
+  it('does not turn a gamepad button held before opening into a choice', () => {
+    const h = setup();
+    const input = bindInput(h);
+    const buttons = [{ pressed: true }];
+    const pad = { connected: true, buttons };
+    vi.stubGlobal('navigator', { getGamepads: () => [pad] });
+    input.poll();
+    h.show(snap([reward()], 0));
+    h.advance(CHOICE_INPUT_GRACE_MS);
+    input.poll();
+    expect(h.send).not.toHaveBeenCalled();
+    buttons[0]!.pressed = false;
+    input.poll();
+    buttons[0]!.pressed = true;
+    input.poll();
+    expect(h.send).toHaveBeenCalledOnce();
+  });
+
+  it.each(['Enter', 'Space'])(
+    'suppresses native %s activation during the window and held repeats afterwards',
+    (code) => {
+      const h = setup();
+      h.show(snap([reward()], 0));
+      const button = h.cards()[0]!;
+      const down = (repeat = false) =>
+        button.dispatchEvent(
+          new KeyboardEvent('keydown', { code, repeat, bubbles: true, cancelable: true }),
+        );
+      expect(down()).toBe(false); // prevent default, including Space's deferred keyup click
+      expect(h.send).not.toHaveBeenCalled();
+      h.advance(CHOICE_INPUT_GRACE_MS);
+      down(true);
+      expect(h.send).not.toHaveBeenCalled();
+      down();
+      expect(h.send).toHaveBeenCalledOnce();
+    },
+  );
+
+  it('starts on visibility, and repeated snapshots/live updates do not restart it', () => {
+    const h = setup();
+    h.state.sync(snap([reward()], 0));
+    h.advance(1000); // a snapshot received before rendering is not visible yet
+    h.overlay.update();
+    expect(h.overlay.key('Digit1')).toBe(true);
+    expect(h.send).not.toHaveBeenCalled();
+    h.advance(CHOICE_INPUT_GRACE_MS - 1);
+    h.show(snap([reward()], 40, [theirs])); // re-render with a new countdown and waiting line
+    h.advance(1);
+    h.show(snap([reward()], 41, []));
+    h.overlay.key('Digit1');
+    expect(h.send).toHaveBeenCalledOnce();
+  });
+
+  it.each(['reroll', 'queued', 'reopened', 'identical reroll'])(
+    'restarts for a %s menu and invalidates an earlier pointer press',
+    (kind) => {
+      const h = setup();
+      h.show(snap([reward()], 0));
+      h.advance(CHOICE_INPUT_GRACE_MS);
+      pointer(h.cards()[0]!, 'pointerdown');
+      if (kind === 'reopened') h.show(snap([], 1));
+      const next =
+        kind === 'reroll'
+          ? levelUp(['new:gust', 'stat:attack', 'stat:regen'])
+          : kind === 'queued'
+            ? { ...reward(), id: 2 }
+            : reward();
+      h.show(snap([next], 2, [], kind === 'identical reroll' ? 0 : 1));
+      h.overlay.key('Digit1');
+      expect(h.send).not.toHaveBeenCalled();
+      h.advance(CHOICE_INPUT_GRACE_MS - 1);
+      h.overlay.key('Digit1');
+      expect(h.send).not.toHaveBeenCalled();
+      h.advance(1);
+      pointer(h.cards()[0]!, 'click');
+      expect(h.send).not.toHaveBeenCalled();
+      h.overlay.key('Digit1');
+      expect(h.send).toHaveBeenCalledOnce();
+    },
+  );
+
+  it('gates bond back buttons and keys when the second step becomes visible', () => {
+    const h = setup();
+    h.show(
+      snap(
+        [
+          {
+            id: 9,
+            playerId: 'me',
+            kind: 'bond',
+            mode: 'pair',
+            group: null,
+            loose: ['gust', 'bite'],
+            deadlineTick: null,
+          },
+        ],
+        0,
+      ),
+    );
+    h.advance(CHOICE_INPUT_GRACE_MS);
+    h.overlay.key('Digit1');
+    h.overlay.update();
+    const back = h.parent.querySelector('.row button')!;
+    pointer(back, 'pointerdown');
+    pointer(back, 'click');
+    h.overlay.key('Backspace');
+    h.overlay.key('Escape');
+    expect(h.state.view()!.first).toBe('gust');
+    h.advance(CHOICE_INPUT_GRACE_MS);
+    pointer(back, 'pointerdown');
+    pointer(back, 'click');
+    expect(h.state.view()!.first).toBeNull();
   });
 });
