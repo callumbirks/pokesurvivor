@@ -12,6 +12,10 @@ PRs: [#56](https://github.com/callumbirks/pokesurvivor/pull/56)
 
 - Rift legends now get much tougher as a run goes on: mid- and late-game rifts are a real fight again.
 
+### Fixed
+
+- Server restarts no longer stall when a player reconnects during shutdown.
+
 ## v8 - 2026-10-14
 
 PRs: [#48](https://github.com/callumbirks/pokesurvivor/pull/48), [#49](https://github.com/callumbirks/pokesurvivor/pull/49), [#50](https://github.com/callumbirks/pokesurvivor/pull/50), [#51](https://github.com/callumbirks/pokesurvivor/pull/51), [#52](https://github.com/callumbirks/pokesurvivor/pull/52), [#53](https://github.com/callumbirks/pokesurvivor/pull/53)

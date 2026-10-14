@@ -1,13 +1,15 @@
+import { connect, type Socket } from 'node:net';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { CloseCode, PROTOCOL_VERSION } from '@pokesurvivor/protocol';
 import type { FastifyInstance } from 'fastify';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { buildApp } from './app.js';
 import { loadConfig } from './config.js';
 import { createTestDatabase } from './test/harness.js';
 import type { TestDatabase } from './test/harness.js';
+import { createGameTestServer, withTimeout } from './test/bots.js';
 
 describe('server', () => {
   let app: FastifyInstance;
@@ -61,4 +63,62 @@ describe('server', () => {
     );
     expect(code).toBe(CloseCode.unauthenticated);
   });
+});
+
+it('closes a reconnect rejected while shutdown hooks are still running', async () => {
+  const t = await createGameTestServer();
+  const app = t.app;
+  let release!: () => void;
+  let entered!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const started = new Promise<void>((resolve) => {
+    entered = resolve;
+  });
+  const stop = app.runSweeper!.stop.bind(app.runSweeper);
+  const held = vi.spyOn(app.runSweeper!, 'stop').mockImplementation(async () => {
+    entered();
+    await gate;
+    await stop();
+  });
+  let serverSocket: Socket | undefined;
+  app.server.once('connection', (socket) => {
+    serverSocket = socket;
+  });
+  const closed = app.close();
+  await withTimeout(started, 1000, 'shutdown hook');
+  const client = connect({ host: '127.0.0.1', port: Number(new URL(t.url).port) });
+  const ended = new Promise<void>((resolve) => {
+    client.on('error', () => {});
+    client.on('data', () => client.end());
+    client.on('close', () => resolve());
+  });
+  client.on('connect', () =>
+    client.write(
+      [
+        'GET /ws HTTP/1.1',
+        'Host: localhost',
+        'Connection: Upgrade',
+        'Upgrade: websocket',
+        'Sec-WebSocket-Version: 13',
+        'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==',
+        '',
+        '',
+      ].join('\r\n'),
+    ),
+  );
+  try {
+    await withTimeout(ended, 1000, 'rejected reconnect closes');
+    release();
+    await withTimeout(closed, 1000, 'HTTP server shutdown');
+    expect(serverSocket?.destroyed).toBe(true);
+  } finally {
+    client.destroy();
+    serverSocket?.destroy();
+    release();
+    await closed;
+    held.mockRestore();
+    await t.close();
+  }
 });

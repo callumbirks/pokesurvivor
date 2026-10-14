@@ -6,7 +6,7 @@
       "changed": [
         "Rift legends now get much tougher as a run goes on: mid- and late-game rifts are a real fight again."
       ],
-      "fixed": [],
+      "fixed": ["Server restarts no longer stall when a player reconnects during shutdown."],
       "behindTheScenes": []
     }
   },
