@@ -33,7 +33,7 @@ function toggle(key: 'damageNumbers' | 'calmMode' | 'showFps' | 'muted'): HTMLEl
 }
 
 function slider(
-  key: 'musicVolume' | 'sfxVolume' | 'stickScale',
+  key: 'musicVolume' | 'sfxVolume' | 'stickScale' | 'hudScale',
   min: number,
   max: number,
   step: number,
@@ -124,6 +124,7 @@ export function settingsScreen(
           ),
         ),
         h('h4', { class: 'set-h' }, t('settings.display')),
+        row(t('settings.hudSize'), t('settings.hudSizeHelp'), slider('hudScale', 0.75, 1.5, 0.05)),
         row(
           t('settings.damageNumbers'),
           t('settings.theNumbersThatPopUp'),

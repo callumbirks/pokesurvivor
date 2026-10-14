@@ -221,8 +221,12 @@ export class TouchControls {
     this.buttons = [];
   }
 
+  /** The HUD's scale: buttons are added in HUD px and hit-tested in CSS px. */
+  buttonScale = 1;
+
   addButton(x: number, y: number, w: number, h: number, fn: () => void, pad = 6): void {
-    this.buttons.push({ x, y, w, h, fn, pad });
+    const k = this.buttonScale;
+    this.buttons.push({ x: x * k, y: y * k, w: w * k, h: h * k, fn, pad: pad * k });
   }
 
   /** Draws the joysticks (screen coordinates, CSS px). */

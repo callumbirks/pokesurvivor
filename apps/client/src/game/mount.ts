@@ -24,6 +24,7 @@ import { clear, el, icon } from './dom.js';
 import { EventEffects } from './events.js';
 import { buildFrame, type Frame, type SelfView } from './frame.js';
 import { Hud, controlsHint } from './hud.js';
+import { hudScale } from './hudscale.js';
 import { Input } from './input.js';
 import { Predictor } from './net/predict.js';
 import { NOTICE_TEXT } from './notices.js';
@@ -913,6 +914,7 @@ class Run {
         frame,
         w,
         h,
+        scale: hudScale(w, h, settings.get().hudScale),
         camera: cam,
         weather: this.weather,
         touch: this.touch,
