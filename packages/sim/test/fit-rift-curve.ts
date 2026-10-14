@@ -35,7 +35,9 @@ for (const path of args.filter((a) => !a.startsWith('--'))) {
   const bytes = readFileSync(path);
   const raw = path.endsWith('.gz') ? gunzipSync(bytes).toString('utf8') : bytes.toString('utf8');
   let curve: TuningFile['rift']['hpCurve'] | undefined;
-  let coop: TuningFile['rift']['coopHp'] | undefined;
+  // Optional ramp fields preserve measurements from the superseded iteration-3 draft.
+  type RecordedCoop = TuningFile['rift']['coopHp'] & { rampMinutes?: number; rampPower?: number };
+  let coop: RecordedCoop | undefined;
   for (const line of raw.trim().split('\n')) {
     const row = JSON.parse(line) as
       | DamageProbe
@@ -43,7 +45,7 @@ for (const path of args.filter((a) => !a.startsWith('--'))) {
           kind: 'metadata';
           riftTuning?: {
             hpCurve?: TuningFile['rift']['hpCurve'];
-            coopHp?: TuningFile['rift']['coopHp'];
+            coopHp?: RecordedCoop;
           };
         };
     if (row.kind === 'metadata') {
@@ -58,8 +60,12 @@ for (const path of args.filter((a) => !a.startsWith('--'))) {
     if (seen.has(identity)) throw new Error(`duplicate probe ${identity}`);
     seen.add(identity);
     const timeMultiplier = curve ? legendHpMultiplier(row.minute, curve) : 1;
-    const coopMultiplier =
-      curve && coop ? legendCoopHpMultiplier(row.minute, row.players, curve.m0, coop) : 1;
+    const ramp =
+      curve && coop?.rampMinutes
+        ? Math.min(1, Math.max(0, (row.minute - curve.m0) / coop.rampMinutes)) **
+          (coop.rampPower ?? 1)
+        : 1;
+    const coopMultiplier = coop ? 1 + (legendCoopHpMultiplier(row.players, coop) - 1) * ramp : 1;
     const baseHp = row.legendHp / (timeMultiplier * coopMultiplier);
     const ratios = groups.get(key) ?? [];
     ratios.push((row.fightDps * targetSeconds) / baseHp);

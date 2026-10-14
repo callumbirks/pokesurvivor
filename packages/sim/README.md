@@ -384,10 +384,13 @@ bisection, then rechecks the constraints after rounding. `--objective=log` retai
 symmetric fit. These constraints and measured balance numbers are manual-only, outside CI.
 
 Iteration 3 co-op HP tuning: `rift.coopHp` adds
-`1 + perPlayerAfterDuo * max(0, players - 2) * progress ** rampPower` on top of the existing
-base/time/co-op HP. `progress` is clamped from zero at `hpCurve.m0` to one after `rampMinutes`.
-This preserves all early HP and all solo/duo HP, easing the added large-team slope at the onset.
-It changes neither legend damage nor prestige behavior. Fit tools remove both recorded time and
-co-op multipliers when deriving a reference base HP. The v9 playtest is the iteration-3 anchor:
-old first-choice half-meta fixtures underestimate that human group's output and are retained only
-as diagnostics. HP-relative poison can bypass an HP increase; see the shared R5 report.
+`1 + perPlayerAfterDuo * max(0, players - 2)` on top of the existing base/time/co-op HP,
+from the very first rift. Solo/duo HP, legend damage and prestige behavior stay unchanged.
+Fit tools remove recorded time and co-op multipliers (including the superseded draft ramp)
+when deriving a reference base HP. The v9 playtest is the iteration-3 anchor: old first-choice
+half-meta fixtures underestimate that human group's output and are retained as diagnostics.
+
+`poison.bossFactor` reduces the percent-HP part of poison against bosses and rift legends;
+flat tick damage and regular enemies are unchanged. Neutral dummy DPS in the rift harness now
+uses a legend target's status resistance, retaining a still, neutral target without boss AI.
+Metadata records both rift and poison tuning. See the shared R5 report for measured results.

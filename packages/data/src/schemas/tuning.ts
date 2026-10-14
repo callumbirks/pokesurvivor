@@ -44,18 +44,13 @@ export const TuningFileSchema = z.strictObject({
       /** Positive exponent; independent of contact/shot damage and player prestige. */
       p: z.number().positive(),
     }),
-    /** Extra legend HP for coordinated teams larger than two. Starts at hpCurve.m0;
-     * multiply HP by 1 + perPlayerAfterDuo * max(0, players - 2) * progress ** rampPower,
-     * where progress = clamp((minute - hpCurve.m0) / rampMinutes, 0, 1).
-     * The existing early co-op base, solo/duo HP and damage remain unchanged.
+    /** Extra legend HP from the first rift for coordinated teams larger than two:
+     * multiply HP by 1 + perPlayerAfterDuo * max(0, players - 2).
+     * Solo/duo HP and legend damage remain unchanged.
      */
     coopHp: z.strictObject({
-      /** Extra multiplier per player beyond the first two, once the ramp is complete. */
+      /** Extra multiplier per player beyond the first two, at every run time. */
       perPlayerAfterDuo: z.number().nonnegative(),
-      /** Run minutes after hpCurve.m0 until the full co-op uplift applies. */
-      rampMinutes: z.number().positive(),
-      /** Eases the onset; a power above one starts with zero added slope. */
-      rampPower: z.number().positive(),
     }),
     /** Distance from a player a rift opens at (before the placement fallbacks). */
     distance: RangeSchema,
@@ -92,6 +87,12 @@ export const TuningFileSchema = z.strictObject({
     rescueOwnedCoins: z.number().int().nonnegative(),
   }),
   combat: z.strictObject({ critMultiplier: z.number().positive() }),
+  poison: z.strictObject({
+    /** Scale only poison's percent-max-HP damage against map bosses and rift legends.
+     * Flat damage, tick interval, stacks and regular-enemy poison stay unchanged.
+     */
+    bossFactor: z.number().nonnegative().max(1),
+  }),
   enemyShields: z.strictObject({
     /** Shield HP is capped at this fraction of the recipient's max HP. */
     maxHpFraction: Chance,
