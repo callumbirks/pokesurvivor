@@ -394,6 +394,7 @@ export function settingsScreen(
           { class: 'credits' },
           h('li', null, t('settings.pmdSpritecollabAndItsArtists')),
           h('li', null, t('settings.kenneyInputPrompts')),
+          h('li', null, t('settings.musicCredit')),
         ),
       );
     }
