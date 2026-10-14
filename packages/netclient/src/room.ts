@@ -41,6 +41,7 @@ export interface RoomConnection {
 
   /** Prediction hooks: the last input the server applied, and our Pokémon as it last saw it. */
   readonly ackedInputSeq: number;
+  readonly ackedInput: SentInput | null;
   readonly serverSelf: NetPlayer | null;
   /** Inputs sent but not yet applied by the server, oldest first. */
   unackedInputs(): readonly SentInput[];
@@ -75,12 +76,17 @@ export interface RoomTransport {
 }
 
 const MAX_UNACKED = 240;
+const INPUT_KEEPALIVE_MS = 250;
 
 export class NetRoomConnection implements RoomConnection {
   game: Game | null = null;
   phase: RoomConnectionPhase = 'loading';
   readonly buffer: SnapshotBuffer;
   ackedInputSeq = 0;
+  ackedInput: SentInput | null = null;
+  private lastInput: InputMessage | null = null;
+  private lastSentAt = -Infinity;
+  private inputPaused = false;
   private decoder: SnapshotDecoder | null = null;
   private readonly emitter = new Emitter<RoomConnectionEvents>();
   private seq = 0;
@@ -133,39 +139,57 @@ export class NetRoomConnection implements RoomConnection {
   }
 
   sendInput(input: MoveInput): number {
-    const seq = ++this.seq;
-    const slot = input.slot ?? null;
-    if (!this.game || this.phase !== 'running') return seq;
+    if (!this.game || this.phase !== 'running') return this.seq;
+    const paused = this.latest?.paused === true;
+    const seq = this.seq + 1;
+    const slot = paused ? null : (input.slot ?? null);
     const message: InputMessage = {
       type: 'input',
       gameId: this.game.gameId,
       seq,
-      moveX: input.moveX,
-      moveY: input.moveY,
+      moveX: paused ? 0 : input.moveX,
+      moveY: paused ? 0 : input.moveY,
     };
     if (slot !== null) message.slot = slot;
-    if (input.aim != null) {
+    if (!paused && input.aim != null) {
       message.aim = encodeAim(input.aim);
       if (input.fire) message.fire = true;
     }
+    const now = this.transport.now();
+    const last = this.lastInput;
+    if (
+      last &&
+      this.inputPaused === paused &&
+      slot === null &&
+      last.moveX === message.moveX &&
+      last.moveY === message.moveY &&
+      last.aim === message.aim &&
+      last.fire === message.fire &&
+      (paused || now - this.lastSentAt < INPUT_KEEPALIVE_MS)
+    )
+      return this.seq;
     if (this.transport.send(message)) {
+      this.seq = seq;
+      this.lastInput = message;
+      this.lastSentAt = now;
+      this.inputPaused = paused;
       this.unacked.push({
         seq,
-        moveX: input.moveX,
-        moveY: input.moveY,
+        moveX: message.moveX,
+        moveY: message.moveY,
         slot,
-        sentAt: this.transport.now(),
+        sentAt: now,
       });
       if (this.unacked.length > MAX_UNACKED) this.unacked.shift();
     }
-    return seq;
+    return this.seq;
   }
 
   /** Stops by itself when this game ends: a finished game's loop never outlives it. */
   startInputLoop(read: () => MoveInput): () => void {
     const timer = timers.setInterval(() => {
       if (this.phase === 'running') this.sendInput(read());
-    }, TICK_MS);
+    }, Math.ceil(TICK_MS));
     const stop = () => {
       timers.clearInterval(timer);
       off();
@@ -205,6 +229,10 @@ export class NetRoomConnection implements RoomConnection {
       [...game.players].sort((a, b) => a.index - b.index).map((p) => p.id),
     );
     this.buffer.clear();
+    this.seq = this.ackedInputSeq = 0;
+    this.ackedInput = null;
+    this.unacked = [];
+    this.lastInput = null;
     this.resyncing = false;
     this.setPhase('running');
     this.emitter.emit('start', { game, resumed });
@@ -226,7 +254,8 @@ export class NetRoomConnection implements RoomConnection {
     }
     this.resyncing = false;
     this.ackedInputSeq = Math.max(this.ackedInputSeq, snap.ackSeq);
-    while (this.unacked[0] && this.unacked[0].seq <= this.ackedInputSeq) this.unacked.shift();
+    while (this.unacked[0] && this.unacked[0].seq <= this.ackedInputSeq)
+      this.ackedInput = this.unacked.shift()!;
     this.buffer.push(snap, receivedAt);
     this.emitter.emit('snapshot', snap);
     return snap;
@@ -241,6 +270,7 @@ export class NetRoomConnection implements RoomConnection {
   /** @internal The socket dropped: inputs in flight are lost, the server keeps the last one. */
   handleDisconnect(): void {
     this.unacked = [];
+    this.lastInput = null;
   }
 
   /** @internal */
