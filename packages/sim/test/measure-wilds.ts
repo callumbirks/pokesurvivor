@@ -69,7 +69,6 @@ for (const key of args.keys())
       'seeds',
       'minutes',
       'crowd-seconds',
-      'legacy',
     ].includes(key)
   )
     throw new Error(`unknown argument --${key}`);
@@ -115,8 +114,6 @@ if (!Number.isFinite(crowdSeconds) || crowdSeconds < 0 || crowdSeconds > 120)
   throw new Error('crowd seconds must be 0–120');
 
 function configure(sim: Sim) {
-  // The legacy option is implemented below when the fitted curve is introduced.
-  if (args.has('legacy')) throw new Error('legacy comparison requires the fitted curve');
   patchTuning(sim, 'spawner', { shinyRate: Number.MIN_VALUE });
   postponeAmbientSystems(sim, 1e6);
   sim.state.spawner.bossIndex = sim.state.roster.bosses.length;
@@ -321,7 +318,6 @@ emit({
   archetypes,
   crowdSeconds,
   protectedCalibration: true,
-  legacy: args.has('legacy'),
 });
 for (const meta of metas)
   for (const n of players)
@@ -370,8 +366,8 @@ for (const meta of metas)
                   survival: crowd(sim, cell, seed, false, false),
                 }
               : null;
-            emit({
-              kind: 'wild',
+            const result = {
+              kind: 'wild' as const,
               ...cell,
               minute,
               seed,
@@ -385,7 +381,9 @@ for (const meta of metas)
               teamDps: dps,
               regularTtk: dps > 0 ? probe.regularHp / dps : null,
               crowds,
-            });
+            };
+            result satisfies WildTrial;
+            emit(result);
           }
         }
       }

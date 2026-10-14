@@ -382,3 +382,32 @@ and minimizes squared log error to the target plus extra penalties below 30 s (w
 above 60 s (weight 8). It searches the growth rate and solves the convex exponent objective by
 bisection, then rechecks the constraints after rounding. `--objective=log` retains the original
 symmetric fit. These constraints and measured balance numbers are manual-only, outside CI.
+
+### Wild scaling diagnostics (manual)
+
+`pnpm --filter @pokesurvivor/sim wilds --calibration=/absolute/path/rifts.jsonl.gz --out=/tmp/wilds.jsonl`
+reuses the protected R5 checkpoint builds to measure regular wild damage and toughness independently
+of rift legends. Omit `--calibration` to earn fresh protected builds with the same progression policy.
+The default matrix uses minutes 2/4/6/8/10/12/15/20, none/half/max meta, 1/2/4 players, three
+archetypes, seeds 7/99/2026 and both natural and synthetic typical profiles. The R5 synthetic typical
+profile spends spare cards on max HP; compare it with natural builds before fitting defensive balance.
+
+Each rolled roster member is forced through the real spawner, weighted exactly as normal tier
+selection. The real player damage path supplies neutral and typed contact/shot damage after defence
+and active-melee protection. Special skills, cap elites and the most recently unlocked boss are
+reported separately. Per-hit and survival metrics sample the focal player (`p0`); teammates retain
+their own earned builds. Effective HP excludes the melee discount, while hits-to-down include it.
+
+Crowd fixtures keep the checkpoint time and loadout fixed: 15 seconds of invulnerable warmup,
+then 30 seconds of real stationary or simple-kiting pressure. A health reserve prevents deaths in
+the DPS probes while retaining hit invulnerability windows; a separate ordinary stationary trial
+records first focal-player down, censored at 30 seconds. No rifts, bosses, events or weather enter
+these crowd probes. Potential team DPS uses 30 seconds of neutral close-range attacks against a
+regular-sized dummy with the mean wild's reference max HP. HP/DPS is a potential TTK estimate.
+
+Filter with `--meta`, `--players`, `--archetypes`, `--seeds` and `--minutes`; use
+`--crowd-seconds=0` for static probes only. A small smoke run uses
+`--meta=none --players=1 --archetypes=area --seeds=7 --minutes=2 --crowd-seconds=3`.
+`pnpm --filter @pokesurvivor/sim --silent wilds:summary /tmp/wilds.jsonl` emits per-cell CSV medians,
+ranges, one-shot counts and survival censor counts. It accepts multiple JSONL or gzip files and
+rejects duplicate trials. These tools never run in CI and do not assert balance values.

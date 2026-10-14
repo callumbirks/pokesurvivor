@@ -18,6 +18,10 @@ PRs: [#59](https://github.com/callumbirks/pokesurvivor/pull/59), [#61](https://g
 - Moving through the Pokémon screen with a controller or the arrow keys goes where you expect: along the filters and up and down the grid.
 - Co-op movement no longer rubberbands when input updates bunch up, and choice menus use less network traffic.
 
+### Behind the scenes
+
+- Added manual diagnostics for wild Pokémon damage, crowd survival and toughness through a run.
+
 ## v9 - 2026-10-14
 
 PRs: [#56](https://github.com/callumbirks/pokesurvivor/pull/56)
