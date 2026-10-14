@@ -1,5 +1,5 @@
 // The players' Pokémon (legacy entities/player.js, logic only): stats, movement with collisions,
-// liquids, auto-aim, damage, healing, going down and being revived.
+// liquids, auto-aim (or the player's manual aim), damage, healing, going down and being revived.
 import { emptyRunProgress } from '@pokesurvivor/protocol';
 import { DT, TILE } from './constants.js';
 import { activePlayers, emit, type Ctx } from './ctx.js';
@@ -56,7 +56,7 @@ export function createPlayer(
     index,
     connected: true,
     left: false,
-    input: { moveX: 0, moveY: 0, slot: null },
+    input: { moveX: 0, moveY: 0, slot: null, aim: null },
     x,
     y: 0,
     r: body.radius,
@@ -341,7 +341,9 @@ export function updatePlayer(ctx: Ctx, p: PlayerState): void {
     }
   }
 
-  // --- aim: by priority for the active move; else at the nearest rock/chest; else where you walk ---
+  // --- auto-aim: by priority for the active move; else at the nearest rock/chest; else where you
+  //     walk. With manual aim the target is still picked (it gates targeted moves: see combat.ts)
+  //     but the aim is the player's. ---
   //   ranged (projectile, beam): the boss if in range > whatever touches you > the nearest
   //   melee and the rest:        whatever touches you > the boss > the nearest
   // With a horde on you something always touches you; if that always won, ranged moves would
@@ -365,7 +367,12 @@ export function updatePlayer(ctx: Ctx, p: PlayerState): void {
       if (p.walking) p.aim = p.moveAngle;
     }
   }
+  if (isManualAim(p)) p.aim = p.input.aim;
 }
+
+/** Is the player aiming by hand (`input.aim` set)? */
+export const isManualAim = (p: PlayerState): p is PlayerState & { input: { aim: number } } =>
+  p.input.aim != null;
 
 /**
  * Is the player attacking? A cast keeps it attacking until just after the move's next cast
@@ -375,8 +382,8 @@ export const isAttacking = (time: number, p: Pick<PlayerState, 'attackingUntil'>
   time < p.attackingUntil;
 
 /**
- * Where a player's Pokémon faces (legacy player.js): its target while attacking, else where it
- * walks; standing still, its aim. Renderers use this so the sprite doesn't flip between casts.
+ * Where a player's Pokémon faces (legacy player.js): its aim while attacking (the auto target, or
+ * the manual aim), else where it walks; standing still, its aim. Renderers use this so the sprite doesn't flip between casts.
  */
 export function facingOf(p: {
   attacking: boolean;
@@ -417,3 +424,9 @@ export function targetPos(ctx: Ctx, p: PlayerState): { x: number; y: number } | 
 }
 
 export const clampMoveInput = (v: number): number => (Number.isFinite(v) ? clamp(v, -1, 1) : 0);
+
+/** A manual aim from input: an angle in [-π, π], or null (auto-aim) if absent or not finite. */
+export function clampAimInput(v: number | null | undefined): number | null {
+  if (v == null || !Number.isFinite(v)) return null;
+  return v >= -Math.PI && v <= Math.PI ? v : Math.atan2(Math.sin(v), Math.cos(v));
+}

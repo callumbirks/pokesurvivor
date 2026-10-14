@@ -22,6 +22,7 @@ import { cycleSlot, setActive } from './moves.js';
 import { updatePaths, type PathField } from './pathing.js';
 import { updatePickups } from './pickups.js';
 import {
+  clampAimInput,
   clampMoveInput,
   createPlayer,
   reviveTick,
@@ -62,6 +63,11 @@ export interface MoveInput {
   moveY: number;
   /** Switch to this move slot (0-based) on the next tick. Send it once per key press. */
   slot?: number | null;
+  /**
+   * Manual aim (radians): aimed attacks go this way instead of at the auto target. Absent or
+   * null: auto-aim. Persists like movement, so every call sets it.
+   */
+  aim?: number | null;
 }
 
 export type Intent =
@@ -112,6 +118,7 @@ export class Sim {
     p.input.moveX = clampMoveInput(input.moveX);
     p.input.moveY = clampMoveInput(input.moveY);
     if (input.slot != null && Number.isInteger(input.slot)) p.input.slot = input.slot;
+    p.input.aim = clampAimInput(input.aim);
   }
 
   submitIntent(playerId: PlayerId, intent: Intent): ChoiceResult {

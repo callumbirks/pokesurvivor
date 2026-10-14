@@ -34,6 +34,18 @@ export interface Frame {
   selfDetail: PlayerDetail | null;
 }
 
+/**
+ * Where we draw our own Pokémon: the predicted position, and with manual aim the aim we're sending
+ * (so it faces it at once while attacking, without waiting for the server).
+ */
+export interface SelfView {
+  x: number;
+  y: number;
+  walking: boolean;
+  moveAngle: number;
+  aim?: number;
+}
+
 /** The interpolated view of a buffer sample, with our player at `selfPos`. */
 export function buildFrame(
   game: Game,
@@ -42,7 +54,7 @@ export function buildFrame(
   latest: Snapshot,
   time: number,
   dt: number,
-  selfPos: { x: number; y: number; walking: boolean; moveAngle: number } | null,
+  selfPos: SelfView | null,
 ): Frame {
   const v = interpolate(sample);
   const players = v.players.map((p) => {
@@ -56,6 +68,7 @@ export function buildFrame(
           y: selfPos.y,
           walking: selfPos.walking,
           moveAngle: selfPos.moveAngle,
+          aim: selfPos.aim ?? own.aim,
         }
       : own;
   });

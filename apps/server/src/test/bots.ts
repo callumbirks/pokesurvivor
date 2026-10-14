@@ -178,15 +178,18 @@ export class Bot {
     this.client.dropConnection();
   }
 
-  /** Walks in a slow circle (sends inputs every tick while the game runs). */
-  wander(): void {
+  /**
+   * Walks in a slow circle (sends inputs every tick while the game runs). `aim`: manual aim per
+   * input count (radians), or null for auto-aim (the default).
+   */
+  wander(aim: (t: number) => number | null = () => null): void {
     this.stopInputs?.();
     const room = this.client.room;
     if (!room) return;
     let t = 0;
     this.stopInputs = room.startInputLoop((): MoveInput => {
       t++;
-      return { moveX: Math.cos(t / 40), moveY: Math.sin(t / 40) };
+      return { moveX: Math.cos(t / 40), moveY: Math.sin(t / 40), aim: aim(t) };
     });
   }
 

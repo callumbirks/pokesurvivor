@@ -2,6 +2,9 @@
 // game and it appears there; drag to move; lift to hide it. If the finger goes past the radius,
 // the base follows (it never gets "stuck").
 //
+// Manual aim (`twinSticks`): a finger on the left half moves, one on the right half aims (a second
+// floating joystick). Letting go of the aim stick keeps the last aim (aim.ts holds it).
+//
 // HUD buttons (move icons, pause): the HUD registers them every frame with `addButton()`; a tap (or
 // a mouse click) on one presses it instead of opening the joystick. Several fingers work at once.
 import { settings } from '../settings.js';
@@ -27,6 +30,7 @@ export class TouchControls {
   /** Touch is in use (a touch was seen, or it's a touch-first device). */
   active: boolean;
   private stick: Stick | null = null;
+  private aimStick: Stick | null = null;
   private buttons: Button[] = [];
   private lastKey = '';
   private lastAt = 0;
@@ -37,6 +41,8 @@ export class TouchControls {
     private readonly el: HTMLElement,
     /** May the joystick open now (the run is playing)? */
     private readonly canMove: () => boolean,
+    /** Two sticks: move on the left half, aim on the right (manual aim)? */
+    private readonly twinSticks: () => boolean = () => false,
   ) {
     this.active = matchMedia('(pointer: coarse)').matches;
     const on = <K extends keyof HTMLElementEventMap>(
@@ -124,10 +130,14 @@ export class TouchControls {
       this.press(b);
       return;
     }
-    if (!touchy || this.stick || !this.canMove()) return;
-    e.preventDefault();
+    if (!touchy || !this.canMove()) return;
     const [x, y] = this.local(e);
-    this.stick = { id: e.pointerId, ox: x, oy: y, x, y };
+    const aim = this.twinSticks() && x > this.el.getBoundingClientRect().width / 2;
+    if (aim ? this.aimStick : this.stick) return;
+    e.preventDefault();
+    const s = { id: e.pointerId, ox: x, oy: y, x, y };
+    if (aim) this.aimStick = s;
+    else this.stick = s;
     try {
       this.el.setPointerCapture(e.pointerId);
     } catch {
@@ -136,8 +146,8 @@ export class TouchControls {
   }
 
   private move(e: PointerEvent): void {
-    const s = this.stick;
-    if (!s || e.pointerId !== s.id) return;
+    const s = [this.stick, this.aimStick].find((k) => k?.id === e.pointerId);
+    if (!s) return;
     [s.x, s.y] = this.local(e);
     const dx = s.x - s.ox;
     const dy = s.y - s.oy;
@@ -151,10 +161,12 @@ export class TouchControls {
 
   private up(e: PointerEvent): void {
     if (this.stick && e.pointerId === this.stick.id) this.stick = null;
+    if (this.aimStick && e.pointerId === this.aimStick.id) this.aimStick = null;
   }
 
   reset(): void {
     this.stick = null;
+    this.aimStick = null;
   }
 
   /** The joystick's direction (strength 0–1), or null when not in use. */
@@ -168,6 +180,16 @@ export class TouchControls {
     // Full speed from half the radius.
     const k = Math.min(1, (d - 7) / (this.radius() * 0.5 - 7));
     return [(dx / d) * k, (dy / d) * k];
+  }
+
+  /** The aim stick's direction while it's held off centre, else null (keep the last aim). */
+  aimVector(): [number, number] | null {
+    const s = this.aimStick;
+    if (s && !this.twinSticks()) this.aimStick = null;
+    if (!s || !this.twinSticks()) return null;
+    const dx = s.x - s.ox;
+    const dy = s.y - s.oy;
+    return Math.hypot(dx, dy) < 10 ? null : [dx, dy];
   }
 
   /** iPhone margins (home bar at the bottom, notch on the sides), in CSS px. */
@@ -198,10 +220,13 @@ export class TouchControls {
     this.buttons.push({ x, y, w, h, fn, pad });
   }
 
-  /** Draws the joystick (screen coordinates, CSS px). */
+  /** Draws the joysticks (screen coordinates, CSS px). */
   draw(ctx: CanvasRenderingContext2D): void {
-    const s = this.stick;
-    if (!s) return;
+    if (this.stick) this.drawStick(ctx, this.stick, '#ffd23f', '#a55f00');
+    if (this.aimStick) this.drawStick(ctx, this.aimStick, '#ff7a59', '#8a2a10');
+  }
+
+  private drawStick(ctx: CanvasRenderingContext2D, s: Stick, knob: string, rim: string): void {
     const r = this.radius();
     const dx = s.x - s.ox;
     const dy = s.y - s.oy;
@@ -218,12 +243,12 @@ export class TouchControls {
     ctx.strokeStyle = '#f4f8ff';
     ctx.stroke();
     ctx.globalAlpha = 0.85;
-    ctx.fillStyle = '#ffd23f';
+    ctx.fillStyle = knob;
     ctx.beginPath();
     ctx.arc(kx, ky, r * 0.42, 0, Math.PI * 2);
     ctx.fill();
     ctx.lineWidth = 3;
-    ctx.strokeStyle = '#a55f00';
+    ctx.strokeStyle = rim;
     ctx.stroke();
     ctx.restore();
   }

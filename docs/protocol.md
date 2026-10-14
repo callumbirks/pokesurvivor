@@ -7,10 +7,11 @@ host browser.
 
 The types are in `packages/protocol` (`messages.ts`, `validate.ts`, `tables.ts`, `wire.ts`). The
 client side is `packages/netclient`, which the browser and the bot tests share. The server is in
-`apps/server/src/game/`. `PROTOCOL_VERSION` is **5**. Version 3 added the enemies' behaviour column, buff stacks in
+`apps/server/src/game/`. `PROTOCOL_VERSION` is **6**. Version 3 added the enemies' behaviour column, buff stacks in
 `details` and the viewer's `self`. Version 4 added `gameId` to `input` and `intent`. Version 5
 adds remaining shield HP as enemy column 14 (index 13), rounded up to whole points. The enemy
 table width changes from 13 to 14, so this is breaking: deploy client and server together.
+Version 6 added the manual aim, `aim`, to `input`.
 
 ## Connection
 
@@ -52,22 +53,22 @@ after 20 invalid messages the socket is closed with 4400.
 
 ### Client → server
 
-| Message                                    | Notes                                                                                                                                             |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `hello {protocolVersion}`                  | first message                                                                                                                                     |
-| `ping {id, sentAt}`                        | heartbeat                                                                                                                                         |
-| `input {gameId, seq, moveX, moveY, slot?}` | while playing, every tick (30/s). `seq` counts from 1 in each game. Movement is clamped to [−1, 1] and persists. `slot` is a one-shot move switch |
-| `game.loaded {gameId}`                     | assets loaded (during `loading`)                                                                                                                  |
-| `game.resync {gameId}`                     | the client couldn't apply a snapshot; the next one must be full                                                                                   |
-| `room.create {rid}`                        | → `RoomView`                                                                                                                                      |
-| `room.invite {rid, username}`              | online friends only                                                                                                                               |
-| `room.join {rid, roomId}`                  | accepts an invite (you must have one) → `RoomView`                                                                                                |
-| `invite.decline {rid, roomId}`             | the owner gets `invite.declined`                                                                                                                  |
-| `room.leave {rid}`                         | mid-run too: you leave the game and are credited for what you earned                                                                              |
-| `room.kick {rid, userId}`                  | owner only                                                                                                                                        |
-| `room.status {rid, status}`                | `ready` / `not-ready` / `busy` (set `busy` in the gacha, shop, collection or settings)                                                            |
-| `room.start {rid}`                         | owner only, when every member is ready                                                                                                            |
-| `intent {rid, gameId, intent}`             | the sim's `Intent` (`pickCard`, `pickItem`, `pickBond`, `reroll`, `cycleSlot`, …)                                                                 |
+| Message                                          | Notes                                                                                                                                                                                                                                                                                                                                              |
+| ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `hello {protocolVersion}`                        | first message                                                                                                                                                                                                                                                                                                                                      |
+| `ping {id, sentAt}`                              | heartbeat                                                                                                                                                                                                                                                                                                                                          |
+| `input {gameId, seq, moveX, moveY, slot?, aim?}` | while playing, every tick (30/s). `seq` counts from 1 in each game. Movement is clamped to [−1, 1] and persists. `slot` is a one-shot move switch. `aim`: manual aim, an integer in [0, 256) for the angle × 256 / 2π (`encodeAim` / `decodeAim`); absent means auto-aim. Like movement it persists, so it's in every input while manual aim is on |
+| `game.loaded {gameId}`                           | assets loaded (during `loading`)                                                                                                                                                                                                                                                                                                                   |
+| `game.resync {gameId}`                           | the client couldn't apply a snapshot; the next one must be full                                                                                                                                                                                                                                                                                    |
+| `room.create {rid}`                              | → `RoomView`                                                                                                                                                                                                                                                                                                                                       |
+| `room.invite {rid, username}`                    | online friends only                                                                                                                                                                                                                                                                                                                                |
+| `room.join {rid, roomId}`                        | accepts an invite (you must have one) → `RoomView`                                                                                                                                                                                                                                                                                                 |
+| `invite.decline {rid, roomId}`                   | the owner gets `invite.declined`                                                                                                                                                                                                                                                                                                                   |
+| `room.leave {rid}`                               | mid-run too: you leave the game and are credited for what you earned                                                                                                                                                                                                                                                                               |
+| `room.kick {rid, userId}`                        | owner only                                                                                                                                                                                                                                                                                                                                         |
+| `room.status {rid, status}`                      | `ready` / `not-ready` / `busy` (set `busy` in the gacha, shop, collection or settings)                                                                                                                                                                                                                                                             |
+| `room.start {rid}`                               | owner only, when every member is ready                                                                                                                                                                                                                                                                                                             |
+| `intent {rid, gameId, intent}`                   | the sim's `Intent` (`pickCard`, `pickItem`, `pickBond`, `reroll`, `cycleSlot`, …)                                                                                                                                                                                                                                                                  |
 
 Requests carry a request id `rid` and get `reply {rid, ok: true, data?}` or
 `reply {rid, ok: false, error: {code, message}}`. Intents are validated generically, because the
@@ -150,6 +151,11 @@ lobby ──room.start (owner; everyone ready)──▶ loading ──everyone l
   outlives games, so the counter must never be per socket. In version 3 it was, and a player who
   had played a game had all their inputs dropped at the start of the next one, for as long as the
   previous game lasted.
+- **Aiming.** Attacks auto-aim unless the input carries `aim`; then the sim aims every aimed
+  attack that way (see "Aiming" in `packages/sim/README.md`). It rides in the per-tick input, so
+  it adds no messages and the rate limit (sized for 30 inputs/s) still holds. One byte keeps it
+  within ~0.7° of the client's angle; the client snaps its own aim indicator and facing to the
+  same steps (`quantizeAim`).
 - **Intents** go to `sim.submitIntent` for the sender, and the reply carries the result. An intent
   whose `gameId` isn't the running game fails with `not_playing`; choice ids restart in every
   game, so a late intent can't hit the wrong choice.

@@ -7,6 +7,7 @@ import { loadGameData, t } from '@pokesurvivor/data';
 import type { Game, NetClient, Results, RoomConnection, Snapshot } from '@pokesurvivor/netclient';
 import type { SimEvent } from '@pokesurvivor/sim';
 import { audio, biomeMusic } from '../audio.js';
+import { AimTracker, aimKey, drawAimIndicator, toggleAimMode } from './aim.js';
 import { settings } from '../settings.js';
 import { preloadSprites } from '../sprites.js';
 import { AchievementTracker, type AchievementSave } from './achievements.js';
@@ -14,15 +15,15 @@ import { ChoiceOverlay } from './choice-ui.js';
 import { ChoiceState } from './choices.js';
 import { clear, el, icon } from './dom.js';
 import { EventEffects } from './events.js';
-import { buildFrame, type Frame } from './frame.js';
-import { Hud } from './hud.js';
+import { buildFrame, type Frame, type SelfView } from './frame.js';
+import { Hud, controlsHint } from './hud.js';
 import { Input } from './input.js';
 import { Predictor } from './net/predict.js';
 import { NOTICE_TEXT } from './notices.js';
 import { PauseFlow, type PauseView } from './pause.js';
 import { renderResults } from './results.js';
 import { Camera } from './scene/camera.js';
-import { EntityLayer } from './scene/entities.js';
+import { EntityLayer, LIFT } from './scene/entities.js';
 import { FX } from './scene/fx.js';
 import { sampleFrame } from './scene/quality.js';
 import { WeatherLayer } from './scene/weather.js';
@@ -359,6 +360,7 @@ class Run {
   private readonly overlay: ChoiceOverlay;
   private readonly input: Input;
   private readonly touch: TouchControls;
+  private readonly aim = new AimTracker();
   private readonly tracker: AchievementTracker | null;
   private readonly offs: (() => void)[] = [];
   private queue: { tick: number; events: SimEvent[] }[] = [];
@@ -418,7 +420,19 @@ class Run {
       return m ? { level: m.level, type: m.type } : null;
     });
     this.input = new Input((code) => this.key(code));
-    this.touch = new TouchControls(canvas, () => this.canMove());
+    this.touch = new TouchControls(
+      canvas,
+      () => this.canMove(),
+      () => this.aim.manual,
+    );
+    // The mouse aims (manual aim): where it is over the game.
+    const mouse = (e: PointerEvent) => {
+      if (e.pointerType !== 'mouse') return;
+      const r = canvas.getBoundingClientRect();
+      this.aim.mouseMove(e.clientX - r.left, e.clientY - r.top);
+    };
+    canvas.addEventListener('pointermove', mouse);
+    this.offs.push(() => canvas.removeEventListener('pointermove', mouse));
     this.tracker = save ? new AchievementTracker(save, conn.selfId) : null;
     this.offs.push(conn.on('snapshot', (s) => this.onSnapshot(s)));
     this.pause = new PauseFlow({
@@ -454,7 +468,7 @@ class Run {
       const [x, y] = this.canMove() ? this.input.axis(this.touch.vector()) : [0, 0];
       const slot = this.pendingSlot;
       this.pendingSlot = null;
-      return { moveX: x, moveY: y, slot };
+      return { moveX: x, moveY: y, slot, aim: this.aim.input() };
     });
   }
 
@@ -512,6 +526,7 @@ class Run {
       return true;
     }
     if (this.pause.view !== 'playing') return false;
+    if (aimKey(code)) return true;
     const digit = /^(?:Digit|Numpad)([1-4])$/.exec(code);
     if (digit) {
       this.setSlot(Number(digit[1]) - 1);
@@ -590,11 +605,7 @@ class Run {
         'div',
         { class: 'ps-box' },
         el('h2', null, t('pause.pause')),
-        el(
-          'p',
-          { class: 'sub' },
-          this.touch.active ? t('hud.dragYourFingerToMove') : t('hud.wasdMove14Q'),
-        ),
+        el('p', { class: 'sub' }, controlsHint(this.touch.active, settings.get().aimMode)),
         solo ? null : el('p', { class: 'note' }, t('pause.groupGameTheGameKeeps')),
         el(
           'div',
@@ -718,7 +729,7 @@ class Run {
     this.world.sync(latest.team.biome, latest.misc.arena, latest.world, !this.started);
     // Our own Pokémon: predicted.
     const serverSelf = latest.players.find((p) => p.id === conn.selfId) ?? null;
-    let selfPos: { x: number; y: number; walking: boolean; moveAngle: number } | null = null;
+    let selfPos: SelfView | null = null;
     if (serverSelf) {
       const active =
         !latest.paused &&
@@ -741,6 +752,15 @@ class Run {
         walking: active && this.predictor.walking,
         moveAngle: this.predictor.moveAngle,
       };
+      // Manual aim: from the mouse or a stick, relative to where we draw our Pokémon.
+      if (this.canMove())
+        this.aim.update(
+          this.touch.aimVector() ?? this.input.aimAxis(),
+          this.camera.toScreen(selfPos.x, selfPos.y),
+          serverSelf.aim,
+        );
+      const sent = this.aim.input();
+      if (sent !== null) selfPos.aim = sent;
     }
     const frame = buildFrame(this.game, conn.selfId, sample, latest, this.time, dt, selfPos);
     this.effects.trackFields(frame);
@@ -806,6 +826,10 @@ class Run {
         pickups: frame.pickups.length,
         fx: this.fx.count,
         time: latest.time,
+        // Aim (e2e): what we send (null: auto), the server's aim for us, our Pokémon on screen.
+        aim: this.aim.input(),
+        serverAim: latest.players.find((p) => p.id === this.conn.selfId)?.aim ?? null,
+        self: frame.self ? this.camera.toScreen(frame.self.x, frame.self.y) : null,
       };
   }
 
@@ -832,6 +856,10 @@ class Run {
     items.push(...this.entities.drawables(frame));
     items.sort((a, b) => a.y - b.y);
     for (const it of items) it.draw(ctx);
+    // Manual aim: where our attacks go, around our Pokémon.
+    const me = frame.self;
+    if (this.aim.manual && me && !me.dead && !this.results)
+      drawAimIndicator(ctx, me.x, me.y, me.aim, now, LIFT);
     this.entities.drawProjectiles(ctx, frame);
     this.entities.drawAirFields(ctx, frame.fields, now);
     this.fx.draw(ctx, now);
@@ -870,6 +898,8 @@ class Run {
         setSlot: (i) => this.setSlot(i),
         togglePause: () => this.togglePause(),
         canAct: this.canMove(),
+        aimMode: settings.get().aimMode,
+        toggleAim: () => toggleAimMode(),
       });
       this.touch.draw(ctx);
     }

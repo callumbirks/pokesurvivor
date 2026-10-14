@@ -7,6 +7,7 @@
 // (saved and reported), and on request.
 import { SnapshotEncoder, firstOption } from '@pokesurvivor/netclient';
 import { loadGameData } from '@pokesurvivor/data';
+import { decodeAim } from '@pokesurvivor/protocol';
 import {
   TICK_HZ,
   TICK_MS,
@@ -34,7 +35,7 @@ let sim: Sim | null = null;
 let encoder: SnapshotEncoder | null = null;
 let playerId = '';
 let owned = new Set<number>();
-let input = { seq: 0, moveX: 0, moveY: 0, slot: null as number | null };
+let input = { seq: 0, moveX: 0, moveY: 0, slot: null as number | null, aim: null as number | null };
 let running = false;
 let paused = false;
 let ended = false;
@@ -95,7 +96,12 @@ function loop(): void {
   const { ticks, remainderMs } = drainTicks(acc + elapsed);
   acc = remainderMs;
   for (let i = 0; i < ticks && !ended; i++) {
-    sim.setInput(playerId, { moveX: input.moveX, moveY: input.moveY, slot: input.slot });
+    sim.setInput(playerId, {
+      moveX: input.moveX,
+      moveY: input.moveY,
+      slot: input.slot,
+      aim: input.aim === null ? null : decodeAim(input.aim),
+    });
     input.slot = null;
     sim.step();
     // Every tick: solo has no bandwidth to save, and it keeps interpolation smooth.
@@ -188,7 +194,13 @@ scope.onmessage = (ev) => {
         return;
       case 'input':
         if (m.seq <= input.seq) return;
-        input = { seq: m.seq, moveX: m.moveX, moveY: m.moveY, slot: m.slot ?? input.slot };
+        input = {
+          seq: m.seq,
+          moveX: m.moveX,
+          moveY: m.moveY,
+          slot: m.slot ?? input.slot,
+          aim: m.aim,
+        };
         return;
       case 'intent': {
         const result = sim

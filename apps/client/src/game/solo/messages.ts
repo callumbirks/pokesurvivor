@@ -27,7 +27,15 @@ export type ToWorker =
     }
   /** Assets loaded: the run starts. */
   | { type: 'start' }
-  | { type: 'input'; seq: number; moveX: number; moveY: number; slot: number | null }
+  /** `aim`: the protocol's quantised manual aim (`encodeAim`), or null for auto-aim. */
+  | {
+      type: 'input';
+      seq: number;
+      moveX: number;
+      moveY: number;
+      slot: number | null;
+      aim: number | null;
+    }
   | { type: 'intent'; rid: number; intent: Intent }
   | { type: 'pause'; paused: boolean }
   /** The client lost track of the deltas: the next snapshot is full. */

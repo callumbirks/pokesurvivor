@@ -168,7 +168,14 @@ export function createSoloConnection(opts: SoloOptions): SoloConnection {
         if (closed) return false;
         if (message.type === 'input') {
           const m = message;
-          post({ type: 'input', seq: m.seq, moveX: m.moveX, moveY: m.moveY, slot: m.slot ?? null });
+          post({
+            type: 'input',
+            seq: m.seq,
+            moveX: m.moveX,
+            moveY: m.moveY,
+            slot: m.slot ?? null,
+            aim: m.aim ?? null,
+          });
         } else if (message.type === 'game.loaded') {
           if (!game) return false;
           conn.handleStart(game, false);

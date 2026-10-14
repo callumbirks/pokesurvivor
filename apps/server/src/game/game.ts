@@ -4,7 +4,7 @@
 import { randomInt, randomUUID } from 'node:crypto';
 import { SnapshotEncoder } from '@pokesurvivor/netclient';
 import type { Game as GameStatic, ResultSummary } from '@pokesurvivor/netclient';
-import type { InputMessage, WireIntent } from '@pokesurvivor/protocol';
+import { decodeAim, type InputMessage, type WireIntent } from '@pokesurvivor/protocol';
 import { TICK_HZ, createSim } from '@pokesurvivor/sim';
 import type { ChoiceResult, Intent, PlayerConfig, Sim, SimEvent } from '@pokesurvivor/sim';
 import type { Session } from './session.js';
@@ -49,6 +49,8 @@ interface Slot extends GamePlayerInfo {
   moveX: number;
   moveY: number;
   slot: number | null;
+  /** Manual aim (radians, quantised on the wire), or null: auto-aim. Persists like movement. */
+  aim: number | null;
   /** Highest input seq received / applied on the current socket. */
   lastSeq: number;
   ackSeq: number;
@@ -110,6 +112,7 @@ export class Game {
           moveX: 0,
           moveY: 0,
           slot: null,
+          aim: null,
           lastSeq: 0,
           ackSeq: 0,
           connected: true,
@@ -181,7 +184,7 @@ export class Game {
     if (!slots.some((s) => s.connected && !s.left)) return;
     for (const s of slots) {
       if (s.left) continue;
-      this.sim.setInput(s.userId, { moveX: s.moveX, moveY: s.moveY, slot: s.slot });
+      this.sim.setInput(s.userId, { moveX: s.moveX, moveY: s.moveY, slot: s.slot, aim: s.aim });
       s.slot = null;
       s.ackSeq = s.lastSeq;
     }
@@ -223,6 +226,7 @@ export class Game {
     slot.moveX = m.moveX;
     slot.moveY = m.moveY;
     if (m.slot != null) slot.slot = m.slot;
+    slot.aim = m.aim === undefined ? null : decodeAim(m.aim);
   }
 
   intent(userId: string, intent: WireIntent): ChoiceResult {

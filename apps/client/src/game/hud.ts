@@ -1,9 +1,10 @@
 // The in-run HUD, drawn in screen coordinates on the game canvas (port of legacy ui/hud.js, the
 // HUD half of systems/events.js and the co-op panel): XP bar, HP and level, the clock, weather,
 // the boss bar, off-screen arrows (rift, shinies, teammates, the lost Pokémon, thieves), event
-// timers, the banner, move slots with cooldowns, the held item, and touch buttons.
+// timers, the banner, move slots with cooldowns, the held item, the aim switch, and touch buttons.
 import { loadGameData, t } from '@pokesurvivor/data';
 import { REVIVE_SECONDS } from '@pokesurvivor/sim';
+import type { AimMode } from '../settings.js';
 import { drawIcon, typeColor } from '../icons.js';
 import { bodyHeight } from '../sprites.js';
 import type { Frame } from './frame.js';
@@ -78,6 +79,15 @@ export interface HudInput {
   togglePause(): void;
   /** Can move slots be switched now? */
   canAct: boolean;
+  /** Auto or manual aim, and the HUD button that switches (also T). */
+  aimMode: AimMode;
+  toggleAim(): void;
+}
+
+/** The controls line shown early in a run (and in the pause menu). */
+export function controlsHint(touch: boolean, aimMode: AimMode): string {
+  if (!touch) return t('hud.wasdMove14Q');
+  return t(aimMode === 'manual' ? 'hud.twinSticks' : 'hud.dragYourFingerToMove');
 }
 
 export class Hud {
@@ -386,16 +396,14 @@ export class Hud {
       touch.addButton(bxp, byp, bs, bs, () => k.togglePause(), 8);
     }
 
+    this.drawAimToggle(ctx, k);
+
     // Controls hint, early in the run.
     if (snap.time < 14) {
       ctx.font = F(600, 10);
       ctx.textAlign = 'center';
       ctx.fillStyle = 'rgba(180,200,230,.55)';
-      ctx.fillText(
-        touch.active ? t('hud.dragYourFingerToMove') : t('hud.wasdMove14Q'),
-        w / 2,
-        h - 4,
-      );
+      ctx.fillText(controlsHint(touch.active, k.aimMode), w / 2, h - 4);
     }
 
     // You're down.
@@ -425,6 +433,66 @@ export class Hud {
       ctx.fillText(`${k.fps} FPS`, w - 10, h - 8);
     }
     ctx.restore();
+  }
+
+  // ---------------------------------------------------------------- aim switch
+
+  /** Top right, under the weather (and the touch pause button): "AIM: AUTO" / "AIM: MANUAL". */
+  drawAimToggle(ctx: CanvasRenderingContext2D, k: HudInput): void {
+    const { w, touch } = k;
+    const manual = k.aimMode === 'manual';
+    const label = t(manual ? 'hud.aimManual' : 'hud.aimAuto');
+    ctx.save();
+    ctx.font = F(800, 11);
+    const keyW = touch.active ? 0 : 18;
+    const bw = Math.ceil(ctx.measureText(label).width) + 36 + keyW;
+    const bh = 28;
+    let right = w - 16;
+    let top = 48;
+    if (touch.active) {
+      const sa = touch.safeArea();
+      right = w - 12 - Math.min(44, sa.right);
+      top = 12 + Math.min(20, sa.top) + 48;
+    }
+    const x = right - bw;
+    roundRect(ctx, x, top, bw, bh, 9);
+    ctx.fillStyle = manual ? 'rgba(60,24,10,.85)' : 'rgba(10,16,28,.7)';
+    ctx.fill();
+    ctx.lineWidth = manual ? 2 : 1.5;
+    ctx.strokeStyle = manual ? '#ff9a6b' : 'rgba(244,248,255,.55)';
+    ctx.stroke();
+    // A crosshair.
+    const cx = x + 15;
+    const cy = top + bh / 2;
+    ctx.strokeStyle = manual ? '#ffd23f' : '#c8d6ee';
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 6, 0, TAU);
+    ctx.moveTo(cx - 9, cy);
+    ctx.lineTo(cx - 3, cy);
+    ctx.moveTo(cx + 3, cy);
+    ctx.lineTo(cx + 9, cy);
+    ctx.moveTo(cx, cy - 9);
+    ctx.lineTo(cx, cy - 3);
+    ctx.moveTo(cx, cy + 3);
+    ctx.lineTo(cx, cy + 9);
+    ctx.stroke();
+    ctx.textAlign = 'left';
+    ctx.fillStyle = manual ? '#ffd23f' : '#eaf2ff';
+    ctx.fillText(label, x + 29, cy + 4);
+    if (keyW) {
+      // The key that does the same.
+      const kx = x + bw - keyW - 4;
+      roundRect(ctx, kx, cy - 8, 16, 16, 4);
+      ctx.fillStyle = 'rgba(255,255,255,.12)';
+      ctx.fill();
+      ctx.font = F(800, 9);
+      ctx.textAlign = 'center';
+      ctx.fillStyle = 'rgba(234,242,255,.8)';
+      ctx.fillText('T', kx + 8, cy + 3);
+    }
+    ctx.restore();
+    touch.addButton(x, top, bw, bh, () => k.toggleAim(), 6);
   }
 
   // ---------------------------------------------------------------- move slots

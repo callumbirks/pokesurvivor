@@ -2,7 +2,7 @@
 // level-ups, the gacha-start ghost, permanent disconnects), plus loading, reconnects, owners
 // leaving, results and deploys. Bots have injected latency and jitter.
 import type { Results } from '@pokesurvivor/netclient';
-import { CloseCode } from '@pokesurvivor/protocol';
+import { CloseCode, quantizeAim } from '@pokesurvivor/protocol';
 import { eq, inArray } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { runPlayers, runs } from '../db/schema.js';
@@ -73,6 +73,36 @@ describe('coop games over the network', () => {
     expect(a!.client.room!.unackedInputs().length).toBeLessThan(30);
     await waitFor(() => a!.client.stats().snapshotsPerSecond > 10, 'snapshot rate');
     for (const b of bots) await b.client.leaveRoom();
+  });
+
+  it('one player aims by hand, the other auto-aims', async () => {
+    const bots = await playing(t, 2);
+    const [a, b] = bots;
+    const game = serverGame(t, a!);
+    const sim = (bot: Bot) => game.sim.state.players.find((p) => p.id === bot.userId)!;
+    // A sweeps its aim around while it walks; B keeps auto-aim.
+    a!.wander((n) => n / 15);
+    const aims = new Set<number>();
+    for (let i = 0; i < 12; i++) {
+      const after = a!.latest?.ackSeq ?? 0;
+      const s = await a!.until((x) => x.ackSeq > after + 2);
+      const pa = sim(a!);
+      // The sim aims A where its input says, on the wire's one-byte grid.
+      expect(pa.input.aim).not.toBeNull();
+      expect(quantizeAim(pa.input.aim!)).toBe(pa.input.aim);
+      expect(pa.aim).toBe(pa.input.aim);
+      aims.add(pa.aim);
+      // And A's client sees that aim in its snapshots.
+      const seen = s.players.find((p) => p.id === a!.userId)!.aim;
+      expect(Number.isFinite(seen)).toBe(true);
+      expect(sim(b!).input.aim).toBeNull();
+    }
+    // It turned with the input (not stuck on the first value).
+    expect(aims.size).toBeGreaterThan(3);
+    // Back to auto: the server drops the manual aim.
+    a!.wander();
+    await waitFor(() => sim(a!).input.aim === null, 'auto again');
+    for (const x of bots) await x.client.leaveRoom();
   });
 
   it('level-up with one of 4 disconnected: no stall, their choice resolves by itself', async () => {

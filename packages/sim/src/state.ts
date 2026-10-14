@@ -111,6 +111,11 @@ export interface PlayerInput {
   moveY: number;
   /** Requested move slot, applied (and cleared) on the next running tick. */
   slot: number | null;
+  /**
+   * Manual aim: attacks go this way (radians, in [-π, π]). Null: auto-aim. Absent in states
+   * saved before manual aim existed (read it with `!= null`).
+   */
+  aim: number | null;
 }
 
 export interface BuffState {
