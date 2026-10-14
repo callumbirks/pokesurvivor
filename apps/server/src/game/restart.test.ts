@@ -2,6 +2,7 @@ import { and, eq, isNotNull } from 'drizzle-orm';
 import { describe, expect, it, vi } from 'vitest';
 import { gameRoomMembers, gameRooms, runs } from '../db/schema.js';
 import { getSave } from '../saves/service.js';
+import { RoomRegistry } from './registry.js';
 import {
   createGameTestServer,
   lobby,
@@ -208,11 +209,24 @@ describe('start-first room handoffs', () => {
 
   it('cancels loading and retains a ready lobby across a sequential restart too', async () => {
     const t = await createGameTestServer({ heartbeatMs: 200 });
+    let release!: () => void;
+    const gate = new Promise<void>((r) => {
+      release = r;
+    });
+    // The replacement registry supplies this explicitly through call() below.
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    const adopt = RoomRegistry.prototype.adopt;
+    const heldAdoption = vi
+      .spyOn(RoomRegistry.prototype, 'adopt')
+      .mockImplementation(async function (this: RoomRegistry, id) {
+        await gate;
+        return adopt.call(this, id);
+      });
     try {
       const bots = await t.party(2, { autoLoad: false });
       const id = await lobby(bots);
       await bots[0]!.client.start();
-      await t.restart(100);
+      await t.restart();
       await waitFor(
         () =>
           bots.every(
@@ -221,14 +235,28 @@ describe('start-first room handoffs', () => {
               t.game.isOnline(b.userId) &&
               b.client.state === 'open',
           ),
-        'loading room adopted',
+        'reconnected sockets welcomed while adoption is held',
       );
-      const room = t.game.liveRooms.get(id)!;
+      // Welcome opens the sockets before adoption, and roomView is retained from the old
+      // server. That combination is not evidence that the replacement has restored the room.
+      expect(t.game.liveRooms.has(id)).toBe(false);
+      const rejoined = bots.map((b) =>
+        withTimeout(
+          b.client.next('room', (r) => r?.id === id && r.phase === 'lobby'),
+          5000,
+          'fresh lobby after adoption',
+        ),
+      );
+      release();
+      const room = await waitFor(() => t.game.liveRooms.get(id), 'replacement room adopted');
+      await Promise.all(rejoined);
       expect(room.phase).toBe('lobby');
       expect(room.game).toBeNull();
       expect(room.view().members.every((m) => m.status === 'ready' && !m.inGame)).toBe(true);
       expect(await t.database.db.db.select().from(runs)).toHaveLength(0);
     } finally {
+      release();
+      heldAdoption.mockRestore();
       await t.close();
     }
   });
