@@ -1,13 +1,20 @@
-# Créditos
+# Credits
+
+These are also listed in the game, under Settings → About.
+
+## The original game
+
+Based on [PokéSurvivor](https://pokesurvivor.com) by JPTER78
+([source](https://github.com/JPTER78/pokesurvivor)).
 
 ## Sprites
 
-Los sprites estilo *Pokémon Mundo Misterioso* vienen de
-[SpriteCollab](https://github.com/PMDCollab/SpriteCollab), bajo licencia
+The *Pokémon Mystery Dungeon*-style sprites come from
+[SpriteCollab](https://github.com/PMDCollab/SpriteCollab), under
 [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/):
-uso **no comercial** y con atribución a sus artistas.
+**non-commercial** use, with credit to their artists.
 
-| Artista | Contacto | Sprites (nº de Pokédex) |
+| Artist | Contact | Sprites (Pokédex no.) |
 |---|---|---|
 | 3Monika4 | <@270755102178934785> | 20, 61, 63 |
 | 3P1C |  | 27, 498 |
@@ -139,21 +146,20 @@ The music (`packages/data/json/music.json`) and the sound effects are original c
 from the upstream [PokéSurvivor](https://github.com/JPTER78/pokesurvivor) by JPTER78, used
 under the MIT licence (Copyright (c) 2026 JPTER78; its licence covers the code and the music
 in `js/data/music.js`). Nothing is recorded: the songs and effects are synthesized at runtime
-with Web Audio (`apps/client/src/audio.ts`).
+with Web Audio (`apps/client/src/audio.ts`). Being MIT-licensed, they're free to use in videos
+and streams.
 
-## Datos
+## Data
 
-Stats base y nombres en español: [PokeAPI](https://pokeapi.co/),
-descargados una vez y guardados en `js/data/pokedex.js`.
+Pokédex base stats and names: [PokeAPI](https://pokeapi.co/), downloaded once and stored in
+`packages/data/json/pokedex.json`.
 
-## Fuente
+## Font
 
-[Pixelify Sans](https://github.com/eifetx/Pixelify-Sans) (SIL Open Font License 1.1,
-licencia en `assets/fonts/OFL.txt`). El juego usa una versión modificada,
-"Pixelify PS", con los números redibujados para distinguirlos mejor
-(`tools/make_font.py`).
+[Pixelify Sans](https://github.com/eifetx/Pixelify-Sans) (SIL Open Font License 1.1, licence
+in `apps/client/public/fonts/OFL.txt`). The game uses a modified version, "Pixelify PS", with
+its digits redrawn to tell them apart more easily.
 
-## Marca
+## Trademarks
 
-Pokémon es propiedad de Nintendo, Creatures Inc. y GAME FREAK.
-Este es un proyecto de fan sin ánimo de lucro.
+Pokémon is owned by Nintendo, Creatures Inc. and GAME FREAK. This is a non-profit fan project.

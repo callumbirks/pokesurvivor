@@ -6,7 +6,7 @@ What changed for players in each release, newest first. Generated from
 
 ## Unreleased
 
-PRs: [#41](https://github.com/callumbirks/pokesurvivor/pull/41), [#42](https://github.com/callumbirks/pokesurvivor/pull/42), [#43](https://github.com/callumbirks/pokesurvivor/pull/43)
+PRs: [#41](https://github.com/callumbirks/pokesurvivor/pull/41), [#42](https://github.com/callumbirks/pokesurvivor/pull/42), [#43](https://github.com/callumbirks/pokesurvivor/pull/43), [#44](https://github.com/callumbirks/pokesurvivor/pull/44)
 
 ### New
 
@@ -14,10 +14,8 @@ PRs: [#41](https://github.com/callumbirks/pokesurvivor/pull/41), [#42](https://g
 
 ### Changed
 
-- A new look for the main menu and gacha: pixel windows, and your partner talks you through the menu.
+- A whole new look: pixel windows across every menu and in-run screen, and your partner talks you through the main menu. Settings → About now credits everyone behind the game, music included.
 - Controller button prompts are twice as big and easier to read, in the menus and in runs.
-- Every other menu screen gets the new pixel-window look too: Pokémon, Upgrades, Missions, the leaderboard, Friends, the room, Settings, What's new, logging in and choosing your first partner.
-- In runs, level-up choices, the pause menu, the results and notifications get the new pixel-window look, and the results fit a phone in landscape.
 
 ## v5 - 2026-10-14
 

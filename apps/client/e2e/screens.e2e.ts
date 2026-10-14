@@ -93,6 +93,12 @@ test('shop, moves, settings, solo and login again', async ({ page }) => {
     latest ? new RegExp(`^v${latest}(\\+dev)?$`) : 'dev',
   );
   await shot(page, 'settings-version');
+  // About: the original game, linked, and the credits.
+  await page.getByTestId('set-tab-about').click();
+  await expect(page.getByTestId('original-game')).toHaveAttribute(
+    'href',
+    'https://pokesurvivor.com',
+  );
   await page.getByTestId('set-tab-graphics').click();
   await page.getByTestId('set-showFps').click();
   await expect(page.getByTestId('set-showFps')).toHaveText('Yes');

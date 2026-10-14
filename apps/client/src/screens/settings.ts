@@ -16,6 +16,8 @@ import { HUD_SIZE_MAX, HUD_SIZE_MIN, hudScale } from '../game/hudscale.js';
 import { screenBox, tabs } from './common.js';
 
 type Tab = 'sound' | 'graphics' | 'controls' | 'account' | 'about';
+/** The original game this one is based on (Settings → About). */
+const ORIGINAL_GAME_URL = 'https://pokesurvivor.com';
 let tab: Tab = 'sound';
 
 const row = (title: string, sub: string | null, control: Node) =>
@@ -386,14 +388,30 @@ export function settingsScreen(
       replace(
         body,
         h('div', { class: 'about-logo' }, 'PokéSurvivor'),
-        h('p', { class: 'small' }, t('settings.fanGameNoAdsOr', { 0: '' })),
+        h(
+          'p',
+          { class: 'center' },
+          h(
+            'a',
+            {
+              href: ORIGINAL_GAME_URL,
+              target: '_blank',
+              rel: 'noopener',
+              dataset: { testid: 'original-game' },
+            },
+            t('settings.basedOn'),
+          ),
+        ),
+        h('p', { class: 'small' }, t('settings.fanGameNoAdsOr')),
         h('h4', { class: 'set-h' }, t('settings.credits')),
         h(
           'ul',
           { class: 'credits' },
-          h('li', null, t('settings.pmdSpritecollabAndItsArtists')),
-          h('li', null, t('settings.kenneyInputPrompts')),
           h('li', null, t('settings.musicCredit')),
+          h('li', null, t('settings.pmdSpritecollabAndItsArtists')),
+          h('li', null, t('settings.creditFont')),
+          h('li', null, t('settings.kenneyInputPrompts')),
+          h('li', null, t('settings.creditData')),
         ),
       );
     }
