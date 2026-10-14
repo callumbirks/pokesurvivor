@@ -2,7 +2,9 @@
   "unreleased": {
     "prs": [59, 62],
     "entries": {
-      "new": [],
+      "new": [
+        "Show network stats (Settings → Graphics, or add ?netstats to the address): see your ping, packet timing, corrections and frame rate during co-op, to tell whether hiccups come from your connection, your browser or the server."
+      ],
       "changed": [],
       "fixed": [
         "Server restarts no longer stall when a player reconnects during shutdown.",

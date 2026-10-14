@@ -8,6 +8,10 @@ What changed for players in each release, newest first. Generated from
 
 PRs: [#59](https://github.com/callumbirks/pokesurvivor/pull/59), [#62](https://github.com/callumbirks/pokesurvivor/pull/62)
 
+### New
+
+- Show network stats (Settings → Graphics, or add ?netstats to the address): see your ping, packet timing, corrections and frame rate during co-op, to tell whether hiccups come from your connection, your browser or the server.
+
 ### Fixed
 
 - Server restarts no longer stall when a player reconnects during shutdown.
