@@ -581,7 +581,7 @@
     "youHaveTickets": "You have {ticket} {0} tickets and {ticket10} {1} ×10 tickets",
     "softPityFrom": "Soft pity from pull {0}",
     "ruleMulti": "A ×{0} pull guarantees at least one {1} or better.",
-    "ruleSoftPity": "From pull {0} without a legendary, its chance rises by {1} per pull.",
+    "ruleSoftPity": "From pull {0} without a legendary, its chance rises by {1} percentage points per pull.",
     "ruleHardPity": "Pull {0} without a legendary in a banner is always one.",
     "ruleRefund": "Duplicates refund PokéCoins:",
     "ruleShiny": "Shinies don't repeat, and a shiny also gives its normal form.",
