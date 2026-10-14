@@ -1,5 +1,5 @@
 {
-  "id": "0cbaf265-7e83-449b-800a-acd0b628febd",
+  "id": "c0098a2d-dc12-4717-a976-9ee2b5200df2",
   "prevId": "e4da5f40-3438-43ec-8d1c-f86f938ad086",
   "version": "7",
   "dialect": "postgresql",
@@ -335,25 +335,70 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.room_restart_state": {
-      "name": "room_restart_state",
+    "public.game_room_members": {
+      "name": "game_room_members",
+      "schema": "",
+      "columns": {
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "room_id": {
+          "name": "room_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "game_room_members_room_id_game_rooms_id_fk": {
+          "name": "game_room_members_room_id_game_rooms_id_fk",
+          "tableFrom": "game_room_members",
+          "tableTo": "game_rooms",
+          "columnsFrom": [
+            "room_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.game_rooms": {
+      "name": "game_rooms",
       "schema": "",
       "columns": {
         "id": {
           "name": "id",
-          "type": "integer",
+          "type": "text",
           "primaryKey": true,
           "notNull": true
         },
-        "format": {
-          "name": "format",
-          "type": "integer",
+        "instance_id": {
+          "name": "instance_id",
+          "type": "uuid",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
-        "rooms": {
-          "name": "rooms",
+        "handoff": {
+          "name": "handoff",
           "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true
         }

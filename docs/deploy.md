@@ -116,8 +116,8 @@ in memory), but is still credited when it ends.
 
 The run drain above is unchanged. Lobby/main-menu rooms now survive a graceful deploy using a
 per-room Postgres handoff, which the replacement can adopt **after it is already running**.
-Migration 0005 adds `game_rooms` (ownership, expiry and a pending lobby payload) and
-`game_room_members` (one reserved room per user), replacing the earlier checkpoint design.
+Migration 0004 adds `game_rooms` (ownership, expiry and a pending lobby payload) and
+`game_room_members` (one reserved room per user).
 Migrations still apply automatically on startup. These tables contain no simulation snapshots.
 
 - **Before SIGTERM:** the old instance remains fully live. Players can join, leave, be kicked,
