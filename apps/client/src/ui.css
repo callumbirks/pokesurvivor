@@ -31,6 +31,9 @@
   --ink: #141012;
   /* Notices and highlights only. */
   --gold: #ffd65c;
+  /* The selection bar, open tabs and primary buttons: a warm light dimmer than the text, so
+     it doesn't flash (the dark text on it is 9.9:1). */
+  --bar: #d9cdb5;
   /* Titles drawn straight on the field. */
   --title: #f7f0de;
   --red: #ff6b5a;
@@ -259,7 +262,7 @@ main.screens:not([data-screen='play']),
   visibility: hidden;
 }
 .cursor-item.on {
-  background: var(--text);
+  background: var(--bar);
   color: var(--bg);
 }
 .cursor-item.on::before {
@@ -336,8 +339,11 @@ html[data-input='gamepad'] .cursor-item.nav-focus {
 }
 .btn.primary,
 .btn.gold {
-  background: var(--text);
+  background: var(--bar);
   color: var(--bg);
+  box-shadow:
+    inset 0 0 0 3px var(--bar),
+    4px 4px 0 var(--ink);
 }
 .btn.ghost {
   background: transparent;

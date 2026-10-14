@@ -281,9 +281,9 @@ select.field option {
   font-weight: 700;
 }
 .tab.on {
-  background: var(--text);
+  background: var(--bar);
   color: var(--bg);
-  box-shadow: inset 0 0 0 3px var(--text);
+  box-shadow: inset 0 0 0 3px var(--bar);
 }
 .filters {
   display: flex;
@@ -305,9 +305,9 @@ select.field option {
 }
 .chip.on,
 .filters .tab.on {
-  background: var(--text);
+  background: var(--bar);
   color: var(--bg);
-  box-shadow: inset 0 0 0 2px var(--text);
+  box-shadow: inset 0 0 0 2px var(--bar);
 }
 .chips {
   display: flex;
@@ -357,9 +357,9 @@ select.field option {
 }
 .gen-tab.on,
 .gen-tabs .tab.on {
-  background: var(--text);
+  background: var(--bar);
   color: var(--bg);
-  box-shadow: inset 0 0 0 2px var(--text);
+  box-shadow: inset 0 0 0 2px var(--bar);
 }
 .gen-tab.on small {
   color: var(--bg);
@@ -379,7 +379,7 @@ select.field option {
   font-size: 14px;
 }
 .seg button.on {
-  background: var(--text);
+  background: var(--bar);
   color: var(--bg);
 }
 
