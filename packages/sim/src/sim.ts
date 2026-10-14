@@ -392,10 +392,14 @@ export function createSim(config: SimConfig): Sim {
 
 /** Rebuilds a Sim from a state snapshot (a deep copy of `sim.state`, e.g. through JSON). */
 export function restoreSim(state: SimState): Sim {
-  // Solo saves from before recipient cooldowns were introduced remain resumable. Migrate only
-  // those enemies: current snapshots must restore byte-for-byte for deterministic replay.
-  const tuning = simData().game.tuning.enemyShields;
+  // Older saves remain resumable. Only fill missing fields: current snapshots must restore
+  // byte-for-byte for deterministic replay, including enemies stashed outside a rift arena.
+  const gameTuning = simData().game.tuning;
+  const tuning = gameTuning.enemyShields;
+  for (const p of state.players) p.relocationTokens ??= gameTuning.stragglers.burst;
   for (const e of [...state.enemies, ...(state.arena?.stash ?? [])]) {
+    e.targetId ??= null;
+    e.transferFromId ??= null;
     // Pre-healing-budget saves have no earned credit; further HP damage earns it normally.
     e.healCredit ??= 0;
     e.healCd ??= 0;
