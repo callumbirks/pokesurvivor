@@ -1,26 +1,37 @@
 {
   "unreleased": {
-    "prs": [32, 33, 34, 35, 36, 37, 38],
+    "prs": [],
     "entries": {
-      "new": [
-        "What's new: a new button on the main menu lists every update. A dot shows when there's one you haven't read.",
-        "The results screen shows what your achievements paid out, in solo and co-op.",
-        "Pick the manual-aim crosshair's colour and size in Settings → Controls.",
-        "Play the menus with a gamepad: the D-pad or stick moves through every menu and level-up choice, and button prompts match your controller."
-      ],
-      "changed": [
-        "HUD size is Auto by default and grows with the window, or pick a fixed size from 75% to 200%.",
-        "The crosshair is magenta by default and no longer changes colour while you fire.",
-        "In co-op, when a teammate goes down or leaves, their enemies now come for you gradually over 10–20 seconds instead of all at once.",
-        "Server updates no longer close multiplayer lobbies: you reconnect to the same room automatically. Games in progress still finish as before."
-      ],
-      "fixed": ["The HUD size slider can be dragged all the way again."],
-      "behindTheScenes": [
-        "Each release now gets a version number, shown in Settings, and a changelog."
-      ]
+      "new": [],
+      "changed": [],
+      "fixed": [],
+      "behindTheScenes": []
     }
   },
   "versions": [
+    {
+      "version": 5,
+      "date": "2026-10-14",
+      "prs": [32, 33, 34, 35, 36, 37, 38],
+      "entries": {
+        "new": [
+          "What's new: a new button on the main menu lists every update. A dot shows when there's one you haven't read.",
+          "The results screen shows what your achievements paid out, in solo and co-op.",
+          "Pick the manual-aim crosshair's colour and size in Settings → Controls.",
+          "Play the menus with a gamepad: the D-pad or stick moves through every menu and level-up choice, and button prompts match your controller."
+        ],
+        "changed": [
+          "HUD size is Auto by default and grows with the window, or pick a fixed size from 75% to 200%.",
+          "The crosshair is magenta by default and no longer changes colour while you fire.",
+          "In co-op, when a teammate goes down or leaves, their enemies now come for you gradually over 10–20 seconds instead of all at once.",
+          "Server updates no longer close multiplayer lobbies: you reconnect to the same room automatically. Games in progress still finish as before."
+        ],
+        "fixed": ["The HUD size slider can be dragged all the way again."],
+        "behindTheScenes": [
+          "Each release now gets a version number, shown in Settings, and a changelog."
+        ]
+      }
+    },
     {
       "version": 4,
       "date": "2026-10-14",
