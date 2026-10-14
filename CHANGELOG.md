@@ -6,7 +6,7 @@ What changed for players in each release, newest first. Generated from
 
 ## Unreleased
 
-PRs: [#48](https://github.com/callumbirks/pokesurvivor/pull/48), [#49](https://github.com/callumbirks/pokesurvivor/pull/49)
+PRs: [#48](https://github.com/callumbirks/pokesurvivor/pull/48), [#49](https://github.com/callumbirks/pokesurvivor/pull/49), [#50](https://github.com/callumbirks/pokesurvivor/pull/50)
 
 ### New
 
@@ -15,6 +15,10 @@ PRs: [#48](https://github.com/callumbirks/pokesurvivor/pull/48), [#49](https://g
 ### Changed
 
 - Coming back from a rift now heals everyone still standing by 30% of their max HP, as well as reviving the fallen.
+
+### Fixed
+
+- Upgrades now opens on your current partner after you change it.
 
 ## v7 - 2026-10-14
 

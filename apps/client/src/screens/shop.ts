@@ -6,6 +6,7 @@ import { audio } from '../audio.js';
 import type { App, Screen } from '../app/app.js';
 import { gameData, h, icon, num, pokemonName, replace, sprite } from '../app/dom.js';
 import { bindableMoves, movePoolOf, startingMoveOf } from '../app/moves.js';
+import { shopPick, type ShopPick } from '../app/shop-pick.js';
 import { toast } from '../app/toast.js';
 import { loadInto, screenBox } from './common.js';
 
@@ -14,8 +15,8 @@ type UpgradeRules = Record<string, { maxLevel: number; baseCost: number; growth:
 const BAN_UPGRADE = 'ban';
 const SLOTS = 4;
 
-// The view survives leaving and coming back, as in legacy.
-let shopDex: number | null = null;
+// The view survives leaving and coming back, as in legacy, until the partner changes.
+let pick: ShopPick = { dex: null, partner: null };
 let banOpen = false;
 
 /** The price shown for level `level + 1` (the server charges the same, `docs/api.md`). */
@@ -46,8 +47,8 @@ export function shopScreen(app: App): Screen {
         (a, b) =>
           Number(b === partner) - Number(a === partner) || totalLevels(b) - totalLevels(a) || a - b,
       );
-    if (!shopDex || !s.owned[String(shopDex)]) shopDex = partner ?? owned[0] ?? null;
-    const dex = shopDex;
+    pick = shopPick(pick, partner, owned);
+    const dex = pick.dex;
     if (!dex) return;
     const mon = data.pokemonByDex.get(dex);
     const shiny = dex === partner && s.partner.shiny && !!s.shiny[String(dex)];
@@ -65,7 +66,7 @@ export function shopScreen(app: App): Screen {
       ),
     );
     select.addEventListener('change', () => {
-      shopDex = Number(select.value);
+      pick = { dex: Number(select.value), partner };
       render();
     });
     replace(
