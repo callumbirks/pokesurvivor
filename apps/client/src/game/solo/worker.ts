@@ -54,6 +54,8 @@ let checkpointEveryS = 0;
 let saveEveryS = 0;
 let nextCheckpointS = Infinity;
 let nextSaveS = Infinity;
+/** Whether the run's clock was last reported stopped (null: not reported yet). */
+let clockStopped: boolean | null = null;
 
 const post = (m: FromWorker, transfer?: Transferable[]) => scope.postMessage(m, transfer);
 
@@ -63,8 +65,21 @@ function sendFrame(events: ReturnType<Sim['drainEvents']>): void {
   post({ type: 'frame', data }, [data.buffer]);
 }
 
+/**
+ * Reports the run time and whether it's standing still (paused, or waiting on a choice) when
+ * that changes, or always with `force` (for friends' presence; see `SoloOptions.onClock`).
+ */
+function clock(force = false): void {
+  if (!sim || !running || ended) return;
+  const stopped = paused || sim.paused;
+  if (!force && stopped === clockStopped) return;
+  clockStopped = stopped;
+  post({ type: 'clock', elapsedS: sim.state.time, paused: stopped });
+}
+
 function checkpoint(report: boolean): void {
   if (!sim || ended) return;
+  if (report) clock(true);
   const s = sim;
   const run = s.runSummaryFor(playerId, (dex) => owned.has(dex));
   // `postMessage` copies the state (structured clone) before the next tick changes it.
@@ -118,6 +133,7 @@ function loop(): void {
     else if (sim.state.time >= nextCheckpointS) checkpoint(true);
     else if (sim.state.time >= nextSaveS) checkpoint(false);
   }
+  clock();
 }
 
 /** Dev and perf tests: plays the first minutes for you (circling, invulnerable, first cards). */
@@ -197,6 +213,7 @@ scope.onmessage = (ev) => {
         last = performance.now();
         sendFrame([]);
         timer = setInterval(loop, TICK_MS / 2);
+        clock(true);
         // Saved from the start: a reload in the first seconds can resume the run too.
         if (saveEveryS > 0) checkpoint(false);
         return;
@@ -223,6 +240,7 @@ scope.onmessage = (ev) => {
       case 'pause':
         paused = m.paused;
         last = performance.now();
+        clock();
         return;
       case 'resync':
         encoder?.reset();

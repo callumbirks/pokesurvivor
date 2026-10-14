@@ -21,6 +21,11 @@ export interface RunRoutesOptions {
    * can't start a solo run. Absent without a game server.
    */
   inRoom?: (userId: string) => boolean | Promise<boolean>;
+  /**
+   * A solo run was reported, or found closed (the game server drops it from the player's
+   * presence). Absent without a game server.
+   */
+  runClosed?: (userId: string, runId: string) => void;
 }
 
 const count = z.number().int().nonnegative().max(1_000_000);
@@ -100,7 +105,12 @@ export function runRoutes(app: FastifyInstance, opts: RunRoutesOptions): void {
     const userId = currentUser(request).id;
     const result = await finishSoloRun(db, userId, runId, claim, runCaps, {
       timeZone: opts.leaderboardTimeZone,
+    }).catch((err: unknown) => {
+      if (err instanceof ApiError && (err.statusCode === 404 || err.statusCode === 409))
+        opts.runClosed?.(userId, runId);
+      throw err;
     });
+    opts.runClosed?.(userId, runId);
     return { ...result, save: await getSave(db, userId) };
   });
 

@@ -1,6 +1,7 @@
 import { encode } from '@pokesurvivor/protocol';
 import type { ServerMsg } from '@pokesurvivor/netclient';
 import type { WebSocket } from 'ws';
+import type { SoloActivity } from './activity.js';
 
 /** Snapshots are skipped for a client whose socket has this much unsent data (it can't keep up). */
 const MAX_BUFFERED_BYTES = 256 * 1024;
@@ -12,6 +13,10 @@ export class Session {
   readonly id = nextSessionId++;
   lastHeard = Date.now();
   closed = false;
+  /** The solo run this user is playing, as their client reports it (for friends' presence). */
+  solo: SoloActivity | null = null;
+  /** Counts `activity` messages, so a slow database check can't apply an older one. */
+  soloSeq = 0;
 
   constructor(
     readonly userId: string,

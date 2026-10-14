@@ -87,6 +87,14 @@ export class Game {
     this.info = this.describe();
   }
 
+  /** The run time, and whether it's standing still (loading, a pending choice, nobody connected). */
+  get clock(): { elapsedS: number; paused: boolean } {
+    if (this.phase !== 'running')
+      return { elapsedS: this.phase === 'ended' ? this.sim.state.time : 0, paused: true };
+    const anyone = [...this.slots.values()].some((s) => s.connected && !s.left);
+    return { elapsedS: this.sim.state.time, paused: !anyone || this.sim.paused };
+  }
+
   /** Players in the game (not including those who left). */
   get playerIds(): string[] {
     return [...this.slots.values()].filter((s) => !s.left).map((s) => s.userId);

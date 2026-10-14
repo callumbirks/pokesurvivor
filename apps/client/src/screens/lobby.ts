@@ -6,7 +6,7 @@ import type { MemberStatus, RoomView } from '@pokesurvivor/protocol';
 import type { App, Screen } from '../app/app.js';
 import type { FriendsList } from '../app/api.js';
 import { h, pokemonName, replace, sprite } from '../app/dom.js';
-import { inviteButton, presenceOf } from './friends.js';
+import { activityLine, dotClass, inviteButton, presenceOf, tickActivities } from './friends.js';
 import { screenBox } from './common.js';
 
 const PLAYER_COLORS = ['#ffcb3d', '#5fc8ff', '#7ee07a', '#ff8ad8'];
@@ -158,8 +158,13 @@ export function lobbyScreen(app: App): Screen {
             return h(
               'div',
               { class: 'fr-row' },
-              h('span', { class: ['dot', p !== 'offline' && 'on'] }),
-              h('b', { class: 'grow' }, f.username),
+              h('span', { class: ['dot', dotClass(p)] }),
+              h(
+                'div',
+                { class: 'grow' },
+                h('b', null, f.username),
+                activityLine(app, f.username, p),
+              ),
               inviteButton(app, f.username, p),
             );
           })
@@ -230,6 +235,7 @@ export function lobbyScreen(app: App): Screen {
     app.net?.on('room', render),
     app.net?.on('presence', render),
     app.events.on('friends', () => void loadFriends()),
+    tickActivities(app, content),
   ];
   return { el: box.el, destroy: () => offs.forEach((o) => o?.()) };
 }

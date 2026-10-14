@@ -3,7 +3,9 @@
 // keep-alive, the local save and what happens to it when the run is reported, refused or offline.
 import type { Results } from '@pokesurvivor/netclient';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { SoloClock } from '@pokesurvivor/protocol';
 import {
+  PAUSE_REPORT_DELAY_MS,
   createSoloConnection,
   type SoloApi,
   type SoloOptions,
@@ -309,6 +311,51 @@ describe('solo connection checkpoints', () => {
     expect(r.solo.timedOut).toBe(true);
     expect(r.players[0]?.summary.run.durationS).toBe(1);
     expect(await store.get('u1')).toBeNull();
+    conn.close();
+  });
+});
+
+describe('solo connection clock (friends presence)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({
+      toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'performance', 'Date'],
+    });
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('reports the run clock as it starts, pauses (after a moment) and resumes, then clears it', async () => {
+    const clocks: (SoloClock | null)[] = [];
+    const conn = await connect(fakeApi(), memoryRunStore(), {
+      checkpointEveryS: 0,
+      onClock: (c) => clocks.push(c),
+    });
+    await vi.advanceTimersByTimeAsync(100);
+    expect(clocks).toEqual([{ runId: 'run-1', elapsedS: 0, paused: false }]);
+
+    await vi.advanceTimersByTimeAsync(5000);
+    conn.setPaused(true);
+    // A short pause isn't reported.
+    await vi.advanceTimersByTimeAsync(500);
+    conn.setPaused(false);
+    await vi.advanceTimersByTimeAsync(PAUSE_REPORT_DELAY_MS + 500);
+    expect(clocks.slice(1).every((c) => c && !c.paused)).toBe(true);
+
+    conn.setPaused(true);
+    await vi.advanceTimersByTimeAsync(PAUSE_REPORT_DELAY_MS + 100);
+    const paused = clocks.at(-1);
+    expect(paused).toMatchObject({ runId: 'run-1', paused: true });
+    expect(paused!.elapsedS).toBeGreaterThan(6);
+    expect(paused!.elapsedS).toBeLessThan(10);
+
+    conn.setPaused(false);
+    await vi.advanceTimersByTimeAsync(100);
+    expect(clocks.at(-1)).toMatchObject({ paused: false, elapsedS: paused!.elapsedS });
+
+    conn.quit();
+    await vi.advanceTimersByTimeAsync(100);
+    expect(clocks.at(-1)).toBeNull();
     conn.close();
   });
 });

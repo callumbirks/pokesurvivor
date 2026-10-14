@@ -39,6 +39,33 @@ export const FINAL_CLOSE_CODES: readonly number[] = [
 ];
 
 export type PresenceStatus = 'offline' | 'online' | 'in_lobby' | 'in_game';
+
+/**
+ * What an online friend is doing, next to their `PresenceStatus` (absent when offline). `menu`:
+ * anywhere outside a run (a room's lobby too; the status says `in_lobby`). In a run: their
+ * Pokémon and the run time in seconds when the message was sent; the client ticks it on locally
+ * unless `paused` (a pause, a pending choice, or loading). The server re-sends it when the
+ * clock is paused or resumed or drifts, never every second.
+ */
+export type FriendActivity =
+  | { kind: 'menu' }
+  | { kind: 'solo' | 'coop'; dex: number; shiny: boolean; elapsedS: number; paused?: true };
+
+/** A solo run's clock, reported by its client (`activity` message); null: not in a solo run. */
+export interface SoloClock {
+  runId: string;
+  /** Run time in seconds. */
+  elapsedS: number;
+  /** Not advancing: paused, waiting on a choice, or loading. */
+  paused: boolean;
+}
+
+/** One friend's presence: `activity` is absent when offline (and from older servers). */
+export interface FriendPresence {
+  username: string;
+  status: PresenceStatus;
+  activity?: FriendActivity;
+}
 /** `busy`: in the gacha, shop, collection or settings. The owner can only start when everyone is `ready`. */
 export type MemberStatus = 'ready' | 'not-ready' | 'busy';
 export type RoomPhase = 'lobby' | 'loading' | 'running' | 'ended';
@@ -216,6 +243,12 @@ export type ClientMessage<Intent = WireIntent> =
   | { type: 'game.loaded'; gameId: string }
   /** The client couldn't apply a snapshot: the next one must be full. */
   | { type: 'game.resync'; gameId: string }
+  /**
+   * Your solo run's clock for your friends' presence (on start, pause and resume, at checkpoints,
+   * and after a reconnect); `solo: null` when the run is over. The server checks the run is yours
+   * and open, and takes the Pokémon from it.
+   */
+  | { type: 'activity'; solo: SoloClock | null }
   | InputMessage
   /** `rid`: request id, echoed in the `reply`. */
   | (ClientRequest<Intent> & { rid: number });
@@ -253,8 +286,8 @@ export type ServerMessage<Roster = unknown, Summary = unknown> =
   | { type: 'invite.revoked'; roomId: string }
   | { type: 'invite.declined'; roomId: string; username: string }
   /** Every friend's presence (on connect). */
-  | { type: 'presence'; friends: { username: string; status: PresenceStatus }[] }
-  | { type: 'presence.update'; username: string; status: PresenceStatus }
+  | { type: 'presence'; friends: FriendPresence[] }
+  | ({ type: 'presence.update' } & FriendPresence)
   | { type: 'friend'; event: FriendEventName; username: string }
   | { type: 'notice'; code: NoticeCode; usernames?: string[]; deadline?: number }
   /** A game is loading: load sprites for the roster and players, then send `game.loaded`. */

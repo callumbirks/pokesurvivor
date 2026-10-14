@@ -15,7 +15,7 @@ import {
   type Results,
   type RoomConnection,
 } from '@pokesurvivor/netclient';
-import type { RunSummary } from '@pokesurvivor/protocol';
+import type { RunSummary, SoloClock } from '@pokesurvivor/protocol';
 import type { Intent, PlayerConfig } from '@pokesurvivor/sim';
 import type { RunReport } from '../../app/api.js';
 import type { DevAction, FromWorker, ToWorker } from './messages.js';
@@ -83,7 +83,16 @@ export interface SoloOptions {
   saveEveryS?: number;
   /** Keep-alive checkpoints while the run doesn't advance (`KEEP_ALIVE_MS`). */
   keepAliveMs?: number;
+  /**
+   * The run's clock for friends' presence (`NetClient.setSoloClock`): as it starts, pauses and
+   * resumes, and at checkpoints; null once it's over. Pauses are reported after
+   * `PAUSE_REPORT_DELAY_MS`, so picking a card doesn't flicker on friends' screens.
+   */
+  onClock?: (clock: SoloClock | null) => void;
 }
+
+/** A pause shorter than this isn't reported to friends (the server corrects any drift). */
+export const PAUSE_REPORT_DELAY_MS = 2000;
 
 /** What the server said about a reported solo run (`POST /api/runs`), on top of `Results`. */
 export interface SoloReport {
@@ -136,6 +145,8 @@ export function createSoloConnection(opts: SoloOptions): SoloConnection {
    */
   let closedBy: unknown = null;
   let lastCheckpoint = now();
+  let clockTimer: ReturnType<typeof setTimeout> | null = null;
+  let clockShown = false;
   /** The run id once known, and the latest run summary: sent as the page goes away. */
   let knownRunId: string | null = null;
   let latestSummary: RunSummary | null = null;
@@ -216,8 +227,12 @@ export function createSoloConnection(opts: SoloOptions): SoloConnection {
         if (m.report) lastCheckpoint = now();
         void checkpoint(m.summary, m.state, m.report);
         return;
+      case 'clock':
+        reportClock(m.elapsedS, m.paused);
+        return;
       case 'ended':
         ended = true;
+        clearClock();
         void report(m.reason, m.summary);
         return;
       case 'error':
@@ -247,6 +262,29 @@ export function createSoloConnection(opts: SoloOptions): SoloConnection {
       void storeOp((store) => store.delete(loadout.id, id));
       post({ type: 'quit' });
     }
+  }
+
+  function reportClock(elapsedS: number, paused: boolean): void {
+    if (!opts.onClock) return;
+    if (clockTimer !== null) clearTimeout(clockTimer);
+    clockTimer = null;
+    const send = () => {
+      void (runId ?? Promise.resolve(null)).then((id) => {
+        if (!id || closed || ended || closedBy) return;
+        clockShown = true;
+        opts.onClock?.({ runId: id, elapsedS, paused });
+      });
+    };
+    if (paused) clockTimer = setTimeout(send, PAUSE_REPORT_DELAY_MS);
+    else send();
+  }
+
+  /** The run is over (or the screen gone): friends see the menus again. */
+  function clearClock(): void {
+    if (clockTimer !== null) clearTimeout(clockTimer);
+    clockTimer = null;
+    if (clockShown) opts.onClock?.(null);
+    clockShown = false;
   }
 
   /** Asks the worker for a checkpoint now (keep-alive, page hidden or closing). */
@@ -375,6 +413,7 @@ export function createSoloConnection(opts: SoloOptions): SoloConnection {
   solo.quit = () => post({ type: 'quit' });
   solo.devTrigger = (action) => post({ type: 'debug', action });
   solo.close = () => {
+    clearClock();
     closed = true;
     clearInterval(keepAlive);
     if (hasDocument) {

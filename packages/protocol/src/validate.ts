@@ -125,6 +125,27 @@ export function decodeClientMessage(raw: string): Decoded<ClientMessage> {
       return isStr(m.gameId, 64) && onlyKeys(m, ['gameId'])
         ? { ok: true, message: { type: m.type, gameId: m.gameId } }
         : fail(`bad ${m.type}`);
+    case 'activity': {
+      const solo = m.solo;
+      if (!onlyKeys(m, ['solo'])) return fail('bad activity');
+      if (solo === null) return { ok: true, message: { type: 'activity', solo: null } };
+      if (
+        !isObj(solo) ||
+        !isStr(solo.runId, 64) ||
+        !isFinite(solo.elapsedS) ||
+        solo.elapsedS < 0 ||
+        typeof solo.paused !== 'boolean' ||
+        Object.keys(solo).some((k) => !['runId', 'elapsedS', 'paused'].includes(k))
+      )
+        return fail('bad activity');
+      return {
+        ok: true,
+        message: {
+          type: 'activity',
+          solo: { runId: solo.runId, elapsedS: solo.elapsedS, paused: solo.paused },
+        },
+      };
+    }
     case 'input': {
       const slot = m.slot;
       const slotOk = slot === undefined || slot === null || (isUint(slot) && slot < 16);

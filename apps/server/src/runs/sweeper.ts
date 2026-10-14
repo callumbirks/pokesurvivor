@@ -9,6 +9,8 @@ export interface RunSweeperOptions extends ProgressOptions {
   /** See `SoloRunConfig` in `config.ts`. */
   checkpointTimeoutMs: number;
   sweepIntervalMs: number;
+  /** Called with the runs a pass credited (the game server drops them from friends' presence). */
+  onCredited?: (runIds: readonly string[]) => void;
 }
 
 /**
@@ -39,7 +41,10 @@ export class RunSweeper {
       const { db, log, checkpointTimeoutMs, timeZone } = this.#opts;
       try {
         const ids = await creditTimedOutRuns(db, checkpointTimeoutMs, { timeZone });
-        if (ids.length) log.info({ runs: ids }, 'credited timed-out solo runs');
+        if (ids.length) {
+          log.info({ runs: ids }, 'credited timed-out solo runs');
+          this.#opts.onCredited?.(ids);
+        }
       } catch (err) {
         log.error({ err }, 'solo run sweep failed');
       } finally {

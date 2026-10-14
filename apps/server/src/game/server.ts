@@ -8,7 +8,10 @@ import {
   decodeClientMessage,
   type ClientMessage,
   type ErrorInfo,
+  type FriendActivity,
+  type FriendPresence,
   type PresenceStatus,
+  type SoloClock,
 } from '@pokesurvivor/protocol';
 import { TICK_MS } from '@pokesurvivor/sim';
 import type { FastifyBaseLogger, FastifyInstance, FastifyRequest } from 'fastify';
@@ -24,8 +27,15 @@ import type { Game, GameOutcome, GameSettings } from './game.js';
 import { Room, newRoomId } from './room.js';
 import { Session } from './session.js';
 import { Ticker } from './ticker.js';
-import { eq, inArray } from 'drizzle-orm';
-import { users } from '../db/schema.js';
+import { and, eq, inArray } from 'drizzle-orm';
+import { runPlayers, runs, users } from '../db/schema.js';
+import {
+  SOLO_STALE_MS,
+  presenceDiffers,
+  run,
+  soloActivity,
+  type SentPresence,
+} from './activity.js';
 import { RoomRegistry } from './registry.js';
 
 /** A request failed; the code goes to the client (it maps it to a UI string). */
@@ -78,7 +88,8 @@ export class GameServer implements PresenceSource, FriendNotifier {
   private readonly rooms = new Map<string, Room>();
   private readonly roomOf = new Map<string, Room>();
   private readonly friends = new Map<string, Set<string>>();
-  private readonly lastPresence = new Map<string, PresenceStatus>();
+  /** What each online user's friends were last sent (status and activity). */
+  private readonly lastPresence = new Map<string, SentPresence>();
   /** Usernames of users who just went offline (their presence is still being pushed). */
   private readonly lastUsername = new Map<string, string>();
   private readonly games = new Set<Game>();
@@ -190,23 +201,138 @@ export class GameServer implements PresenceSource, FriendNotifier {
   private presenceOf(userId: string): PresenceStatus {
     if (!this.isOnline(userId)) return 'offline';
     const room = this.roomOf.get(userId);
-    if (!room) return 'online';
+    if (!room) return this.sessions.get(userId)?.solo ? 'in_game' : 'online';
     const inGame = room.members.get(userId)?.inGame;
     return inGame && (room.phase === 'loading' || room.phase === 'running')
       ? 'in_game'
       : 'in_lobby';
   }
 
-  /** Pushes the user's presence to their online friends if it changed. */
-  presenceChanged(userId: string): void {
+  /** What the user is doing, for their friends (undefined when offline). */
+  private activityOf(userId: string, now: number): FriendActivity | undefined {
+    const session = this.sessionOf(userId);
+    if (!session) return undefined;
+    const room = this.roomOf.get(userId);
+    if (room) {
+      const game = room.game;
+      const player = game?.info.players.find((p) => p.id === userId);
+      if (
+        game &&
+        player &&
+        room.members.get(userId)?.inGame &&
+        (room.phase === 'loading' || room.phase === 'running')
+      ) {
+        const { elapsedS, paused } = game.clock;
+        return run('coop', player.dex, player.shiny, elapsedS, paused);
+      }
+      return { kind: 'menu' };
+    }
+    return session.solo ? soloActivity(session.solo, now) : { kind: 'menu' };
+  }
+
+  private friendPresence(userId: string, username: string, now: number): FriendPresence {
     const status = this.presenceOf(userId);
-    if (this.lastPresence.get(userId) === status) return;
+    const activity = status === 'offline' ? undefined : this.activityOf(userId, now);
+    return { username, status, ...(activity ? { activity } : {}) };
+  }
+
+  /**
+   * Pushes the user's presence to their online friends if it changed in a way they'd see: the
+   * status, the activity, a run's pause, or its clock drifting (`presenceDiffers`).
+   */
+  presenceChanged(userId: string): void {
+    const now = Date.now();
+    const status = this.presenceOf(userId);
+    const activity = status === 'offline' ? undefined : this.activityOf(userId, now);
+    if (!presenceDiffers(this.lastPresence.get(userId), status, activity, now)) return;
     if (status === 'offline') this.lastPresence.delete(userId);
-    else this.lastPresence.set(userId, status);
+    else this.lastPresence.set(userId, { status, activity, at: now });
     const username = this.usernameOf(userId);
     if (!username) return;
-    for (const friendId of this.friends.get(userId) ?? [])
-      this.sessionOf(friendId)?.send({ type: 'presence.update', username, status });
+    const message = {
+      type: 'presence.update' as const,
+      username,
+      status,
+      ...(activity ? { activity } : {}),
+    };
+    for (const friendId of this.friends.get(userId) ?? []) this.sessionOf(friendId)?.send(message);
+  }
+
+  /** Re-checks the presence of everyone in a run (pauses, clock drift, stale solo runs). */
+  private refreshRunPresence(): void {
+    const now = Date.now();
+    for (const session of this.sessions.values())
+      if (session.solo && now - session.solo.at > SOLO_STALE_MS) {
+        session.solo = null;
+        this.presenceChanged(session.userId);
+      }
+    for (const [userId, sent] of [...this.lastPresence])
+      if (sent.activity && sent.activity.kind !== 'menu') this.presenceChanged(userId);
+  }
+
+  /**
+   * The client reports its solo run's clock. The run must be this user's and still open; its
+   * Pokémon comes from the database (checked once per run), the clock from the client (display
+   * only, bounded by the time since the run started).
+   */
+  private async soloClock(session: Session, clock: SoloClock | null): Promise<void> {
+    const seq = ++session.soloSeq;
+    if (!clock) {
+      if (!session.solo) return;
+      session.solo = null;
+      this.presenceChanged(session.userId);
+      return;
+    }
+    const now = Date.now();
+    let known = session.solo?.runId === clock.runId ? session.solo : null;
+    if (!known) {
+      const [row] = await this.db
+        .select({
+          dex: runPlayers.pokemonDex,
+          shiny: runPlayers.pokemonShiny,
+          startedAt: runs.startedAt,
+        })
+        .from(runs)
+        .innerJoin(runPlayers, eq(runPlayers.runId, runs.id))
+        .where(
+          and(
+            eq(runs.id, clock.runId),
+            eq(runs.mode, 'solo'),
+            eq(runs.status, 'started'),
+            eq(runPlayers.userId, session.userId),
+          ),
+        )
+        .catch(() => []); // not a uuid
+      if (session.soloSeq !== seq || this.sessions.get(session.userId) !== session) return;
+      if (!row) {
+        if (session.solo) {
+          session.solo = null;
+          this.presenceChanged(session.userId);
+        }
+        return;
+      }
+      known = {
+        runId: clock.runId,
+        ...row,
+        startedAt: row.startedAt.getTime(),
+        elapsedS: 0,
+        paused: true,
+        at: now,
+      };
+    }
+    session.solo = { ...known, elapsedS: clock.elapsedS, paused: clock.paused, at: Date.now() };
+    this.presenceChanged(session.userId);
+  }
+
+  /** Solo runs that were reported or credited: they no longer show in presence. */
+  soloRunsClosed(runIds: readonly string[], userId?: string): void {
+    const sessions = userId ? [this.sessions.get(userId)] : [...this.sessions.values()];
+    for (const session of sessions) {
+      if (!session?.solo || !runIds.includes(session.solo.runId)) continue;
+      session.solo = null;
+      session.soloSeq++;
+      this.presenceChanged(session.userId);
+    }
   }
 
   private usernameOf(userId: string): string | null {
@@ -243,11 +369,11 @@ export class GameServer implements PresenceSource, FriendNotifier {
     if (!username) return;
     target.send({ type: 'friend', event: event.type, username });
     if (event.type === 'request_accepted') {
-      target.send({ type: 'presence.update', username, status: this.presenceOf(otherId) });
+      const now = Date.now();
+      target.send({ type: 'presence.update', ...this.friendPresence(otherId, username, now) });
       this.sessionOf(otherId)?.send({
         type: 'presence.update',
-        username: target.username,
-        status: this.presenceOf(event.userId),
+        ...this.friendPresence(event.userId, target.username, now),
       });
     }
   }
@@ -369,6 +495,11 @@ export class GameServer implements PresenceSource, FriendNotifier {
         if (game?.id === m.gameId) game.resync(session.userId);
         return;
       }
+      case 'activity':
+        void this.soloClock(session, m.solo).catch((err: unknown) =>
+          this.log.warn({ err }, 'could not check a solo run for presence'),
+        );
+        return;
       default: {
         const request = this.request(session, m);
         this.requests.add(request);
@@ -451,11 +582,12 @@ export class GameServer implements PresenceSource, FriendNotifier {
             .where(inArray(users.id, ids))
         : [];
       const byId = new Map(names.map((u) => [u.id, u.username]));
+      const now = Date.now();
       session.send({
         type: 'presence',
         friends: ids
           .filter((id) => byId.has(id))
-          .map((id) => ({ username: byId.get(id) as string, status: this.presenceOf(id) })),
+          .map((id) => this.friendPresence(id, byId.get(id) as string, now)),
       });
     } catch (err) {
       this.log.warn({ err }, 'could not load friends for presence');
@@ -501,6 +633,7 @@ export class GameServer implements PresenceSource, FriendNotifier {
         this.polling = false;
       });
     }
+    this.refreshRunPresence();
     const deadline = Date.now() - this.config.heartbeatMs * 5;
     for (const session of this.sessions.values()) {
       if (session.lastHeard < deadline) session.close(CloseCode.timeout, 'heartbeat timeout');

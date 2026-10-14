@@ -75,6 +75,7 @@ export function playSolo(app: App, loadout: PlayerConfig, owned: number[]): void
     api: soloApi(app, { dex: loadout.dex, shiny: !!loadout.shiny }),
     store: soloRunStore,
     checkpointEveryS: checkpointEveryS(),
+    onClock: (clock) => app.net?.setSoloClock(clock),
   });
   app.startGame({ conn, kind: 'solo' });
 }
@@ -115,6 +116,7 @@ export async function resumeSolo(app: App, saved: SavedSoloRun): Promise<boolean
     store: soloRunStore,
     resume: saved,
     checkpointEveryS: checkpointEveryS(),
+    onClock: (clock) => app.net?.setSoloClock(clock),
   });
   app.startGame({ conn, kind: 'solo' });
   return true;
