@@ -1,4 +1,4 @@
-// Single-player screens against the real server: shop, move slots and bans, settings sync,
+// Single-player screens against the real server: the shop with its move bans and slots, settings sync,
 // the solo flow up to the game, and logging out and back in.
 import { expect, test } from '@playwright/test';
 
@@ -28,17 +28,23 @@ test('shop, moves, settings, solo and login again', async ({ page }) => {
   // The next level costs more (the price comes from the server's rules).
   await expect(page.getByTestId('buy-ban')).not.toHaveText(price ?? '');
 
-  // Collection: bind a move to slot 2 and ban a move (allowed now: one ban).
-  await page.getByTestId('back').click();
-  await page.getByTestId('menu-collection').click();
-  await page.locator('.move-settings summary').click();
+  // Still in the shop, as in legacy: open the ban picker from the upgrade (1/1 allowed now), ban
+  // a move, and bind a move to slot 2 below.
+  await expect(page.getByTestId('choose-bans')).toHaveText('Choose (0/1)');
+  await page.getByTestId('choose-bans').click();
+  const ban = page.locator('[data-testid="ban-picker"] [data-testid^="ban-"]').first();
+  await ban.click();
+  await expect(page.locator('[data-testid^="ban-"].ban')).toHaveCount(1);
+  await expect(page.getByTestId('choose-bans')).toHaveText('Choose (1/1)');
   const slot = page.getByTestId('bind-1');
   const option = await slot.locator('option').nth(2).getAttribute('value');
   await slot.selectOption(option ?? '');
   await expect(page.getByTestId('bind-1')).toHaveValue(option ?? '');
-  const ban = page.locator('[data-testid^="ban-"]').first();
-  await ban.click();
-  await expect(page.locator('[data-testid^="ban-"].ban')).toHaveCount(1);
+  // The collection no longer has an editor.
+  await page.getByTestId('back').click();
+  await page.getByTestId('menu-collection').click();
+  await expect(page.getByTestId('collection-detail')).toBeVisible();
+  await expect(page.locator('[data-testid^="ban-"], [data-testid^="bind-"]')).toHaveCount(0);
 
   // Settings sync to the account: change one, reload, it's still set.
   await page.goto('/#settings');

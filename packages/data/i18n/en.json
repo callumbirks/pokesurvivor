@@ -21,6 +21,7 @@
   },
   "upgrades": {
     "max": "Max.",
+    "free": "Free",
     "eachPokemonHasItsOwn": "Each Pokémon has its own upgrades: they only count when you play with it."
   },
   "hud": {
@@ -523,8 +524,6 @@
     "multiplayer": "Multiplayer",
     "partner": "partner",
     "levels": "{0} levels",
-    "bannedMoves": "Banned moves ({0}/{1})",
-    "banNeedsUpgrade": "Buy the {0} upgrade in the shop to ban moves from your cards.",
     "inALobby": "In a room",
     "youHaveTickets": "You have {ticket} {0} tickets and {ticket10} {1} ×10 tickets",
     "softPityFrom": "Soft pity from pull {0}",

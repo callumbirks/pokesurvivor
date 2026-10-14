@@ -849,18 +849,23 @@ img.pix {
   height: 100%;
   background: var(--gold);
 }
-.move-settings {
-  margin-top: 8px;
+.ban-picker,
+.bind-panel {
+  grid-column: 1 / -1;
 }
-.move-settings summary {
-  cursor: pointer;
-  font-weight: 700;
-  color: var(--gold);
+.ban-picker .sub,
+.bind-panel .sub {
+  margin: 2px 0 8px;
 }
 .bind-slots {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 6px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+@media (max-width: 760px) {
+  .bind-slots {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 .bind-slot {
   display: flex;
@@ -874,6 +879,7 @@ img.pix {
 }
 .bind-slot select {
   width: 100%;
+  min-width: 0;
   font-size: 13px;
   padding: 5px;
 }
@@ -1036,6 +1042,9 @@ img.pix {
 }
 .upg-item .ic {
   text-align: center;
+}
+.upg-choose {
+  margin-top: 6px;
 }
 .pips {
   display: flex;
