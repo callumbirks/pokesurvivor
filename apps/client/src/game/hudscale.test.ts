@@ -29,28 +29,43 @@ describe('HUD scale', () => {
     expect(autoHudScale(0, 0)).toBe(1);
   });
 
-  it('applies the HUD size setting on top, within 75–150%', () => {
-    expect(hudScale(1920, 1080, 1)).toBe(1.5);
-    expect(hudScale(1920, 1080, 1.5)).toBe(2.25);
-    expect(hudScale(1920, 1080, 0.75)).toBe(1.125);
+  it('is the automatic scale on Auto, else the fixed scale set, within 75–200%', () => {
+    expect(hudScale(1920, 1080, 'auto')).toBe(1.5);
+    expect(hudScale(863, 360, 'auto')).toBe(1);
+    // A fixed scale is absolute: 100% is the original size on any window.
+    expect(hudScale(1920, 1080, 1)).toBe(1);
+    expect(hudScale(1920, 1080, 1.5)).toBe(1.5);
+    expect(hudScale(863, 360, 2)).toBe(2);
     expect(hudScale(863, 360, 0.75)).toBe(0.75);
-    expect(hudScale(863, 360, 9)).toBe(1.5);
+    expect(hudScale(863, 360, 9)).toBe(2);
+    expect(hudScale(863, 360, 0.1)).toBe(0.75);
     expect(hudScale(863, 360, Number.NaN)).toBe(1);
     // Rounded to 1/40 so resizing doesn't make text shimmer.
-    expect((hudScale(1500, 1000, 1) * 40) % 1).toBe(0);
+    expect((hudScale(1500, 1000, 'auto') * 40) % 1).toBe(0);
+    expect(hudScale(800, 600, 1.234)).toBe(1.225);
   });
 
-  it('is a per-device setting: stored locally, clamped, not synced to the save', () => {
+  it('is a per-device setting: Auto by default, stored locally, clamped, not synced', () => {
     const storage = memoryStorage();
     const a = new SettingsStore(storage);
-    expect(a.get().hudScale).toBe(1);
-    a.set({ hudScale: 1.25 });
-    expect(new SettingsStore(storage).get().hudScale).toBe(1.25);
-    a.set({ hudScale: 4 });
-    expect(a.get().hudScale).toBe(1.5);
-    a.set({ hudScale: 0.1 });
-    expect(a.get().hudScale).toBe(0.75);
-    expect('hudScale' in a.synced()).toBe(false);
+    expect(a.get().hudSize).toBe('auto');
+    a.set({ hudSize: 1.25 });
+    expect(new SettingsStore(storage).get().hudSize).toBe(1.25);
+    a.set({ hudSize: 4 });
+    expect(a.get().hudSize).toBe(2);
+    a.set({ hudSize: 0.1 });
+    expect(a.get().hudSize).toBe(0.75);
+    a.set({ hudSize: 'auto' });
+    expect(new SettingsStore(storage).get().hudSize).toBe('auto');
+    expect('hudSize' in a.synced()).toBe(false);
+  });
+
+  it('starts old saves on Auto (their hudScale was a multiplier of the automatic size)', () => {
+    const storage = memoryStorage();
+    storage.setItem('ps.settings', JSON.stringify({ hudScale: 1.5, musicVolume: 0.3 }));
+    const s = new SettingsStore(storage).get();
+    expect(s.hudSize).toBe('auto');
+    expect(s.musicVolume).toBe(0.3);
   });
 });
 

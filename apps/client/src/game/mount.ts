@@ -914,7 +914,7 @@ class Run {
         frame,
         w,
         h,
-        scale: hudScale(w, h, settings.get().hudScale),
+        scale: hudScale(w, h, settings.get().hudSize),
         camera: cam,
         weather: this.weather,
         touch: this.touch,
