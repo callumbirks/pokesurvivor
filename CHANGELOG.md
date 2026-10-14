@@ -8,6 +8,10 @@ What changed for players in each release, newest first. Generated from
 
 PRs: [#59](https://github.com/callumbirks/pokesurvivor/pull/59)
 
+### Changed
+
+- Legendaries are rarer in the gacha: base chance 0.15%, with pity starting at pull 180 and guaranteed by 220. Collect the rest of a region first!
+
 ### Fixed
 
 - Server restarts no longer stall when a player reconnects during shutdown.

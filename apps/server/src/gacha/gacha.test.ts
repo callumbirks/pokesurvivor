@@ -44,8 +44,8 @@ describe('gacha', () => {
     const anon = (await t.client().get('/api/gacha')).json<GachaInfo>();
     const { gacha } = getServerData();
     expect(anon).toMatchObject({
-      softPity: { from: 74, stepPerPull: 0.06 },
-      hardPity: 90,
+      softPity: gacha.softPity,
+      hardPity: gacha.hardPity,
       rates: gacha.rates,
     });
     expect(anon.banners.map((b) => b.id)).toEqual(gacha.banners.map((b) => b.id));
