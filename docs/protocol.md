@@ -294,22 +294,31 @@ retried after 1 s and 5 s, and then `game.results` has `credited: false`.
 
 ## Deploys
 
-On SIGTERM or SIGINT the server rejects new work and freezes its game loop and room timers.
-It sends `notice server-draining {deadline}`, ends active coop runs immediately with reason
-`server-shutdown`, records their earned rewards through the normal results path, and returns
-members to their lobby as not-ready. Loading games are cancelled; existing lobbies retain their
-ready/busy status. It then commits lobby codes, hosts, memberships and partners to Postgres and
-closes sockets with 1012. Active runs are not resumed.
+On SIGTERM the server retains the existing drain: `notice server-draining {deadline}` stops
+new room/game starts while running games continue on the old instance for `DRAIN_TIMEOUT_S`
+(default 900 s). At the deadline, remaining games end with `server-shutdown` and are credited.
+SIGINT in development uses a zero-second drain. Inputs, choices, leaves and normal disconnect
+grace remain active during the drain.
 
-Boot restores the lobbies before accepting sockets. The existing login cookie identifies a
-returning member; no extra token or wire message is needed. `RESTART_RECONNECT_GRACE_S`
-(default 180 s) gives members time to return before ordinary empty-room cleanup removes them.
-Invites aren't persisted. Checkpoints protect graceful restarts, not SIGKILL or host crashes.
+Lobby/loading rooms are handed to the replacement: freeze new lobby mutations, wait for
+in-flight requests, cancel loading, persist the latest lobby, then close those sockets with 1012.
+A game that finishes during the drain first records results, then hands off its current lobby.
+The already-running replacement adopts a persisted room on a member's connect or via heartbeat
+polling. Shared reservations prevent duplicate codes/memberships; each payload is consumed once.
 
-Use a single replica, `stop-first` update and rollback order, and a stop grace period of at least
-45 s; see [deploy.md](deploy.md). A protocol mismatch after deploy stops automatic retries and
-shows Reload, including during a game. Reloading joins the preserved room with the current client.
-This change keeps protocol v7.
+A reconnect to the replacement while a game is still on the old server receives
+`notice room-handoff-pending`. Joining that code, creating another room or inviting a reserved
+member fails with `room_pending`, explained in the UI. The game slot cannot transfer; ordinary
+old-instance disconnect grace still applies. If that membership expires, the replacement sends
+`notice room-handoff-expired`; otherwise its lobby is adopted when the game ends.
+
+`RESTART_RECONNECT_GRACE_S` (180 s) controls unclaimed-handoff expiry and absent-member grace
+after adoption. Expired rows are not restored. The existing login cookie identifies returning
+members; there is no new token. Invites are transient. These notices are additive, with no
+protocol bump (v7). A mismatch after deploy stops retries and offers Reload, including in-game.
+
+Use one replica, `start-first` updates and stop grace exceeding the drain (16 min by default);
+see [deploy.md](deploy.md). No sim snapshot/restore was added.
 
 ## Client library (`packages/netclient`)
 
@@ -355,6 +364,6 @@ order), forced drops and offline periods. Scenarios:
 - the run ending and crediting everyone, including a player who left;
 - grace expiry, and everyone gone;
 - an unresponsive loader dropped at loading, and a game cancelled when nobody loads;
-- graceful shutdown/restart preserving lobby state and reconnecting existing clients;
-- shutdown crediting an active run once and returning players to their lobby;
-- cancelling a loading game and expiring absent members after restart.
+- the existing drain (deadline and early finish), plus two-instance lobby/run-end handoff;
+- snapshotting in-flight membership changes and rejecting lobby mutations after SIGTERM;
+- pending members, duplicate reservations, loading cancellation and expiry without resurrection.

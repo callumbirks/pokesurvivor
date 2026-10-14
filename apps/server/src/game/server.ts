@@ -21,11 +21,12 @@ import type { FriendEvent, FriendNotifier, PresenceSource } from '../friends/pre
 import { friendIds } from '../friends/service.js';
 import { recordCoopRun } from '../runs/service.js';
 import type { Game, GameOutcome, GameSettings } from './game.js';
-import { Room } from './room.js';
+import { Room, newRoomId } from './room.js';
 import { Session } from './session.js';
 import { Ticker } from './ticker.js';
 import { eq, inArray } from 'drizzle-orm';
-import { users, roomRestartState } from '../db/schema.js';
+import { users } from '../db/schema.js';
+import { RoomRegistry } from './registry.js';
 
 /** A request failed; the code goes to the client (it maps it to a UI string). */
 export class GameError extends Error {
@@ -71,6 +72,7 @@ export class GameServer implements PresenceSource, FriendNotifier {
   readonly log: FastifyBaseLogger;
   readonly gameSettings: GameSettings;
   draining = false;
+  stopped = false;
   private drainDeadline: number | null = null;
   private readonly sessions = new Map<string, Session>();
   private readonly rooms = new Map<string, Room>();
@@ -84,11 +86,17 @@ export class GameServer implements PresenceSource, FriendNotifier {
   private readonly ticker: Ticker;
   private readonly heartbeat: NodeJS.Timeout;
   private readonly requests = new Set<Promise<void>>();
-  private restorePromise: Promise<void> | null = null;
-  private shutdownPromise: Promise<void> | null = null;
+  readonly registry: RoomRegistry;
+  private mutationQueue: Promise<unknown> = Promise.resolve();
+  private readonly handoffs = new Set<Promise<void>>();
+  private readonly handoffErrors: unknown[] = [];
+  private settledWaiters: (() => void)[] = [];
+  private polling = false;
+  private readonly pendingRoomNotices = new Set<string>();
 
   constructor(private readonly opts: GameServerOptions) {
     this.db = opts.db;
+    this.registry = new RoomRegistry(this.db);
     this.config = opts.config;
     this.log = opts.log;
     this.gameSettings = {
@@ -127,9 +135,11 @@ export class GameServer implements PresenceSource, FriendNotifier {
     else this.roomOf.delete(userId);
   }
 
-  removeRoom(room: Room): void {
+  removeRoom(room: Room, handedOff = false): void {
     this.rooms.delete(room.id);
+    if (!handedOff) this.background(() => this.registry.remove(room.id));
     if (room.game && room.game.phase !== 'ended') this.removeGame(room.game);
+    if (this.draining) this.checkDrained();
   }
 
   addGame(game: Game): void {
@@ -238,10 +248,6 @@ export class GameServer implements PresenceSource, FriendNotifier {
   // ---------------------------------------------------------------- sockets
 
   private accept(socket: WebSocket, request: FastifyRequest): void {
-    if (this.draining) {
-      socket.close(CloseCode.restarting, 'server restarting');
-      return;
-    }
     const conn: Connection = {
       socket,
       session: null,
@@ -334,7 +340,6 @@ export class GameServer implements PresenceSource, FriendNotifier {
     const decoded = decodeClientMessage(raw.toString('utf8'));
     if (!decoded.ok) return this.protocolError(conn, decoded.reason, decoded.rid);
     const m = decoded.message;
-    if (this.draining) return;
     if (conn.session) conn.session.lastHeard = Date.now();
 
     if (m.type === 'hello') return this.hello(conn, m.protocolVersion);
@@ -387,7 +392,11 @@ export class GameServer implements PresenceSource, FriendNotifier {
     const session = new Session(user.id, user.username, conn.socket);
     conn.session = session;
     this.sessions.set(user.id, session);
-    void this.welcome(session);
+    this.pendingRoomNotices.delete(user.id);
+    void this.exclusive(() => this.welcome(session)).catch((err: unknown) => {
+      this.log.error({ err }, 'could not restore room membership');
+      session.close(1011, 'room restore failed');
+    });
   }
 
   private async welcome(session: Session): Promise<void> {
@@ -402,9 +411,17 @@ export class GameServer implements PresenceSource, FriendNotifier {
     });
     if (this.draining && this.drainDeadline !== null)
       session.send({ type: 'notice', code: 'server-draining', deadline: this.drainDeadline });
+    if (!this.draining) await this.adoptFor(session.userId);
     const room = this.roomOf.get(session.userId);
     if (room) room.reconnected(session.userId);
-    else session.send({ type: 'room', room: null });
+    else {
+      session.send({ type: 'room', room: null });
+      if (this.draining)
+        setTimeout(
+          () => session.close(CloseCode.restarting, 'server restarting'),
+          this.config.heartbeatMs,
+        ).unref();
+    }
     for (const r of this.rooms.values()) {
       const invite = r.invites.get(session.userId);
       if (invite)
@@ -446,14 +463,29 @@ export class GameServer implements PresenceSource, FriendNotifier {
     // Superseded: the new session took over; nothing changes for the room.
     if (this.sessions.get(session.userId) !== session) return;
     this.sessions.delete(session.userId);
+    this.pendingRoomNotices.delete(session.userId);
     this.lastUsername.set(session.userId, session.username);
     this.roomOf.get(session.userId)?.disconnected(session.userId);
     this.presenceChanged(session.userId);
     this.friends.delete(session.userId);
     this.lastUsername.delete(session.userId);
+    if (this.draining) this.checkDrained();
   }
 
   private checkHeartbeats(): void {
+    if (!this.polling) {
+      this.polling = true;
+      void this.exclusive(async () => {
+        await this.registry.renew([...this.rooms.keys()]);
+        await this.registry.cleanup();
+        if (!this.draining)
+          for (const session of this.sessions.values()) await this.adoptFor(session.userId);
+      })
+        .catch((err: unknown) => this.log.warn({ err }, 'room handoff polling failed'))
+        .finally(() => {
+          this.polling = false;
+        });
+    }
     const deadline = Date.now() - this.config.heartbeatMs * 5;
     for (const session of this.sessions.values()) {
       if (session.lastHeard < deadline) session.close(CloseCode.timeout, 'heartbeat timeout');
@@ -464,7 +496,27 @@ export class GameServer implements PresenceSource, FriendNotifier {
 
   private async request(session: Session, m: ClientMessage & { rid: number }): Promise<void> {
     try {
-      const data = await this.handleRequest(session, m);
+      const current = this.roomOf.get(session.userId);
+      if (
+        current?.transferring ||
+        (this.draining && (!current || current.phase === 'lobby' || current.phase === 'loading'))
+      )
+        throw new GameError('server_draining', 'Your room is moving to the new server');
+      const mutateLobby = () =>
+        this.exclusive(async () => {
+          const room = this.roomOf.get(session.userId);
+          if (
+            room?.transferring ||
+            (this.draining && (!room || room.phase === 'lobby' || room.phase === 'loading'))
+          )
+            throw new GameError('server_draining', 'Your room is moving to the new server');
+          return this.handleRequest(session, m);
+        });
+      // Existing running-game intents/leave/kick stay independent of registry I/O.
+      const data =
+        current?.phase === 'running' && m.type !== 'room.join' && m.type !== 'room.create'
+          ? await this.handleRequest(session, m)
+          : await mutateLobby();
       session.send({
         type: 'reply',
         rid: m.rid,
@@ -507,7 +559,21 @@ export class GameServer implements PresenceSource, FriendNotifier {
         if (this.draining) throw new GameError('server_draining', 'The server is restarting');
         if (this.roomOf.has(userId))
           throw new GameError('already_in_room', 'Leave your room first');
-        const room = new Room(this, { userId, username });
+        await this.registry.cleanup();
+        if (await this.registry.membership(userId))
+          throw new GameError(
+            'room_pending',
+            'Your existing room is waiting for its game to finish or to reconnect',
+          );
+        let id: string;
+        for (;;) {
+          id = newRoomId();
+          const reserved = await this.registry.create(id, userId);
+          if (reserved === 'ok') break;
+          if (reserved === 'member_taken')
+            throw new GameError('room_pending', 'Already reserved in another room');
+        }
+        const room = new Room(this, { userId, username }, undefined, id);
         this.rooms.set(room.id, room);
         room.sync();
         return room.view();
@@ -518,6 +584,12 @@ export class GameServer implements PresenceSource, FriendNotifier {
         if (!target || target.id === userId) throw new GameError('user_not_found', 'No such user');
         if (!this.friends.get(userId)?.has(target.id))
           throw new GameError('not_friends', 'You can only invite friends');
+        const reserved = await this.registry.membership(target.id);
+        if (reserved && reserved.instanceId !== this.registry.instanceId)
+          throw new GameError(
+            'room_pending',
+            'That player is waiting for their existing room to finish or reconnect',
+          );
         if (!this.isOnline(target.id))
           throw new GameError('not_online', `${target.username} is offline`);
         if (this.draining) throw new GameError('server_draining', 'The server is restarting');
@@ -525,6 +597,12 @@ export class GameServer implements PresenceSource, FriendNotifier {
         return undefined;
       }
       case 'room.join': {
+        if (!this.rooms.has(m.roomId)) {
+          const reserved = await this.registry.room(m.roomId);
+          if (reserved?.handoff) await this.adoptRoom(m.roomId);
+          else if (reserved)
+            throw new GameError('room_pending', 'That room is still on the previous server');
+        }
         const room = this.rooms.get(m.roomId);
         if (!room) throw new GameError('no_invite', 'That room no longer exists');
         if (this.roomOf.get(userId) === room) return room.view();
@@ -534,6 +612,8 @@ export class GameServer implements PresenceSource, FriendNotifier {
         // Validate before leaving the current room.
         if (!room.invites.has(userId))
           throw new GameError('no_invite', 'No pending invite to this room');
+        if (!(await this.registry.join(userId, room.id, current?.id)))
+          throw new GameError('room_pending', 'Your existing room is still on the previous server');
         current?.leave(userId);
         room.join(userId, username);
         return room.view();
@@ -615,65 +695,166 @@ export class GameServer implements PresenceSource, FriendNotifier {
       })),
     }));
     this.records.add(promise);
-    void promise.finally(() => this.records.delete(promise));
+    void promise.finally(() => {
+      this.records.delete(promise);
+      if (this.draining) this.checkDrained();
+    });
     return promise;
   }
 
-  // ---------------------------------------------------------------- restarts
-
-  /** Restore before accepting any sockets. Saved state is consumed to avoid resurrecting old rooms
-   * after a later ungraceful crash. This feature guarantees SIGTERM restarts, not SIGKILL. */
-  restore(): Promise<void> {
-    return (this.restorePromise ??= this.restoreRooms());
+  /** Serialize adoption and lobby requests so an await never overwrites newer local changes. */
+  private exclusive<T>(work: () => Promise<T>): Promise<T> {
+    const task = this.mutationQueue.then(work);
+    this.mutationQueue = task.catch(() => {});
+    return task;
   }
 
-  private async restoreRooms(): Promise<void> {
-    const [saved] = await this.db.select().from(roomRestartState).where(eq(roomRestartState.id, 1));
-    if (!saved) return;
-    if (saved.format !== 1) throw new Error(`Unsupported room checkpoint format ${saved.format}`);
-    for (const data of saved.rooms) {
-      const owner = data.members.find((m) => m.userId === data.ownerId);
-      if (!owner) throw new Error(`Room ${data.id} has no owner in checkpoint`);
-      const room = new Room(this, owner, data);
-      this.rooms.set(room.id, room);
-      room.restoreGrace();
+  private background(work: () => Promise<void>): void {
+    void this.exclusive(work).catch((err: unknown) =>
+      this.log.error({ err }, 'room reservation update failed'),
+    );
+  }
+
+  async flush(): Promise<void> {
+    await this.mutationQueue;
+  }
+
+  memberLeft(roomId: string, userId: string): void {
+    this.background(() => this.registry.leave(userId, roomId));
+  }
+
+  private async adoptFor(userId: string): Promise<void> {
+    if (this.roomOf.has(userId)) return;
+    const reserved = await this.registry.membership(userId);
+    if (!reserved) {
+      if (this.pendingRoomNotices.delete(userId))
+        this.sessionOf(userId)?.send({ type: 'notice', code: 'room-handoff-expired' });
+      return;
     }
-    await this.db.delete(roomRestartState).where(eq(roomRestartState.id, 1));
-    this.log.info({ rooms: this.rooms.size }, 'restored rooms after restart');
+    if (reserved.handoff) await this.adoptRoom(reserved.id);
+    else if (
+      reserved.instanceId !== this.registry.instanceId &&
+      !this.pendingRoomNotices.has(userId)
+    ) {
+      this.pendingRoomNotices.add(userId);
+      this.sessionOf(userId)?.send({ type: 'notice', code: 'room-handoff-pending' });
+    }
   }
 
-  /** SIGTERM: reject work, freeze timers and the sim, await in-flight work, commit the
-   * checkpoint, then close sockets. A failed write rejects shutdown instead of claiming success. */
-  shutdown(): Promise<void> {
-    return (this.shutdownPromise ??= this.saveAndClose());
+  private async adoptRoom(id: string): Promise<void> {
+    if (this.rooms.has(id)) return;
+    const saved = await this.registry.adopt(id);
+    if (!saved) return;
+    // Reservations exclude members who left or joined another room before this adoption.
+    saved.members = saved.members.filter((m) => !this.roomOf.has(m.userId));
+    if (!saved.members.length) {
+      await this.registry.remove(id);
+      return;
+    }
+    if (!saved.members.some((m) => m.userId === saved.ownerId))
+      saved.ownerId = saved.members[0]!.userId;
+    const owner = saved.members.find((m) => m.userId === saved.ownerId)!;
+    const room = new Room(this, owner, saved);
+    this.rooms.set(id, room);
+    room.restoreGrace();
+    for (const m of room.members.values()) {
+      this.pendingRoomNotices.delete(m.userId);
+      if (this.isOnline(m.userId)) room.reconnected(m.userId);
+    }
   }
 
-  private async saveAndClose(): Promise<void> {
-    this.draining = true;
-    this.drainDeadline = Date.now() + 30_000;
-    this.ticker.stop();
-    clearInterval(this.heartbeat);
-    // A signal during boot must not overwrite rooms that are still being restored.
-    await this.restore();
-    for (const room of this.rooms.values()) room.suspend();
-    for (const session of this.sessions.values())
-      session.send({ type: 'notice', code: 'server-draining', deadline: this.drainDeadline });
-    await Promise.allSettled([...this.requests]);
-    for (const room of this.rooms.values()) room.finishForRestart();
+  /** Publish a lobby, then detach it without a room:null message; clients keep their UI. */
+  private async handoff(room: Room): Promise<void> {
+    if (room.closed) return;
+    room.transferring = true;
+    room.cancelLoadingForHandoff();
+    room.suspend();
+    await this.registry.handoff(
+      structuredClone(room.snapshot()),
+      this.config.restartReconnectGraceMs,
+    );
+    const ids = [...room.members.keys()];
+    room.detach();
+    for (const id of ids) this.sessionOf(id)?.close(CloseCode.restarting, 'server restarting');
+  }
+
+  roomSettled(room: Room): void {
+    if (!this.draining) return;
+    if (!room.closed) {
+      room.transferring = true;
+      const task = this.exclusive(() => this.handoff(room));
+      this.handoffs.add(task);
+      void task
+        .catch((err: unknown) => {
+          this.handoffErrors.push(err);
+          this.log.error({ err }, 'room handoff failed');
+        })
+        .finally(() => {
+          this.handoffs.delete(task);
+          this.checkDrained();
+        });
+    }
+    this.checkDrained();
+  }
+
+  private busyRooms(): Room[] {
+    return [...this.rooms.values()].filter((r) => r.phase !== 'lobby');
+  }
+
+  private checkDrained(): void {
+    if (this.busyRooms().length || this.records.size || this.handoffs.size) return;
+    for (const waiter of this.settledWaiters.splice(0)) waiter();
+  }
+
+  /** Running games retain main's drain: ticks, inputs, choices and ordinary disconnect grace. */
+  async drain(timeoutMs = this.config.drainTimeoutMs): Promise<void> {
+    if (!this.draining) {
+      this.draining = true;
+      this.drainDeadline = Date.now() + timeoutMs;
+      for (const room of this.rooms.values())
+        if (room.phase === 'lobby' || room.phase === 'loading') {
+          room.transferring = true;
+          room.suspend();
+        }
+      for (const session of this.sessions.values())
+        session.send({ type: 'notice', code: 'server-draining', deadline: this.drainDeadline });
+      // Already-running requests finish first; guards prevent new lobby mutations.
+      await Promise.allSettled([...this.requests]);
+      await this.exclusive(async () => {
+        for (const room of [...this.rooms.values()])
+          if (room.phase === 'lobby' || room.phase === 'loading') await this.handoff(room);
+      });
+      for (const session of [...this.sessions.values()])
+        if (!this.roomOf.has(session.userId))
+          session.close(CloseCode.restarting, 'server restarting');
+    }
+    const settled = new Promise<void>((resolve) => this.settledWaiters.push(resolve));
+    this.checkDrained();
+    let timer: NodeJS.Timeout | undefined;
+    const timedOut = await Promise.race([
+      settled.then(() => false),
+      new Promise<boolean>(
+        (resolve) =>
+          (timer = setTimeout(
+            () => resolve(true),
+            Math.max(0, (this.drainDeadline ?? Date.now()) - Date.now()),
+          )),
+      ),
+    ]);
+    clearTimeout(timer);
+    if (timedOut) {
+      this.log.warn({ rooms: this.busyRooms().length }, 'drain timed out; ending running games');
+      for (const room of this.busyRooms()) room.game?.forceEnd('server-shutdown');
+    }
     await Promise.allSettled([...this.records]);
-    // Serialize now: no sim tick, socket callback or request can mutate this checkpoint.
-    const rooms = structuredClone([...this.rooms.values()].map((r) => r.snapshot()));
-    await this.db
-      .insert(roomRestartState)
-      .values({ id: 1, format: 1, rooms })
-      .onConflictDoUpdate({ target: roomRestartState.id, set: { format: 1, rooms } });
-    this.log.info({ rooms: rooms.length }, 'saved rooms for restart');
+    await Promise.all([...this.handoffs]);
+    await this.mutationQueue;
+    if (this.handoffErrors.length) throw this.handoffErrors[0];
     this.close();
   }
 
-  /** Closes sockets and stops callbacks without removing membership (also used by tests). */
   close(): void {
-    this.draining = true;
+    this.stopped = true;
     this.ticker.stop();
     clearInterval(this.heartbeat);
     for (const room of this.rooms.values()) room.suspend();

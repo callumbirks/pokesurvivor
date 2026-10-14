@@ -125,7 +125,9 @@ export type NoticeCode =
   | 'owner-changed'
   | 'kicked'
   | 'game-cancelled'
-  | 'server-draining';
+  | 'server-draining'
+  | 'room-handoff-pending'
+  | 'room-handoff-expired';
 
 // ------------------------------------------------------------------ client → server
 

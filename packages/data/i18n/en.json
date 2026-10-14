@@ -620,7 +620,8 @@
     "server_draining": "The server is updating: try again in a moment.",
     "not_playing": "No game is running.",
     "bad_request": "That request wasn't valid.",
-    "in_room": "Leave your room to play solo."
+    "in_room": "Leave your room to play solo.",
+    "room_pending": "This player or room is still on the previous server. Wait for the game to finish and the lobby to reconnect."
   },
   "notices": {
     "dropped-at-loading": "{0} couldn't load in time and stays in the room",
@@ -630,6 +631,8 @@
     "player-removed": "{0} was removed from the game",
     "owner-changed": "{0} is the room host now",
     "kicked": "You were removed from the room",
-    "game-cancelled": "The game was cancelled: nobody loaded in time"
+    "game-cancelled": "The game was cancelled: nobody loaded in time",
+    "room-handoff-pending": "Your room is still on the previous server. You will rejoin its lobby when the game finishes.",
+    "room-handoff-expired": "Your previous room membership expired while its game was finishing. You can join a room again."
   }
 }

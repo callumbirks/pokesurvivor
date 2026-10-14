@@ -31,7 +31,7 @@ COPY --from=build /out/server apps/server
 COPY --from=build /repo/apps/client/dist apps/client/dist
 USER node
 EXPOSE 3000
-# Runtime/Swarm must also set a stop grace period of at least 45s (see docs/deploy.md).
+# Set runtime/Swarm stop grace above the drain timeout (16m for default drain; see docs/deploy.md).
 STOPSIGNAL SIGTERM
 HEALTHCHECK --interval=10s --timeout=3s --start-period=20s --retries=3 \
   CMD ["node", "-e", "fetch('http://127.0.0.1:'+process.env.PORT+'/healthz').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]

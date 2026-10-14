@@ -128,6 +128,7 @@ export interface BotOptions {
 }
 
 export class Bot {
+  private connectionUrl: string;
   readonly net: NetConditions;
   readonly client: NetClient;
   /** Snapshots received in the current game. */
@@ -141,10 +142,11 @@ export class Bot {
     url: string,
     opts: BotOptions,
   ) {
+    this.connectionUrl = url;
     this.net = { latencyMs: opts.latencyMs ?? 0, jitterMs: opts.jitterMs ?? 0, offline: false };
     this.client = new NetClient({
       url,
-      createSocket: (u) => new LaggySocket(u, cookie, this.net),
+      createSocket: () => new LaggySocket(this.connectionUrl, cookie, this.net),
       autoLoad: opts.autoLoad ?? true,
       minBackoffMs: 50,
       maxBackoffMs: 400,
@@ -157,6 +159,11 @@ export class Bot {
     this.client.on('start', ({ resumed }) => {
       if (!resumed) this.snapshots = [];
     });
+  }
+
+  /** Route future reconnects to the replacement while the current socket stays on the old app. */
+  routeTo(url: string): void {
+    this.connectionUrl = url;
   }
 
   get latest(): Snapshot | null {
@@ -246,13 +253,13 @@ export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** Polls `check` until it returns truthy. */
 export async function waitFor<T>(
-  check: () => T | null | undefined | false,
+  check: () => T | null | undefined | false | Promise<T | null | undefined | false>,
   what: string,
   timeoutMs = 10_000,
 ): Promise<T> {
   const until = Date.now() + timeoutMs;
   for (;;) {
-    const value = check();
+    const value = await check();
     if (value) return value;
     if (Date.now() > until) throw new Error(`timed out waiting for ${what}`);
     await sleep(20);
@@ -274,9 +281,11 @@ export interface GameTestServer {
 
 export async function createGameTestServer(
   game: Partial<GameConfig> = {},
-  options: Pick<AppOptions, 'simDebug'> = { simDebug: { noSpawns: true, invulnerable: true } },
+  options: Pick<AppOptions, 'simDebug'> & { database?: TestDatabase } = {
+    simDebug: { noSpawns: true, invulnerable: true },
+  },
 ): Promise<GameTestServer> {
-  const database = await createTestDatabase();
+  const database = options.database ?? (await createTestDatabase());
   const config = loadConfig({
     LOG_LEVEL: process.env.TEST_LOG_LEVEL ?? 'silent',
     DATABASE_URL: database.url,
@@ -335,7 +344,7 @@ export async function createGameTestServer(
       return list;
     },
     async restart(downtimeMs = 0) {
-      await app.game!.shutdown();
+      await app.game!.drain(0);
       await app.close();
       if (downtimeMs) await sleep(downtimeMs);
       app = await buildApp({ config, db: database.db, simDebug: options.simDebug });
@@ -344,7 +353,7 @@ export async function createGameTestServer(
     async close() {
       for (const b of bots) b.close();
       await app.close();
-      await database.drop();
+      if (!options.database) await database.drop();
     },
   };
 }

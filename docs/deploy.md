@@ -23,23 +23,26 @@ In the Dokploy project: **Create Service → Database → PostgreSQL**.
 - **Build type:** `Dockerfile`, Dockerfile path `Dockerfile`, build context `.` (the repo root).
 - **Environment:**
 
-  | Variable                    | Value                                     | Notes                                                                                                                                        |
-  | --------------------------- | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-  | `DATABASE_URL`              | the internal connection URL from step 1   | required                                                                                                                                     |
-  | `PORT`                      | `3000`                                    | optional, it's the default                                                                                                                   |
-  | `LOG_LEVEL`                 | `info`                                    | optional                                                                                                                                     |
-  | `MIGRATE_ON_START`          | `true`                                    | optional; migrations run on every start by default                                                                                           |
-  | `LEADERBOARD_TIME_ZONE`     | your IANA time zone, e.g. `Europe/London` | recommended; when daily/weekly leaderboards reset. Set it to your own time zone; the default `Europe/Madrid` is only the original operator's |
-  | `AUTH_RATE_LIMIT_MAX`       | `10`                                      | optional; login and register attempts per IP per minute                                                                                      |
-  | `ACTION_RATE_LIMIT_MAX`     | `60`                                      | optional; run starts, checkpoints and friend requests per IP per minute                                                                      |
-  | `COOKIE_SECURE`             | `true`                                    | optional; defaults to true when `NODE_ENV=production` (the image sets it)                                                                    |
-  | `RESTART_RECONNECT_GRACE_S` | `180`                                     | optional; reconnect window after restored lobbies boot (see §4)                                                                              |
-  | `RUN_CHECKPOINT_TIMEOUT_S`  | `3600`                                    | optional; an unreported solo run is credited from its last checkpoint after this ([api.md](api.md#checkpoints-and-the-timeout-credit))       |
-  | `RUN_SWEEP_INTERVAL_S`      | `60`                                      | optional; how often the server looks for such runs                                                                                           |
-  | `SNAPSHOT_HZ`               | `20`                                      | optional; snapshots per second per client (max 30)                                                                                           |
-  | `CHOICE_TIMEOUT_S`          | `30`                                      | optional; coop level-up/item/bond choices resolve by themselves after this                                                                   |
-  | `RECONNECT_GRACE_S`         | `60`                                      | optional; how long a dropped player's place is kept                                                                                          |
-  | `LOADING_TIMEOUT_S`         | `15`                                      | optional; members who haven't loaded by then are dropped from the game                                                                       |
+  | Variable                   | Value                                     | Notes                                                                                                                                        |
+  | -------------------------- | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+  | `DATABASE_URL`             | the internal connection URL from step 1   | required                                                                                                                                     |
+  | `PORT`                     | `3000`                                    | optional, it's the default                                                                                                                   |
+  | `LOG_LEVEL`                | `info`                                    | optional                                                                                                                                     |
+  | `MIGRATE_ON_START`         | `true`                                    | optional; migrations run on every start by default                                                                                           |
+  | `LEADERBOARD_TIME_ZONE`    | your IANA time zone, e.g. `Europe/London` | recommended; when daily/weekly leaderboards reset. Set it to your own time zone; the default `Europe/Madrid` is only the original operator's |
+  | `AUTH_RATE_LIMIT_MAX`      | `10`                                      | optional; login and register attempts per IP per minute                                                                                      |
+  | `ACTION_RATE_LIMIT_MAX`    | `60`                                      | optional; run starts, checkpoints and friend requests per IP per minute                                                                      |
+  | `COOKIE_SECURE`            | `true`                                    | optional; defaults to true when `NODE_ENV=production` (the image sets it)                                                                    |
+  | `DRAIN_TIMEOUT_S`          | `900`                                     | optional; how long running games may finish on a deploy (see §4)                                                                             |
+  | `RUN_CHECKPOINT_TIMEOUT_S` | `3600`                                    | optional; an unreported solo run is credited from its last checkpoint after this ([api.md](api.md#checkpoints-and-the-timeout-credit))       |
+  | `RUN_SWEEP_INTERVAL_S`     | `60`                                      | optional; how often the server looks for such runs                                                                                           |
+  | `SNAPSHOT_HZ`              | `20`                                      | optional; snapshots per second per client (max 30)                                                                                           |
+  | `CHOICE_TIMEOUT_S`         | `30`                                      | optional; coop level-up/item/bond choices resolve by themselves after this                                                                   |
+  | `RECONNECT_GRACE_S`        | `60`                                      | optional; how long a dropped player's place is kept                                                                                          |
+  | `LOADING_TIMEOUT_S`        | `15`                                      | optional; members who haven't loaded by then are dropped from the game                                                                       |
+
+  `RESTART_RECONNECT_GRACE_S` defaults to `180`: the reconnect window after a lobby handoff is adopted,
+  and the TTL of a handoff nobody has claimed.
 
   `NODE_ENV=production` is already set in the image.
 
@@ -56,7 +59,7 @@ separate WebSocket domain is needed (the session cookie authenticates the upgrad
 opening the site: it should show the login screen. The protocol is described in
 [protocol.md](protocol.md).
 
-## 4. Health check and restart-safe deploys
+## 4. Health check and zero-downtime deploys
 
 The image declares a Docker `HEALTHCHECK` that calls `GET /healthz` every 10 s, and Docker Swarm
 (which Dokploy uses for applications) honours it. `/healthz` returns `200` with
@@ -71,69 +74,104 @@ health check then never runs, every task stays `Starting`, the service name neve
 `dokploy-network`, and Traefik answers **502 Bad Gateway** (see
 [Troubleshooting](#troubleshooting-bad-gateway)).
 
-To save rooms before the replacement server starts, set this under the
+To have Dokploy wait for a healthy container before switching traffic, set this under the
 application's **Advanced → Swarm Settings**:
 
-- **Update Config:** `{"Parallelism": 1, "Order": "stop-first", "FailureAction": "rollback"}`
-- **Rollback Config:** `{"Parallelism": 1, "Order": "stop-first"}`
+- **Update Config:** `{"Parallelism": 1, "Order": "start-first", "FailureAction": "rollback"}`
 
 ### Replicas: keep 1
 
-Keep the application at **1 replica**. The live rooms still belong to one server process.
-Restart checkpoints in Postgres are a handoff between consecutive instances, not shared live state.
-**Change any existing `start-first` update setting to `stop-first`**, including rollbacks: the old
-server must save before the new one restores. `start-first` and multiple replicas are unsupported
-and can lose rooms or overwrite a checkpoint. There is a brief outage during the replacement;
-connected clients show “Reconnecting…” and retry automatically.
+Keep the application at **1 replica**. Rooms and coop games live in the server's memory, so with
+more than one replica players who want to play together can land on different instances and never
+see each other. The brief overlap of two containers during a `start-first` deploy is fine: the old
+one drains (below) and takes no new rooms.
 
 ### Deploys while people are playing
 
-On `SIGTERM` (and `SIGINT`) the server rejects new HTTP and WebSocket work, freezes its game loop
-and room timers, and waits for requests already in flight. **Active coop runs do not resume.**
-They end immediately with reason `server-shutdown`, using the normal results/reward recording
-path, then their members return to the same lobby as not-ready. A game still loading is cancelled
-without creating run rewards. Solo games continue locally, as before.
+Coop games run in the server's memory, so a deploy must not kill them. On `SIGTERM` the server
+**drains**: it stops creating rooms and games, tells every client the server is updating, and
+sends lobby clients to reconnect, which with `start-first` reaches the new container. It lets
+running games finish for up to `DRAIN_TIMEOUT_S` (default 900 s = 15 min), then ends the rest and
+credits their players. Finally it closes the sockets and the database pool and exits. It gives up
+`DRAIN_TIMEOUT_S + 15 s` after the signal. The drain ends early once the last game is over.
 
-The server then writes a small, atomic Postgres checkpoint (`room_restart_state`, migration 0004)
-and closes sockets. On boot, it restores each lobby's code, members, host, ready/busy status and
-partner, before accepting connections. There are currently no per-room configurable settings.
-Pending invites are transient and must be sent again. Authentication uses the existing persisted
-login session cookie; no new resume token is needed. Players have `RESTART_RECONNECT_GRACE_S`
-(default 180 s) from boot to reconnect. Normal membership cleanup removes absent players,
-transfers the host when needed and deletes empty rooms. Subsequent ordinary disconnects use
-`RECONNECT_GRACE_S` (default 60 s).
+Docker's default stop grace period is **10 s**, after which the container is killed (`SIGKILL`)
+and running games are lost without being credited. Raise it above the drain timeout, e.g.
+**16 minutes** for the default 900 s:
 
-The checkpoint is consumed on successful boot so a later crash cannot replay an old lobby after
-its players have left or finished another run. **This protects graceful restarts, not a host crash
-or `SIGKILL`.** There is no periodic checkpoint. Run recording retains its existing DB retries;
-a persistent database outage can still prevent rewards from being credited. A failed checkpoint
-write makes shutdown fail rather than claiming rooms were saved.
+- If your Dokploy version has **Stop Grace Period** under **Advanced → Swarm Settings**, set it
+  there (`960s`, or `960000000000` if it asks for nanoseconds).
+- Otherwise set it on the Swarm service by hand:
+  `docker service update --stop-grace-period 16m <service>` (the service name is the app's
+  name in Dokploy). Check that it survives a redeploy (`docker service inspect <service>`,
+  `StopGracePeriod`). Dokploy may recreate the service spec. If it doesn't survive, lower
+  `DRAIN_TIMEOUT_S` to fit what you can set.
 
-The process gives shutdown **30 seconds** total. Docker's default stop grace is only **10 seconds**,
-so configure **45 seconds** (or retain a longer existing setting):
+With `start-first` updates the new container is serving before the old one gets `SIGTERM`, so
+new and reconnecting clients go to the new one while the old one finishes its games. A player who
+drops during the drain reconnects to the new instance and can't resume the old game (rooms live
+in memory), but is still credited when it ends.
 
-- If Dokploy exposes **Stop Grace Period** under **Advanced → Swarm Settings**, set `45s`
-  (or `45000000000` if it asks for nanoseconds).
-- Otherwise set the service with `docker service update --stop-grace-period 45s <service>`.
-  Check `docker service inspect <service>` after redeploy: Dokploy may recreate the service spec.
-- Dockerfile `STOPSIGNAL SIGTERM` specifies the signal, not its grace period. For plain Docker,
-  use `docker run --stop-timeout 45 ...`; for an app in Compose use `stop_grace_period: 45s`.
-  The repository's Compose file runs only the local development database.
+### Lobby handoff during the overlap
 
-`DRAIN_TIMEOUT_S` is obsolete and can be removed from Dokploy's environment. The old 15-minute
-drain is gone. The first deploy of this change cannot restore rooms from the old server, because
-that version does not write a checkpoint; subsequent graceful deploys preserve them.
+The run drain above is unchanged. Lobby/main-menu rooms now survive a graceful deploy using a
+per-room Postgres handoff, which the replacement can adopt **after it is already running**.
+Migration 0005 adds `game_rooms` (ownership, expiry and a pending lobby payload) and
+`game_room_members` (one reserved room per user), replacing the earlier checkpoint design.
+Migrations still apply automatically on startup. These tables contain no simulation snapshots.
 
-The client retries with jittered exponential backoff (500 ms to 10 s), for up to three minutes,
-while retaining its room and showing “Reconnecting…”. A connection/hello that stalls is retried
-in 10 s. If a deploy changes `PROTOCOL_VERSION`, the existing mismatch close stops retries and
-shows a Reload button, including over an active game. Reloading gets the current client and
-rejoins the preserved lobby using the same cookie. This change does not alter protocol shapes or
-bump protocol v7. Future changes to the saved room schema must migrate its format or preserve
-backward compatibility; an unsupported checkpoint format refuses boot rather than dropping rooms.
+- **Before SIGTERM:** the old instance remains fully live. Players can join, leave, be kicked,
+  change readiness or update partners normally while the replacement is booting. No lobby is
+  snapshotted at deploy/build start.
+- **At SIGTERM:** the old instance freezes lobby/loading rooms against new mutations, waits for
+  room requests already in flight, cancels any loading game, and snapshots the final lobby code,
+  host, membership, ready/busy state and partners. Publishing the payload and releasing ownership
+  happen atomically in Postgres. Only then does it detach the local room and close its clients
+  with 1012. Partner refreshes and grace callbacks cannot change a frozen room. Pending invites
+  are transient and must be sent again; there are no per-room configurable settings today.
+- **Running games:** they keep their original ticks, inputs, choices, leave/kick and disconnect
+  behaviour on the old server. When a game ends normally (or at the drain timeout), rewards are
+  recorded as before, then its current members' lobby is handed off in the same way. Those
+  members are not-ready, as after any run. Players who left or were removed are absent from that
+  lobby; their run rewards are still credited normally.
+- **A player disconnecting mid-drain:** their in-game slot cannot resume on the replacement,
+  exactly as before. The replacement shows a waiting notice and holds their existing room
+  reservation, preventing a duplicate room or solo run. It polls connected users every heartbeat
+  (2 s) and adopts their lobby once published, without requiring another reconnect. The old
+  server still applies the normal `RECONNECT_GRACE_S` (60 s): if the game has not ended by then,
+  that player's membership expires and they are removed/credited for the time played. The
+  replacement clears the waiting notice and explains the expiry; they can then choose a new
+  room. They are not automatically added back to the original lobby after leaving/expiry.
+- **Before adoption on the replacement:** joining a code still owned by the old instance,
+  creating another room for a reserved member, or inviting a member still on the old instance
+  returns the explicit `room_pending` message. Shared unique room codes and memberships prevent
+  competing rooms. Adoption takes a row lock, consumes the payload once, and keeps only members
+  whose current reservation still belongs to it; it does not overwrite a newer room or reapply
+  an old snapshot after membership changes on the new server.
 
-Docker references: [update/rollback order](https://docs.docker.com/reference/compose-file/deploy/#update_config),
-[stop grace period](https://docs.docker.com/reference/compose-file/services/#stop_grace_period).
+Handed-off rooms nobody claims expire after `RESTART_RECONNECT_GRACE_S` (default 180 s), including
+while no replacement is running; expired rows are never adopted. The same fresh 180 s window
+starts on adoption for members who have not reconnected. Normal cleanup removes absent members,
+transfers the host, and closes empty rooms. A consumed payload is cleared while the shared
+ownership/membership reservations remain for the live room. Live reservations are renewed by
+the owner and expire after five minutes if that process disappears; they are not a crash-safe
+room save. Graceful handoff writes must succeed before clients are released.
+
+Authentication uses the existing persisted login cookie; no new resume token is needed. Clients
+retain their lobby UI, show “Reconnecting…”, and retry with jittered exponential backoff (500 ms
+to 10 s) for up to three minutes. A stalled connection/hello retries in 10 s. A protocol-version
+mismatch stops retries and shows Reload, including over a game. Reloading obtains the current
+client and rejoins the handed-off lobby if its reservation has not expired. The two waiting
+notices are additive; protocol v7 is unchanged.
+
+Keep **one replica** with `start-first` updates; brief deploy overlap is supported, arbitrary
+active multi-replica routing is not. Keep the **16-minute stop grace** for the default 900 s drain. For plain Docker use `--stop-timeout 960`; for an app in Compose use
+`stop_grace_period: 16m`. The repository's Compose file only starts the development database.
+Dockerfile `STOPSIGNAL SIGTERM` specifies the signal, not its grace period.
+
+The first deploy from the old version cannot preserve its lobbies, because that version does not
+publish handoffs. Subsequent graceful deploys do. Host crashes and SIGKILL are outside this scope;
+run recording retains its existing database retries and failure limitations.
 
 ## 5. Verify
 
@@ -184,7 +222,7 @@ the stale spec goes away (`docker service rm <app>`), and redeploy from Dokploy.
 
 ```sh
 docker build -t pokesurvivor .
-docker run --stop-timeout 45 -p 3000:3000 -e DATABASE_URL=postgres://user:pass@host:5432/db pokesurvivor
+docker run --stop-timeout 960 -p 3000:3000 -e DATABASE_URL=postgres://user:pass@host:5432/db pokesurvivor
 ```
 
 ## Migrations

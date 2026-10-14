@@ -20,7 +20,7 @@ export interface RunRoutesOptions {
    * Whether the user is a member of a room (the game server's `roomOfUser`): a player in a party
    * can't start a solo run. Absent without a game server.
    */
-  inRoom?: (userId: string) => boolean;
+  inRoom?: (userId: string) => boolean | Promise<boolean>;
 }
 
 const count = z.number().int().nonnegative().max(1_000_000);
@@ -79,7 +79,7 @@ export function runRoutes(app: FastifyInstance, opts: RunRoutesOptions): void {
     async (request, reply) => {
       const { pokemon } = parseBody(startBody, request.body);
       const userId = currentUser(request).id;
-      if (opts.inRoom?.(userId))
+      if (await opts.inRoom?.(userId))
         throw new ApiError(409, 'in_room', 'Leave your room to start a solo run');
       const run = await startSoloRun(db, userId, pokemon);
       return reply.status(201).send({ runId: run.runId, startedAt: run.startedAt.toISOString() });

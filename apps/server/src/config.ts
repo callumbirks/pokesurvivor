@@ -46,6 +46,8 @@ export interface GameConfig {
   inviteTtlMs: number;
   /** Clients ping this often; sockets silent for 5 of these are dropped. */
   heartbeatMs: number;
+  /** Running games may finish for this long during SIGTERM drain. */
+  drainTimeoutMs: number;
 }
 
 /** Solo runs (client-simulated): checkpoints and the timeout that credits them. */
@@ -108,6 +110,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       loadingTimeoutMs: positiveInt('LOADING_TIMEOUT_S', env.LOADING_TIMEOUT_S, 15) * 1000,
       inviteTtlMs: 120_000,
       heartbeatMs: 2000,
+      drainTimeoutMs: positiveInt('DRAIN_TIMEOUT_S', env.DRAIN_TIMEOUT_S, 900) * 1000,
     },
     soloRuns: {
       checkpointTimeoutMs:

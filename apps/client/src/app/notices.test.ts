@@ -13,6 +13,8 @@ const ALL: NoticeCode[] = [
   'kicked',
   'game-cancelled',
   'server-draining',
+  'room-handoff-pending',
+  'room-handoff-expired',
 ];
 
 describe('room notices: shell or game', () => {
@@ -33,7 +35,10 @@ describe('room notices: shell or game', () => {
         NOTICE_TEXT[code] !== undefined ||
           ['player-disconnected', 'player-reconnected', 'player-left'].includes(code),
       ).toBe(true);
-    // Today the game covers every notice; a new code would show in the shell until it does.
-    expect(ALL.filter((c) => !GAME_NOTICES.has(c))).toEqual([]);
+    // Handoff notices belong to the shell, where users wait for the lobby.
+    expect(ALL.filter((c) => !GAME_NOTICES.has(c))).toEqual([
+      'room-handoff-pending',
+      'room-handoff-expired',
+    ]);
   });
 });
