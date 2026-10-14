@@ -11,6 +11,7 @@ PRs: [#48](https://github.com/callumbirks/pokesurvivor/pull/48), [#49](https://g
 ### New
 
 - See what your friends are up to: the Friends list and room invites show whether they're in the menus or in a solo or co-op run, with their Pokémon and run time.
+- In co-op you'll hear and see it when a teammate goes down, so you can go and help.
 
 ### Changed
 
