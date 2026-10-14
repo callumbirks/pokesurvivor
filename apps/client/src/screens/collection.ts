@@ -30,8 +30,8 @@ export function collectionScreen(app: App, params: URLSearchParams): Screen {
   const data = gameData();
   const banners = data.gacha.banners;
   const box = screenBox(app, { id: 'collection', title: t('menu.pokemon') });
-  const total = h('span', { class: 'sub count' });
-  box.title.append(' ', total);
+  const total = h('span', { class: 'title-tag', dataset: { testid: 'collection-count' } });
+  box.title.after(total);
   const genTabs = h('div', { class: 'gen-tabs' });
   const filters = h('div', { class: 'filters' });
   const grid = h('div', { class: 'grid', dataset: { testid: 'collection-grid' } });

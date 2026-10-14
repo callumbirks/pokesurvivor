@@ -222,9 +222,6 @@ html[data-input='gamepad'] .nav-focus {
 .box-head h2 {
   margin: 0;
 }
-.count {
-  font-size: 15px;
-}
 /* A rule between parts of a window. */
 .win hr,
 .box hr {
@@ -585,9 +582,34 @@ label {
 .field:focus {
   box-shadow: inset 0 0 0 3px var(--text);
 }
+/* Drop-downs: still native selects (keyboard, screen readers, phones' pickers), drawn as a
+   square field on the raised fill with a pixel arrow. */
 select.field {
+  appearance: none;
   width: auto;
   max-width: 100%;
+  padding: 6px 30px 6px 10px;
+  background: var(--bg2)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' shape-rendering='crispEdges' fill='%23f2e9d8'%3E%3Cpath d='M0 0h10v2H8v2H6v2H4V4H2V2H0z'/%3E%3C/svg%3E")
+    no-repeat right 10px center / 10px 6px;
+  cursor: pointer;
+}
+select.field:hover:not(:disabled) {
+  box-shadow: inset 0 0 0 3px var(--muted);
+}
+select.field:focus-visible {
+  outline: 3px solid var(--gold);
+  outline-offset: 2px;
+}
+select.field:disabled {
+  cursor: not-allowed;
+  color: var(--muted);
+  background-color: transparent;
+  opacity: 1;
+}
+select.field option {
+  background: var(--bg);
+  color: var(--text);
 }
 .hint {
   color: var(--muted);
@@ -1132,7 +1154,7 @@ img.pix {
   width: 100%;
   min-width: 0;
   font-size: 13px;
-  padding: 5px;
+  padding: 5px 26px 5px 6px;
 }
 .ban-moves {
   display: flex;
@@ -1427,6 +1449,18 @@ html[data-input='touch'] .back-btn .input-hint {
 }
 .scr-head h1 {
   font-size: 40px;
+}
+/* A count next to a title (Pokémon owned): a small dark tag, readable on the field. */
+.title-tag {
+  padding: 2px 8px;
+  font-size: 16px;
+  line-height: 1.25;
+  color: var(--text);
+  background: var(--bg);
+  box-shadow:
+    inset 0 0 0 2px var(--rule),
+    3px 3px 0 var(--ink);
+  white-space: nowrap;
 }
 .scr-head .btn.ghost {
   background: var(--bg);
@@ -1824,7 +1858,8 @@ html[data-input='touch'] .back-btn .input-hint {
 .fav-slot select {
   width: 100%;
   font-size: 13px;
-  padding: 4px;
+  padding: 4px 24px 4px 6px;
+  background-position: right 7px center;
 }
 .prof-marks {
   display: grid;
@@ -2699,6 +2734,10 @@ canvas.backdrop {
   }
   .scr-head h1 {
     font-size: 26px;
+  }
+  .title-tag {
+    font-size: 13px;
+    padding: 1px 6px;
   }
   .gacha-body {
     grid-template-columns: 150px minmax(0, 1fr);
