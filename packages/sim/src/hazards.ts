@@ -1,4 +1,4 @@
-// Telegraphed enemy attacks (legacy systems/hazards.js): a warning on the ground that fills up,
+// Telegraphed enemy attacks (original implementation): a warning on the ground that fills up,
 // then hits every player inside when `t` reaches `delay`.
 //   zone  circle (ground/fire/poison zones, explosions, jump landings)
 //   beam  straight line from the enemy (electric, psychic, dragon, ice)

@@ -32,7 +32,7 @@ export function altarPower(id: string): { name: string; color: string } {
   return { name: p?.name ?? id, color: p?.color ?? '#ffd23f' };
 }
 
-/** The family → animation of a cast (legacy player.js `cast`). */
+/** The family → animation of a cast (original implementation `cast`). */
 const CAST_ANIM: Record<string, AnimationName> = {
   melee: 'Attack',
   beam: 'Shoot',
@@ -787,7 +787,7 @@ export class EntityLayer {
     for (const [id, s] of this.shots) {
       if (s.seen === now) continue;
       this.shots.delete(id);
-      // A friendly shot that stopped on an enemy or a wall bursts there (legacy combat.js);
+      // A friendly shot that stopped on an enemy or a wall bursts there (original implementation);
       // one that just ran out of life or range fades.
       if (!s.type || !this.camera.sees(s.x, s.y, 20)) continue;
       const hit =
@@ -837,7 +837,7 @@ export class EntityLayer {
     }
   }
 
-  /** Shots fade over the last quarter second of their life (legacy projectile.js). */
+  /** Shots fade over the last quarter second of their life (original implementation). */
   private shotAlpha(p: NetProjectile, age: number, frame: Frame): number {
     if (p.orb || !p.friendly || !p.moveId || p.returning) return 1;
     const owner = frame.game.players.find((q) => q.index === p.ownerIndex);
@@ -854,7 +854,7 @@ export class EntityLayer {
       if (!this.camera.sees(f.x, f.y, 200)) continue;
       const vis = vfxForMove(f.moveId, f.type);
       if (f.kind === 'meteor') {
-        // Falls from up and to the right onto its shadow (legacy combat.js `drawAirFields`).
+        // Falls from up and to the right onto its shadow (original implementation `drawAirFields`).
         if (f.progress <= 0) continue;
         const k = clamp01(f.progress);
         drawVfx(ctx, vis.proj, vis.pal, f.x + (1 - k) * 40, f.y - (1 - k) * 170 - 6, {

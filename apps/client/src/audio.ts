@@ -1,4 +1,4 @@
-// Synth, sequencer and sound effects (port of legacy core/audio.js): everything is generated with
+// Synth, sequencer and sound effects (port of original implementation): everything is generated with
 // Web Audio at play time, no files. Shared by the game and the menus.
 //
 //   audio.music('village')   switch song with a crossfade (music.json); null = silence

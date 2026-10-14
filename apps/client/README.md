@@ -14,7 +14,7 @@ look (blue Mystery Dungeon boxes, the Pixelify Sans font in `public/fonts/`, OFL
 | `src/app/busy.ts`                                | `BusyStatus`: `busy` in the room while on a busy screen, then the previous status back         |
 | `src/app/toast.ts`                               | Toasts, sticky notices, and `errorText()` (error code → `errors.<code>` in `en.json`)          |
 | `src/app/dom.ts`                                 | `h()`, pixel icons (`icon()`, rarity Poké Balls, `tNodes()`), sprites with `fit`/`feet`        |
-| `src/app/slots.ts`                               | The gacha's pixel-art slot machine (port of legacy `slots.js`)                                 |
+| `src/app/slots.ts`                               | The gacha's pixel-art slot machine (port of original `slots.js`)                               |
 | `src/app/backdrop.ts`                            | The living world behind the menus (port of legacy's `Backdrop`)                                |
 | `src/app/game.ts`                                | `mountGame` / `createSoloConnection`: the shell's view of `src/game/`                          |
 | `src/game/`                                      | The in-game client: renderer, prediction, HUD, choices, results, solo worker (below)           |
@@ -41,7 +41,7 @@ fn)` (spinner on the button, toast on error), loads through `loadInto(el, load, 
 
 ## The legacy look
 
-- **Icons** are the pixel-art set in `src/icons.ts` (port of legacy `icons.js`), as `<img>` via
+- **Icons** are the pixel-art set in `src/icons.ts` (port of original `icons.js`), as `<img>` via
   `icon(name, size)` or inside UI strings with `tNodes()` (`{ticket}` placeholders). Rarity is a
   Poké Ball (`rarityBall`: Poké, Great, Ultra, Luxury, Master), as in legacy. `--ico-cursor`
   and friends are CSS variables for the stylesheet (the menu's pixel cursor).
@@ -103,7 +103,7 @@ fn)` (spinner on the button, toast on error), loads through `loadInto(el, load, 
 
 - **Loading**: preloads the players', bosses' and first tiers' sprites (`GameStatic.roster`),
   then `conn.loaded()`. Later tiers load during the run.
-- **Rendering** (`scene/`): ports of legacy `tiles.js` (ground chunks baked at art resolution
+- **Rendering** (`scene/`): ports of original `tiles.js` (ground chunks baked at art resolution
   from the sim's `WorldView`, biome crossfade, palettes from `biomes.json`), `vfx.js`, `fx.js`,
   the entities' drawing (client animators driven by snapshot state and events, corpses fading
   out), weather and the camera. `events.ts` turns sim events into effects, numbers, sounds and

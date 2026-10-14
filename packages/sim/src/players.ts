@@ -1,4 +1,4 @@
-// The players' Pokémon (legacy entities/player.js, logic only): stats, movement with collisions,
+// The players' Pokémon (original implementation, logic only): stats, movement with collisions,
 // liquids, auto-aim (or the player's manual aim), damage, healing, going down and being revived.
 import { emptyRunProgress } from '@pokesurvivor/protocol';
 import { DT, TILE } from './constants.js';
@@ -382,7 +382,7 @@ export const isAttacking = (time: number, p: Pick<PlayerState, 'attackingUntil'>
   time < p.attackingUntil;
 
 /**
- * Where a player's Pokémon faces (legacy player.js): its aim while attacking (the auto target, or
+ * Where a player's Pokémon faces (original implementation): its aim while attacking (the auto target, or
  * the manual aim), else where it walks; standing still, its aim. Renderers use this so the sprite doesn't flip between casts.
  */
 export function facingOf(p: {

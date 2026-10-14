@@ -10,7 +10,7 @@ import { loadSpriteManifest, spriteUrl } from '../src/sprites.js';
 const spritesDir = resolve(import.meta.dirname, '../../../assets/pokemon');
 const manifest = loadSpriteManifest();
 
-/** Same hash as tools/legacy-data/convert.ts. */
+/** Same hash as tools/sprites/generate.ts. */
 function hashDir(dir: string): string {
   const hash = createHash('sha1');
   const visit = (d: string, rel: string) => {
@@ -58,7 +58,7 @@ describe('sprite manifest', () => {
     );
     expect(
       stale.map((p) => p.dex),
-      'run pnpm --filter @pokesurvivor/tools convert-legacy-data',
+      'run pnpm --filter @pokesurvivor/tools generate-sprites',
     ).toEqual([]);
   });
 

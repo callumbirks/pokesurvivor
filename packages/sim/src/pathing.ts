@@ -1,4 +1,4 @@
-// Enemies walk around rocks and lakes (legacy systems/pathing.js). Every 0.35 s, a breadth-first
+// Enemies walk around rocks and lakes (original implementation). Every 0.35 s, a breadth-first
 // search over the tiles around each player records how many steps each tile is from them; an
 // enemy heads for the neighbouring tile with fewer steps.
 //   - 8 neighbours, no corner cutting (no squeezing diagonally between two rocks).

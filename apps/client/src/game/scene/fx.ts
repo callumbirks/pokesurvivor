@@ -1,4 +1,4 @@
-// Particles, damage numbers and effects in pixel art (port of legacy entities/fx.js). Purely
+// Particles, damage numbers and effects in pixel art (port of original implementation). Purely
 // visual: driven by sim events and the renderer, never by gameplay. Everything is drawn on the
 // game's pixel grid (PX): particles are squares, rings are dots, and hits and beams are built from
 // blocks and the VFX sprites, to match the Mystery Dungeon sprites.

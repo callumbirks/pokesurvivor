@@ -1,4 +1,4 @@
-// The choice overlay in the DOM (legacy run-ui.js level-up cards, item swap and bond screens),
+// The choice overlay in the DOM (original implementation level-up cards, item swap and bond screens),
 // rendered from `ChoiceState`. Keys 1–4 pick, R rerolls, Backspace/Esc goes back in a bond.
 //
 // The state is re-derived from every snapshot (20–30 a second), so rendering is incremental: the

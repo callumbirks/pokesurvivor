@@ -24,7 +24,7 @@ export interface RunSummary {
 
 /**
  * Per-run counters that missions and achievements need beyond the totals in `RunSummary`. These
- * mirror the events of legacy `systems/progress.js` (`kill`, `chest`, `item`, `evolve`, `rift`),
+ * mirror the events of original `systems/progress.js` (`kill`, `chest`, `item`, `evolve`, `rift`),
  * accumulated over the run instead of sent one by one.
  */
 export interface RunProgress {
@@ -35,7 +35,7 @@ export interface RunProgress {
   defeatsByType: Partial<Record<string, number>>;
   /** Locked chests opened. */
   chestsOpened: number;
-  /** Held-item ids, one entry each time the player equipped a different item (legacy `item`). */
+  /** Held-item ids, one entry each time the player equipped a different item (original `item`). */
   itemsEquipped: string[];
   /** Move ids (the base move, e.g. `tackle`) each time a move evolved. */
   movesEvolved: string[];

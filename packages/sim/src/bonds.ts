@@ -1,4 +1,4 @@
-// Bonds (legacy entities/player.js bondOptions/fuse and game.js offerBond). Each rift win gives
+// Bonds (original implementation bondOptions/fuse and game.js offerBond). Each rift win gives
 // every player a bond: it fuses moves into one slot, cast together. Only one group grows (up to
 // BOND_MAX moves); with none to grow, a bond pairs two loose moves. A bond you can't use yet (fewer
 // than two loose moves) is saved until you learn another move.

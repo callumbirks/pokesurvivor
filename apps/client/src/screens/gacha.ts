@@ -63,7 +63,7 @@ export function gachaScreen(app: App): Screen {
         {
           class: ['btn', 'grow', gold && 'gold'],
           disabled: !affordable,
-          // The pull plays its own sounds (legacy gacha-ui.js and slots.js).
+          // The pull plays its own sounds (original implementation and slots.js).
           dataset: { testid, sfx: 'none' },
         },
         `${label} · `,

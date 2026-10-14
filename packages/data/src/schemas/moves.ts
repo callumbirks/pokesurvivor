@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { IdSchema, PokemonTypeSchema, TextSchema } from './common.js';
 
-/** How a move behaves (implemented by the sim; see legacy systems/combat.js). */
+/** How a move behaves (implemented by the sim; see original implementation). */
 export const MOVE_KINDS = [
   'projectile',
   'melee',

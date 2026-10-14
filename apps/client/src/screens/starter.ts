@@ -1,5 +1,5 @@
 // The first Pokémon: the personality test suggests a starter; the player accepts it or picks
-// any other (legacy test.js). The server grants it and stores the personality from the answers.
+// any other (original implementation). The server grants it and stores the personality from the answers.
 import { bestStarters, personalityScores, t, topTrait } from '@pokesurvivor/data';
 import { audio } from '../audio.js';
 import type { App, Screen } from '../app/app.js';

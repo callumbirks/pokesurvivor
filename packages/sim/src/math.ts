@@ -21,7 +21,7 @@ export function norm(x: number, y: number): [number, number] {
 export const damp = (a: number, b: number, rate: number, dt: number): number =>
   b + (a - b) * Math.exp(-rate * dt);
 
-/** Deterministic 2D hash → [0, 1) (legacy `G.U.hash`; map generation depends on it). */
+/** Deterministic 2D hash → [0, 1) (original `G.U.hash`; map generation depends on it). */
 export function hash2(x: number, y: number, seed = 0): number {
   let h =
     Math.imul(x | 0, 374761393) ^ Math.imul(y | 0, 668265263) ^ Math.imul(seed | 0, 2246822519);

@@ -25,9 +25,7 @@ FROM node:${NODE_VERSION}-slim AS runtime
 ENV NODE_ENV=production \
     PORT=3000
 WORKDIR /app
-# Same relative layout as the repo, so the server finds ../../client/dist, ../../../legacy and
-# ../../../assets.
-COPY legacy legacy
+# Same relative layout as the repo, so the server finds ../../client/dist and ../../../assets.
 COPY assets assets
 COPY --from=build /out/server apps/server
 COPY --from=build /repo/apps/client/dist apps/client/dist

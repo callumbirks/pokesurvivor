@@ -12,9 +12,9 @@ Bastiodon, Bronzor, Bronzong, Mime Jr., Probopass and Carbink (dex 95, 122, 208,
 375, 410, 411, 436, 437, 439, 476, 703). These appear according to the run's rolled tier roster;
 bosses use separate AI. There are no move, hazard or boss-skill shield sources.
 
-The old port matches `legacy/js/entities/enemy.js` (`castShields`, `shieldT`, `skillCd`, `hurt`),
+The old port matches the original game (`castShields`, `shieldT`, `skillCd`, `hurt`),
 including the spatial query's body-radius overlap. No stronger-than-legacy shield rule was found.
-This intentionally changes balance in the deterministic sim; legacy remains untouched.
+This intentionally changes balance in the deterministic sim. The original implementation is preserved in Git history.
 
 | Rule                             | Old port / legacy                              | New (`tuning.json.enemyShields`)                                 |
 | -------------------------------- | ---------------------------------------------- | ---------------------------------------------------------------- |

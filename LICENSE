@@ -1,7 +1,7 @@
 PokéSurvivor — licencias
 
-1) CÓDIGO (todo lo que hay en js/, css/, index.html, tools/ y la música de
-   js/data/music.js): licencia MIT.
+1) CÓDIGO (todo lo que hay en apps/, packages/, tools/ y la música de
+   packages/data/json/music.json): licencia MIT.
 
 MIT License
 
@@ -30,8 +30,8 @@ SOFTWARE.
 - assets/pokemon/: sprites de SpriteCollab (https://github.com/PMDCollab/SpriteCollab),
   licencia CC BY-NC 4.0. Uso NO comercial y con atribución; los autores están
   en CREDITS.md.
-- assets/fonts/: Pixelify Sans, SIL Open Font License 1.1 (assets/fonts/OFL.txt).
-- js/data/pokedex.js: datos obtenidos de PokeAPI (https://pokeapi.co/).
+- apps/client/public/fonts/: Pixelify Sans, SIL Open Font License 1.1 (apps/client/public/fonts/OFL.txt).
+- packages/data/json/pokedex.json: datos obtenidos de PokeAPI (https://pokeapi.co/).
 
 3) MARCAS
 

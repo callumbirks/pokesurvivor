@@ -10,7 +10,7 @@ export const cryptoRng: Rng = () => randomInt(CRYPTO_RANGE) / CRYPTO_RANGE;
 
 /**
  * A deterministic generator seeded from a string: FNV-1a hash of the seed, then a
- * mulberry32-style step. Ported unchanged from legacy `progress.js` `rng()`, which rolls the
+ * mulberry32-style step. Ported unchanged from original `progress.js` `rng()`, which rolls the
  * missions, so the same seed gives the same sequence.
  */
 export function seededRng(seed: string): Rng {
@@ -28,7 +28,7 @@ export function seededRng(seed: string): Rng {
   };
 }
 
-/** A uniformly random element (legacy `G.U.pick`). */
+/** A uniformly random element (original `G.U.pick`). */
 export function pick<T>(list: readonly T[], rng: Rng): T {
   const item = list[Math.floor(rng() * list.length)];
   if (item === undefined) throw new Error('pick() from an empty list');

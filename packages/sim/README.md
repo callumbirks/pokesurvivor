@@ -1,8 +1,6 @@
 # @pokesurvivor/sim
 
-The headless game simulation: a port of the legacy run (`legacy/js/game.js`, `world/world.js`,
-`entities/*`, `systems/{combat,spawner,levelup,pathing,hazards,rift,events,weather,interact}.js`)
-for 1–4 players. The server
+The headless game simulation for 1–4 players. The server
 runs it for co-op rooms; the browser runs it in a Web Worker for solo. No DOM, Canvas or Audio,
 and deterministic: one seeded RNG in the state, a fixed 30 Hz tick, no wall clock (ESLint bans
 `Math.random`, `Date.now`, `performance` and timers in `src/`).

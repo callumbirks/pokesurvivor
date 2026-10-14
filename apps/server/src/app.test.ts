@@ -15,8 +15,6 @@ describe('server', () => {
   let database: TestDatabase;
 
   beforeAll(async () => {
-    const legacyDir = mkdtempSync(join(tmpdir(), 'legacy-'));
-    writeFileSync(join(legacyDir, 'index.html'), '<title>legacy</title>');
     const assetsDir = mkdtempSync(join(tmpdir(), 'assets-'));
     mkdirSync(join(assetsDir, 'pokemon', '25'), { recursive: true });
     writeFileSync(join(assetsDir, 'pokemon', '25', 'Idle.png'), 'png');
@@ -24,9 +22,8 @@ describe('server', () => {
       PORT: '0',
       HOST: '127.0.0.1',
       LOG_LEVEL: 'silent',
-      LEGACY_DIR: legacyDir,
       ASSETS_DIR: assetsDir,
-      CLIENT_DIR: join(legacyDir, 'missing'),
+      CLIENT_DIR: join(assetsDir, 'missing'),
     });
     database = await createTestDatabase();
     app = await buildApp({ config, db: database.db });
@@ -44,22 +41,11 @@ describe('server', () => {
     expect(res.json()).toEqual({ status: 'ok', database: 'up' });
   });
 
-  it('serves the legacy game under /legacy/', async () => {
-    const res = await app.inject({ url: '/legacy/' });
+  it('serves sprites with long cache headers', async () => {
+    const res = await app.inject({ url: '/sprites/25/Idle.png' });
     expect(res.statusCode).toBe(200);
-    expect(res.body).toContain('legacy');
-    const redirect = await app.inject({ url: '/legacy' });
-    expect(redirect.statusCode).toBe(301);
-    expect(redirect.headers.location).toBe('/legacy/');
-  });
-
-  it('serves sprites with long cache headers, also at the legacy path', async () => {
-    for (const url of ['/sprites/25/Idle.png', '/legacy/assets/pokemon/25/Idle.png']) {
-      const res = await app.inject({ url });
-      expect(res.statusCode).toBe(200);
-      expect(res.body).toBe('png');
-      expect(res.headers['cache-control']).toBe('public, max-age=31536000, immutable');
-    }
+    expect(res.body).toBe('png');
+    expect(res.headers['cache-control']).toBe('public, max-age=31536000, immutable');
     expect((await app.inject({ url: '/sprites/25/Missing.png' })).statusCode).toBe(404);
   });
 

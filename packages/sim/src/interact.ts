@@ -1,4 +1,4 @@
-// Interactables (legacy systems/interact.js): the world places them (rare, on open floor); this is
+// Interactables (original implementation): the world places them (rare, on open floor); this is
 // what happens when someone touches them.
 //   altar      grants a 25 s power (Fury, Lightning, Magnet or Haste), once
 //   spring     heals while you stand in it; it drains and refills on its own

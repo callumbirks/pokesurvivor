@@ -1,4 +1,4 @@
-// The map as drawn (port of the drawing half of legacy world/world.js): ground chunks baked at art
+// The map as drawn (port of the drawing half of original implementation): ground chunks baked at art
 // resolution from the sim's terrain (`WorldView`), animated liquid glints, props sorted with the
 // entities, the biome crossfade and the vignette.
 import {
@@ -23,7 +23,7 @@ const FADE = 2.6;
 const MAX_IMAGES = 48;
 const CHEST_SECONDS = 3.5;
 
-// Value noise for the dirt patches (legacy world.js; the sim's is internal).
+// Value noise for the dirt patches (original implementation; the sim's is internal).
 function vnoise(x: number, y: number, s: number): number {
   const xi = Math.floor(x);
   const yi = Math.floor(y);

@@ -44,7 +44,7 @@ export function nextId(s: SimState): EntityId {
   return s.nextId++;
 }
 
-/** Is (x, y) within `pad` of some active player's view? (legacy `Camera.sees`) */
+/** Is (x, y) within `pad` of some active player's view? (original `Camera.sees`) */
 export function seenByAny(s: SimState, x: number, y: number, pad: number): boolean {
   for (const p of s.players) {
     if (!p.connected || p.left) continue;

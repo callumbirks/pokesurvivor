@@ -1,4 +1,4 @@
-// Main menu: the partner on the left, the menu list on the right (legacy menu.js). Above the
+// Main menu: the partner on the left, the menu list on the right (original implementation). Above the
 // list, a solo run left unfinished in this browser (closed tab, crash, reload): resume or end it.
 import { t } from '@pokesurvivor/data';
 import type { App, Screen } from '../app/app.js';
@@ -26,7 +26,7 @@ export function rewardsToClaim(save: Save): number {
   ).length;
 }
 
-/** The menu's pixel-art icons (legacy menu.js; legacy had no separate multiplayer entry). */
+/** The menu's pixel-art icons (original implementation; legacy had no separate multiplayer entry). */
 const MENU_ICON: Record<string, string> = {
   solo: 'ball',
   lobby: 'friends',

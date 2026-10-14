@@ -1,4 +1,4 @@
-// Pixel-art attack sprites (port of legacy entities/vfx.js): shapes (flame, drop, bubble, leaf,
+// Pixel-art attack sprites (port of original implementation): shapes (flame, drop, bubble, leaf,
 // bolt…) generated at art resolution like the tiles and coloured with the type's palette, so one
 // bubble is blue for Water and purple for Poison, and everything shares the pixel size and dark
 // outline of the Mystery Dungeon sprites.

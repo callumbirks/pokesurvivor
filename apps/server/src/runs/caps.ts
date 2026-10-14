@@ -19,7 +19,7 @@ export function isRescuable(dex: number): boolean {
   return !!pokemon && !!sprites && pokemon.rarity <= 3 && !pokemon.legendary && !sprites.hovers;
 }
 
-/** Rift legendaries: legendary Pokémon with sprites (legacy `rift.js`). */
+/** Rift legendaries: legendary Pokémon with sprites (original `rift.js`). */
 export function isRiftLegendary(dex: number): boolean {
   const data = getServerData();
   return !!data.pokemonByDex.get(dex)?.legendary && data.hasSprite(dex);

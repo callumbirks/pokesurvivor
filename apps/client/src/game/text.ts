@@ -91,7 +91,7 @@ export function cardText(c: CardOption): CardText {
   }
 }
 
-/** "A, B and you": a list of names (legacy run-ui.js). */
+/** "A, B and you": a list of names (original implementation). */
 export function nameList(names: readonly string[]): string {
   if (names.length <= 1) return names[0] ?? '';
   return t('game.listAnd', { 0: names.slice(0, -1).join(', '), 1: names[names.length - 1]! });

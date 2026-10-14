@@ -3,7 +3,7 @@ import { pick } from '../random.js';
 import type { Rng } from '../random.js';
 
 /**
- * The gacha rules, ported from legacy `systems/gacha.js`. Pure: every number comes from
+ * The gacha rules, ported from original `systems/gacha.js`. Pure: every number comes from
  * `gacha.json` and every random draw from the injected `rng`, so tests can seed it.
  */
 
@@ -30,7 +30,7 @@ export function buildBannerPool(
   return { id: banner.id, gen: banner.gen, all, byRarity };
 }
 
-/** The banner's three strongest 5★ (by base stat total), for its poster (legacy `featured`). */
+/** The banner's three strongest 5★ (by base stat total), for its poster (original `featured`). */
 export function featuredOf(pool: BannerPool): number[] {
   return [...(pool.byRarity.get(5) ?? [])]
     .sort((a, b) => b.bst - a.bst)
@@ -40,7 +40,7 @@ export function featuredOf(pool: BannerPool): number[] {
 
 /**
  * The nearest non-empty rarity pool (some generations have almost-empty rarities): tries the
- * rarity, then -1, +1, -2, +2, … Falls back to the whole banner (legacy `poolNear`).
+ * rarity, then -1, +1, -2, +2, … Falls back to the whole banner (original `poolNear`).
  */
 export function poolNear(
   pool: BannerPool,
@@ -82,7 +82,7 @@ export function ratesAt(config: GachaFile, pity: number): GachaFile['rates'] {
   }));
 }
 
-/** A weighted rarity of at least `min` (legacy `rollRarity`). Zero weights never roll. */
+/** A weighted rarity of at least `min` (original `rollRarity`). Zero weights never roll. */
 export function rollRarity(rates: GachaFile['rates'], rng: Rng, min = 1): number {
   const eligible = rates.filter((r) => r.rarity >= min && r.weight > 0);
   const total = eligible.reduce((sum, r) => sum + r.weight, 0);
@@ -127,7 +127,7 @@ export interface PullOutcome {
 }
 
 /**
- * Rolls `count` pulls (legacy `pull`):
+ * Rolls `count` pulls (original `pull`):
  * - each pull adds 1 to the banner's pity and rolls at `ratesAt` that pity: soft pity raises the
  *   5★ chance from `softPity.from`, the `hardPity`-th pull is 5★, and a 5★ resets the pity;
  * - the last pull of a multi is at least `multiGuaranteeMinRarity` if no earlier one was, rolled

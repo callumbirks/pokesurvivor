@@ -55,7 +55,7 @@ export interface RunCaps {
   rescuesMax: number;
 }
 
-/** Cost of buying level `currentLevel + 1`, as in the legacy shop (`legacy/js/data/upgrades.js`). */
+/** Cost of buying level `currentLevel + 1`, as in the legacy shop (`the original game`). */
 export function upgradeCost(def: UpgradeDef, currentLevel: number): number {
   return Math.round((def.baseCost * Math.pow(def.growth, currentLevel)) / 10) * 10;
 }

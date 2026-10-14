@@ -1,7 +1,7 @@
 # Deploying on Dokploy
 
 The whole game is one Docker image: a Node 22 process that serves the client, the HTTP API, the
-WebSocket game server (`/ws`) and the legacy game (`/legacy/`) on one port (`PORT`, default
+WebSocket game server (`/ws`) on one port (`PORT`, default
 `3000`). The only other service it needs is Postgres.
 
 ## 1. Create the database
@@ -113,7 +113,6 @@ in memory), but is still credited when it ends.
 
 ```sh
 curl https://<domain>/healthz          # {"status":"ok","database":"up"}
-curl -I https://<domain>/legacy/       # 200, the old game
 ```
 
 and open `https://<domain>/`: it should show the login screen. Log in and start a game to check

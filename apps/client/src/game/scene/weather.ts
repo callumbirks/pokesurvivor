@@ -1,4 +1,4 @@
-// The weather on screen (the drawing half of legacy systems/weather.js): a light tint and a few
+// The weather on screen (the drawing half of original implementation): a light tint and a few
 // particles, soft on purpose. The sim owns the weather itself; snapshots carry it in whole seconds,
 // so the fade in and out runs on a local clock from there.
 import { loadGameData, type WeatherFile } from '@pokesurvivor/data';

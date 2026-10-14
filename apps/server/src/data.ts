@@ -12,9 +12,9 @@ export interface ServerData extends GameData {
   /** Legacy only uses Pokémon that have sprites (gacha pools, rift legends, lost Pokémon). */
   hasSprite: (dex: number) => boolean;
   hasShinySprite: (dex: number) => boolean;
-  /** The move a Pokémon starts runs with: its starter move, or its first type's (legacy `startMoveOf`). */
+  /** The move a Pokémon starts runs with: its starter move, or its first type's (original `startMoveOf`). */
   startingMoveOf(pokemon: Pokemon): string;
-  /** Moves that can show up in a Pokémon's level-up cards: normal plus its types (legacy `poolFor`). */
+  /** Moves that can show up in a Pokémon's level-up cards: normal plus its types (original `poolFor`). */
   movePoolOf(pokemon: Pokemon): readonly Move[];
 }
 

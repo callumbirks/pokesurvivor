@@ -72,7 +72,7 @@ achievement (100 coins). It works only while the save owns no Pokémon (else
 `starter_already_chosen`). Legacy gives no other starting grant: new saves get 500 coins and no
 tickets.
 
-**Moves** (legacy `pbind`/`pban`). `bindings` is 4 slots, each a move id or null: that move
+**Moves** (original `pbind`/`pban`). `bindings` is 4 slots, each a move id or null: that move
 always goes in that slot. Allowed: the Pokémon's starting move and its move pool (normal moves
 plus its types'), each once. `bans` lists moves that never show up in its level-up cards: up to
 its `ban` upgrade level (max 3), not its starting move. Either can be sent alone; an empty list
@@ -233,7 +233,7 @@ Results reach the players as a `game.results` message ([protocol.md](protocol.md
 ## Gacha
 
 The gacha rolls on the server with `crypto` randomness; the client only animates the results.
-The rules are `gacha.json`, ported from legacy `gacha.js` and rebalanced (a lower 5★ rate, soft
+The rules are `gacha.json`, ported from original `gacha.js` and rebalanced (a lower 5★ rate, soft
 pity, hard pity at 90):
 
 - One banner per generation, each with its own pity. Only Pokémon with sprites are in a banner.

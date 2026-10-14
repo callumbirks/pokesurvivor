@@ -14,7 +14,7 @@ import type { FX } from './scene/fx.js';
 import { vfxForMove, vfxForType, vfxSpins } from './scene/vfx.js';
 import type { WorldRenderer } from './scene/world.js';
 
-/** Families that sound like an older one (legacy player.js). */
+/** Families that sound like an older one (original implementation). */
 const SHOT_SOUND: Record<string, string> = {
   boomerang: 'projectile',
   chain: 'beam',
@@ -66,7 +66,7 @@ export interface EventSinks {
 type EnemyHurt = Extract<SimEvent, { type: 'enemy-hurt' }>;
 
 /**
- * A damage number's colour (legacy enemy.js `showHurt`): shield blue when the shield took it all;
+ * A damage number's colour (original implementation `showHurt`): shield blue when the shield took it all;
  * crit orange, super-effective yellow, not-very-effective grey; otherwise the attack's type colour
  * (white when untyped, or from a server that doesn't send it).
  */
@@ -322,7 +322,7 @@ export class EventEffects {
         return;
       }
       case 'field-blast': {
-        // A meteor landing, a mine going off, or a trail pool's tick (legacy combat.js).
+        // A meteor landing, a mine going off, or a trail pool's tick (original implementation).
         const f = this.fields.get(e.id) ?? frame.fields.find((x) => x.id === e.id);
         const col = typeColor(f?.type ?? 'normal');
         if (f?.kind === 'patch') return; // pools hurt every half second without a flash
@@ -427,7 +427,7 @@ export class EventEffects {
     }
   }
 
-  /** What a cast looks like, by family (legacy combat.js). */
+  /** What a cast looks like, by family (original implementation). */
   private castVisuals(
     e: Extract<SimEvent, { type: 'cast' }>,
     x: number,

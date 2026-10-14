@@ -11,7 +11,7 @@ export const DT = 1 / TICK_HZ;
  */
 export const VIEW_W = 768;
 export const VIEW_H = 432;
-/** Radius of the circle around the view (legacy `Camera.outerRadius()`). */
+/** Radius of the circle around the view (original `Camera.outerRadius()`). */
 export const OUTER_RADIUS = Math.hypot(VIEW_W, VIEW_H) / 2 + 40;
 
 /** World units per tile, tiles per chunk, world units per chunk. */

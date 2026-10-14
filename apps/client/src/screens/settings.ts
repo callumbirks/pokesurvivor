@@ -1,4 +1,4 @@
-// Settings: sound, graphics, controls, account and about (legacy settings-ui.js). Edits the
+// Settings: sound, graphics, controls, account and about (original implementation). Edits the
 // settings store, which saves locally and syncs the account's copy.
 import { t } from '@pokesurvivor/data';
 import type { App, Screen } from '../app/app.js';
@@ -239,11 +239,6 @@ export function settingsScreen(
         h('p', { class: 'small' }, t('settings.fanGameNoAdsOr', { 0: '' })),
         h('h4', { class: 'set-h' }, t('settings.credits')),
         h('ul', { class: 'credits' }, h('li', null, t('settings.pmdSpritecollabAndItsArtists'))),
-        h(
-          'p',
-          { class: 'small' },
-          h('a', { href: '/legacy/', target: '_blank', rel: 'noopener' }, t('app.legacyGame')),
-        ),
       );
     }
   };

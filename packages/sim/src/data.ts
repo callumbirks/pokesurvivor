@@ -1,5 +1,5 @@
 // Read-only game data and the lookups the systems need, built once from @pokesurvivor/data.
-// Formula constants that legacy kept inline in its logic are ported here (with the legacy source).
+// Formula constants that legacy kept inline in its logic are ported here in this module.
 import {
   loadGameData,
   type Body,
@@ -32,7 +32,7 @@ export interface PropDef {
   flat: boolean;
 }
 
-/** Permanent upgrades resolved into player modifiers (legacy `Upgrades.perks`). */
+/** Permanent upgrades resolved into player modifiers (original `Upgrades.perks`). */
 export interface Perks {
   hp: number;
   attackMul: number;
@@ -84,7 +84,7 @@ export interface SimData {
 const DEFAULT_BODY_WIDTH = 32;
 const DEFAULT_BODY_ANCHOR = 24;
 
-// Pokémon game stats → approximate base stats (inverse of legacy tools/fetch_pokedex.py).
+// Pokémon game stats → approximate base stats (inverse of the original PokéAPI conversion).
 const baseHp = (p: Pokemon) => (p.hp - 70) / 0.45;
 const baseSpeed = (p: Pokemon) => (p.speed - 78) / 0.42;
 
@@ -149,7 +149,7 @@ export function simData(): SimData {
   const summons = new Map(enemies.summons.map((s) => [s.summoner, s.minion]));
   const hasSprite = (dex: number) => game.bodyByDex.has(dex);
 
-  // legacy data/enemies.js behaviorOf()
+  // original implementation behaviorOf()
   const behaviorOf = (p: Pokemon): EnemyBehavior => {
     const t = p.types;
     const h = hash2(p.dex, 7, 11);
@@ -172,7 +172,7 @@ export function simData(): SimData {
     return 'chase';
   };
 
-  // legacy data/enemies.js defFor()
+  // original implementation defFor()
   const enemyDef = (p: Pokemon, ti: number): EnemyDef => {
     const tier = enemies.tiers[ti];
     if (!tier) throw new Error(`no tier ${ti}`);
@@ -221,7 +221,7 @@ export function simData(): SimData {
     return d;
   };
 
-  // legacy data/enemies.js rollRun() bosses (×1.35 HP and ×1.2 damage since 2026-10-10)
+  // original implementation rollRun() bosses (×1.35 HP and ×1.2 damage since 2026-10-10)
   const bossDef = (p: Pokemon, si: number): BossDef => {
     const slot = enemies.bossSlots[si];
     if (!slot) throw new Error(`no boss slot ${si}`);

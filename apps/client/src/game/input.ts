@@ -1,4 +1,4 @@
-// Keyboard and gamepad (legacy core/input.js; touch is touch.ts). Movement is sampled every tick;
+// Keyboard and gamepad (original implementation; touch is touch.ts). Movement is sampled every tick;
 // key presses (move slots, cycling, pause, choices) are delivered as they happen.
 //   WASD / arrows   move              1–4      move slot (or pick an option)
 //   Q / E / Tab     previous / next   R        reroll cards     Esc / P  pause

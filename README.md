@@ -2,10 +2,9 @@
 
 A Pokémon bullet-heaven (Survivor.io-style) with roguelike runs, a gacha collection and
 co-op for up to 4 players. This repository is a fork of [pokesurvivor.com](https://pokesurvivor.com)
-being rebuilt as a TypeScript monorepo with an authoritative game server.
+running as a TypeScript monorepo with an authoritative game server.
 
-> **Status:** rebuild in progress. The original game lives unchanged in [`legacy/`](legacy/)
-> (and is served at `/legacy/`) until the new client reaches parity.
+> **Status:** the TypeScript rebuild is complete and live on Dokploy.
 
 > **Crypto disclaimer:** PokéSurvivor has no official cryptocurrency, token or NFT. Any token
 > using the game's name was created by third parties.
@@ -25,9 +24,8 @@ packages/
 apps/
   server/     Fastify HTTP API + WebSocket server + Postgres (Drizzle)
   client/     Vite + Canvas 2D client
-tools/        one-off scripts (legacy data conversion)
-assets/       sprites (served at /sprites/ and /legacy/assets/pokemon/)
-legacy/       the original game, read-only reference
+tools/        sprite manifest and collision-body generation
+assets/       sprites (served at /sprites/) and animation metadata
 docs/         deployment and design notes
 ```
 
@@ -41,7 +39,7 @@ docker compose up -d   # Postgres on localhost:5432
 pnpm dev               # server on :3000, client on http://localhost:5173
 ```
 
-The dev client proxies `/ws`, `/api`, `/healthz`, `/sprites` and `/legacy` to the server. Migrations run
+The dev client proxies `/ws`, `/api`, `/healthz`, `/sprites` to the server. Migrations run
 when the server starts. Override settings in a root `.env` (see [.env.example](.env.example)).
 
 | Command            | What it does                                           |
@@ -61,7 +59,7 @@ when the server starts. Override settings in a root `.env` (see [.env.example](.
 Code is MIT; see [LICENSE](LICENSE). Third-party content is not MIT: the Pokémon sprites come
 from [SpriteCollab](https://github.com/PMDCollab/SpriteCollab) under CC BY-NC 4.0 (authors in
 [CREDITS.md](CREDITS.md)), the Pixelify Sans font is under the SIL OFL 1.1, and Pokédex data
-comes from [PokeAPI](https://pokeapi.co/). (The paths in LICENSE predate the move to `legacy/`.)
+comes from [PokeAPI](https://pokeapi.co/).
 
 Pokémon and all related names are trademarks of Nintendo, Creatures Inc., GAME FREAK and The
 Pokémon Company. This is a non-commercial fan project, not affiliated with or endorsed by them.

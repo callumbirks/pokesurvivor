@@ -1,4 +1,4 @@
-// Wild Pokémon (legacy entities/enemy.js, logic only): behaviours, bosses, statuses, deaths and
+// Wild Pokémon (original implementation, logic only): behaviours, bosses, statuses, deaths and
 // loot, plus the manager's spatial grid, separation and stragglers.
 //
 // Hovering Pokémon and bosses ignore terrain; the rest collide with walls and props, slow down in

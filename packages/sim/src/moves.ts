@@ -1,4 +1,4 @@
-// A player's moves and slots (legacy player.js addMove/arrange/setActive and data/moves.js
+// A player's moves and slots (original implementation addMove/arrange/setActive and data/moves.js
 // instance/levelUp/evolve). Only the active slot fires; a slot can hold several moves cast
 // together (2b: bonds fuse moves into one slot).
 import { emit, type Ctx } from './ctx.js';

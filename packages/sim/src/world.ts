@@ -1,4 +1,4 @@
-// The open map (legacy world/world.js, logic only): seeded value-noise terrain per tile, props
+// The open map (original implementation, logic only): seeded value-noise terrain per tile, props
 // placed by hashes, collision, liquids and breakable props. Everything here is a pure function of
 // the seed and the set of broken props, so chunks are generated lazily into a cache that isn't part
 // of the state. Rendering (tiles.js) is the client's job; it can call `terrainAt` / `chunkProps`.
@@ -505,7 +505,7 @@ export function destroyProp(ctx: Ctx, p: Prop): void {
   onSpecialBroken(ctx, p);
 }
 
-/** A random held item, different from `except` (legacy `Items.roll`). */
+/** A random held item, different from `except` (original `Items.roll`). */
 export function rollItem(ctx: Ctx, except?: string): string {
   const pool = ctx.d.game.items.filter((i) => i.id !== except);
   return ctx.rand.pick(pool).id;

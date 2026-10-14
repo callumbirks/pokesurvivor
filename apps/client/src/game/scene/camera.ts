@@ -1,4 +1,4 @@
-// View and world↔screen transform (port of legacy core/camera.js). The visible world width is
+// View and world↔screen transform (port of original implementation). The visible world width is
 // constant (VIEW_W) whatever the window size, so the game feels the same on every screen; on
 // screens wider than 16:9 (phones in landscape) a minimum world height is kept too.
 import { VIEW_W } from '@pokesurvivor/sim';

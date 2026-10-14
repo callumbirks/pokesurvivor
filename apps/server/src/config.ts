@@ -15,9 +15,7 @@ export interface Config {
   migrationsDir: string;
   /** Built client (Vite output). Not served if it doesn't exist, e.g. in dev where Vite serves it. */
   clientDir: string;
-  /** The legacy game, served under /legacy/ for side-by-side comparison. */
-  legacyDir: string;
-  /** Shared static assets (sprites), served at /sprites/ and, for the legacy game, /legacy/assets/pokemon/. */
+  /** Static sprite assets, served at /sprites/. */
   assetsDir: string;
   /** Mark the session cookie `Secure`. Defaults to on in production (served over TLS). */
   secureCookies: boolean;
@@ -98,7 +96,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     migrateOnStart: env.MIGRATE_ON_START !== 'false',
     migrationsDir: resolve(here, '../drizzle'),
     clientDir: resolve(env.CLIENT_DIR ?? resolve(here, '../../client/dist')),
-    legacyDir: resolve(env.LEGACY_DIR ?? resolve(here, '../../../legacy')),
     assetsDir: resolve(env.ASSETS_DIR ?? resolve(here, '../../../assets')),
     secureCookies: env.COOKIE_SECURE ? env.COOKIE_SECURE === 'true' : isProduction,
     leaderboardTimeZone: timeZone(env.LEADERBOARD_TIME_ZONE),

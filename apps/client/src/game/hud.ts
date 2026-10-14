@@ -1,4 +1,4 @@
-// The in-run HUD, drawn in screen coordinates on the game canvas (port of legacy ui/hud.js, the
+// The in-run HUD, drawn in screen coordinates on the game canvas (port of original implementation, the
 // HUD half of systems/events.js and the co-op panel): XP bar, HP and level, the clock, weather,
 // the boss bar, off-screen arrows (rift, shinies, teammates, the lost Pokémon, thieves), event
 // timers, the banner, move slots with cooldowns, the held item, the aim switch, and touch buttons.

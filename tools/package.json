@@ -2,17 +2,15 @@
   "name": "@pokesurvivor/tools",
   "version": "0.0.0",
   "private": true,
-  "description": "One-off scripts: legacy data conversion.",
+  "description": "Sprite manifest and collision-body generation.",
   "type": "module",
   "scripts": {
-    "convert-legacy-data": "tsx legacy-data/convert.ts",
-    "seed-ui-strings": "tsx legacy-data/seed-ui-strings.ts",
+    "generate-sprites": "tsx sprites/generate.ts",
     "typecheck": "tsc"
   },
   "devDependencies": {
     "@pokesurvivor/data": "workspace:*",
     "@types/pngjs": "^6.0.5",
-    "acorn": "^8.15.0",
     "pngjs": "^7.0.0",
     "prettier": "^3.9.10",
     "tsx": "^4.23.15",

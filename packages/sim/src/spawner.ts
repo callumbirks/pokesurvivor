@@ -1,4 +1,4 @@
-// Waves, bosses and shinies (legacy systems/spawner.js and data/enemies.js rollRun/scale).
+// Waves, bosses and shinies (original implementation and data/enemies.js rollRun/scale).
 // Enemies appear on a ring just outside everyone's view, so they never pop in on screen. Every
 // ~45 s a surge rushes in from one side. With several players they spawn around a random living
 // one, more often and tougher (`scaleRate` / `scaleHp`).
@@ -19,7 +19,7 @@ import type {
 } from './state.js';
 import type { Pokemon, EnemyBehavior } from '@pokesurvivor/data';
 
-/** Co-op difficulty: spawn rate and HP per extra player (legacy coop.js). */
+/** Co-op difficulty: spawn rate and HP per extra player (original implementation). */
 export const scaleRate = (n: number): number => 1 + 0.75 * Math.max(0, n - 1);
 export const scaleHp = (n: number): number => 1 + 0.3 * Math.max(0, n - 1);
 

@@ -1,4 +1,4 @@
-// The gacha's pixel-art slot machine (port of legacy ui/slots.js). Drawn whole on a canvas at art
+// The gacha's pixel-art slot machine (port of original implementation). Drawn whole on a canvas at art
 // resolution (176×170) and scaled up without smoothing, like the rest of the game.
 //
 //   lever → the 3 reels spin → they stop one by one on the symbol of the rarity that came out
