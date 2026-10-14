@@ -77,7 +77,7 @@ export function starterScreen(app: App): Screen {
       list,
       h(
         'div',
-        { class: 'row end', style: 'margin-top:12px' },
+        { class: 'row end quiz-actions' },
         h(
           'button',
           { class: 'btn small ghost', dataset: { testid: 'skip-test' }, on: { click: grid } },

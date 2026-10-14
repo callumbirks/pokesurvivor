@@ -1253,6 +1253,9 @@ img.pix {
 .login-title h1 {
   font-size: 52px;
 }
+.quiz-actions {
+  margin-top: 12px;
+}
 /* A list of keys: each key as wide as its text. */
 .keys > kbd {
   justify-self: start;
@@ -2540,6 +2543,25 @@ canvas.backdrop {
   }
   .login-tag {
     display: none;
+  }
+  /* The personality test fits without scrolling. */
+  .scr-starter .progress {
+    margin-bottom: 8px;
+  }
+  .scr-starter .sub {
+    margin-bottom: 4px;
+  }
+  .scr-starter .q {
+    margin-bottom: 6px;
+    font-size: 18px;
+  }
+  .scr-starter .answer {
+    min-height: 34px;
+    padding-block: 3px;
+    font-size: 16px;
+  }
+  .quiz-actions {
+    margin-top: 6px;
   }
 }
 @media (max-width: 760px) {
