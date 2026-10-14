@@ -172,6 +172,10 @@ html[data-input='gamepad'] .nav-focus {
   position: relative;
   border: 9px solid transparent;
   border-image: var(--frame) 9 fill / 9px / 0 stretch;
+  /* The frame paints the fill: no background (a button's own grey) may show in its notched
+     corners, and its pixels stay square at any pixel ratio. */
+  background: none;
+  image-rendering: pixelated;
   box-shadow: var(--win-shadow);
   padding: 8px 12px;
   color: var(--text);
@@ -889,6 +893,8 @@ img.pix {
 .notice {
   border: 9px solid transparent;
   border-image: var(--frame) 9 fill / 9px / 0 stretch;
+  background: none;
+  image-rendering: pixelated;
   box-shadow: var(--win-shadow);
   padding: 2px 10px;
   text-align: center;
