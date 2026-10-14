@@ -1,0 +1,395 @@
+/* The shared look of the menus and the in-game overlays (direction H, charcoal): the palette,
+ * windows (a thin 9-slice frame with a hard offset shadow, no gradients, glows or rounded
+ * corners), the cursor list (inverse-video selection: a light bar with the pixel cursor),
+ * buttons, tags, keys, sliders and the focus outline. Imported by the app (main.ts, before
+ * styles.css) and by the game (game/mount.ts), so the dev play page gets it too. */
+@font-face {
+  font-family: 'Pixelify';
+  src: url('/fonts/PixelifyPS-400.ttf') format('truetype');
+  font-weight: 400 550;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Pixelify';
+  src: url('/fonts/PixelifyPS-700.ttf') format('truetype');
+  font-weight: 551 900;
+  font-display: swap;
+}
+
+/* The charcoal palette. The frame PNGs (public/ui/) are drawn in these colours. */
+:root {
+  /* Window fill, a raised fill (secondary buttons, fields), and the frame's inner rule. */
+  --bg: #272223;
+  --bg2: #352e2e;
+  --rule: #4d4240;
+  --text: #f2e9d8;
+  /* Secondary numbers and labels only (5:1 on --bg). */
+  --muted: #a3968a;
+  /* The one accent: badges, the speaker's name, the pity cells. */
+  --accent: #e0603e;
+  /* Outlines, shadows, the cursor. */
+  --ink: #141012;
+  /* Notices and highlights only. */
+  --gold: #ffd65c;
+  /* Titles drawn straight on the field. */
+  --title: #f7f0de;
+  --red: #ff6b5a;
+  --green: #6fd08a;
+  --win-shadow: 4px 4px 0 rgba(20, 16, 18, 0.55);
+  --frame: url('/ui/frame.png');
+  --frame-talk: url('/ui/frame-talk.png');
+  --frame-hot: url('/ui/frame-hot.png');
+  --font: 'Pixelify', 'Segoe UI', system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+.hidden {
+  display: none !important;
+}
+/* Read by screen readers, not shown. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* A key, as a small light cap with a hard shadow. */
+kbd {
+  display: inline-block;
+  min-width: 1.3em;
+  padding: 0 4px;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.35;
+  text-align: center;
+  color: var(--ink);
+  background: var(--title);
+  box-shadow: 2px 2px 0 var(--ink);
+}
+
+/* ---------- focus ---------- */
+/* What the keyboard or the gamepad focused, and what the mouse is over: a square gold outline.
+   Cursor lists show their selection bar instead. */
+:focus-visible,
+html[data-input='gamepad'] .nav-focus {
+  outline: 3px solid var(--gold);
+  outline-offset: 2px;
+}
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* ---------- windows ---------- */
+/* A window: the 9-slice frame (3px ink, 3px fill, 3px rule) and a hard shadow. `.box` is the
+   screens' main window. */
+.win,
+.box {
+  position: relative;
+  border: 9px solid transparent;
+  border-image: var(--frame) 9 fill / 9px / 0 stretch;
+  /* The frame paints the fill: no background (a button's own grey) may show in its notched
+     corners, and its pixels stay square at any pixel ratio. */
+  background: none;
+  image-rendering: pixelated;
+  box-shadow: var(--win-shadow);
+  padding: 8px 12px;
+  color: var(--text);
+}
+/* A notice: gold window, ink text. */
+.win.hot {
+  border-image-source: var(--frame-hot);
+  color: var(--ink);
+}
+/* A dialogue window: the rule in the accent colour. */
+.win.talk {
+  border-image-source: var(--frame-talk);
+}
+.win h2,
+.win h3,
+.box h2,
+.box h3,
+.box h4 {
+  margin: 0 0 6px;
+  font-weight: 700;
+}
+.box {
+  padding: 12px 16px;
+  animation: fade 0.12s steps(2);
+  max-height: 100%;
+  overflow: auto;
+}
+.box h2 {
+  font-size: 26px;
+}
+.box h3 {
+  font-size: 18px;
+}
+.box h4 {
+  font-size: 16px;
+  margin-top: 12px;
+}
+/* A rule between parts of a window. */
+.win hr,
+.box hr {
+  border: 0;
+  height: 3px;
+  margin: 6px 4px;
+  background: var(--rule);
+}
+/* Big titles drawn on the field (no window): light with a hard ink shadow. */
+.field-title {
+  margin: 0;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--title);
+  text-shadow: 3px 3px 0 var(--ink);
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes pop {
+  from {
+    transform: scale(0.94);
+    opacity: 0;
+  }
+}
+
+/* ---------- cursor lists ---------- */
+/* A menu of choices (`cursorList()` in app/dom.ts): the selected one is a light bar with the
+   pixel cursor. The mouse, the keyboard and the gamepad all move the same selection. */
+.cursor-list {
+  display: flex;
+  flex-direction: column;
+}
+.cursor-item {
+  appearance: none;
+  background: none;
+  border: 0;
+  margin: 0;
+  cursor: pointer;
+  text-align: left;
+  display: grid;
+  grid-template-columns: 18px auto 1fr auto;
+  align-items: center;
+  column-gap: 6px;
+  min-height: 40px;
+  padding: 0 8px 0 4px;
+  font-size: 22px;
+  color: var(--text);
+}
+/* The pixel cursor (icons.ts `cursor`, as a stepped polygon so it stays crisp at any size). */
+.cursor-item::before {
+  content: '';
+  display: block;
+  width: 12px;
+  height: 22px;
+  background: var(--ink);
+  clip-path: polygon(
+    0 0,
+    16.67% 0,
+    16.67% 9.09%,
+    33.33% 9.09%,
+    33.33% 18.18%,
+    50% 18.18%,
+    50% 27.27%,
+    66.67% 27.27%,
+    66.67% 36.36%,
+    83.33% 36.36%,
+    83.33% 45.45%,
+    100% 45.45%,
+    100% 54.55%,
+    83.33% 54.55%,
+    83.33% 63.64%,
+    66.67% 63.64%,
+    66.67% 72.73%,
+    50% 72.73%,
+    50% 81.82%,
+    33.33% 81.82%,
+    33.33% 90.91%,
+    16.67% 90.91%,
+    16.67% 100%,
+    0 100%
+  );
+  visibility: hidden;
+}
+.cursor-item.on {
+  background: var(--text);
+  color: var(--bg);
+}
+.cursor-item.on::before {
+  visibility: visible;
+  animation: nudge 0.5s steps(2) infinite;
+}
+.cursor-item small {
+  font-size: 14px;
+  color: var(--muted);
+}
+.cursor-item.on small {
+  color: var(--bg);
+}
+.cursor-item:disabled {
+  cursor: not-allowed;
+  color: var(--muted);
+}
+.cursor-item:disabled img.pix {
+  opacity: 0.45;
+}
+/* The bar is the focus: no outline on top of it. */
+.cursor-item:focus-visible,
+html[data-input='gamepad'] .cursor-item.nav-focus {
+  outline: none;
+}
+@keyframes nudge {
+  to {
+    transform: translateX(3px);
+  }
+}
+
+/* ---------- tags ---------- */
+/* A small square label: a count, NEW, a state. */
+.badge {
+  display: inline-block;
+  padding: 0 5px;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  color: var(--ink);
+  background: var(--accent);
+}
+.badge.gold {
+  background: var(--gold);
+}
+.badge.dim {
+  color: var(--text);
+  background: var(--rule);
+}
+
+/* ---------- buttons, keys and sliders ---------- */
+/* Secondary: outlined on the raised fill. Primary (`.primary`, or the older `.gold`): filled
+   light. Ghost: outline only. Disabled: no fill, no shadow, dim text on hatching. */
+.btn {
+  appearance: none;
+  cursor: pointer;
+  position: relative;
+  padding: 8px 16px;
+  border: 0;
+  background: var(--bg2);
+  color: var(--text);
+  box-shadow:
+    inset 0 0 0 3px var(--text),
+    4px 4px 0 var(--ink);
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.btn:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow:
+    inset 0 0 0 3px var(--text),
+    2px 2px 0 var(--ink);
+}
+.btn.primary,
+.btn.gold {
+  background: var(--text);
+  color: var(--bg);
+}
+.btn.ghost {
+  background: transparent;
+  box-shadow: inset 0 0 0 3px var(--muted);
+}
+.btn.ghost:active:not(:disabled) {
+  box-shadow: inset 0 0 0 3px var(--muted);
+}
+.btn:hover:not(:disabled) {
+  outline: 3px solid var(--gold);
+  outline-offset: 2px;
+}
+.btn:disabled {
+  cursor: not-allowed;
+  color: var(--muted);
+  background: repeating-linear-gradient(135deg, transparent 0 5px, rgba(77, 66, 64, 0.45) 5px 7px);
+  box-shadow: inset 0 0 0 3px var(--rule);
+}
+.btn:disabled img.pix {
+  opacity: 0.45;
+}
+.btn.small {
+  padding: 4px 10px;
+  font-size: 14px;
+}
+.btn.big-btn {
+  font-size: 24px;
+  padding: 12px 40px;
+  margin-top: 8px;
+}
+.btn.wide-btn {
+  width: 100%;
+  margin: 8px 0;
+}
+.btn.loading {
+  color: transparent !important;
+}
+.btn.loading img.pix {
+  visibility: hidden;
+}
+.btn.loading::after,
+.spinner {
+  content: '';
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 12px;
+  height: 12px;
+  background: var(--muted);
+  animation: spin 0.8s steps(4) infinite;
+}
+.spinner {
+  position: static;
+  display: inline-block;
+  margin: 0 8px 0 0;
+  vertical-align: -1px;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Pixel-art icons (src/icons.ts) as <img class="pix">, sized to whole multiples of their pixels. */
+img.pix {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  vertical-align: middle;
+}
+
+input[type='range'] {
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  background: var(--ink);
+}
+input[type='range']::-webkit-slider-thumb {
+  appearance: none;
+  width: 14px;
+  height: 18px;
+  background: var(--text);
+  border: 0;
+  box-shadow: 2px 2px 0 var(--ink);
+  cursor: pointer;
+}
+input[type='range']::-moz-range-thumb {
+  width: 14px;
+  height: 18px;
+  background: var(--text);
+  border: 0;
+  border-radius: 0;
+  box-shadow: 2px 2px 0 var(--ink);
+}

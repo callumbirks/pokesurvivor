@@ -233,7 +233,7 @@ export function renderResults(results: Results, o: ResultsOptions): HTMLElement 
     el(
       'button',
       {
-        class: 'btn gold',
+        class: 'btn primary',
         type: 'button',
         data: { testid: 'game-exit', sfx: 'none', back: '' },
         on: {

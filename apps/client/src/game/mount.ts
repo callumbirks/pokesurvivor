@@ -41,6 +41,7 @@ import { WeatherLayer } from './scene/weather.js';
 import { WorldRenderer, drawVignette } from './scene/world.js';
 import { Toasts } from './toasts.js';
 import { TouchControls } from './touch.js';
+import '../ui.css';
 import './game.css';
 
 /** The face buttons (`input.ts`) as the move-slot keys, in play. */
@@ -651,7 +652,7 @@ class Run {
       { class: 'ps-screen', data: { testid: 'pause' } },
       el(
         'div',
-        { class: 'ps-box' },
+        { class: 'ps-box ps-pause' },
         el('h2', null, t('pause.pause')),
         el(
           'p',
@@ -673,7 +674,7 @@ class Run {
           el(
             'button',
             {
-              class: 'btn gold',
+              class: 'btn primary',
               type: 'button',
               data: { testid: 'resume' },
               on: { click: () => this.pause.resume() },
