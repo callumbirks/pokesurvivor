@@ -1,6 +1,6 @@
 {
   "unreleased": {
-    "prs": [48, 49, 50],
+    "prs": [48, 49, 50, 53],
     "entries": {
       "new": [
         "See what your friends are up to: the Friends list and room invites show whether they're in the menus or in a solo or co-op run, with their Pokémon and run time."
