@@ -1995,3 +1995,104 @@ canvas.backdrop {
   align-items: center;
   gap: 3px;
 }
+
+/* ---------- what's new ---------- */
+/* The menu button's "new release" dot, on the corner of its icon. */
+.mi-ico {
+  position: relative;
+}
+.new-dot {
+  position: absolute;
+  top: -3px;
+  right: -4px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--red);
+  border: 2px solid var(--edge);
+  box-shadow: 0 0 0 2px var(--edge-out);
+  animation: dot-pulse 1.6s ease-in-out infinite;
+}
+@keyframes dot-pulse {
+  50% {
+    transform: scale(1.2);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .new-dot {
+    animation: none;
+  }
+}
+.box.changelog {
+  width: min(640px, 100%);
+}
+.cl-list {
+  overflow-y: auto;
+  max-height: 68vh;
+  padding-right: 4px;
+  /* Smooth flick-scrolling on touch screens. */
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+.cl-ver {
+  padding: 10px 0 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+.cl-ver:last-child {
+  border-bottom: 0;
+}
+.cl-ver-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.cl-ver-head h3 {
+  margin: 0;
+  color: var(--gold);
+}
+.cl-dev .cl-ver-head h3 {
+  color: var(--muted);
+}
+.box .cl-h {
+  margin: 10px 0 4px;
+  font-size: 15px;
+}
+.cl-new .cl-h {
+  color: var(--green);
+}
+.cl-fixed .cl-h {
+  color: #8fd3ff;
+}
+.cl-lines {
+  margin: 0;
+  padding-left: 20px;
+  line-height: 1.4;
+}
+.cl-lines li + li {
+  margin-top: 3px;
+}
+.cl-bts {
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.cl-bts summary {
+  cursor: pointer;
+  /* A comfortable touch target. */
+  padding: 6px 0;
+  min-height: 32px;
+  width: fit-content;
+}
+.cl-empty {
+  margin: 16px 0;
+}
+/* The build's version in the settings box's bottom-right corner. */
+.version-tag {
+  position: absolute;
+  right: 10px;
+  bottom: 6px;
+  font-size: 12px;
+  color: var(--muted);
+  opacity: 0.8;
+  pointer-events: none;
+}

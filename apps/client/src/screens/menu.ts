@@ -1,10 +1,11 @@
 // Main menu: the partner on the left, the menu list on the right (original implementation). Above the
 // list, a solo run left unfinished in this browser (closed tab, crash, reload): resume or end it.
-import { t } from '@pokesurvivor/data';
+import { latestRelease, loadChangelog, t } from '@pokesurvivor/data';
 import type { App, Screen } from '../app/app.js';
 import type { Save } from '../app/api.js';
 import type { SavedSoloRun } from '../app/game.js';
 import { endSavedRun, resumeSolo, savedSoloRun } from '../app/solo-runs.js';
+import { hasUnseenRelease } from '../changelog.js';
 import {
   gameData,
   h,
@@ -18,6 +19,7 @@ import {
   typeChip,
   typeColor,
 } from '../app/dom.js';
+import { changelogDate } from './changelog.js';
 
 /** Missions done but not claimed yet. */
 export function rewardsToClaim(save: Save): number {
@@ -37,6 +39,7 @@ const MENU_ICON: Record<string, string> = {
   ranking: 'trophy',
   friends: 'user',
   settings: 'gear',
+  changelog: 'star',
 };
 
 export function menuScreen(app: App): Screen {
@@ -59,7 +62,14 @@ export function menuScreen(app: App): Screen {
     go: string,
     label: string,
     sub: string,
-    opts: { play?: boolean; gold?: boolean; disabled?: boolean; onClick?: () => void } = {},
+    opts: {
+      play?: boolean;
+      gold?: boolean;
+      disabled?: boolean;
+      /** A dot on the icon: something new to look at. */
+      dot?: string;
+      onClick?: () => void;
+    } = {},
   ) =>
     h(
       'button',
@@ -69,7 +79,20 @@ export function menuScreen(app: App): Screen {
         dataset: { testid: `menu-${go}` },
         on: { click: opts.onClick ?? (() => app.go(go)) },
       },
-      h('span', { class: 'mi-ico' }, MENU_ICON[go] ? icon(MENU_ICON[go], 26) : null),
+      h(
+        'span',
+        { class: 'mi-ico' },
+        MENU_ICON[go] ? icon(MENU_ICON[go], 26) : null,
+        opts.dot
+          ? h('span', {
+              class: 'new-dot',
+              role: 'img',
+              'aria-label': opts.dot,
+              title: opts.dot,
+              dataset: { testid: `menu-${go}-dot` },
+            })
+          : null,
+      ),
       label,
       h('small', { class: opts.gold ? 'gold' : undefined }, sub),
     );
@@ -159,6 +182,8 @@ export function menuScreen(app: App): Screen {
       ),
     );
 
+    const changelog = loadChangelog();
+    const latest = latestRelease(changelog);
     const owned = Object.keys(s.owned).length;
     const shinies = Object.keys(s.shiny).length;
     const total = gameData().pokedex.length;
@@ -203,6 +228,16 @@ export function menuScreen(app: App): Screen {
         online ? t('menu.online', { 0: online }) : t('menu.playInAGroupUp'),
       ),
       item('settings', t('menu.settings'), t('menu.soundGraphicsControlsAndAccount')),
+      // The dot shows until the newest release has been seen on this device; it never opens
+      // the screen by itself.
+      item(
+        'changelog',
+        t('changelog.whatsNew'),
+        latest
+          ? `v${latest.version} · ${changelogDate(latest.date)}`
+          : t('changelog.updatesAndFixes'),
+        { dot: hasUnseenRelease(changelog) ? t('changelog.newUpdate') : undefined },
+      ),
       item('logout', t('menu.logOut'), app.user?.username ?? '', {
         onClick: () => void app.logout(),
       }),
