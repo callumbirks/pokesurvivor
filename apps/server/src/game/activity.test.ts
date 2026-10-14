@@ -9,6 +9,7 @@ import {
   lobby,
   startGame,
   waitFor,
+  withTimeout,
   type Bot,
   type GameTestServer,
 } from '../test/bots.js';
@@ -121,6 +122,55 @@ describe('friend activity', () => {
     expect((await post(misty!, '/api/runs', { runId, ...finish })).statusCode).toBe(200);
     await waitFor(() => seen(ash!, misty!).activity?.kind === 'menu', 'misty back to the menu');
     expect(seen(ash!, misty!).status).toBe('online');
+  });
+
+  it('announces reconnect activity even when it arrives before the friend list loads', async () => {
+    const [ash, misty] = await t.party(2);
+    await waitFor(() => seen(ash!, misty!).status === 'online', 'friends loaded');
+    const runId = await startSolo(misty!);
+    misty!.client.setSoloClock({ runId, elapsedS: 30, paused: true });
+    await waitFor(() => seen(ash!, misty!).activity?.kind === 'solo', 'initial solo activity');
+    let unlocked!: () => void;
+    let entered!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      unlocked = resolve;
+    });
+    const ready = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    // Hold only the friend-list SELECT; authentication and the solo lookup still run.
+    const lock = t.database.db.db.transaction(async (tx) => {
+      await tx.execute(sql`lock table friendships in access exclusive mode`);
+      entered();
+      await gate;
+    });
+    await ready;
+    try {
+      const welcomed = misty!.client.next('welcome');
+      misty!.drop();
+      await withTimeout(welcomed, 2000, 'reconnect welcome');
+      await waitFor(
+        () => t.game.sessionOf(misty!.userId)?.solo?.runId === runId,
+        'activity applied while friends are loading',
+      );
+      expect(seen(ash!, misty!).activity?.kind).not.toBe('solo');
+      const friendsLoaded = misty!.client.next('presence');
+      const announcement = ash!.client.next(
+        'presence',
+        () => seen(ash!, misty!).activity?.kind === 'solo',
+      );
+      unlocked();
+      await lock;
+      await withTimeout(friendsLoaded, 2000, 'friend list after reconnect');
+      await withTimeout(announcement, 2000, 'reconnect activity announcement');
+      expect(seen(ash!, misty!)).toMatchObject({
+        status: 'in_game',
+        activity: { kind: 'solo', paused: true },
+      });
+    } finally {
+      unlocked();
+      await lock;
+    }
   });
 
   it("ignores runs that aren't the player's, or aren't open", async () => {

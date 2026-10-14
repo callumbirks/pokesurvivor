@@ -6,7 +6,7 @@ What changed for players in each release, newest first. Generated from
 
 ## Unreleased
 
-PRs: [#48](https://github.com/callumbirks/pokesurvivor/pull/48), [#49](https://github.com/callumbirks/pokesurvivor/pull/49), [#50](https://github.com/callumbirks/pokesurvivor/pull/50), [#52](https://github.com/callumbirks/pokesurvivor/pull/52)
+PRs: [#48](https://github.com/callumbirks/pokesurvivor/pull/48), [#49](https://github.com/callumbirks/pokesurvivor/pull/49), [#50](https://github.com/callumbirks/pokesurvivor/pull/50), [#52](https://github.com/callumbirks/pokesurvivor/pull/52), [#53](https://github.com/callumbirks/pokesurvivor/pull/53)
 
 ### New
 
@@ -21,6 +21,8 @@ PRs: [#48](https://github.com/callumbirks/pokesurvivor/pull/48), [#49](https://g
 
 - Upgrades now opens on your current partner after you change it.
 - In a room, changing your Pokémon now shows to everyone straight away, not only once you're ready.
+- Starting a solo run right after leaving a room no longer gets blocked by the old room.
+- Friends see your current activity again after you reconnect.
 
 ## v7 - 2026-10-14
 

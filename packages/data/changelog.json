@@ -1,6 +1,6 @@
 {
   "unreleased": {
-    "prs": [48, 49, 50, 52],
+    "prs": [48, 49, 50, 52, 53],
     "entries": {
       "new": [
         "See what your friends are up to: the Friends list and room invites show whether they're in the menus or in a solo or co-op run, with their Pokémon and run time.",
@@ -11,7 +11,9 @@
       ],
       "fixed": [
         "Upgrades now opens on your current partner after you change it.",
-        "In a room, changing your Pokémon now shows to everyone straight away, not only once you're ready."
+        "In a room, changing your Pokémon now shows to everyone straight away, not only once you're ready.",
+        "Starting a solo run right after leaving a room no longer gets blocked by the old room.",
+        "Friends see your current activity again after you reconnect."
       ],
       "behindTheScenes": []
     }
