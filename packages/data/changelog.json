@@ -1,9 +1,11 @@
 {
   "unreleased": {
-    "prs": [59, 62, 63],
+    "prs": [59, 61, 62, 63],
     "entries": {
       "new": [],
-      "changed": [],
+      "changed": [
+        "Legendaries are rarer in the gacha: base chance 0.15%, with pity starting at pull 180 and guaranteed by 220. Collect the rest of a region first!"
+      ],
       "fixed": [
         "Server restarts no longer stall when a player reconnects during shutdown.",
         "Moving through the Pokémon screen with a controller or the arrow keys goes where you expect: along the filters and up and down the grid.",

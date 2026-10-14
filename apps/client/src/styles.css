@@ -1269,8 +1269,9 @@ html[data-input='touch'] .back-btn .input-hint {
 }
 /* The pity bar: a cell per few pulls, the soft-pity ones underlined in gold. */
 .pity-cells {
+  position: relative;
   display: grid;
-  grid-template-columns: repeat(30, 1fr);
+  grid-template-columns: repeat(var(--pity-cell-count), minmax(0, 1fr));
   gap: 3px;
   margin-bottom: 14px;
 }
@@ -1287,8 +1288,8 @@ html[data-input='touch'] .back-btn .input-hint {
 }
 .pity-cells small {
   position: absolute;
-  left: -2px;
   top: 16px;
+  transform: translateX(-50%);
   font-size: 11px;
   line-height: 1;
   color: var(--muted);

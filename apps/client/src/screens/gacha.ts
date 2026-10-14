@@ -25,9 +25,6 @@ let bannerId: string | null = null;
 
 const pct = (x: number) => `${Number((x * 100).toFixed(2))}%`;
 
-/** Cells in the pity bar (each stands for `hardPity / PITY_CELLS` pulls). */
-const PITY_CELLS = 30;
-
 export function gachaScreen(app: App): Screen {
   const body = h('div', { class: 'gacha-body' });
   const el = h(
@@ -106,24 +103,34 @@ export function gachaScreen(app: App): Screen {
     };
     const ticket = (n: number, x10 = false) => [icon(x10 ? 'ticket10' : 'ticket', 18), ` ${n}`];
 
-    // The pity bar: the cells so far, and the soft-pity cells underlined from its first pull.
-    const perCell = info.hardPity / PITY_CELLS;
-    const filled = Math.min(PITY_CELLS, Math.floor(pity / perCell));
+    // Roughly one multi per cell, with the soft-pity marker positioned by its exact threshold.
+    const cellCount = Math.ceil(info.hardPity / cost.multiCount);
+    const perCell = info.hardPity / cellCount;
+    const filled = Math.max(0, Math.min(cellCount, Math.floor(pity / perCell)));
     const softCell = Math.floor((info.softPity.from - 1) / perCell);
     const cells = h(
       'div',
       {
         class: 'pity-cells',
-        role: 'img',
-        'aria-label': t('app.softPityFrom', { 0: info.softPity.from }),
+        style: { '--pity-cell-count': String(cellCount) },
+        role: 'progressbar',
+        'aria-valuemin': '0',
+        'aria-valuemax': String(info.hardPity),
+        'aria-valuenow': String(Math.min(info.hardPity, Math.max(0, pity))),
+        'aria-label': t('gacha.pullsWithoutALegendaryIn', {
+          0: banner.name,
+          1: pity,
+          2: info.hardPity,
+        }),
         title: t('app.softPityFrom', { 0: info.softPity.from }),
       },
-      Array.from({ length: PITY_CELLS }, (_, i) =>
-        h(
-          'i',
-          { class: [i < filled && 'f', i >= softCell && 'soft'] },
-          i === softCell ? h('small', null, String(info?.softPity.from)) : null,
-        ),
+      Array.from({ length: cellCount }, (_, i) =>
+        h('i', { class: [i < filled && 'f', i >= softCell && 'soft'] }),
+      ),
+      h(
+        'small',
+        { style: { left: `${(info.softPity.from / info.hardPity) * 100}%` } },
+        String(info.softPity.from),
       ),
     );
 
@@ -263,7 +270,10 @@ export function gachaScreen(app: App): Screen {
         h(
           'li',
           null,
-          t('app.ruleSoftPity', { 0: g.softPity.from, 1: pct(g.softPity.stepPerPull) }),
+          t('app.ruleSoftPity', {
+            0: g.softPity.from,
+            1: Number((g.softPity.stepPerPull * 100).toFixed(2)),
+          }),
         ),
         h('li', null, t('app.ruleHardPity', { 0: g.hardPity })),
         h(

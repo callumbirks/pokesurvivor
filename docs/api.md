@@ -233,17 +233,21 @@ Results reach the players as a `game.results` message ([protocol.md](protocol.md
 ## Gacha
 
 The gacha rolls on the server with `crypto` randomness; the client only animates the results.
-The rules are `gacha.json`, ported from original `gacha.js` and rebalanced (a lower 5★ rate, soft
-pity, hard pity at 90):
+The rules come from [`packages/data/json/gacha.json`](../packages/data/json/gacha.json) and are
+returned by `GET /api/gacha`; clients render its rates, pity thresholds and guarantee rather
+than keeping separate balance constants.
 
 - One banner per generation, each with its own pity. Only Pokémon with sprites are in a banner.
-- Rarity weights from `rates`: 45.9 / 30 / 17 / 6.5 / 0.6 % (legacy: 45 / … / 1.5).
-- Each pull adds 1 to the banner's pity, and any 5★ resets it to 0. From the `softPity.from`-th
-  pull (74th) the 5★ chance is the base rate plus `softPity.stepPerPull` (6 points) per pull: 6.6%
-  on the 74th, 12.6% on the 75th, … The extra chance comes from the other rarities in
-  proportion to their weights. The pull that reaches `hardPity` (90) is a 5★.
-- That is one 5★ per about 62 pulls (1.6%) in single pulls, and per about 55 (1.8%) in ×10s,
-  whose guarantee can also give a 5★.
+- Rarity probabilities are each `rates` weight divided by the total weight.
+- Each pull adds 1 to the banner's saved pity, and any 5★ resets it to 0. From the
+  `softPity.from`-th pull the 5★ chance is its base rate plus `softPity.stepPerPull` for each
+  pull since that threshold, including the threshold pull. The extra chance comes from the
+  other rarities in proportion to their weights. The pull that reaches `hardPity` is a 5★.
+- Changing the configuration preserves saved counters: the next pull uses the counter plus
+  one against the current thresholds. A counter below the new soft-pity threshold gets the
+  base chance; a counter already at or above hard pity guarantees a 5★ on its next pull.
+- Effective 5★ frequency depends on pity and the ×10 guarantee, not only the base rate.
+  Use the [manual projection model](../tools/gacha/README.md) to compare configurations.
 - The last pull of a ×10 is at least `multiGuaranteeMinRarity` (4★) if none of the others was.
   It rolls at that pull's soft-pity rates, restricted to those rarities.
 - A rarity with no Pokémon in the banner falls back to the nearest one (−1, +1, −2, …).
