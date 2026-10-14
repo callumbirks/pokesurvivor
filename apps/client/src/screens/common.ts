@@ -4,6 +4,7 @@ import { t } from '@pokesurvivor/data';
 import type { App } from '../app/app.js';
 import { h, replace } from '../app/dom.js';
 import { errorText } from '../app/toast.js';
+import { inputHint } from '../glyphs.js';
 
 export interface ScreenBox {
   /** The screen's root (`.scr`). */
@@ -39,6 +40,7 @@ export function screenBox(
             on: { click: () => (opts.onBack ? opts.onBack() : app.go(opts.back ?? 'menu')) },
           },
           t('collection.back'),
+          inputHint([], ['b']),
         );
   const header = h(
     'div',

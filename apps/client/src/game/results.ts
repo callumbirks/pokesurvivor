@@ -7,6 +7,7 @@ import { loadGameData, t } from '@pokesurvivor/data';
 import type { Results } from '@pokesurvivor/netclient';
 import type { UnlockedAchievement } from '@pokesurvivor/protocol';
 import { audio } from '../audio.js';
+import { inputHint } from '../glyphs.js';
 import { el, icon, spriteEl } from './dom.js';
 import { pokemonName } from './scene/entities.js';
 import { isSoloResults } from './solo/connection.js';
@@ -234,7 +235,7 @@ export function renderResults(results: Results, o: ResultsOptions): HTMLElement 
       {
         class: 'btn gold',
         type: 'button',
-        data: { testid: 'game-exit', sfx: 'none' },
+        data: { testid: 'game-exit', sfx: 'none', back: '' },
         on: {
           click: () => {
             audio.sfx('back');
@@ -243,6 +244,8 @@ export function renderResults(results: Results, o: ResultsOptions): HTMLElement 
         },
       },
       t('pause.backToMenu'),
+      ' ',
+      inputHint([], ['b']),
     ),
   );
   return el('div', { class: 'ps-screen' }, box);

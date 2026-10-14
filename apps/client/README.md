@@ -130,6 +130,20 @@ fn)` (spinner on the button, toast on error), loads through `loadInto(el, load, 
   events, projected onto `achievements.json` as the server reads the save. Nothing is credited.
 - **Input**: keyboard, gamepad (`input.ts`) and the touch joystick and buttons (`touch.ts`).
   Esc / P pauses: solo stops the worker; in a group the overlay is shown and the run goes on.
+  In a choice the gamepad's d-pad or left stick moves a highlight and A picks it (after the
+  same grace window as keys); B, X and Y do nothing there, Back rerolls, Start goes back in a
+  bond. Only the highlighted card shows a pad glyph (A).
+  A direction held when a choice opens waits for release.
+- **Prompts and menus with a gamepad** (shared with the shell, `src/`): `input-device.ts`
+  tracks the device in use (keyboard and mouse, gamepad, touch; a button or a stick past half
+  way switches to the pad, drift doesn't; a key, a click or 24 px of mouse travel switch back)
+  and the pad's layout (PlayStation from `Gamepad.id`, else Xbox), mirrored as
+  `<html data-input data-pad>`. `glyphs.ts` draws the glyphs (Kenney's CC0 pixel prompts,
+  `public/glyphs/`) in the DOM (`inputHint`: keys or glyphs, chosen by CSS) and on the HUD
+  (slots, the aim switch, the controls hint). The cursor hides while the pad is in use.
+  `menu-nav.ts` moves a focus ring through the screen on top with the d-pad or left stick
+  (repeating), A presses, B goes back, left / right move sliders and switches; the game pushes a
+  blocking scope while playing, and the pause menu, settings and results push their own.
 - **Aiming** (`aim.ts`): auto (the default) or manual, `settings.aimMode` (local to the device),
   switched with T, a gamepad's R3, the HUD's AIM button or the settings. Manual: the mouse aims
   from our Pokémon; on touch the left half of the screen moves and the right half is an aim

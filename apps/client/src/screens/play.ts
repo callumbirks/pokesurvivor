@@ -6,6 +6,7 @@ import type { App, Screen } from '../app/app.js';
 import { mountGame } from '../app/game.js';
 import { h, replace } from '../app/dom.js';
 import { toast } from '../app/toast.js';
+import { menuNav } from '../menu-nav.js';
 import { settingsScreen } from './settings.js';
 
 export function playScreen(app: App): Screen {
@@ -37,6 +38,7 @@ export function playScreen(app: App): Screen {
     const close = () => {
       if (closed) return;
       closed = true;
+      popNav();
       view.destroy?.();
       view.el.remove();
     };
@@ -48,6 +50,8 @@ export function playScreen(app: App): Screen {
     });
     view.el.classList.add('over-game');
     el.append(view.el);
+    // Over the game's own scope: the gamepad moves through the settings (B is their back button).
+    const popNav = menuNav.push({ root: view.el });
     return close;
   };
 

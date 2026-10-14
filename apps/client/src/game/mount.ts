@@ -15,6 +15,9 @@ import {
   drawCrosshair,
   toggleAimMode,
 } from './aim.js';
+import { glyphText, inputHint } from '../glyphs.js';
+import { inputDevice, installInputDevice } from '../input-device.js';
+import { installMenuNav, menuNav } from '../menu-nav.js';
 import { CROSSHAIR_COLORS, settings } from '../settings.js';
 import { preloadSprites } from '../sprites.js';
 import { AchievementTracker, type AchievementSave } from './achievements.js';
@@ -39,6 +42,14 @@ import { WorldRenderer, drawVignette } from './scene/world.js';
 import { Toasts } from './toasts.js';
 import { TouchControls } from './touch.js';
 import './game.css';
+
+/** The face buttons (`input.ts`) as the move-slot keys, in play. */
+const PAD_SLOT_KEYS: Record<string, string> = {
+  PadA: 'Digit1',
+  PadB: 'Digit2',
+  PadX: 'Digit3',
+  PadY: 'Digit4',
+};
 
 export interface MountGameOptions {
   /** The player closed the results, or left the run; `results` if the run ended. */
@@ -101,6 +112,11 @@ class GameScreen {
     this.layer = el('div', { class: 'ps-layer' });
     this.root = el('div', { class: 'ps-game', data: { testid: 'game' } }, this.canvas, this.layer);
     host.append(this.root);
+    installInputDevice();
+    installMenuNav();
+    // The gamepad plays (or picks choices, `input.ts`); the pause menu and the results push their
+    // own menu scopes over this.
+    this.offs.push(menuNav.push({ root: this.root, block: true }));
     this.toasts = new Toasts(this.root);
     // For end-to-end tests: the connection's phase (loading / running / ended), hidden.
     const phase = el('span', { class: 'hidden', data: { testid: 'game-phase' } }, conn.phase);
@@ -257,6 +273,7 @@ class GameScreen {
       onBack: () => this.exit(r),
     });
     this.layer.append(view);
+    this.offs.push(menuNav.push({ root: view }));
   }
 
   /** Does the shell have a settings screen to open (see `MountGameOptions.openSettings`)? */
@@ -384,6 +401,8 @@ class Run {
   private flashCol = '#fff';
   private readonly pause: PauseFlow;
   private pauseEl: HTMLElement | null = null;
+  private popPauseNav: (() => void) | null = null;
+  private choiceOpen = false;
   private closeSettings: (() => void) | null = null;
   private rotateEl: HTMLElement | null = null;
   private portrait = false;
@@ -545,6 +564,8 @@ class Run {
       return true;
     }
     if (this.overlay.key(code)) return true;
+    // A/B/X/Y are move slots 1–4 outside a choice.
+    code = PAD_SLOT_KEYS[code] ?? code;
     if (code === 'Escape' || code === 'KeyP') {
       this.togglePause();
       return true;
@@ -592,6 +613,8 @@ class Run {
     if (prev === 'menu') {
       this.pauseEl?.remove();
       this.pauseEl = null;
+      this.popPauseNav?.();
+      this.popPauseNav = null;
     } else if (prev === 'settings') {
       this.closeSettings?.();
       this.closeSettings = null;
@@ -601,6 +624,7 @@ class Run {
       this.touch.reset();
       this.pauseEl = this.pauseMenu();
       this.layer.append(this.pauseEl);
+      this.popPauseNav = menuNav.push({ root: this.pauseEl, back: () => this.pause.resume() });
     } else if (view === 'settings') {
       this.touch.reset();
       this.closeSettings = this.screen.openSettings(() => this.pause.closeSettings());
@@ -629,7 +653,12 @@ class Run {
         'div',
         { class: 'ps-box' },
         el('h2', null, t('pause.pause')),
-        el('p', { class: 'sub' }, controlsHint(this.touch.active, settings.get().aimMode)),
+        el(
+          'p',
+          { class: 'sub' },
+          el('span', { class: 'kb-only' }, controlsHint(this.touch.active, settings.get().aimMode)),
+          el('span', { class: 'pad-only' }, glyphText(controlsHint(false, 'auto', true))),
+        ),
         solo ? null : el('p', { class: 'note' }, t('pause.groupGameTheGameKeeps')),
         el(
           'div',
@@ -650,6 +679,8 @@ class Run {
               on: { click: () => this.pause.resume() },
             },
             t('pause.continue'),
+            ' ',
+            inputHint(['Esc'], ['b']),
           ),
           this.screen.hasSettings
             ? el(
@@ -823,6 +854,9 @@ class Run {
       rerollsLeft: frame.selfDetail?.rerollsLeft ?? 0,
     });
     this.overlay.update();
+    // A choice opened under a held d-pad or stick: it doesn't move the highlight until let go.
+    if (this.overlay.isOpen && !this.choiceOpen) this.input.latchNav();
+    this.choiceOpen = this.overlay.isOpen;
 
     // Achievement notices.
     if (this.tracker) {
@@ -926,6 +960,7 @@ class Run {
         canAct: this.canMove(),
         aimMode: settings.get().aimMode,
         toggleAim: () => toggleAimMode(),
+        pad: inputDevice.device === 'gamepad' ? inputDevice.layout : null,
       });
       this.touch.draw(ctx);
     }
@@ -965,6 +1000,7 @@ class Run {
 
   dispose(): void {
     this.stop();
+    this.popPauseNav?.();
     this.closeSettings?.();
     this.closeSettings = null;
     for (const off of this.offs) off();
