@@ -106,9 +106,9 @@ html[data-input='gamepad'],
 html[data-input='gamepad'] * {
   cursor: none !important;
 }
-/* The control the gamepad focused (menu-nav.ts). */
+/* The control the gamepad focused (menu-nav.ts): the square gold outline that keyboard focus
+   and mouse hover show too (styles.css; cursor lists show their selection bar instead). */
 html[data-input='gamepad'] .nav-focus {
-  outline: 3px solid #ffd23f;
+  outline: 3px solid #ffd65c;
   outline-offset: 2px;
-  box-shadow: 0 0 0 5px rgba(255, 210, 63, 0.25);
 }

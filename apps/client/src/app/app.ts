@@ -91,7 +91,7 @@ export class App {
     private readonly routes: Record<string, Route>,
   ) {
     this.main = h('main', { class: 'screens' });
-    this.topbar = h('header', { class: 'topbar hidden' });
+    this.topbar = h('header', { class: 'topbar win hidden' });
     this.invitePop = h('div', { class: 'box invite-pop hidden', role: 'dialog' });
     root.append(this.main, this.topbar, this.invitePop);
     mountToasts(root);
@@ -477,10 +477,10 @@ export class App {
     const state = this.net?.state;
     replace(
       this.topbar,
-      h('div', { class: 'pill', title: t('app.coins') }, icon('coin', 18), num(s.coins)),
+      h('div', { class: 'tb-cell', title: t('app.coins') }, icon('coin', 18), num(s.coins)),
       h(
         'div',
-        { class: 'pill', title: t('app.tickets') },
+        { class: 'tb-cell', title: t('app.tickets') },
         icon('ticket', 18),
         num(s.tickets.x1),
         icon('ticket10', 18),
@@ -489,21 +489,22 @@ export class App {
       room
         ? h(
             'button',
-            { class: 'pill room-pill', on: { click: () => this.go('lobby') } },
+            { class: 'tb-cell room-cell', on: { click: () => this.go('lobby') } },
             t('app.roomPill', { 0: room.members.length, 1: room.maxMembers }),
           )
         : null,
       h(
         'div',
-        { class: 'pill user-pill', title: state ?? '' },
+        { class: 'tb-cell user-cell', title: state ?? '' },
         h('i', { class: ['sync', state === 'open' ? 'ok' : 'offline'] }),
         this.user.username,
       ),
       h(
         'button',
         {
-          class: 'btn small ghost',
+          class: 'tb-cell gear-cell',
           title: t('menu.settings'),
+          'aria-label': t('menu.settings'),
           on: { click: () => this.go('settings') },
         },
         icon('gear', 20),

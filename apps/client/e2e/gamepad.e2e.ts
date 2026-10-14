@@ -88,6 +88,20 @@ test('a gamepad: glyphs, menu focus, and the pause menu', async ({ page }) => {
   await press(page, B);
   await expect(page.getByTestId('screen-menu')).toBeVisible();
 
+  // The gacha: the first press lands on the selected region, the d-pad moves through the regions
+  // (each shows its banner), B goes back.
+  await page.goto('/#gacha');
+  await expect(page.getByTestId('banner-kanto')).toHaveClass(/\bon\b/);
+  await press(page, DOWN);
+  expect(await focusedId(page)).toBe('banner-kanto');
+  await press(page, DOWN);
+  expect(await focusedId(page)).toBe('banner-johto');
+  await expect(page.getByTestId('banner-johto')).toHaveClass(/\bon\b/);
+  await expect(page.getByTestId('pity')).toContainText('Johto');
+  if (shots) await page.screenshot({ path: `${shots}/gacha-gamepad-focus.png` });
+  await press(page, B);
+  await expect(page.getByTestId('screen-menu')).toBeVisible();
+
   // A key switches the prompts back to keys.
   await page.keyboard.press('Shift');
   await expect(html).toHaveAttribute('data-input', 'keyboard');
