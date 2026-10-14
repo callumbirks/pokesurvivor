@@ -1,6 +1,6 @@
 {
   "unreleased": {
-    "prs": [32, 33, 34, 35, 36, 37],
+    "prs": [32, 33, 34, 35, 36, 37, 38],
     "entries": {
       "new": [
         "What's new: a new button on the main menu lists every update. A dot shows when there's one you haven't read.",
