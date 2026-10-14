@@ -190,6 +190,9 @@ describe('events', () => {
       { type: 'say', key: 'hud.leftTheGame', seconds: 3 },
       { type: 'say', key: 'hud.leftTheGame', seconds: 3, playerId: 'me' },
       { type: 'player-hurt', playerId: 'other', amount: 3, label: null },
+      // A teammate going down or coming back, however far away (the client's teammate alerts).
+      { type: 'player-down', playerId: 'other' },
+      { type: 'player-revived', playerId: 'other', by: null },
       { type: 'pickup', playerId: 'other', kind: 'coin', x: 10, y: 10, value: 1 },
       { type: 'enemy-action', id: 7, action: 'shoot' },
       { type: 'level-up', level: 3 },

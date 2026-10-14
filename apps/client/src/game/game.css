@@ -503,6 +503,46 @@ html[data-input='gamepad'] .ps-card.focus .ds {
   }
 }
 
+/* ---------- a teammate is down ---------- */
+/* Above the middle (not over our Pokémon), never in the way of input; fades by itself. */
+.ps-mate-alert {
+  position: absolute;
+  top: 24%;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: min(520px, 86vw);
+  padding: 4px 16px;
+  border: 9px solid transparent;
+  border-image: var(--frame-talk) 9 fill / 9px / 0 stretch;
+  image-rendering: pixelated;
+  box-shadow: var(--win-shadow);
+  text-align: center;
+  pointer-events: none;
+  transition: opacity 0.4s steps(3);
+}
+.ps-mate-alert .title {
+  color: #ffc4b8;
+  font-size: 22px;
+  text-shadow: 2px 2px 0 rgba(20, 16, 18, 0.6);
+}
+.ps-mate-alert .hint {
+  margin-top: 2px;
+  color: var(--gold);
+  font-size: 14px;
+}
+.ps-mate-alert.in {
+  animation: ps-mate-pop 0.3s steps(4);
+}
+.ps-mate-alert.out {
+  opacity: 0;
+}
+@keyframes ps-mate-pop {
+  from {
+    transform: translateX(-50%) scale(1.35);
+    opacity: 0;
+  }
+}
+
 @media (max-height: 520px) {
   .ps-box {
     padding: 8px 12px;
@@ -525,6 +565,16 @@ html[data-input='gamepad'] .ps-card.focus .ds {
   }
   .ps-toasts {
     top: 60px;
+  }
+  .ps-mate-alert {
+    top: 18%;
+    padding: 2px 12px;
+  }
+  .ps-mate-alert .title {
+    font-size: 17px;
+  }
+  .ps-mate-alert .hint {
+    font-size: 12px;
   }
   /* Results fit a phone in landscape: wider, the four numbers in one row. */
   .ps-results {
