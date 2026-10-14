@@ -6,6 +6,8 @@ What changed for players in each release, newest first. Generated from
 
 ## Unreleased
 
+## v7 - 2026-10-14
+
 PRs: [#46](https://github.com/callumbirks/pokesurvivor/pull/46)
 
 ### Changed
