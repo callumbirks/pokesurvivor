@@ -15,6 +15,7 @@ PRs: [#41](https://github.com/callumbirks/pokesurvivor/pull/41)
 ### Changed
 
 - A new look for the main menu and gacha: pixel windows, and your partner talks you through the menu.
+- Controller button prompts are twice as big and easier to read, in the menus and in runs.
 
 ## v5 - 2026-10-14
 
