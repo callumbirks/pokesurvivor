@@ -193,7 +193,7 @@ export function simData(): SimData {
       fan: 3.2 - ti * 0.15,
       beamer: 4.4 - ti * 0.2,
       zoner: 4.6 - ti * 0.2,
-      healer: 3.5,
+      healer: game.tuning.enemyHeals.cooldown,
       summoner: 7,
     };
     const cd = cooldowns[behavior];

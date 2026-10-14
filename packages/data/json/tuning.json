@@ -46,6 +46,17 @@
     "maxTargets": 3,
     "affectsBosses": false
   },
+  "enemyHeals": {
+    "maxHpFraction": 0.1,
+    "damageFraction": 0.3,
+    "cooldown": 3.75,
+    "initialCooldown": [0.3, 3.75],
+    "recipientCooldown": 3.75,
+    "radius": 150,
+    "maxTargets": 3,
+    "affectsBosses": false,
+    "affectsShielded": false
+  },
   "pickups": {
     "max": 420,
     "ticketDropRate": 0.0025,

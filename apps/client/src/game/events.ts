@@ -1,7 +1,7 @@
 // Sim events → what you see and hear: effects, damage numbers, sounds, screen shake, animations
 // and banners (what legacy did inline in combat.js, enemy.js, game.js `onCollect`, …). Events are
 // cosmetic; the state in the snapshots is the truth.
-import { t, type UiStringKey } from '@pokesurvivor/data';
+import { loadGameData, t, type UiStringKey } from '@pokesurvivor/data';
 import type { SimEvent } from '@pokesurvivor/sim';
 import { moveStatsAt } from '@pokesurvivor/sim';
 import { audio, type SfxName } from '../audio.js';
@@ -164,6 +164,15 @@ export class EventEffects {
         }
         return;
       }
+      case 'enemy-healed': {
+        const en = frame.enemies.find((x) => x.id === e.id);
+        const h = en ? bodyHeight(en.dex, en.scale) : 24;
+        const r = en?.r ?? 12;
+        fx.ring(e.x, e.y - h * 0.4, r * 0.4, r * 1.8, '#5fe08a', 0.4, 2);
+        fx.burst(e.x, e.y - h * 0.5, '#7dffb0', 5, 60);
+        if (e.amount >= 1) fx.text(e.x, e.y - h - 4, `+${Math.round(e.amount)}`, '#5fe08a');
+        return;
+      }
       case 'enemy-died': {
         const en = frame.enemies.find((x) => x.id === e.id);
         const r = en?.r ?? 12;
@@ -195,7 +204,7 @@ export class EventEffects {
           fx.ring(en.x, en.y, en.r, en.r * 5, '#ff4a4a', 0.6, 5);
           this.sfx('boss');
         } else if (e.action === 'heal') {
-          fx.ring(en.x, en.y, 8, 150, '#5fe08a', 0.5, 3);
+          fx.ring(en.x, en.y, 8, loadGameData().tuning.enemyHeals.radius, '#5fe08a', 0.5, 3);
           if (this.near(frame, en.x, en.y, 0)) this.sfx('heal');
         } else if (e.action === 'shield') fx.ring(en.x, en.y, 8, 160, '#7fc8ff', 0.5, 3);
         else if (e.action === 'summon') fx.ring(en.x, en.y, 8, 50, '#c47bff', 0.4, 3);

@@ -74,6 +74,20 @@ export const TuningFileSchema = z.strictObject({
     maxTargets: z.number().int().positive(),
     affectsBosses: z.boolean(),
   }),
+  enemyHeals: z.strictObject({
+    /** Per-application cap and maximum stored healing credit. */
+    maxHpFraction: Chance,
+    /** Only this share of actual HP damage can be restored; shield damage earns no credit. */
+    damageFraction: z.number().positive().lt(1),
+    cooldown: Seconds,
+    initialCooldown: RangeSchema,
+    /** Shared across all casters, counted from a successful heal. */
+    recipientCooldown: Seconds,
+    radius: z.number().positive(),
+    maxTargets: z.number().int().positive(),
+    affectsBosses: z.boolean(),
+    affectsShielded: z.boolean(),
+  }),
   pickups: z.strictObject({
     max: z.number().int().positive(),
     /** Chance a regular enemy drops a gacha ticket. */

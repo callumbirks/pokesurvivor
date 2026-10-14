@@ -396,6 +396,9 @@ export function restoreSim(state: SimState): Sim {
   // those enemies: current snapshots must restore byte-for-byte for deterministic replay.
   const tuning = simData().game.tuning.enemyShields;
   for (const e of [...state.enemies, ...(state.arena?.stash ?? [])]) {
+    // Pre-healing-budget saves have no earned credit; further HP damage earns it normally.
+    e.healCredit ??= 0;
+    e.healCd ??= 0;
     if (e.shieldCd !== undefined) continue;
     e.shieldCd = e.shield > 0 ? tuning.reapplyCooldown : 0;
     e.shield =

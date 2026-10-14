@@ -234,6 +234,11 @@ for that client.
 - personal events (`say`, `progress`, `slot`, `slot-locked`) only when they're its own;
 - everything else.
 
+Enemy healing uses `enemy-healed {id, x, y, amount}` on each successfully healed recipient,
+so clients can draw a green pulse and restored-HP number. This uses the existing shape codec;
+there are no new snapshot columns or changed message contracts, and no protocol version bump
+is needed (main is v6). Older clients ignore the new cosmetic event and still receive HP updates.
+
 The filter works on the events' shape, not on a list of types. Events are encoded by shape: the
 first time a connection sees a type with a given set of keys, the shape goes in the JSON part;
 after that, an event is its shape index plus one tagged value per key. Numbers are rounded to
