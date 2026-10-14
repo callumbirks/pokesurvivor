@@ -18,6 +18,10 @@
   gap: 2px;
   vertical-align: middle;
 }
+/* Glyphs side by side (`glyphText`), apart like on the HUD. */
+.glyph + .glyph {
+  margin-left: 4px;
+}
 .input-hint kbd + kbd {
   margin-left: 4px;
 }

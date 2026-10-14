@@ -2,7 +2,7 @@
 // on the HUD canvas, for an Xbox or a PlayStation layout (`inputDevice.layout`).
 //   glyph('a')                     a <span> showing the button; the stylesheet picks the layout
 //   inputHint(keys, buttons)       keys (<kbd>) with the keyboard and mouse, glyphs with a gamepad
-//   drawGlyph(ctx, 'r3', x, y, 16) on a canvas, in the current layout
+//   drawGlyph(ctx, 'r3', x, y, 16) on a canvas, in the current layout (drawGlyphText: a line)
 // `public/glyphs/gamepad.png` is one row of 16 × 16 tiles in `TILE` order.
 import './glyphs.css';
 import { inputDevice, type PadLayout } from './input-device.js';
@@ -125,9 +125,19 @@ export function glyphText(text: string, size = GLYPH_PX): Node[] {
 let atlas: HTMLImageElement | null = null;
 
 /**
+ * The size a glyph asked for at `size` is drawn at under the canvas's transform (drawing units):
+ * the whole multiple of its 16 px tile nearest to `size` on screen.
+ */
+export function glyphDrawSize(ctx: CanvasRenderingContext2D, size: number): number {
+  const m = ctx.getTransform();
+  const k = Math.hypot(m.a, m.b) || 1;
+  return (Math.max(1, Math.round((size * k) / TILE_PX)) * TILE_PX) / k;
+}
+
+/**
  * Draws a button's glyph in the `size` px square at (x, y) (top left), in the current layout.
- * It's snapped to whole device pixels under the canvas's transform (the HUD is scaled): drawn
- * at the whole multiple of its 16 px tile nearest to `size` on screen, centred in the square.
+ * It's snapped to whole device pixels under the canvas's transform (the HUD is scaled), at
+ * `glyphDrawSize`, centred in the square.
  */
 export function drawGlyph(
   ctx: CanvasRenderingContext2D,
@@ -145,7 +155,7 @@ export function drawGlyph(
   const i = TILE[layout][button];
   const m = ctx.getTransform();
   const k = Math.hypot(m.a, m.b) || 1;
-  const s2 = (Math.max(1, Math.round((size * k) / TILE_PX)) * TILE_PX) / k;
+  const s2 = glyphDrawSize(ctx, size);
   const at = (v: number, offset: number) =>
     (Math.round((v + (size - s2) / 2) * k + offset) - offset) / k;
   const smooth = ctx.imageSmoothingEnabled;
@@ -154,30 +164,56 @@ export function drawGlyph(
   ctx.imageSmoothingEnabled = smooth;
 }
 
+/** Space (drawing units) between two glyphs side by side, and between a glyph and text. */
+export const GLYPH_GAP = 4;
+export const GLYPH_TEXT_GAP = 3;
+
 /**
- * A line of text with glyphs in it, centred on `cx` at baseline `y` (the font and colour set):
- * `{a}`, `{lstick}` … in `text` become glyphs `size` px tall, centred on the text's capitals.
+ * A line of text with glyphs in it, centred on `cx`, its glyphs' middle at `cy` (the font and
+ * colour set): `{a}`, `{lstick}` … in `text` become glyphs about `size` px tall (`glyphDrawSize`),
+ * with `GLYPH_GAP` between glyphs and `GLYPH_TEXT_GAP` next to text. If it's wider than
+ * `maxWidth`, the glyphs step down a tile multiple at a time until it fits (or are one tile).
+ * Returns the glyphs' drawn size.
  */
 export function drawGlyphText(
   ctx: CanvasRenderingContext2D,
   text: string,
   cx: number,
-  y: number,
+  cy: number,
   size: number,
-  layout: PadLayout = inputDevice.layout,
-): void {
+  opts: { layout?: PadLayout; maxWidth?: number } = {},
+): number {
   const parts = splitGlyphs(text);
-  const widths = parts.map((p) => (typeof p === 'string' ? ctx.measureText(p).width : size));
-  let x = cx - widths.reduce((a, b) => a + b, 0) / 2;
-  // Glyphs centred on the capitals' middle.
-  const cap = ctx.measureText('H').actualBoundingBoxAscent || size * 0.6;
-  const top = y - cap / 2 - size / 2;
+  const textW = parts.map((p) => (typeof p === 'string' ? ctx.measureText(p).width : 0));
+  const glyphs = parts.filter((p) => typeof p !== 'string').length;
+  let gap = 0;
+  parts.forEach((p, i) => {
+    const prev = parts[i - 1];
+    if (!prev || (typeof p === 'string' && typeof prev === 'string')) return;
+    gap += typeof p !== 'string' && typeof prev !== 'string' ? GLYPH_GAP : GLYPH_TEXT_GAP;
+  });
+  const fixed = textW.reduce((a, b) => a + b, 0) + gap;
+  let gs = glyphDrawSize(ctx, size);
+  const min = glyphDrawSize(ctx, 1);
+  while (opts.maxWidth && gs > min && fixed + glyphs * gs > opts.maxWidth)
+    gs = glyphDrawSize(ctx, gs - min);
+  let x = cx - (fixed + glyphs * gs) / 2;
+  // The text's capitals centred on the glyphs.
+  const cap = ctx.measureText('H').actualBoundingBoxAscent || gs * 0.6;
   const align = ctx.textAlign;
   ctx.textAlign = 'left';
   parts.forEach((p, i) => {
-    if (typeof p === 'string') ctx.fillText(p, x, y);
-    else drawGlyph(ctx, p.button, x, top, size, layout);
-    x += widths[i] ?? 0;
+    const prev = parts[i - 1];
+    if (prev && !(typeof p === 'string' && typeof prev === 'string'))
+      x += typeof p !== 'string' && typeof prev !== 'string' ? GLYPH_GAP : GLYPH_TEXT_GAP;
+    if (typeof p === 'string') {
+      ctx.fillText(p, x, cy + cap / 2);
+      x += textW[i] ?? 0;
+    } else {
+      drawGlyph(ctx, p.button, x, cy - gs / 2, gs, opts.layout);
+      x += gs;
+    }
   });
   ctx.textAlign = align;
+  return gs;
 }

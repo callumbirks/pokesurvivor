@@ -5,7 +5,7 @@
 import { loadGameData, t } from '@pokesurvivor/data';
 import { REVIVE_SECONDS } from '@pokesurvivor/sim';
 import type { AimMode } from '../settings.js';
-import { drawGlyph, drawGlyphText, type PadButton } from '../glyphs.js';
+import { drawGlyph, drawGlyphText, glyphDrawSize, type PadButton } from '../glyphs.js';
 import { drawIcon as drawIconAt, typeColor } from '../icons.js';
 import type { PadLayout } from '../input-device.js';
 import { bodyHeight } from '../sprites.js';
@@ -31,6 +31,15 @@ const clamp = (v: number, a: number, b: number) => (v < a ? a : v > b ? b : v);
 const TAU = Math.PI * 2;
 /** The gamepad buttons that pick move slots 1–4. */
 const SLOT_PAD: readonly PadButton[] = ['a', 'b', 'x', 'y'];
+/** The gamepad controls hint's glyphs (HUD px, before snapping) and its margin to the bottom. */
+const PAD_HINT_GLYPH = 24;
+const PAD_HINT_BOTTOM = 6;
+/**
+ * The band the gamepad controls hint takes at the bottom (HUD px): the move slots stay above it
+ * while a pad is in use, so they don't move when the hint goes away.
+ */
+const padHintBand = (ctx: CanvasRenderingContext2D) =>
+  glyphDrawSize(ctx, PAD_HINT_GLYPH) + PAD_HINT_BOTTOM * 2;
 
 export function roundRect(
   ctx: CanvasRenderingContext2D,
@@ -455,7 +464,15 @@ export class Hud {
       ctx.fillStyle = 'rgba(180,200,230,.55)';
       if (k.pad) {
         ctx.font = F(600, 13);
-        drawGlyphText(ctx, controlsHint(false, k.aimMode, true), w / 2, h - 8, 24, k.pad);
+        const gs = glyphDrawSize(ctx, PAD_HINT_GLYPH);
+        drawGlyphText(
+          ctx,
+          controlsHint(false, k.aimMode, true),
+          w / 2,
+          h - PAD_HINT_BOTTOM - gs / 2,
+          PAD_HINT_GLYPH,
+          { layout: k.pad, maxWidth: w - 24 },
+        );
       } else ctx.fillText(controlsHint(touch.active, k.aimMode), w / 2, h - 4);
     }
 
@@ -571,7 +588,8 @@ export class Hud {
     const totalW = n * S + (n - 1) * GAP;
     const sx = (w - totalW) / 2;
     // Above the iPhone's home bar (taps there sometimes don't arrive).
-    const sy = h - S - 18 - (touch.active ? Math.min(28, this.safeArea(touch).bottom) : 0);
+    const bottom = k.pad ? Math.max(18, padHintBand(ctx)) : 18;
+    const sy = h - S - bottom - (touch.active ? Math.min(28, this.safeArea(touch).bottom) : 0);
     for (let i = 0; i < n; i++) {
       const group = detail.slots[i] ?? [];
       const id = group[0];
