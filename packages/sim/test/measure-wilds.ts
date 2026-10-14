@@ -22,6 +22,36 @@ import {
   type Snapshot,
 } from './measure-rifts.js';
 
+export interface WildTrial extends Cell {
+  kind: 'wild';
+  minute: number;
+  seed: number;
+  profile: 'natural' | 'typical';
+  maxHp: number;
+  reduction: number;
+  effectiveHp: number;
+  contactPct: number;
+  shotPct: number | null;
+  skillPct: number | null;
+  elitePct: number;
+  bossPct: number | null;
+  contactHits: number;
+  shotHits: number | null;
+  worstContactPct: number;
+  worstShotPct: number;
+  timeFactor: number;
+  damageK: number;
+  rosterBase: number;
+  regularHp: number;
+  teamDps: number;
+  regularTtk: number | null;
+  crowds: {
+    stationary: ReturnType<typeof crowd>;
+    kite: ReturnType<typeof crowd>;
+    survival: ReturnType<typeof crowd>;
+  } | null;
+}
+
 const args = new Map(
   process.argv.slice(2).map((s) => {
     const [key, ...value] = s.replace(/^--/, '').split('=');
@@ -128,7 +158,8 @@ function rosterProbe(sim: Sim) {
           // Force one exact roster member through spawnOne to measure shipped HP/damage, including hpK.
           sim.state.roster.tiers = [{ from: 0, list: [def] }];
           sim.state.enemies = [];
-          const enemy = spawnOne(sim.ctx, p, t);
+          let enemy = spawnOne(sim.ctx, p, t);
+          for (let attempt = 0; !enemy && attempt < 100; attempt++) enemy = spawnOne(sim.ctx, p, t);
           if (!enemy) throw new Error(`no free probe spawn for ${def.dex}`);
           const shotRaw =
             def.behavior === 'ranged' || def.behavior === 'fan'
