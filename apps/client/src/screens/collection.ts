@@ -1,6 +1,6 @@
 // The collection (legacy "Pokémon" screen): generation tabs, filters, the grid, and a detail
-// panel to choose the partner (normal or shiny) and set its move slots and banned moves.
-import { t, type Pokemon } from '@pokesurvivor/data';
+// panel to choose the partner (normal or shiny). Move slots and bans are in the shop, as in legacy.
+import { t } from '@pokesurvivor/data';
 import { audio } from '../audio.js';
 import type { App, Screen } from '../app/app.js';
 import {
@@ -15,20 +15,17 @@ import {
   typeChip,
   typeColor,
 } from '../app/dom.js';
-import { bindableMoves, movePoolOf, startingMoveOf } from '../app/moves.js';
+import { movePoolOf, startingMoveOf } from '../app/moves.js';
 import { toast } from '../app/toast.js';
 import { screenBox } from './common.js';
 
 type Filter = 'all' | 'owned' | 'missing' | 'shiny' | '1' | '2' | '3' | '4' | '5';
-const BAN_UPGRADE = 'ban';
-const SLOTS = 4;
 
 // The view survives leaving and coming back, as in legacy.
 let gen = 0;
 let filter: Filter = 'all';
 let selected = 0;
 let viewShiny = false;
-let movesOpen = false;
 
 export function collectionScreen(app: App, params: URLSearchParams): Screen {
   const data = gameData();
@@ -296,7 +293,6 @@ export function collectionScreen(app: App, params: URLSearchParams): Screen {
               movePoolOf(p).map((m) => h('span', { title: m.name }, icon(`move:${m.id}`, 16))),
             ),
             pick,
-            moveSettings(app, p, () => renderDetail()),
           ]
         : h(
             'p',
@@ -312,115 +308,4 @@ export function collectionScreen(app: App, params: URLSearchParams): Screen {
   render();
   const off = app.events.on('save', () => renderGrid());
   return { el: box.el, destroy: off };
-}
-
-/** Move slots ("shortcuts") and bans for an owned Pokémon (legacy upgrades panel). */
-function moveSettings(app: App, p: Pokemon, rerender: () => void): HTMLElement {
-  const data = gameData();
-  const s = app.save;
-  if (!s) return h('div');
-  const key = String(p.dex);
-  const bindings = [...(s.moveBindings[key] ?? [])];
-  while (bindings.length < SLOTS) bindings.push(null);
-  const bans = new Set(s.moveBans[key] ?? []);
-  const maxBans = s.upgrades[key]?.[BAN_UPGRADE] ?? 0;
-  const start = startingMoveOf(p);
-  const options = bindableMoves(p);
-
-  const save = (body: { bindings?: (string | null)[]; bans?: string[] }, el: HTMLElement) =>
-    void app.act(null, async () => {
-      el.classList.add('saving');
-      try {
-        app.setSave(await app.api.setMoves(p.dex, body));
-      } finally {
-        rerender();
-      }
-    });
-
-  const slots = h(
-    'div',
-    { class: 'bind-slots' },
-    bindings.map((current, i) => {
-      const select = h(
-        'select',
-        {
-          class: 'field',
-          'aria-label': `${t('hud.moveShortcuts')} ${i + 1}`,
-          dataset: { testid: `bind-${i}` },
-        },
-        h('option', { value: '' }, '—'),
-        options.map((m) =>
-          h(
-            'option',
-            {
-              value: m.id,
-              selected: m.id === current,
-              // Each move once: taken in another slot.
-              disabled: bindings.some((b, k) => k !== i && b === m.id),
-            },
-            m.name,
-          ),
-        ),
-      );
-      select.addEventListener('change', () => {
-        const next = [...bindings];
-        next[i] = select.value || null;
-        save({ bindings: next }, slots);
-      });
-      return h('label', { class: 'bind-slot' }, h('span', null, String(i + 1)), select);
-    }),
-  );
-
-  const banChips = h(
-    'div',
-    { class: 'ban-moves' },
-    movePoolOf(p)
-      .filter((m) => m.id !== start)
-      .map((m) =>
-        h(
-          'button',
-          {
-            class: ['chip', bans.has(m.id) && 'ban'],
-            dataset: { testid: `ban-${m.id}`, sfx: 'select' },
-            disabled: maxBans === 0,
-            on: {
-              click: () => {
-                const next = new Set(bans);
-                if (next.has(m.id)) next.delete(m.id);
-                else {
-                  if (next.size >= maxBans) {
-                    toast(t('hud.youAlreadyHaveBannedRemove', { 0: maxBans }), 'error');
-                    return;
-                  }
-                  next.add(m.id);
-                }
-                save({ bans: [...next] }, banChips);
-              },
-            },
-          },
-          icon(`move:${m.id}`, 16),
-          ` ${m.name}`,
-          bans.has(m.id) ? [' ', icon('ban', 14)] : null,
-        ),
-      ),
-  );
-
-  const details = h(
-    'details',
-    { class: 'move-settings', open: movesOpen },
-    h('summary', null, t('hud.moveShortcuts')),
-    h('p', { class: 'small muted' }, t('hud.chooseWhichMoveAlwaysGoes')),
-    slots,
-    h('h4', null, t('app.bannedMoves', { 0: bans.size, 1: maxBans })),
-    h(
-      'p',
-      { class: 'small muted' },
-      maxBans
-        ? t('hud.tapTheMovesYouDo', { 0: maxBans })
-        : t('app.banNeedsUpgrade', { 0: data.upgradeById.get(BAN_UPGRADE)?.name ?? BAN_UPGRADE }),
-    ),
-    banChips,
-  );
-  details.addEventListener('toggle', () => (movesOpen = details.open));
-  return details;
 }
