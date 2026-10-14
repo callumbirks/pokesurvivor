@@ -344,11 +344,11 @@ describe('start-first room handoffs', () => {
   it('includes an in-flight join in the SIGTERM snapshot after the request settles', async () => {
     const old = await createGameTestServer();
     const next = await replacement(old);
+    const bots = await old.party(2);
+    let release = () => {};
     try {
-      const bots = await old.party(2);
       const id = await lobby([bots[0]!]);
       await bots[0]!.client.invite(bots[1]!.username);
-      let release!: () => void;
       let entered!: () => void;
       const gate = new Promise<void>((r) => {
         release = r;
@@ -363,17 +363,19 @@ describe('start-first room handoffs', () => {
         return join(...args);
       });
       const joining = bots[1]!.client.join(id);
-      await started;
+      await withTimeout(started, 5000, 'in-flight join enters registry');
       bots.forEach((b) => b.routeTo(next.url));
       const drained = old.game.drain(1000);
       release();
-      await joining;
-      await drained;
+      await withTimeout(joining, 5000, 'in-flight join reply');
+      await withTimeout(drained, 5000, 'handoff after in-flight join');
       await waitFor(() => next.game.liveRooms.get(id)?.members.size === 2, 'settled join adopted');
       expect(next.game.roomOfUser(bots[1]!.userId)?.id).toBe(id);
     } finally {
-      await next.close();
-      await old.close();
+      release();
+      bots.forEach((b) => b.close());
+      await withTimeout(next.close(), 5000, 'replacement teardown after in-flight join');
+      await withTimeout(old.close(), 5000, 'old server teardown after in-flight join');
     }
   });
 
