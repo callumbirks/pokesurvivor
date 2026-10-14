@@ -1,10 +1,10 @@
 {
   "unreleased": {
-    "prs": [],
+    "prs": [59],
     "entries": {
       "new": [],
       "changed": [],
-      "fixed": [],
+      "fixed": ["Server restarts no longer stall when a player reconnects during shutdown."],
       "behindTheScenes": []
     }
   },

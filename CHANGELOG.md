@@ -6,6 +6,12 @@ What changed for players in each release, newest first. Generated from
 
 ## Unreleased
 
+PRs: [#59](https://github.com/callumbirks/pokesurvivor/pull/59)
+
+### Fixed
+
+- Server restarts no longer stall when a player reconnects during shutdown.
+
 ## v9 - 2026-10-14
 
 PRs: [#56](https://github.com/callumbirks/pokesurvivor/pull/56)

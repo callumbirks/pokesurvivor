@@ -59,6 +59,11 @@ export async function buildApp({
     // Dokploy puts Traefik in front of us.
     trustProxy: true,
   });
+  let closing = false;
+  app.addHook('preClose', (done) => {
+    closing = true;
+    done();
+  });
   registerErrorHandler(app);
   await app.register(fastifyCookie);
   // Limits are opted into per route (`config.rateLimit`).
@@ -147,6 +152,12 @@ export async function buildApp({
 
   // Client messages are small (inputs, intents, lobby requests); anything bigger is refused.
   await app.register(fastifyWebsocket, { options: { maxPayload: MAX_CLIENT_MESSAGE_BYTES } });
+  // Fastify's shutdown 503 bypasses onResponse, where the WebSocket plugin normally
+  // destroys rejected upgrade sockets. End these raw connections ourselves: they
+  // aren't tracked WebSockets, and a half-closed peer can otherwise block app.close().
+  app.server.on('upgrade', (_request, socket) => {
+    if (closing) socket.destroy();
+  });
   game?.register(app);
 
   const spritesDir = join(config.assetsDir, 'pokemon');
