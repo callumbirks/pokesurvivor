@@ -408,17 +408,56 @@ describe('start-first room handoffs', () => {
 
   it('transfers host after adoption when an absent member never rejoins', async () => {
     const old = await createGameTestServer();
-    const next = await replacement(old);
-    next.game.config.restartReconnectGraceMs = 250;
+    const graceMs = 1777;
+    const next = await createGameTestServer(
+      { restartReconnectGraceMs: graceMs },
+      { database: old.database },
+    );
+    const bots = await old.party(2);
+    const nativeTimeout = globalThis.setTimeout;
+    const expiries: (() => void)[] = [];
+    // Control only adopted membership grace. Keep socket delivery, DB I/O, heartbeat
+    // and client backoff on real timers; a loaded runner cannot use up the grace early.
+    const grace = vi.spyOn(globalThis, 'setTimeout').mockImplementation((callback, ms, ...args) => {
+      if (ms !== graceMs) return nativeTimeout(callback, ms, ...args);
+      const timer = nativeTimeout(() => {}, 0);
+      expiries.push(() => {
+        clearTimeout(timer);
+        callback(...args);
+      });
+      return timer;
+    });
     try {
-      const bots = await old.party(2);
       const id = await lobby(bots);
       bots.forEach((b) => b.routeTo(next.url));
       bots[0]!.net.offline = true;
-      await old.game.drain(1000);
-      await waitFor(() => next.game.liveRooms.get(id)?.members.size === 1, 'absent owner expires');
-      expect(next.game.liveRooms.get(id)!.ownerId).toBe(bots[1]!.userId);
+      await withTimeout(old.game.drain(1000), 5000, 'old lobby handoff');
+      await waitFor(
+        () =>
+          next.game.liveRooms.get(id)?.members.size === 2 &&
+          next.game.isOnline(bots[1]!.userId) &&
+          bots[1]!.client.state === 'open',
+        'adoption and guest reconnect',
+      );
+      const room = next.game.liveRooms.get(id)!;
+      expect(room.ownerId).toBe(bots[0]!.userId);
+      expect(room.member(bots[0]!.userId).graceTimer).not.toBeNull();
+      expect(room.member(bots[1]!.userId).graceTimer).toBeNull();
+      expect(expiries).toHaveLength(2);
+      const updated = bots[1]!.client.next(
+        'room',
+        (view) => view?.id === id && view.members.length === 1 && view.ownerId === bots[1]!.userId,
+      );
+      expiries.forEach((expire) => expire());
+      await withTimeout(updated, 5000, 'host transfer after grace expiry');
+      expect(room.ownerId).toBe(bots[1]!.userId);
+      await next.game.flush();
+      expect(await next.game.registry.membership(bots[0]!.userId)).toBeNull();
     } finally {
+      grace.mockRestore();
+      // These clients belong to old's harness but reconnect to next. Stop their retry
+      // loops before closing the replacement, including when an assertion fails.
+      bots.forEach((b) => b.close());
       await next.close();
       await old.close();
     }
