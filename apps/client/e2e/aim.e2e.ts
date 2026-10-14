@@ -103,13 +103,37 @@ test('desktop: T and the HUD button switch the aim; the mouse aims and fires', a
   await expect.poll(async () => (await counts(page))?.aim).toBeNull();
   if (shots) await page.screenshot({ path: `${shots}/desktop-auto.png` });
 
-  // The settings list the key and offer the choice.
+  // A 1920 × 1080 window draws the HUD at 1.5×: its buttons are hit where they're drawn now.
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await page.waitForTimeout(300); // a frame drawn at the new size registers the buttons
+  await page.mouse.click(1920 - 40 * 1.5, 62 * 1.5);
+  await expect.poll(() => storedMode(page)).toBe('manual');
+  // Holding the button over a move slot doesn't fire: at 1.5× the slot spans y 972–1053 (at 1×
+  // it would be 1008–1062), so this point is on it only where it's drawn now.
+  await page.mouse.move(960, 985);
+  await page.mouse.down();
+  await page.waitForTimeout(300);
+  expect((await counts(page))?.fire).toBe(false);
+  await page.mouse.up();
+
+  // The settings list the key and offer the choice, and the HUD size.
   await page.keyboard.press('Escape');
   await page.getByTestId('pause-settings').click();
   await page.getByTestId('set-tab-controls').click();
   await expect(page.getByTestId('screen-settings')).toContainText('Switch aiming');
   await page.getByTestId('set-aim-manual').click();
   await expect.poll(() => storedMode(page)).toBe('manual');
+  await page.getByTestId('set-tab-graphics').click();
+  await page.getByTestId('set-hudScale').fill('1.25');
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (JSON.parse(localStorage.getItem('ps.settings') ?? '{}') as { hudScale?: number })
+            .hudScale,
+      ),
+    )
+    .toBe(1.25);
   if (shots) await page.screenshot({ path: `${shots}/settings-controls.png` });
   await page.context().close();
 });

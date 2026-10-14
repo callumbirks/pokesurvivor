@@ -24,11 +24,19 @@ export interface Settings {
    * touch joystick, the gamepad's right stick). Local only: it depends on the device.
    */
   aimMode: AimMode;
+  /**
+   * The in-run HUD's size, 0.75–1.5 times its automatic size (which grows with the window). Local
+   * only: it depends on the screen.
+   */
+  hudScale: number;
   /** Placeholder until there are translations: only `en` exists. Local only. */
   language: 'en';
 }
 
-/** The fields stored in the server save (its `settings`); `aimMode` and `language` stay local. */
+/**
+ * The fields stored in the server save (its `settings`); `aimMode`, `hudScale` and `language` stay
+ * local.
+ */
 export const SYNCED_KEYS = [
   'quality',
   'damageNumbers',
@@ -52,6 +60,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = {
   sfxVolume: 0.7,
   muted: false,
   aimMode: 'auto',
+  hudScale: 1,
   language: 'en',
 };
 
@@ -77,6 +86,8 @@ export function sanitizeSettings(raw: unknown): Partial<Settings> {
   const sfx = num(r.sfxVolume, 0, 1);
   if (sfx !== undefined) out.sfxVolume = sfx;
   if (r.aimMode === 'auto' || r.aimMode === 'manual') out.aimMode = r.aimMode;
+  const hud = num(r.hudScale, 0.75, 1.5);
+  if (hud !== undefined) out.hudScale = hud;
   if (r.language === 'en') out.language = 'en';
   return out;
 }

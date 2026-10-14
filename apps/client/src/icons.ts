@@ -1328,14 +1328,29 @@ export function drawIcon(
   x: number,
   y: number,
   size: number,
+  /**
+   * Snap to whole device pixels under the canvas's current transform (the HUD, which is scaled):
+   * every icon pixel is the same number of screen pixels at any scale or pixel ratio.
+   */
+  devicePixels = false,
 ): void {
   const cv = iconCanvas(name);
-  const s2 = snapSize(name, size);
-  x += (size - s2) / 2;
-  y += (size - s2) / 2;
   const prev = ctx.imageSmoothingEnabled;
   ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(cv, Math.round(x), Math.round(y), s2, (s2 * cv.height) / cv.width);
+  if (devicePixels) {
+    const m = ctx.getTransform();
+    const k = Math.hypot(m.a, m.b) || 1;
+    // The size on screen, a whole multiple of the icon's resolution, back in drawing units.
+    const s2 = snapSize(name, size * k) / k;
+    const at = (v: number, offset: number) =>
+      (Math.round((v + (size - s2) / 2) * k + offset) - offset) / k;
+    ctx.drawImage(cv, at(x, m.e), at(y, m.f), s2, (s2 * cv.height) / cv.width);
+  } else {
+    const s2 = snapSize(name, size);
+    x += (size - s2) / 2;
+    y += (size - s2) / 2;
+    ctx.drawImage(cv, Math.round(x), Math.round(y), s2, (s2 * cv.height) / cv.width);
+  }
   ctx.imageSmoothingEnabled = prev;
 }
 

@@ -5,16 +5,23 @@
 import { loadGameData, t } from '@pokesurvivor/data';
 import { REVIVE_SECONDS } from '@pokesurvivor/sim';
 import type { AimMode } from '../settings.js';
-import { drawIcon, typeColor } from '../icons.js';
+import { drawIcon as drawIconAt, typeColor } from '../icons.js';
 import { bodyHeight } from '../sprites.js';
 import type { Frame } from './frame.js';
-import type { Camera } from './scene/camera.js';
 import { PLAYER_COLORS, altarPower, pokemonName } from './scene/entities.js';
 import type { WeatherLayer } from './scene/weather.js';
 import { weatherKind } from './scene/weather.js';
 import type { TouchControls } from './touch.js';
 import { itemName, mmss, moveName, typeName } from './text.js';
 
+/** HUD icons: snapped to whole screen pixels under the HUD's scale. */
+const drawIcon = (
+  ctx: CanvasRenderingContext2D,
+  name: string,
+  x: number,
+  y: number,
+  size: number,
+) => drawIconAt(ctx, name, x, y, size, true);
 const F = (w: number, s: number) => `${w} ${s}px Pixelify,"Segoe UI",system-ui,sans-serif`;
 const BUFF_COLORS = ['#ff6b4d', '#7fe0ff', '#b0b8c8', '#5fe08a'];
 const BOND = '#ff8ad8';
@@ -61,12 +68,19 @@ function bar(
   }
 }
 
+/** World → screen, for the HUD's arrows (CSS px, or HUD px once scaled). */
+export interface ScreenMapper {
+  toScreen(x: number, y: number): [number, number];
+}
+
 export interface HudInput {
   frame: Frame;
   /** Screen size (CSS px). */
   w: number;
   h: number;
-  camera: Camera;
+  /** How big the HUD is drawn (`hudScale`): it's laid out in w / scale × h / scale HUD px. */
+  scale: number;
+  camera: ScreenMapper;
   weather: WeatherLayer;
   touch: TouchControls;
   /** Who is choosing (player ids with a pending choice). */
@@ -97,6 +111,16 @@ export class Hud {
   private castAt = new Map<string, number>();
   private readonly arenaTime = loadGameData().tuning.rift.arenaTime;
 
+  /** The scale the current frame is drawn at. */
+  private scale = 1;
+
+  /** The iPhone's margins (CSS px) in HUD px, so they stay the same on screen at any scale. */
+  private safeArea(touch: TouchControls) {
+    const a = touch.safeArea();
+    const s = this.scale;
+    return { top: a.top / s, right: a.right / s, bottom: a.bottom / s, left: a.left / s };
+  }
+
   say(text: string, seconds: number): void {
     if (!text) return;
     this.banner = { text, t: 0, dur: seconds };
@@ -106,7 +130,23 @@ export class Hud {
     this.castAt.set(moveId, now);
   }
 
-  draw(ctx: CanvasRenderingContext2D, k: HudInput): void {
+  draw(ctx: CanvasRenderingContext2D, input: HudInput): void {
+    // Everything below is laid out in HUD px: the canvas is scaled, the screen is w / s × h / s,
+    // arrows map world points into it, and touch buttons are registered back in CSS px.
+    const s = input.scale > 0 ? input.scale : 1;
+    this.scale = s;
+    const world = input.camera;
+    const k: HudInput = {
+      ...input,
+      w: input.w / s,
+      h: input.h / s,
+      camera: {
+        toScreen: (x, y) => {
+          const [sx, sy] = world.toScreen(x, y);
+          return [sx / s, sy / s];
+        },
+      },
+    };
     const { frame, w, h, touch } = k;
     const snap = frame.snap;
     const team = snap.team;
@@ -114,8 +154,10 @@ export class Hud {
     const detail = frame.selfDetail;
     const now = frame.time;
     ctx.save();
+    ctx.scale(s, s);
     ctx.textBaseline = 'alphabetic';
     touch.clearButtons();
+    touch.buttonScale = s;
     if (this.banner && (this.banner.t += frame.dt) > this.banner.dur) this.banner = null;
 
     // ---------- XP bar (top edge) ----------
@@ -129,7 +171,7 @@ export class Hud {
 
     // ---------- HP and level ----------
     const px = 16;
-    const py = 20 + Math.min(16, touch.active ? touch.safeArea().top : 0);
+    const py = 20 + Math.min(16, touch.active ? this.safeArea(touch).top : 0);
     const info = frame.game.players.find((p) => p.id === frame.selfId);
     if (me) {
       ctx.font = F(800, 13);
@@ -380,7 +422,7 @@ export class Hud {
 
     // ---------- pause button (touch) ----------
     if (touch.active) {
-      const sa = touch.safeArea();
+      const sa = this.safeArea(touch);
       const bxp = w - 52 - Math.min(44, sa.right);
       const byp = 12 + Math.min(20, sa.top);
       const bs = 40;
@@ -450,7 +492,7 @@ export class Hud {
     let right = w - 16;
     let top = 48;
     if (touch.active) {
-      const sa = touch.safeArea();
+      const sa = this.safeArea(touch);
       right = w - 12 - Math.min(44, sa.right);
       top = 12 + Math.min(20, sa.top) + 48;
     }
@@ -514,7 +556,7 @@ export class Hud {
     const totalW = n * S + (n - 1) * GAP;
     const sx = (w - totalW) / 2;
     // Above the iPhone's home bar (taps there sometimes don't arrive).
-    const sy = h - S - 18 - (touch.active ? Math.min(28, touch.safeArea().bottom) : 0);
+    const sy = h - S - 18 - (touch.active ? Math.min(28, this.safeArea(touch).bottom) : 0);
     for (let i = 0; i < n; i++) {
       const group = detail.slots[i] ?? [];
       const id = group[0];
