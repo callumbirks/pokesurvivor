@@ -222,9 +222,6 @@ html[data-input='gamepad'] .nav-focus {
 .box-head h2 {
   margin: 0;
 }
-.count {
-  font-size: 15px;
-}
 /* A rule between parts of a window. */
 .win hr,
 .box hr {
@@ -585,9 +582,34 @@ label {
 .field:focus {
   box-shadow: inset 0 0 0 3px var(--text);
 }
+/* Drop-downs: still native selects (keyboard, screen readers, phones' pickers), drawn as a
+   square field on the raised fill with a pixel arrow. */
 select.field {
+  appearance: none;
   width: auto;
   max-width: 100%;
+  padding: 6px 30px 6px 10px;
+  background: var(--bg2)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' shape-rendering='crispEdges' fill='%23f2e9d8'%3E%3Cpath d='M0 0h10v2H8v2H6v2H4V4H2V2H0z'/%3E%3C/svg%3E")
+    no-repeat right 10px center / 10px 6px;
+  cursor: pointer;
+}
+select.field:hover:not(:disabled) {
+  box-shadow: inset 0 0 0 3px var(--muted);
+}
+select.field:focus-visible {
+  outline: 3px solid var(--gold);
+  outline-offset: 2px;
+}
+select.field:disabled {
+  cursor: not-allowed;
+  color: var(--muted);
+  background-color: transparent;
+  opacity: 1;
+}
+select.field option {
+  background: var(--bg);
+  color: var(--text);
 }
 .hint {
   color: var(--muted);
@@ -958,27 +980,7 @@ img.pix {
 
 /* ---------- login and starter ---------- */
 .login-box {
-  width: min(420px, 100%);
-}
-.logo {
-  text-align: center;
-  margin-bottom: 14px;
-}
-.logo .t1 {
-  font-size: 46px;
-  font-weight: 700;
-  line-height: 1;
-  color: var(--gold);
-  text-shadow:
-    3px 3px 0 #a55f00,
-    6px 6px 0 var(--ink);
-  letter-spacing: 1px;
-}
-.logo .t2 {
-  font-size: 16px;
-  margin-top: 6px;
-  letter-spacing: 3px;
-  text-transform: uppercase;
+  width: 100%;
 }
 .login-tag {
   margin: -4px 0 12px;
@@ -987,19 +989,19 @@ img.pix {
   text-align: center;
 }
 .test-box {
-  width: min(640px, 100%);
+  width: 100%;
 }
 .progress {
   height: 8px;
-  background: rgba(0, 0, 0, 0.35);
+  background: var(--ink);
   overflow: hidden;
   margin-bottom: 16px;
 }
 .progress i {
   display: block;
   height: 100%;
-  background: var(--gold);
-  transition: width 0.25s;
+  background: var(--accent);
+  transition: width 0.25s steps(4);
 }
 .q {
   font-size: 21px;
@@ -1008,20 +1010,15 @@ img.pix {
 .answers {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 2px;
 }
 .answer {
-  appearance: none;
-  text-align: left;
-  cursor: pointer;
-  padding: 11px 16px;
-  background: rgba(0, 0, 0, 0.18);
-  border: 2px solid var(--rule);
-  font-size: 17px;
-}
-.answer:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: var(--text);
+  min-height: 44px;
+  padding: 6px 10px 6px 4px;
+  grid-template-columns: 18px 1fr;
+  column-gap: 8px;
+  font-size: 18px;
+  line-height: 1.25;
 }
 .result .trait {
   font-size: 30px;
@@ -1046,28 +1043,23 @@ img.pix {
   position: relative;
   cursor: pointer;
   text-align: center;
-  background: rgba(0, 0, 0, 0.2);
-  border: 2px solid var(--rule);
+  background: var(--bg2);
+  border: 0;
   padding: 16px 2px 6px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: flex-end;
   min-height: 96px;
-  transition:
-    transform 0.08s,
-    border-color 0.12s;
 }
 .cell:hover {
-  transform: translateY(-2px);
-  border-color: var(--text);
+  box-shadow: inset 0 0 0 3px var(--muted);
 }
 .cell.on {
-  border-color: var(--gold);
-  background: rgba(255, 210, 63, 0.14);
+  box-shadow: inset 0 0 0 3px var(--text);
 }
 .cell.locked {
-  opacity: 0.75;
+  color: var(--muted);
 }
 .cell .sprite {
   max-width: 100%;
@@ -1102,10 +1094,14 @@ img.pix {
   grid-template-columns: 1fr 300px;
   gap: 16px;
 }
+/* Wide rows inside (tabs, filters) scroll rather than widen the columns. */
+.split > * {
+  min-width: 0;
+}
 .panel {
-  background: rgba(0, 0, 0, 0.2);
-  border: 2px solid var(--rule);
-  padding: 12px;
+  background: none;
+  box-shadow: inset 0 0 0 3px var(--rule);
+  padding: 12px 14px;
 }
 .stat {
   display: grid;
@@ -1117,14 +1113,14 @@ img.pix {
 }
 .bar {
   height: 8px;
-  background: rgba(0, 0, 0, 0.4);
+  background: var(--ink);
   overflow: hidden;
   margin: 4px 0 2px;
 }
 .bar i {
   display: block;
   height: 100%;
-  background: var(--gold);
+  background: var(--accent);
 }
 .ban-picker,
 .bind-panel {
@@ -1158,7 +1154,7 @@ img.pix {
   width: 100%;
   min-width: 0;
   font-size: 13px;
-  padding: 5px;
+  padding: 5px 26px 5px 6px;
 }
 .ban-moves {
   display: flex;
@@ -1166,10 +1162,103 @@ img.pix {
   gap: 5px;
 }
 .chip.ban {
-  background: rgba(255, 95, 109, 0.25);
-  border-color: var(--red);
-  color: #ffd3d8;
+  background: rgba(224, 96, 62, 0.2);
+  box-shadow: inset 0 0 0 2px var(--accent);
+  color: #ffc4b8;
   text-decoration: line-through;
+}
+
+/* ---------- screens with a title on the field ---------- */
+/* `screenBox()`: the title and Back on the field, then the screen's window, centred (the tall
+   ones fill the screen). */
+.scr.page {
+  align-items: center;
+  padding: 22px 24px 24px;
+}
+.page-col {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: min(980px, 100%);
+  max-height: 100%;
+  min-height: 0;
+}
+.page-col.narrow {
+  width: min(640px, 100%);
+}
+.page-col > .box {
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+/* When the screen is short, the window's list scrolls and the rest (tabs, the actions row
+   at the bottom) stays in view: the window and its body are columns in which only the lists
+   shrink. */
+.page-col > .box,
+.page-col > .box > .box-body {
+  display: flex;
+  flex-direction: column;
+}
+.page-col > .box > *,
+.page-col > .box > .box-body > * {
+  flex-shrink: 0;
+}
+.page-col > .box > .box-body,
+.page-col .box .grid,
+.page-col .box .answers,
+.page-col .box .rk-list,
+.page-col .box .fr-list,
+.page-col .box .goals-body,
+.page-col .box .set-body,
+.page-col .box .cl-list {
+  flex-shrink: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+/* Opened from a run's pause menu: the game shows through, darker. */
+.scr.page.over-game {
+  background: rgba(20, 16, 18, 0.6);
+}
+/* Section headings inside windows: bold, after a small accent square. */
+.set-h,
+.goals-h,
+.box .cl-h {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.set-h::before,
+.goals-h::before,
+.box .cl-h::before {
+  content: '';
+  flex: none;
+  width: 8px;
+  height: 8px;
+  background: var(--accent);
+}
+/* Login: the title on the field above the window. */
+.scr-login {
+  align-items: center;
+}
+.login-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: min(420px, 100%);
+}
+.login-title {
+  padding-left: 0;
+  text-align: center;
+}
+.login-title h1 {
+  font-size: 52px;
+}
+.quiz-actions {
+  margin-top: 12px;
+}
+/* A list of keys: each key as wide as its text. */
+.keys > kbd {
+  justify-self: start;
 }
 
 /* ---------- main menu ---------- */
@@ -1360,10 +1449,10 @@ html[data-input='touch'] .back-btn .input-hint {
 .pips i {
   width: 12px;
   height: 6px;
-  background: rgba(0, 0, 0, 0.4);
+  background: var(--ink);
 }
 .pips i.on {
-  background: var(--gold);
+  background: var(--accent);
 }
 
 /* ---------- gacha ---------- */
@@ -1388,7 +1477,19 @@ html[data-input='touch'] .back-btn .input-hint {
 .scr-head h1 {
   font-size: 40px;
 }
-.scr-head .back-btn {
+/* A count next to a title (Pokémon owned): a small dark tag, readable on the field. */
+.title-tag {
+  padding: 2px 8px;
+  font-size: 16px;
+  line-height: 1.25;
+  color: var(--text);
+  background: var(--bg);
+  box-shadow:
+    inset 0 0 0 2px var(--rule),
+    3px 3px 0 var(--ink);
+  white-space: nowrap;
+}
+.scr-head .btn.ghost {
   background: var(--bg);
   box-shadow:
     inset 0 0 0 3px var(--muted),
@@ -1697,17 +1798,15 @@ html[data-input='touch'] .back-btn .input-hint {
   grid-template-columns: 1fr auto auto;
   gap: 14px;
   align-items: center;
-  padding: 10px 12px;
-  margin-bottom: 6px;
-  background: rgba(0, 0, 0, 0.22);
-  border: 2px solid var(--rule);
+  padding: 10px 8px;
+  border-bottom: 3px solid var(--rule);
 }
 .mission.ready {
-  border-color: var(--gold);
-  background: rgba(255, 210, 63, 0.1);
+  box-shadow: inset 4px 0 0 var(--gold);
+  background: rgba(255, 214, 92, 0.08);
 }
 .mission.claimed {
-  opacity: 0.55;
+  color: var(--muted);
 }
 .mission small,
 .ach small {
@@ -1729,11 +1828,10 @@ html[data-input='touch'] .back-btn .input-hint {
   gap: 10px;
   align-items: center;
   padding: 8px 10px;
-  background: rgba(0, 0, 0, 0.2);
-  border: 2px solid var(--rule);
+  background: var(--bg2);
 }
 .ach.ok {
-  border-color: rgba(255, 210, 63, 0.6);
+  box-shadow: inset 4px 0 0 var(--gold);
 }
 .ach .a-txt {
   display: flex;
@@ -1755,12 +1853,11 @@ html[data-input='touch'] .back-btn .input-hint {
   align-items: center;
   justify-content: flex-end;
   padding: 4px;
-  background: rgba(0, 0, 0, 0.25);
-  border: 2px solid transparent;
+  background: var(--bg2);
   overflow: hidden;
 }
 .leg-cell.ok {
-  border-color: rgba(255, 210, 63, 0.5);
+  box-shadow: inset 0 0 0 2px var(--gold);
 }
 .leg-cell small {
   font-size: 10px;
@@ -1783,13 +1880,13 @@ html[data-input='touch'] .back-btn .input-hint {
   gap: 6px;
   padding: 6px;
   margin: 0;
-  background: rgba(0, 0, 0, 0.28);
-  border: 3px dashed var(--rule);
+  box-shadow: inset 0 0 0 3px var(--rule);
 }
 .fav-slot select {
   width: 100%;
   font-size: 13px;
-  padding: 4px;
+  padding: 4px 24px 4px 6px;
+  background-position: right 7px center;
 }
 .prof-marks {
   display: grid;
@@ -1798,7 +1895,7 @@ html[data-input='touch'] .back-btn .input-hint {
   margin: 12px 0;
 }
 .prof-marks div {
-  background: rgba(0, 0, 0, 0.25);
+  background: var(--bg2);
   padding: 6px 8px;
   display: flex;
   flex-direction: column;
@@ -1837,9 +1934,8 @@ html[data-input='touch'] .back-btn .input-hint {
   grid-template-columns: 54px auto 1fr auto;
   gap: 10px;
   align-items: center;
-  padding: 4px 12px;
-  background: rgba(0, 0, 0, 0.2);
-  border: 2px solid transparent;
+  padding: 4px 10px;
+  border-bottom: 3px solid var(--rule);
 }
 .rk-row .pos {
   font-weight: 700;
@@ -1877,13 +1973,13 @@ html[data-input='touch'] .back-btn .input-hint {
   font-weight: 700;
 }
 .rk-row.mine {
-  border-color: var(--gold);
-  background: rgba(255, 210, 63, 0.1);
+  box-shadow: inset 4px 0 0 var(--gold);
+  background: rgba(255, 214, 92, 0.08);
 }
 .rk-me {
   margin-top: 10px;
   padding: 8px 10px;
-  background: rgba(0, 0, 0, 0.25);
+  background: var(--bg2);
   font-size: 15px;
   min-height: 20px;
 }
@@ -1902,9 +1998,8 @@ html[data-input='touch'] .back-btn .input-hint {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 7px 12px;
-  background: rgba(0, 0, 0, 0.22);
-  border: 2px solid var(--rule);
+  padding: 7px 8px;
+  border-bottom: 3px solid var(--rule);
 }
 .fr-row b {
   font-size: 17px;
@@ -1916,12 +2011,11 @@ html[data-input='touch'] .back-btn .input-hint {
 .dot {
   width: 10px;
   height: 10px;
-  background: #6b7a94;
+  background: var(--muted);
   flex: 0 0 10px;
 }
 .dot.on {
   background: var(--green);
-  box-shadow: 0 0 6px var(--green);
 }
 .dot.play {
   background: var(--gold);
@@ -1942,8 +2036,8 @@ html[data-input='touch'] .back-btn .input-hint {
   justify-content: flex-end;
   gap: 2px;
   padding: 10px 6px;
-  background: rgba(0, 0, 0, 0.25);
-  border: 3px solid var(--pc, var(--rule));
+  background: var(--bg2);
+  box-shadow: inset 0 0 0 3px var(--pc, var(--rule));
   min-height: 190px;
   text-align: center;
   overflow: hidden;
@@ -1957,8 +2051,8 @@ html[data-input='touch'] .back-btn .input-hint {
   font-size: 12px;
 }
 .lob-card.empty {
-  border-style: dashed;
-  border-color: var(--rule);
+  background: none;
+  box-shadow: inset 0 0 0 3px var(--rule);
   color: var(--muted);
   justify-content: center;
 }
@@ -1979,7 +2073,7 @@ html[data-input='touch'] .back-btn .input-hint {
   padding: 1px 8px;
   text-shadow: none;
   color: #10131a;
-  background: #9fb1c9;
+  background: var(--muted);
 }
 .status-chip.ready {
   background: var(--green);
@@ -1992,23 +2086,20 @@ html[data-input='touch'] .back-btn .input-hint {
 }
 
 /* ---------- settings ---------- */
-.box.settings {
-  width: min(640px, 100%);
-}
 .set-body {
   overflow-y: auto;
   max-height: 64vh;
   padding-right: 4px;
 }
 .set-h {
-  color: var(--gold);
+  color: var(--text);
 }
 .set-row {
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 8px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 3px solid var(--rule);
 }
 .set-row b {
   display: block;
@@ -2047,22 +2138,25 @@ html[data-input='touch'] .back-btn .input-hint {
 input[type='range'] {
   appearance: none;
   width: 100%;
-  height: 8px;
-  background: rgba(0, 0, 0, 0.4);
+  height: 6px;
+  background: var(--ink);
 }
 input[type='range']::-webkit-slider-thumb {
   appearance: none;
-  width: 16px;
-  height: 16px;
-  background: var(--gold);
-  border: 2px solid #fff7d6;
+  width: 14px;
+  height: 18px;
+  background: var(--text);
+  border: 0;
+  box-shadow: 2px 2px 0 var(--ink);
   cursor: pointer;
 }
 input[type='range']::-moz-range-thumb {
   width: 14px;
-  height: 14px;
-  background: var(--gold);
-  border: 2px solid #fff7d6;
+  height: 18px;
+  background: var(--text);
+  border: 0;
+  border-radius: 0;
+  box-shadow: 2px 2px 0 var(--ink);
 }
 .keys {
   display: grid;
@@ -2086,10 +2180,8 @@ input[type='range']::-moz-range-thumb {
   text-align: center;
   font-size: 34px;
   font-weight: 700;
-  color: var(--gold);
-  text-shadow:
-    2px 2px 0 #a55f00,
-    4px 4px 0 var(--ink);
+  color: var(--title);
+  text-shadow: 3px 3px 0 var(--ink);
 }
 
 /* ---------- play ---------- */
@@ -2140,9 +2232,6 @@ input[type='range']::-moz-range-thumb {
   }
   .split {
     grid-template-columns: 1fr;
-  }
-  .logo .t1 {
-    font-size: 34px;
   }
   .lobby-members {
     grid-template-columns: repeat(2, 1fr);
@@ -2206,9 +2295,6 @@ input[type='range']::-moz-range-thumb {
     gap: 5px;
     font-size: 15px;
   }
-  .logo .t1 {
-    font-size: 30px;
-  }
   .split {
     grid-template-columns: 1fr minmax(190px, 36%);
     gap: 8px;
@@ -2231,7 +2317,7 @@ input[type='range']::-moz-range-thumb {
   /* Collection on a phone in landscape: list on the left, details on the right, both
      scrolling inside the screen (legacy did the same). */
   .scr-collection .box {
-    height: 100%;
+    flex: 1 1 0;
     display: flex;
     flex-direction: column;
   }
@@ -2365,9 +2451,6 @@ canvas.backdrop {
 }
 
 /* ---------- what's new ---------- */
-.box.changelog {
-  width: min(640px, 100%);
-}
 .cl-list {
   overflow-y: auto;
   max-height: 68vh;
@@ -2398,12 +2481,6 @@ canvas.backdrop {
 .box .cl-h {
   margin: 10px 0 4px;
   font-size: 15px;
-}
-.cl-new .cl-h {
-  color: var(--green);
-}
-.cl-fixed .cl-h {
-  color: #8fd3ff;
 }
 .cl-lines {
   margin: 0;
@@ -2440,6 +2517,58 @@ canvas.backdrop {
 }
 
 /* ---------- main menu and gacha on small screens ---------- */
+@media (max-height: 520px) {
+  .scr.page {
+    padding: 8px 10px 10px;
+  }
+  .page-col {
+    gap: 6px;
+  }
+  /* The collection fills the screen, its grid and details scrolling inside. */
+  .scr-collection .page-col {
+    height: 100%;
+  }
+  .scr-login {
+    align-items: flex-start;
+    overflow-y: auto;
+  }
+  .login-col {
+    gap: 8px;
+  }
+  .login-title h1 {
+    font-size: 30px;
+  }
+  .login-title p {
+    margin-top: 2px;
+  }
+  .login-tag {
+    display: none;
+  }
+  /* The personality test fits without scrolling. */
+  .scr-starter .progress {
+    margin-bottom: 8px;
+  }
+  .scr-starter .sub {
+    margin-bottom: 4px;
+  }
+  .scr-starter .q {
+    margin-bottom: 6px;
+    font-size: 18px;
+  }
+  .scr-starter .answer {
+    min-height: 34px;
+    padding-block: 3px;
+    font-size: 16px;
+  }
+  .quiz-actions {
+    margin-top: 6px;
+  }
+}
+@media (max-width: 760px) {
+  .scr.page {
+    padding: 60px 10px 10px;
+  }
+}
 /* Phones in portrait and small tablets: one column, scrolling. */
 @media (max-width: 760px) {
   .scr-menu {
@@ -2651,6 +2780,10 @@ canvas.backdrop {
   }
   .scr-head h1 {
     font-size: 26px;
+  }
+  .title-tag {
+    font-size: 13px;
+    padding: 1px 6px;
   }
   .gacha-body {
     grid-template-columns: 150px minmax(0, 1fr);

@@ -4,6 +4,7 @@ import { bestStarters, personalityScores, t, topTrait } from '@pokesurvivor/data
 import { audio } from '../audio.js';
 import type { App, Screen } from '../app/app.js';
 import {
+  CursorList,
   gameData,
   boxFor,
   h,
@@ -12,7 +13,6 @@ import {
   replace,
   sprite,
   typeChip,
-  typeColor,
 } from '../app/dom.js';
 import { toast } from '../app/toast.js';
 
@@ -21,11 +21,12 @@ export function starterScreen(app: App): Screen {
   const test = starters.personalityTest;
   const answers: number[] = [];
   let suggested: number | null = null;
+  const title = h('h1', { class: 'field-title' });
   const box = h('div', { class: 'box test-box' });
   const el = h(
     'section',
-    { class: 'scr dim scr-starter', dataset: { testid: 'screen-starter' } },
-    box,
+    { class: 'scr page scr-starter', dataset: { testid: 'screen-starter' } },
+    h('div', { class: 'page-col narrow' }, h('header', { class: 'scr-head' }, title), box),
   );
 
   const choose = (dex: number, button: HTMLButtonElement) =>
@@ -45,34 +46,38 @@ export function starterScreen(app: App): Screen {
     const i = answers.length;
     const q = test[i];
     if (!q) return result();
+    title.textContent = t('login.personalityTest');
+    // The answers are a cursor list, like the menu's.
+    const list = h(
+      'div',
+      { class: 'answers' },
+      q.answers.map((a, k) =>
+        h(
+          'button',
+          {
+            class: 'answer cursor-item',
+            dataset: { testid: `answer-${k}` },
+            on: {
+              click: () => {
+                answers.push(k);
+                question();
+              },
+            },
+          },
+          a.text,
+        ),
+      ),
+    );
+    new CursorList(list, { navDefault: true }).select(list.querySelector<HTMLElement>('.answer'));
     replace(
       box,
       h('div', { class: 'progress' }, h('i', { style: { width: `${(i / test.length) * 100}%` } })),
       h('p', { class: 'sub' }, t('login.questionOf', { 0: i + 1, 1: test.length })),
       h('p', { class: 'q' }, q.question),
+      list,
       h(
         'div',
-        { class: 'answers' },
-        q.answers.map((a, k) =>
-          h(
-            'button',
-            {
-              class: 'answer',
-              dataset: { testid: `answer-${k}` },
-              on: {
-                click: () => {
-                  answers.push(k);
-                  question();
-                },
-              },
-            },
-            a.text,
-          ),
-        ),
-      ),
-      h(
-        'div',
-        { class: 'row end', style: 'margin-top:12px' },
+        { class: 'row end quiz-actions' },
         h(
           'button',
           { class: 'btn small ghost', dataset: { testid: 'skip-test' }, on: { click: grid } },
@@ -91,24 +96,23 @@ export function starterScreen(app: App): Screen {
     const pick = best[Math.floor(Math.random() * best.length)] ?? starters.starters[0];
     if (!pick) return grid();
     suggested = pick.dex;
-    const mon = gameData().pokemonByDex.get(pick.dex);
     const ok = h(
       'button',
-      { class: 'btn gold', dataset: { testid: 'starter-accept', sfx: 'none' } },
+      { class: 'btn primary', dataset: { testid: 'starter-accept', sfx: 'none' } },
       t('login.letSGoTogether'),
     );
     ok.addEventListener('click', () => choose(pick.dex, ok));
+    title.textContent = t('login.yourPersonalityIs');
     replace(
       box,
       h(
         'div',
         { class: 'result center' },
-        h('h2', null, t('login.yourPersonalityIs')),
         h('div', { class: 'trait' }, trait?.name ?? ''),
         h('p', null, trait?.description ?? ''),
         h(
           'div',
-          { class: 'stage', style: { '--stage-c': typeColor(mon?.types[0] ?? 'normal') } },
+          { class: 'stage' },
           sprite(pick.dex, {
             scale: 4,
             lively: true,
@@ -133,7 +137,7 @@ export function starterScreen(app: App): Screen {
     const ok = h(
       'button',
       {
-        class: 'btn gold',
+        class: 'btn primary',
         disabled: picked === null,
         dataset: { testid: 'starter-ok', sfx: 'none' },
       },
@@ -168,9 +172,9 @@ export function starterScreen(app: App): Screen {
       );
       return cell;
     });
+    title.textContent = t('login.chooseYourPartner');
     replace(
       box,
-      h('h2', null, t('login.chooseYourPartner')),
       h('p', { class: 'sub' }, t('login.theStartersFromEveryRegion')),
       h('div', { class: 'grid' }, cells),
       h('div', { class: 'row', style: 'margin-top:12px' }, info, ok),

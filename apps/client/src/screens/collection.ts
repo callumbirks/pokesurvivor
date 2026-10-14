@@ -13,7 +13,6 @@ import {
   sprite,
   rarityBall,
   typeChip,
-  typeColor,
 } from '../app/dom.js';
 import { movePoolOf, startingMoveOf } from '../app/moves.js';
 import { toast } from '../app/toast.js';
@@ -31,8 +30,8 @@ export function collectionScreen(app: App, params: URLSearchParams): Screen {
   const data = gameData();
   const banners = data.gacha.banners;
   const box = screenBox(app, { id: 'collection', title: t('menu.pokemon') });
-  const total = h('span', { class: 'sub count' });
-  box.header.querySelector('h2')?.append(' ', total);
+  const total = h('span', { class: 'title-tag', dataset: { testid: 'collection-count' } });
+  box.title.after(total);
   const genTabs = h('div', { class: 'gen-tabs' });
   const filters = h('div', { class: 'filters' });
   const grid = h('div', { class: 'grid', dataset: { testid: 'collection-grid' } });
@@ -193,7 +192,7 @@ export function collectionScreen(app: App, params: URLSearchParams): Screen {
     const pick = h(
       'button',
       {
-        class: 'btn gold wide-btn',
+        class: 'btn primary wide-btn',
         disabled: usingThis,
         dataset: { testid: 'choose-partner', sfx: 'none' },
       },
@@ -222,9 +221,6 @@ export function collectionScreen(app: App, params: URLSearchParams): Screen {
         'div',
         {
           class: ['stage', shown && 'shiny'],
-          style: {
-            '--stage-c': !own ? '#5b83d6' : shown ? '#9ae6ff' : typeColor(p.types[0] ?? 'normal'),
-          },
         },
         sprite(p.dex, {
           scale: 3,

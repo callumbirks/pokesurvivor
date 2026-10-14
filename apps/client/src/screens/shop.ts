@@ -4,7 +4,7 @@
 import { t, type Move, type Pokemon } from '@pokesurvivor/data';
 import { audio } from '../audio.js';
 import type { App, Screen } from '../app/app.js';
-import { gameData, h, icon, num, pokemonName, replace, sprite, typeColor } from '../app/dom.js';
+import { gameData, h, icon, num, pokemonName, replace, sprite } from '../app/dom.js';
 import { bindableMoves, movePoolOf, startingMoveOf } from '../app/moves.js';
 import { toast } from '../app/toast.js';
 import { loadInto, screenBox } from './common.js';
@@ -74,7 +74,6 @@ export function shopScreen(app: App): Screen {
         'div',
         {
           class: ['stage', 'small', shiny && 'shiny'],
-          style: { '--stage-c': shiny ? '#9ae6ff' : typeColor(mon?.types[0] ?? 'normal') },
         },
         sprite(dex, { scale: 2, lively: true, shiny, fit: { width: 110, height: 64 }, feet: true }),
       ),
@@ -110,7 +109,7 @@ export function shopScreen(app: App): Screen {
         const buy = h(
           'button',
           {
-            class: ['btn', 'small', !maxed && 'gold'],
+            class: ['btn', 'small', !maxed && 'primary'],
             disabled: maxed || s.coins < cost,
             dataset: { testid: `buy-${u.id}`, sfx: 'none' },
           },

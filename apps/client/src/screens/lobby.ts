@@ -95,7 +95,7 @@ export function lobbyScreen(app: App): Screen {
     if (!room) {
       const create = h(
         'button',
-        { class: 'btn gold', dataset: { testid: 'room-create' } },
+        { class: 'btn primary', dataset: { testid: 'room-create' } },
         t('app.createRoom'),
       );
       create.addEventListener(
@@ -125,7 +125,7 @@ export function lobbyScreen(app: App): Screen {
     const readyBtn = h(
       'button',
       {
-        class: ['btn', 'grow', !ready && 'gold'],
+        class: ['btn', 'grow', !ready && 'primary'],
         disabled: room.phase !== 'lobby',
         dataset: { testid: 'room-ready' },
       },
@@ -140,7 +140,7 @@ export function lobbyScreen(app: App): Screen {
       ? h(
           'button',
           {
-            class: 'btn gold grow',
+            class: 'btn primary grow',
             disabled: room.phase !== 'lobby' || blockers.length > 0,
             dataset: { testid: 'room-start' },
           },

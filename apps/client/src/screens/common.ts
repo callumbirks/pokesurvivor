@@ -9,14 +9,20 @@ import { inputHint, type PadButton } from '../glyphs.js';
 export interface ScreenBox {
   /** The screen's root (`.scr`). */
   el: HTMLElement;
-  /** The box below the header. */
+  /** The window below the title. */
   body: HTMLElement;
+  /** The title row on the field: the title, the Back button and any `extra` buttons. */
   header: HTMLElement;
+  /** The title (append a count to it). */
+  title: HTMLElement;
+  /** The main window (`.box`). */
+  box: HTMLElement;
 }
 
 /**
- * A full-screen layer with a box, a title and (by default) a back button to the menu (`back`: to
- * that route instead, null: none; `onBack`: calls it instead of navigating).
+ * A full-screen layer: the title on the field with a Back button to the menu (`back`: to that
+ * route instead, null: none; `onBack`: calls it instead of navigating) and `extra` buttons, then
+ * a window. `wide: false` for a narrower column (settings, What's new).
  */
 export function screenBox(
   app: App,
@@ -33,19 +39,16 @@ export function screenBox(
     opts.back === null
       ? null
       : backButton(app, () => (opts.onBack ? opts.onBack() : app.go(opts.back ?? 'menu')));
-  const header = h(
-    'div',
-    { class: 'row between box-head' },
-    h('h2', null, opts.title),
-    h('div', { class: 'row' }, ...(opts.extra ?? []), back),
-  );
+  const title = h('h1', { class: 'field-title' }, opts.title);
+  const header = h('header', { class: 'scr-head' }, title, back, ...(opts.extra ?? []));
   const body = h('div', { class: 'box-body' });
+  const box = h('div', { class: 'box' }, body);
   const el = h(
     'section',
-    { class: ['scr', 'dim', `scr-${opts.id}`], dataset: { testid: `screen-${opts.id}` } },
-    h('div', { class: ['box', opts.wide !== false && 'wide'] }, header, body),
+    { class: ['scr', 'page', `scr-${opts.id}`], dataset: { testid: `screen-${opts.id}` } },
+    h('div', { class: ['page-col', opts.wide === false && 'narrow'] }, header, box),
   );
-  return { el, body, header };
+  return { el, body, header, title, box };
 }
 
 /** A Back button (B on a gamepad, Esc on the keyboard): to the menu, or `onClick`. */

@@ -292,7 +292,7 @@ export class MenuNav {
   private preferred(root: HTMLElement, stops: HTMLElement[]): HTMLElement | null {
     return (
       stops.find((e) => e.matches('[data-nav-default]')) ??
-      stops.find((e) => e.matches('.btn.gold, .menu-item.play')) ??
+      stops.find((e) => e.matches('.btn.primary, .btn.gold')) ??
       stops[0] ??
       (root.matches(FOCUSABLE) ? root : null)
     );

@@ -356,7 +356,7 @@ export class App {
     const join = h(
       'button',
       {
-        class: 'btn gold small grow',
+        class: 'btn primary small grow',
         dataset: { testid: 'invite-accept' },
         on: {
           click: () =>
