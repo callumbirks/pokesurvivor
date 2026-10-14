@@ -4,6 +4,7 @@
 // follow the account across devices.
 
 export type Quality = 'auto' | 'high' | 'medium' | 'low';
+export type AimMode = 'auto' | 'manual';
 
 export interface Settings {
   /** How many effects and particles are drawn; `auto` lowers it when the game stutters. */
@@ -18,11 +19,16 @@ export interface Settings {
   musicVolume: number;
   sfxVolume: number;
   muted: boolean;
+  /**
+   * Attacks aim by themselves (`auto`) or where the player points (`manual`: the mouse, the right
+   * touch joystick, the gamepad's right stick). Local only: it depends on the device.
+   */
+  aimMode: AimMode;
   /** Placeholder until there are translations: only `en` exists. Local only. */
   language: 'en';
 }
 
-/** The fields stored in the server save (its `settings`); `language` stays local. */
+/** The fields stored in the server save (its `settings`); `aimMode` and `language` stay local. */
 export const SYNCED_KEYS = [
   'quality',
   'damageNumbers',
@@ -45,6 +51,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = {
   musicVolume: 0.55,
   sfxVolume: 0.7,
   muted: false,
+  aimMode: 'auto',
   language: 'en',
 };
 
@@ -69,6 +76,7 @@ export function sanitizeSettings(raw: unknown): Partial<Settings> {
   if (music !== undefined) out.musicVolume = music;
   const sfx = num(r.sfxVolume, 0, 1);
   if (sfx !== undefined) out.sfxVolume = sfx;
+  if (r.aimMode === 'auto' || r.aimMode === 'manual') out.aimMode = r.aimMode;
   if (r.language === 'en') out.language = 'en';
   return out;
 }

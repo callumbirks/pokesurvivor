@@ -17,6 +17,7 @@ export type { PlayerConfig } from './players.js';
 export { REVIVE_RANGE, REVIVE_SECONDS, facingOf, isAttacking, moveSpeedOf } from './players.js';
 export type { MovingBody } from './players.js';
 export { WorldView, moveStatsAt, playerMoveSpeed } from './view.js';
+export { MANUAL_AIM_CONE } from './combat.js';
 export { hash2 } from './math.js';
 export { rerollsLeft } from './choices.js';
 export type { ChoiceResult } from './choices.js';

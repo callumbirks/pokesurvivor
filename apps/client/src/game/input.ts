@@ -2,7 +2,9 @@
 // key presses (move slots, cycling, pause, choices) are delivered as they happen.
 //   WASD / arrows   move              1–4      move slot (or pick an option)
 //   Q / E / Tab     previous / next   R        reroll cards     Esc / P  pause
-// Gamepad: left stick or d-pad to move, LB / RB to cycle moves, A/B/X/Y = options 1–4, Start pause.
+//   T               auto / manual aim (manual: the mouse aims; see aim.ts)
+// Gamepad: left stick or d-pad to move, right stick to aim (manual), LB / RB to cycle moves,
+// A/B/X/Y = options 1–4, R3 (right stick press) auto / manual aim, Start pause.
 
 const MOVE_KEYS = {
   up: ['KeyW', 'ArrowUp'],
@@ -21,8 +23,11 @@ const PAD_KEYS: Record<number, string> = {
   5: 'KeyE',
   8: 'KeyR',
   9: 'Escape',
+  11: 'KeyT',
 };
 const DEAD_ZONE = 0.22;
+/** The right stick only aims once clearly pushed (it rests a little off centre). */
+const AIM_DEAD_ZONE = 0.35;
 
 export class Input {
   private down = new Set<string>();
@@ -72,6 +77,15 @@ export class Input {
         this.onKey(code);
       } else if (!b.pressed) this.padDown.delete(i);
     });
+  }
+
+  /** The gamepad's right stick, when pushed (for manual aim); null at rest or with no pad. */
+  aimAxis(): [number, number] | null {
+    const p = this.pad();
+    if (!p) return null;
+    const x = p.axes[2] ?? 0;
+    const y = p.axes[3] ?? 0;
+    return Math.hypot(x, y) > AIM_DEAD_ZONE ? [x, y] : null;
   }
 
   /** The movement vector (length ≤ 1): the joystick if given, else the gamepad, else keys. */

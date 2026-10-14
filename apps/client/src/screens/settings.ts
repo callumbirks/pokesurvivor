@@ -3,7 +3,7 @@
 import { t } from '@pokesurvivor/data';
 import type { App, Screen } from '../app/app.js';
 import { h, replace } from '../app/dom.js';
-import { settings, type Quality } from '../settings.js';
+import { settings, type AimMode, type Quality } from '../settings.js';
 import { screenBox, tabs } from './common.js';
 
 type Tab = 'sound' | 'graphics' | 'controls' | 'account' | 'about';
@@ -164,8 +164,27 @@ export function settingsScreen(
         ),
       );
     } else if (tab === 'controls') {
+      const aimModes: AimMode[] = ['auto', 'manual'];
       replace(
         body,
+        h('h4', { class: 'set-h' }, t('settings.aiming')),
+        h('p', { class: 'small muted' }, t('settings.aimingHelp')),
+        h(
+          'div',
+          { class: 'chips set-chips' },
+          aimModes.map((m) =>
+            h(
+              'button',
+              {
+                class: ['chip', s.aimMode === m && 'on'],
+                dataset: { testid: `set-aim-${m}` },
+                'aria-pressed': s.aimMode === m ? 'true' : 'false',
+                on: { click: () => settings.set({ aimMode: m }) },
+              },
+              t(m === 'auto' ? 'settings.aimAuto' : 'settings.aimManual'),
+            ),
+          ),
+        ),
         h('h4', { class: 'set-h' }, t('settings.onMobileOrTablet')),
         row(
           t('settings.joystickSize'),
@@ -173,6 +192,7 @@ export function settingsScreen(
           slider('stickScale', 0.5, 2, 0.1),
         ),
         h('p', { class: 'small muted' }, t('settings.putYourFingerAnywhereAnd')),
+        h('p', { class: 'small muted' }, t('settings.manualAimTouch')),
         h('h4', { class: 'set-h' }, t('settings.onPc')),
         h(
           'div',
@@ -185,6 +205,8 @@ export function settingsScreen(
           h('span', null, t('app.keyCycle')),
           h('kbd', null, 'R'),
           h('span', null, t('app.keyReroll')),
+          h('kbd', null, 'T'),
+          h('span', null, t('app.keyAim')),
           h('kbd', null, 'Esc'),
           h('span', null, t('pause.pause')),
         ),
