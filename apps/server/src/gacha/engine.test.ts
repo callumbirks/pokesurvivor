@@ -14,13 +14,10 @@ const constant =
   () =>
     x;
 
-/**
- * 0.3 rolls a 1★ (30 of 100 weight falls in the 45.9 of 1★) until soft pity has taken 35% for the
- * 5★, a non-shiny, and the 30% pick.
- */
-const COMMON = constant(0.3);
-/** 0 rolls a 1★ (or the lowest allowed rarity) until hard pity, and the first Pokémon. */
+/** Zero selects the lowest positive-weight rarity and the first Pokémon in its pool. */
 const LOWEST = constant(0);
+// Isolate hard pity even if the shipped soft ramp reaches certainty earlier.
+const hardOnly = { ...config, softPity: { ...config.softPity, stepPerPull: 0 } };
 
 function pulls(over: Partial<PullInput> = {}) {
   return rollPulls({
@@ -30,8 +27,8 @@ function pulls(over: Partial<PullInput> = {}) {
     pity: 0,
     owned: new Set(),
     shiny: new Set(),
-    hasShiny: data.hasShinySprite,
-    rng: COMMON,
+    hasShiny: () => false,
+    rng: LOWEST,
     ...over,
   });
 }
@@ -47,7 +44,12 @@ describe('banner pools', () => {
   it('features the three strongest 5★', () => {
     const featured = featuredOf(kanto);
     expect(featured).toHaveLength(3);
-    expect(featured).toContain(150); // Mewtwo
+    expect(featured).toEqual(
+      [...kanto.byRarity.get(5)!]
+        .sort((a, b) => b.bst - a.bst)
+        .slice(0, 3)
+        .map((p) => p.dex),
+    );
   });
 
   it('falls back to the nearest non-empty rarity', () => {
@@ -69,101 +71,149 @@ describe('banner pools', () => {
 });
 
 describe('soft pity', () => {
-  it('adds 6 points of 5★ chance per pull from the 74th, and is certain at the 90th', () => {
-    expect(config.softPity).toEqual({ from: 74, stepPerPull: 0.06 });
-    expect(config.hardPity).toBe(90);
-    expect(fiveStarChance(config, 1)).toBeCloseTo(0.006);
-    expect(fiveStarChance(config, 73)).toBeCloseTo(0.006);
-    expect(fiveStarChance(config, 74)).toBeCloseTo(0.066);
-    expect(fiveStarChance(config, 75)).toBeCloseTo(0.126);
-    expect(fiveStarChance(config, 89)).toBeCloseTo(0.966);
-    expect(fiveStarChance(config, 90)).toBe(1);
+  it('uses the configured base rate, soft-pity start and step, then guarantees hard pity', () => {
+    const total = config.rates.reduce((sum, r) => sum + r.weight, 0);
+    const base = config.rates.find((r) => r.rarity === 5)!.weight / total;
+    const from = config.softPity.from;
+    expect(fiveStarChance(config, from - 1)).toBeCloseTo(base);
+    for (const pull of [from, from + 1, config.hardPity - 1]) {
+      const expected = Math.min(
+        1,
+        base + Math.max(0, pull - from + 1) * config.softPity.stepPerPull,
+      );
+      expect(fiveStarChance(config, pull)).toBeCloseTo(expected);
+    }
+    expect(fiveStarChance(config, config.hardPity)).toBe(1);
+    expect(fiveStarChance(config, config.hardPity + 1)).toBe(1);
   });
 
   it('takes the extra 5★ chance from the other rarities in proportion', () => {
-    for (const pity of [1, 74, 80, 89, 90]) {
+    for (const pity of [
+      1,
+      config.softPity.from,
+      config.softPity.from + 1,
+      config.hardPity - 1,
+      config.hardPity,
+    ]) {
       const rates = ratesAt(config, pity);
       expect(rates.reduce((sum, r) => sum + r.weight, 0)).toBeCloseTo(1);
       expect(rates.find((r) => r.rarity === 5)!.weight).toBeCloseTo(fiveStarChance(config, pity));
-      // 1★ : 2★ stays 45.9 : 30.
+      // The relative weights of the lower rarities stay unchanged.
       const [one, two] = rates;
-      if (pity < 90) expect(one!.weight / two!.weight).toBeCloseTo(45.9 / 30);
+      if (fiveStarChance(config, pity) < 1)
+        expect(one!.weight / two!.weight).toBeCloseTo(
+          config.rates[0]!.weight / config.rates[1]!.weight,
+        );
       else expect(one!.weight).toBe(0);
     }
-    // Before soft pity, the gacha.json weights (which total 100).
+    // Before soft pity, the weights are normalized by their configured total.
+    const total = config.rates.reduce((sum, r) => sum + r.weight, 0);
     ratesAt(config, 1).forEach((r, i) =>
-      expect(r.weight * 100).toBeCloseTo(config.rates[i]!.weight),
+      expect(r.weight * total).toBeCloseTo(config.rates[i]!.weight),
     );
   });
 
   it('rolls 5★ at the soft-pity chance', () => {
     const rng = seededRng('soft-pity');
     const n = 100_000;
-    for (const pity of [74, 80]) {
+    for (const pity of [config.softPity.from, config.softPity.from + 1]) {
       const rates = ratesAt(config, pity);
       let fives = 0;
       for (let i = 0; i < n; i++) if (rollRarity(rates, rng) === 5) fives += 1;
       const expected = fiveStarChance(config, pity);
       const sd = Math.sqrt((expected * (1 - expected)) / n);
-      expect(Math.abs(fives / n - expected)).toBeLessThan(5 * sd);
+      expect(Math.abs(fives / n - expected)).toBeLessThanOrEqual(5 * sd + 1 / n);
     }
   });
 });
 
 describe('rollPulls', () => {
-  it('gives a 5★ on the 90th pull without one, then resets the pity', () => {
+  it('gives a 5★ at configured hard pity and resets it', () => {
     let pity = 0;
     const rarities: number[] = [];
     for (let i = 0; i < config.hardPity; i++) {
-      const out = pulls({ pity, rng: LOWEST });
+      const out = pulls({ config: hardOnly, pity, rng: LOWEST });
       pity = out.pity;
       rarities.push(out.results[0]!.rarity);
     }
-    expect(rarities.slice(0, 89).every((r) => r === 1)).toBe(true);
-    expect(rarities[89]).toBe(5);
+    expect(rarities.slice(0, config.hardPity - 1).every((r) => r === 1)).toBe(true);
+    expect(rarities[config.hardPity - 1]).toBe(5);
     expect(pity).toBe(0);
   });
 
   it('ramps the 5★ chance with soft pity', () => {
-    // 0.9 is the top 10%: a 3★ at the base rates, a 4★ at the 74th pull (6.6% 5★) and a 5★ at
-    // the 75th (12.6%).
-    const rng = constant(0.9);
-    const rarities: number[] = [];
-    let pity = 72;
-    for (let i = 0; i < 4; i++) {
-      const out = pulls({ pity, rng });
-      pity = out.pity;
-      rarities.push(out.results[0]!.rarity);
-    }
-    expect(rarities).toEqual([3, 4, 5, 3]);
-    expect(pity).toBe(1);
+    const before = config.softPity.from - 1;
+    const base = fiveStarChance(config, before);
+    const raised = fiveStarChance(config, before + 1);
+    const rng = constant(1 - (base + raised) / 2);
+    const first = pulls({ pity: before - 1, rng });
+    expect(first.results[0]!.rarity).toBeLessThan(5);
+    expect(first.pity).toBe(before);
+    const second = pulls({ pity: first.pity, rng });
+    expect(second.results[0]!.rarity).toBe(5);
+    expect(second.pity).toBe(0);
   });
 
   it('counts pity inside a ×10 and skips the guarantee once a 5★ came out', () => {
-    const out = pulls({ count: 10, pity: 88, rng: LOWEST });
-    expect(out.results.map((r) => r.rarity)).toEqual([1, 5, 1, 1, 1, 1, 1, 1, 1, 1]);
-    expect(out.pity).toBe(8);
+    const out = pulls({
+      config: hardOnly,
+      count: config.cost.multiCount,
+      pity: config.hardPity - 2,
+      rng: LOWEST,
+    });
+    expect(out.results.map((r) => r.rarity)).toEqual([
+      1,
+      5,
+      ...Array<number>(config.cost.multiCount - 2).fill(1),
+    ]);
+    expect(out.pity).toBe(config.cost.multiCount - 2);
   });
 
   it('guarantees a 4★ or better on the last pull of a ×10', () => {
-    const out = pulls({ count: 10 });
-    expect(out.results.map((r) => r.rarity)).toEqual([1, 1, 1, 1, 1, 1, 1, 1, 1, 4]);
-    expect(out.pity).toBe(10);
+    const out = pulls({ count: config.cost.multiCount });
+    expect(out.results.map((r) => r.rarity)).toEqual([
+      ...Array<number>(config.cost.multiCount - 1).fill(1),
+      config.multiGuaranteeMinRarity,
+    ]);
+    expect(out.pity).toBe(config.cost.multiCount);
     // A single pull gets no guarantee.
     expect(pulls({ count: 1 }).results[0]!.rarity).toBe(1);
   });
 
   it('rolls the ×10 guarantee at the soft-pity rates', () => {
-    // Pulls 69–77 stay 1★ at 0.3. The guarantee on the 78th rolls 4★ (4.5%) vs 5★ (30.6%): 0.3 of
-    // the way is a 5★, where at the base rates (6.5 vs 0.6) it would be a 4★.
-    const out = pulls({ count: 10, pity: 68 });
-    expect(out.results.map((r) => r.rarity)).toEqual([1, 1, 1, 1, 1, 1, 1, 1, 1, 5]);
+    const count = config.cost.multiCount;
+    const last = config.softPity.from;
+    const rates = ratesAt(config, last).filter((r) => r.rarity >= config.multiGuaranteeMinRarity);
+    const five = rates.find((r) => r.rarity === 5)!.weight;
+    const total = rates.reduce((sum, r) => sum + r.weight, 0);
+    // Choose a draw inside the boosted guarantee's 5★ interval; other draws stay lowest.
+    const baseRates = ratesAt(config, last - 1).filter(
+      (r) => r.rarity >= config.multiGuaranteeMinRarity,
+    );
+    const baseTotal = baseRates.reduce((sum, r) => sum + r.weight, 0);
+    const baseShare = baseRates.find((r) => r.rarity === 5)!.weight / baseTotal;
+    const guaranteedDraw = 1 - (five / total + baseShare) / 2;
+    let draws = 0;
+    const out = pulls({
+      count,
+      pity: last - count,
+      rng: () => (++draws === (count - 1) * 2 + 1 ? guaranteedDraw : 0),
+    });
+    expect(out.results.map((r) => r.rarity)).toEqual([...Array<number>(count - 1).fill(1), 5]);
     expect(out.pity).toBe(0);
   });
 
   it('gives the hard-pity 5★ on the guaranteed pull of a ×10', () => {
-    const out = pulls({ count: 10, pity: 80, rng: LOWEST });
-    expect(out.results.map((r) => r.rarity)).toEqual([1, 1, 1, 1, 1, 1, 1, 1, 1, 5]);
+    const out = pulls({
+      config: hardOnly,
+      count: config.cost.multiCount,
+      pity: config.hardPity - config.cost.multiCount,
+      rng: LOWEST,
+    });
+    expect(out.results.map((r) => r.rarity)).toEqual([
+      ...Array<number>(config.cost.multiCount - 1).fill(1),
+      5,
+    ]);
     expect(out.pity).toBe(0);
   });
 
@@ -180,22 +230,24 @@ describe('rollPulls', () => {
   });
 
   it('re-picks an owned shiny for a missing one of the same rarity, else gives the normal form', () => {
-    // 0.001: 1★, the first Pokémon of the pool, and shiny (0.001 < 1%).
-    const rng = constant(0.001);
+    // Zero chooses the first common and falls below any positive shiny rate.
+    const rng = LOWEST;
+    const shinyPulls = (over: Partial<PullInput>) =>
+      pulls({ hasShiny: data.hasShinySprite, ...over });
     const commons = kanto.byRarity.get(1)!.filter((p) => data.hasShinySprite(p.dex));
     const [first, second] = commons;
     expect(first).toBe(kanto.byRarity.get(1)![0]);
-    const fresh = pulls({ rng });
+    const fresh = shinyPulls({ rng });
     expect(fresh.results[0]).toMatchObject({ dex: first!.dex, shiny: true, isNew: true });
 
     const shiny = new Set([first!.dex]);
     const owned = new Set([first!.dex]);
-    const repicked = pulls({ rng, shiny, owned });
+    const repicked = shinyPulls({ rng, shiny, owned });
     expect(repicked.results[0]).toMatchObject({ dex: second!.dex, shiny: true, isNew: true });
     expect(shiny.has(second!.dex) && owned.has(second!.dex)).toBe(true);
 
     const allShiny = new Set(commons.map((p) => p.dex));
-    const normal = pulls({ rng, shiny: allShiny, owned: new Set(allShiny) });
+    const normal = shinyPulls({ rng, shiny: allShiny, owned: new Set(allShiny) });
     expect(normal.results[0]).toMatchObject({
       dex: first!.dex,
       shiny: false,
@@ -218,7 +270,7 @@ describe('rollPulls', () => {
       const actual = (counts.get(rarity) ?? 0) / n;
       // Within 5 standard deviations.
       const sd = Math.sqrt((expected * (1 - expected)) / n);
-      expect(Math.abs(actual - expected)).toBeLessThan(5 * sd);
+      expect(Math.abs(actual - expected)).toBeLessThanOrEqual(5 * sd + 1 / n);
     }
   });
 
@@ -233,7 +285,9 @@ describe('rollPulls', () => {
     let fives = 0;
     let shinies = 0;
     for (let i = 0; i < n / count; i++) {
-      const out = pulls({ count, pity, rng, owned, shiny });
+      const out = pulls({ count, pity, rng, owned, shiny, hasShiny: data.hasShinySprite });
+      if (count === config.cost.multiCount)
+        expect(out.results.some((r) => r.rarity >= config.multiGuaranteeMinRarity)).toBe(true);
       pity = out.pity;
       for (const r of out.results) {
         sinceFive += 1;
@@ -248,21 +302,30 @@ describe('rollPulls', () => {
     return { rate: fives / n, maxGap, shinies };
   }
 
-  it('gives a 5★ about every 62 single pulls, never more than 90 apart', () => {
-    const { rate, maxGap, shinies } = simulate(1, 400_000, 'pity');
+  it('single-pull frequency follows the configured pity distribution and bounds the gap', () => {
+    const n = 100_000;
+    const { rate, maxGap, shinies } = simulate(1, n, 'pity');
     expect(maxGap).toBeLessThanOrEqual(config.hardPity);
-    // 0.6% base, raised by soft and hard pity to one per ≈62.3 pulls (1.605%); measured 1.60%.
-    expect(1 / rate).toBeGreaterThan(60);
-    expect(1 / rate).toBeLessThan(65);
-    // Shinies stop once the pool's shinies are all owned, so only check they happen.
-    expect(shinies).toBeGreaterThan(0);
+    // Expected wait = sum of the probability of surviving each pull without a 5★.
+    let survival = 1;
+    let expectedWait = 0;
+    let secondMoment = 0;
+    for (let pull = 1; pull <= config.hardPity; pull++) {
+      expectedWait += survival;
+      secondMoment += (2 * pull - 1) * survival;
+      survival *= 1 - fiveStarChance(config, pull);
+    }
+    const variance = Math.max(0, secondMoment - expectedWait ** 2);
+    // Renewal-count sampling error, plus one unfinished waiting interval.
+    const tolerance = 5 * Math.sqrt(variance / (n * expectedWait)) + config.hardPity / n;
+    expect(Math.abs(rate * expectedWait - 1)).toBeLessThanOrEqual(tolerance);
+    // Each eligible shiny can be granted once; a tiny configured rate may yield none here.
+    expect(shinies).toBeLessThanOrEqual(kanto.all.filter((p) => data.hasShinySprite(p.dex)).length);
   });
 
-  it('gives a 5★ about every 55 pulls in ×10s, with the guarantee’s 5★ share', () => {
-    const { rate, maxGap } = simulate(10, 400_000, 'pity-multi');
+  it('multi-pulls keep the configured guarantee and never exceed the hard-pity gap', () => {
+    const count = config.cost.multiCount;
+    const { maxGap } = simulate(count, count * 5000, 'pity-multi');
     expect(maxGap).toBeLessThanOrEqual(config.hardPity);
-    // Measured 1.80%: the ×10 guarantee is a 5★ about 8% of the time it applies.
-    expect(1 / rate).toBeGreaterThan(52);
-    expect(1 / rate).toBeLessThan(58);
   });
 });

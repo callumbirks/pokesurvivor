@@ -4,9 +4,13 @@ import { getServerData } from '../data.js';
 import { currencyLedger, gachaPulls } from '../db/schema.js';
 import type { SaveView } from '../saves/service.js';
 import { withLockedSave } from '../saves/service.js';
+import { expectedAchievements } from '../test/rewards.js';
 import { createTestApp } from '../test/harness.js';
 import type { TestApp } from '../test/harness.js';
-import type { PullResult } from './engine.js';
+import { featuredOf, type PullResult } from './engine.js';
+import { bannerPools } from './service.js';
+
+const cost = getServerData().gacha.cost;
 
 interface PullResponse {
   pullId: string;
@@ -44,15 +48,15 @@ describe('gacha', () => {
     const anon = (await t.client().get('/api/gacha')).json<GachaInfo>();
     const { gacha } = getServerData();
     expect(anon).toMatchObject({
-      softPity: { from: 74, stepPerPull: 0.06 },
-      hardPity: 90,
+      softPity: gacha.softPity,
+      hardPity: gacha.hardPity,
       rates: gacha.rates,
     });
     expect(anon.banners.map((b) => b.id)).toEqual(gacha.banners.map((b) => b.id));
     expect(anon.banners[0]).toMatchObject({ id: 'kanto', pity: null });
-    expect(anon.banners[0]?.featured).toContain(150);
+    expect(anon.banners[0]?.featured).toEqual(featuredOf(bannerPools().get('kanto')!));
 
-    const c = await withTickets(1);
+    const c = await withTickets(cost.single);
     await c.post('/api/gacha/pull', { banner: 'johto', count: 1 });
     const mine = (await c.get('/api/gacha')).json<GachaInfo>();
     expect(mine.banners.find((b) => b.id === 'kanto')?.pity).toBe(0);
@@ -60,7 +64,7 @@ describe('gacha', () => {
   });
 
   it('pulls with tickets, records the pull and credits refunds through the ledger', async () => {
-    const c = await withTickets(11, 1);
+    const c = await withTickets(cost.single + cost.multi, cost.multiTickets10);
     const single = await c.post('/api/gacha/pull', { banner: 'kanto', count: 1 });
     expect(single.statusCode, single.body).toBe(200);
     const multi = await c.post('/api/gacha/pull', { banner: 'kanto', count: 10 });
@@ -86,9 +90,9 @@ describe('gacha', () => {
 
     const rows = await t.db.db.select().from(gachaPulls).where(eq(gachaPulls.userId, c.userId));
     expect(rows.map((r) => [r.count, r.payWith, r.cost]).sort()).toEqual([
-      [1, 'tickets', 1],
-      [10, 'tickets', 10],
-      [10, 'tickets10', 1],
+      [1, 'tickets', cost.single],
+      [10, 'tickets', cost.multi],
+      [10, 'tickets10', cost.multiTickets10],
     ]);
     for (const body of bodies) {
       const ledger = await t.db.db
@@ -109,13 +113,20 @@ describe('gacha', () => {
     expect(save.coins).toBe(coins);
     const tickets = all.filter((l) => l.currency === 'tickets_x1');
     expect(save.tickets.x1).toBe(tickets.reduce((s, l) => s + l.delta, 0));
-    expect(tickets.filter((l) => l.reason === 'gacha_pull').map((l) => l.delta)).toEqual([-1, -10]);
-    // Owning 10+ Pokémon unlocks own-1 and own-10.
-    expect(save.achievements).toHaveProperty('own-10');
+    expect(tickets.filter((l) => l.reason === 'gacha_pull').map((l) => l.delta)).toEqual([
+      -cost.single,
+      -cost.multi,
+    ]);
+    const expected = expectedAchievements({
+      'pokemon-owned': Object.keys(save.owned).length,
+      'shinies-owned': Object.keys(save.shiny).length,
+      'gacha-pulls': 21,
+    });
+    expect(Object.keys(save.achievements).sort()).toEqual(expected.map((a) => a.id).sort());
   });
 
   it('rejects pulls it can’t pay for or that don’t exist', async () => {
-    const c = await withTickets(5, 0);
+    const c = await withTickets(0, 0);
     const cases: [object, number, string][] = [
       [{ banner: 'kanto', count: 10 }, 409, 'insufficient_funds'],
       [{ banner: 'kanto', count: 10, payWith: 'tickets10' }, 409, 'insufficient_funds'],
@@ -132,7 +143,7 @@ describe('gacha', () => {
       ]);
     }
     const save = (await c.get('/api/save')).json<SaveView>();
-    expect(save.tickets.x1).toBe(5);
+    expect(save.tickets.x1).toBe(0);
     expect(save.stats.pulls).toBe(0);
     expect(
       (await t.client().post('/api/gacha/pull', { banner: 'kanto', count: 1 })).statusCode,
@@ -140,9 +151,8 @@ describe('gacha', () => {
   });
 
   it('spends each ticket once under concurrent pulls', async () => {
-    const c = await withTickets(3);
-    // Achievements pay tickets (a first shiny gives 3, at a 1% shiny rate per pull), which
-    // would legitimately fund more pulls; mark them all unlocked so only the 3 tickets count.
+    const c = await withTickets(3 * cost.single);
+    // Achievement rewards could fund more pulls; mark them unlocked to isolate ticket spending.
     await withLockedSave(t.db.db, c.userId, (save) => {
       for (const a of getServerData().achievements.achievements) save.data.achievements[a.id] = 1;
     });

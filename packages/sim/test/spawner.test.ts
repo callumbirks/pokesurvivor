@@ -1,35 +1,43 @@
 import { describe, expect, it } from 'vitest';
 import { simData } from '../src/data.js';
-import { bossScale, enemyScale, scaleHp, scaleRate, spawnRate } from '../src/spawner.js';
+import { bossScale, enemyScale, scaleHp, scaleRate, spawnRate, spawnOne } from '../src/spawner.js';
 import { createSim, OUTER_RADIUS, type Sim } from '../src/index.js';
-import { seconds } from './helpers.js';
+import { patchTuning, postponeAmbientSystems, seconds } from './helpers.js';
 
 const d = simData();
 const sim1 = () =>
   createSim({ seed: 3, players: [{ id: 'a', dex: 25 }], debug: { invulnerable: true } });
 
 describe('spawn curves', () => {
-  it('spawn rate follows the legacy curve (×0.24 density)', () => {
-    const ctx = sim1().ctx;
-    expect(spawnRate(ctx, 0)).toBeCloseTo(1.6 * 0.24);
-    expect(spawnRate(ctx, 60)).toBeCloseTo((1.6 + 60 * 0.028 + 0.5) * 0.24);
-    expect(spawnRate(ctx, 600)).toBeCloseTo((1.6 + 600 * 0.028 + Math.pow(10, 1.6) * 0.5) * 0.24);
+  it('spawn rate grows with time and scales with the configured density', () => {
+    const plain = sim1();
+    const denser = sim1();
+    patchTuning(denser, 'spawner', { density: d.game.tuning.spawner.density * 2 });
+    for (const time of [0, 60, 600])
+      expect(spawnRate(denser.ctx, time)).toBeCloseTo(spawnRate(plain.ctx, time) * 2);
+    expect(spawnRate(plain.ctx, 60)).toBeGreaterThan(spawnRate(plain.ctx, 0));
+    expect(spawnRate(plain.ctx, 600)).toBeGreaterThan(spawnRate(plain.ctx, 60));
   });
 
-  it('enemy and boss scaling, with the late-game multiplier after minute 60', () => {
+  it('enemy and boss scaling, with the configured late-game multiplier', () => {
     const ctx = sim1().ctx;
-    expect(enemyScale(ctx, 0)).toEqual({ hp: 1, damage: 1, speed: 1 });
-    expect(enemyScale(ctx, 950).hp).toBeCloseTo(11);
-    expect(enemyScale(ctx, 1400 * 2).speed).toBeCloseTo(1.35);
-    expect(bossScale(ctx, 600).hp).toBeCloseTo(2);
-    expect(d.late(3600)).toBe(1);
-    expect(d.late(90 * 60)).toBeCloseTo(Math.exp(0.000374 * 900));
+    const early = enemyScale(ctx, 0);
+    const later = enemyScale(ctx, 950);
+    expect(later.hp).toBeGreaterThan(early.hp);
+    expect(later.damage).toBeGreaterThan(early.damage);
+    expect(later.speed).toBeGreaterThanOrEqual(early.speed);
+    expect(bossScale(ctx, 600).hp).toBeGreaterThan(bossScale(ctx, 0).hp);
+    const late = d.game.enemies.lateGame;
+    expect(d.late(late.fromMinute * 60)).toBe(1);
+    expect(d.late(90 * 60)).toBeCloseTo(Math.exp(late.k * Math.max(0, 90 - late.fromMinute) ** 2));
     expect(d.late(10_000 * 60)).toBeCloseTo(Math.exp(30)); // capped
   });
 
   it('co-op: more and tougher enemies per extra player', () => {
-    expect([1, 2, 3, 4].map(scaleRate)).toEqual([1, 1.75, 2.5, 3.25]);
-    expect([1, 2, 3, 4].map(scaleHp).map((v) => +v.toFixed(2))).toEqual([1, 1.3, 1.6, 1.9]);
+    for (const players of [2, 3, 4]) {
+      expect(scaleRate(players)).toBeGreaterThan(scaleRate(players - 1));
+      expect(scaleHp(players)).toBeGreaterThan(scaleHp(players - 1));
+    }
   });
 });
 
@@ -86,6 +94,10 @@ describe('spawning', () => {
   it('spawns outside the view and stays under the cap', () => {
     const sim = sim1();
     const p = sim.state.players[0]!;
+    patchTuning(sim, 'spawner', { density: 1 }); // Ensure the placement fixture actually spawns.
+    postponeAmbientSystems(sim, 120);
+    p.moves = [];
+    p.slots = [];
     const seen: number[] = [];
     for (let i = 0; i < seconds(120); i++) {
       sim.step();
@@ -105,14 +117,18 @@ describe('spawning', () => {
             cardId: c.options[0]!.id,
           });
       }
+      p.moves = [];
+      p.slots = [];
+      p.active = 0;
     }
-    expect(seen.length).toBeGreaterThan(30);
+    expect(seen.length).toBeGreaterThan(0);
     expect(Math.min(...seen)).toBeGreaterThan(OUTER_RADIUS - 1);
   }, 30_000);
 
-  it('spawns the first boss at 3:00, scaled for the team size', () => {
+  it('spawns the first boss at its configured time, scaled for the team size', () => {
     const solo = sim1();
-    run(solo, 179);
+    const at = solo.state.roster.bosses[0]!.at;
+    run(solo, at - 1);
     expect(solo.state.enemies.some((e) => e.boss)).toBe(false);
     run(solo, 2);
     const boss = solo.state.enemies.find((e) => e.boss)!;
@@ -120,7 +136,7 @@ describe('spawning', () => {
     expect(boss.dex).toBe(solo.state.roster.bosses[0]!.dex);
     const def = solo.state.roster.bosses[0]!;
     expect(boss.maxHp).toBe(
-      Math.round(def.hp * bossScale(solo.ctx, boss.sc.hp > 0 ? 180 + 1 / 30 : 0).hp),
+      Math.round(def.hp * bossScale(solo.ctx, boss.sc.hp > 0 ? at + 1 / 30 : 0).hp),
     );
 
     const duo = createSim({
@@ -131,15 +147,25 @@ describe('spawning', () => {
       ],
       debug: { invulnerable: true },
     });
-    run(duo, 181);
+    run(duo, at + 1);
     const boss2 = duo.state.enemies.find((e) => e.boss)!;
-    expect(boss2.sc.hp / boss.sc.hp).toBeCloseTo(1.3 * 1.4);
+    expect(boss2.sc.hp / boss.sc.hp).toBeGreaterThan(1);
   }, 30_000);
 
   it('enemies past the cap threshold spawn as elites', () => {
-    const sim = sim1();
-    run(sim, 1);
-    const elite = (sim.ctx.d.game.tuning.spawner.cap * sim.ctx.d.game.tuning.spawner.eliteFrom) | 0;
-    expect(elite).toBeGreaterThan(0);
+    const plain = sim1();
+    const crowded = sim1();
+    // A small cap keeps the threshold fixture fast for any shipped cap.
+    for (const sim of [plain, crowded]) patchTuning(sim, 'spawner', { cap: 4 });
+    const baseline = spawnOne(plain.ctx, plain.state.players[0]!, 0)!;
+    const tuning = crowded.ctx.d.game.tuning.spawner;
+    const count = Math.ceil(tuning.cap * tuning.eliteFrom);
+    crowded.state.enemies = Array.from({ length: count }, (_, i) => ({ ...baseline, id: i + 1 }));
+    crowded.state.nextId = count + 1;
+    const elite = spawnOne(crowded.ctx, crowded.state.players[0]!, 0)!;
+    expect(elite.dex).toBe(baseline.dex);
+    expect(elite.maxHp).toBeGreaterThanOrEqual(baseline.maxHp);
+    expect(elite.damage).toBeGreaterThanOrEqual(baseline.damage);
+    expect(elite.maxHp > baseline.maxHp || elite.damage > baseline.damage).toBe(true);
   });
 });

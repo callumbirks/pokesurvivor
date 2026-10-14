@@ -1,20 +1,22 @@
 // Rifts and the legendary's arena: the schedule (and its guarantee, the legacy "no rifts" bug),
 // placement, entering, winning, losing and going back.
 import { describe, expect, it } from 'vitest';
-import { DT, TILE } from '../src/constants.js';
+import { BIOME_SECONDS, DT, TILE } from '../src/constants.js';
 import { simData } from '../src/data.js';
 import { addEnemy, createEnemy, hurtEnemy } from '../src/enemies.js';
 import { createSim, type Sim } from '../src/index.js';
 import { dropPickup } from '../src/pickups.js';
 import { hurtPlayer } from '../src/players.js';
 import { legendHpMultiplier, placeRift, updateRift } from '../src/rift.js';
+import { addMove } from '../src/moves.js';
 import { bossAlive } from '../src/runevents.js';
 import { WALL, isFree, terrainAt } from '../src/world.js';
 import { botInputs, pickFirst } from './bots.js';
-import { giveMove, player, quietSim, seconds, spawnDummy, steps } from './helpers.js';
+import { giveMove, patchTuning, player, quietSim, seconds, spawnDummy, steps } from './helpers.js';
 
 const d = simData();
 const R = d.game.tuning.rift;
+const guaranteedMisses = Math.ceil(1 / R.chance) - 1;
 
 /** Puts the clock just before the next roll, past `startAfter`. */
 function rollNow(sim: Sim, misses = 0): void {
@@ -82,11 +84,10 @@ describe('rift schedule', () => {
     expect(firstRoll).toBeLessThan(R.startAfter + R.checkEvery + 0.1);
   });
 
-  it('each miss raises the chance: after 4 misses the roll is certain', () => {
-    expect(R.chance * 5).toBeCloseTo(1);
+  it('each miss raises the chance until the roll is certain', () => {
     for (const seed of [1, 2, 3]) {
       const sim = quietSim(1, { seed });
-      rollNow(sim, 4);
+      rollNow(sim, guaranteedMisses);
       sim.step();
       expect(sim.state.rift.open).not.toBeNull();
       expect(sim.state.rift.misses).toBe(0);
@@ -98,7 +99,7 @@ describe('rift schedule', () => {
     const p = player(sim);
     spawnBoss(sim, p.x + 200, p.y);
     expect(bossAlive(sim.ctx)).toBe(true);
-    rollNow(sim, 4);
+    rollNow(sim, guaranteedMisses);
     sim.step();
     expect(sim.state.rift.open).not.toBeNull();
   });
@@ -112,7 +113,7 @@ describe('rift schedule', () => {
     for (const e of sim.drainEvents()) events.push(e.type);
     expect(events).toContain('rift-closed');
     expect(sim.state.rift.open).toBeNull();
-    sim.state.rift.misses = 4;
+    sim.state.rift.misses = guaranteedMisses;
     steps(sim, seconds(R.checkEvery) - 2);
     expect(sim.state.rift.open).toBeNull();
     steps(sim, 3);
@@ -154,7 +155,7 @@ describe('rift schedule', () => {
     }
   });
 
-  it('long bot run: a rift at most 5 rolls after the last one is over, bosses or not', () => {
+  it('long bot run: a rift within the configured guaranteed rolls after the last one is over, bosses or not', () => {
     const sim = createSim({
       seed: 31,
       players: [{ id: 'a', dex: 25 }],
@@ -164,7 +165,7 @@ describe('rift schedule', () => {
     // attack, but a boss is alive for most of the run, as in a late game. Legacy rolled no rifts
     // while one was.
     for (const p of sim.state.players) giveMove(sim, p, 'harden');
-    const maxWait = Math.ceil(1 / R.chance) * R.checkEvery; // 150 s
+    const maxWait = Math.ceil(1 / R.chance) * R.checkEvery;
     // Between two openings: the rift's ttl, an arena (entered at the last moment, fought to
     // the limit) and the wait.
     const maxGap = maxWait + R.ttl + R.arenaTime + R.returnAfterWin;
@@ -231,30 +232,34 @@ describe('the arena', () => {
       expect(sim.state.arena).toBeNull();
     }
 
-    it.each([1, 2])('heals low-HP survivors by 30%% of max HP with %i player(s)', (n) => {
-      const sim = calmSim(n);
-      sim.debugStartArena('water');
-      for (const p of sim.state.players) p.hp = p.maxHp * 0.1;
+    it.each([1, 2])(
+      'heals low-HP survivors by the configured share of max HP with %i player(s)',
+      (n) => {
+        const sim = calmSim(n);
+        sim.debugStartArena('water');
+        for (const p of sim.state.players) p.hp = p.maxHp * 0.1;
 
-      leave(sim);
+        leave(sim);
 
-      const events = sim.drainEvents();
-      for (const p of sim.state.players) {
-        expect(p.dead).toBe(false);
-        expect(p.hp).toBeCloseTo(p.maxHp * 0.4);
-        expect(events).toContainEqual({
-          type: 'player-healed',
-          playerId: p.id,
-          amount: Math.round(p.maxHp * 0.3),
-        });
-      }
-    });
+        const events = sim.drainEvents();
+        for (const p of sim.state.players) {
+          expect(p.dead).toBe(false);
+          expect(p.hp).toBeCloseTo(Math.min(p.maxHp, p.maxHp * (0.1 + R.exitHeal)));
+          expect(events).toContainEqual({
+            type: 'player-healed',
+            playerId: p.id,
+            amount: Math.round(p.maxHp * Math.min(R.exitHeal, 0.9)),
+          });
+        }
+      },
+    );
 
     it('caps healing at max HP and reports only the amount restored', () => {
       const sim = calmSim();
       sim.debugStartArena('water');
       const p = player(sim);
-      p.hp = p.maxHp - 2;
+      const missing = (p.maxHp * R.exitHeal) / 2;
+      p.hp = p.maxHp - missing;
 
       leave(sim);
 
@@ -262,11 +267,11 @@ describe('the arena', () => {
       expect(sim.drainEvents()).toContainEqual({
         type: 'player-healed',
         playerId: p.id,
-        amount: 2,
+        amount: Math.round(missing),
       });
     });
 
-    it('revives downed players at 30% without also healing them', () => {
+    it('revives downed players at the configured HP share without also healing them', () => {
       const sim = calmSim(2, false);
       sim.debugStartArena('water');
       const p = player(sim, 1);
@@ -275,7 +280,7 @@ describe('the arena', () => {
       leave(sim);
 
       expect(p.dead).toBe(false);
-      expect(p.hp).toBeCloseTo(p.maxHp * 0.3);
+      expect(p.hp).toBeCloseTo(p.maxHp * R.exitHeal);
       const events = sim.drainEvents();
       expect(events).toContainEqual({ type: 'player-revived', playerId: p.id, by: null });
       expect(events.some((e) => e.type === 'player-healed' && e.playerId === p.id)).toBe(false);
@@ -292,7 +297,9 @@ describe('the arena', () => {
 
       leave(sim);
 
-      expect(disconnected.hp).toBeCloseTo(disconnected.maxHp * 0.4);
+      expect(disconnected.hp).toBeCloseTo(
+        Math.min(disconnected.maxHp, disconnected.maxHp * (0.1 + R.exitHeal)),
+      );
       expect(left.hp).toBeCloseTo(left.maxHp * 0.1);
     });
   });
@@ -333,7 +340,8 @@ describe('the arena', () => {
       debug: { invulnerable: true },
     });
     giveMove(sim, player(sim), 'harden');
-    sim.state.time = 235;
+    patchTuning(sim, 'rift', { arenaTime: Math.max(R.arenaTime, 20) });
+    sim.state.time = Math.max(0, BIOME_SECONDS - 5);
     sim.debugStartArena('fire');
     steps(sim, seconds(10));
     expect(sim.state.enemies.every((e) => e.legend)).toBe(true);
@@ -341,7 +349,7 @@ describe('the arena', () => {
     killLegend(sim);
     play(sim, seconds(R.returnAfterWin + 1));
     expect(sim.state.arena).toBeNull();
-    expect(sim.state.world.biome).toBe(1);
+    expect(sim.state.world.biome).toBe(Math.floor(sim.state.time / BIOME_SECONDS));
   });
 
   it("forces the arena's weather and clears it on the way back", () => {
@@ -355,6 +363,10 @@ describe('the arena', () => {
 
   it('winning: rewards, a bond each, progress, then back to where everyone was', () => {
     const sim = calmSim(2);
+    for (const p of sim.state.players) {
+      p.maxSlots = Math.max(2, p.maxSlots);
+      addMove(sim.ctx, p, 'tackle'); // Give the reward fixture a bindable pair.
+    }
     const [a, b] = [player(sim, 0), player(sim, 1)];
     a.x = 300;
     b.x = -300;
@@ -370,8 +382,18 @@ describe('the arena', () => {
     expect(near.filter((pk) => pk.kind === 'ticket').length).toBeGreaterThanOrEqual(
       R.rewardTickets,
     );
-    expect(near.filter((pk) => pk.kind === 'coin' && pk.value === R.rewardCoinValue).length).toBe(
-      R.rewardCoinDrops,
+    // Rifts add their configured loot to ordinary boss loot, even if both coin values match.
+    const control = calmSim();
+    const ordinaryBoss = spawnBoss(control, 1000, 1000);
+    hurtEnemy(control.ctx, ordinaryBoss, ordinaryBoss.hp + ordinaryBoss.shield + 1);
+    const bossCoins = control.state.pickups
+      .filter((pk) => pk.kind === 'coin')
+      .map((pk) => pk.value);
+    const coins = near.filter((pk) => pk.kind === 'coin').map((pk) => pk.value);
+    expect(coins.sort((a, b) => a - b)).toEqual(
+      [...bossCoins, ...Array<number>(R.rewardCoinDrops).fill(R.rewardCoinValue)].sort(
+        (a, b) => a - b,
+      ),
     );
     expect(near.every((pk) => pk.pulled)).toBe(true);
     for (const p of [a, b]) {
@@ -421,7 +443,6 @@ describe('the arena', () => {
   });
 
   it('the legendary drops a ×10 ticket with legendaryTicket10Chance', () => {
-    expect(d.game.tuning.pickups.legendaryTicket10Chance).toBeCloseTo(0.2);
     let x10 = 0;
     const n = 300;
     for (let i = 0; i < n; i++) {
@@ -430,8 +451,9 @@ describe('the arena', () => {
       killLegend(sim);
       x10 += sim.state.pickups.filter((pk) => pk.kind === 'ticket10').length;
     }
-    expect(x10 / n).toBeGreaterThan(0.12);
-    expect(x10 / n).toBeLessThan(0.28);
+    const chance = d.game.tuning.pickups.legendaryTicket10Chance;
+    const tolerance = 5 * Math.sqrt((chance * (1 - chance)) / n) + 1 / n;
+    expect(Math.abs(x10 / n - chance)).toBeLessThanOrEqual(tolerance);
   }, 60_000);
 
   it('losing on time: back with no reward', () => {
@@ -459,7 +481,7 @@ describe('the arena', () => {
     expect(sim.state.arena).toBeNull();
     for (const p of sim.state.players) {
       expect(p.dead).toBe(false);
-      expect(p.hp).toBeCloseTo(p.maxHp * 0.3);
+      expect(p.hp).toBeCloseTo(p.maxHp * R.exitHeal);
     }
   });
 
@@ -477,7 +499,9 @@ describe('the arena', () => {
       sim.debugStartArena();
       if (!beaten.includes(sim.state.arena!.dex)) fresh++;
     }
-    // Half beaten with weight 1, half fresh with weight 4: ~80% fresh.
-    expect(fresh / n).toBeGreaterThan(0.7);
+    const freshWeight = (legends.length - beaten.length) * R.unbeatenWeight;
+    const chance = freshWeight / (freshWeight + beaten.length);
+    const tolerance = 5 * Math.sqrt((chance * (1 - chance)) / n) + 1 / n;
+    expect(Math.abs(fresh / n - chance)).toBeLessThanOrEqual(tolerance);
   });
 });

@@ -65,3 +65,27 @@ export function damageTo(events: ReturnType<Sim['drainEvents']>, id: number): nu
     if (e.type === 'enemy-hurt' && e.id === id && !e.shielded) sum += e.amount;
   return sum;
 }
+
+/** Patch tuning for one sim's branch fixture without mutating the shared loaded data. */
+export function patchTuning<K extends keyof Sim['ctx']['d']['game']['tuning']>(
+  sim: Sim,
+  key: K,
+  patch: Partial<Sim['ctx']['d']['game']['tuning'][K]>,
+): void {
+  const d = sim.ctx.d;
+  sim.ctx.d = {
+    ...d,
+    game: {
+      ...d.game,
+      tuning: { ...d.game.tuning, [key]: { ...d.game.tuning[key], ...patch } },
+    },
+  };
+}
+
+/** Keep automatic ambient systems outside a focused test's observation window. */
+export function postponeAmbientSystems(sim: Sim, duration: number): void {
+  sim.state.rift.checkT = duration + 1;
+  sim.state.weather.checkT = duration + 1;
+  sim.state.events.nextT = duration + 1;
+  sim.state.events.thiefT = duration + 1;
+}

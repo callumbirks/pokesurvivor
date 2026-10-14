@@ -107,6 +107,37 @@ test('a gamepad: glyphs, menu focus, and the pause menu', async ({ page }) => {
   await press(page, B);
   await expect(page.getByTestId('screen-menu')).toBeVisible();
 
+  // The Pokémon screen: up and down move one row of the grid (from the partner's cell), and only
+  // the top row goes up to the filters; left and right move along a row of filters in order.
+  await page.goto('/#collection');
+  await expect(page.getByTestId('dex-4')).toHaveClass(/\bon\b/);
+  const cols = await page.evaluate(() => {
+    const cells = [...document.querySelectorAll('[data-testid="collection-grid"] .cell')];
+    const top = cells[0]?.getBoundingClientRect().top ?? 0;
+    return cells.filter((c) => Math.abs(c.getBoundingClientRect().top - top) < 2).length;
+  });
+  expect(cols).toBeGreaterThan(4);
+  await press(page, DOWN);
+  expect(await focusedId(page)).toBe(`dex-${4 + cols}`);
+  await press(page, DOWN);
+  expect(await focusedId(page)).toBe(`dex-${4 + 2 * cols}`);
+  await expect(page.getByTestId(`dex-${4 + 2 * cols}`)).toBeInViewport();
+  await press(page, UP);
+  await press(page, UP);
+  expect(await focusedId(page)).toBe('dex-4');
+  await press(page, UP);
+  const chips = await page
+    .getByTestId('screen-collection')
+    .locator('[data-testid^="filter-"]')
+    .evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.testid));
+  const onChip = chips.indexOf((await focusedId(page)) ?? '');
+  expect(onChip).toBeGreaterThanOrEqual(0);
+  await press(page, RIGHT);
+  expect(await focusedId(page)).toBe(chips[onChip + 1]);
+  if (shots) await page.screenshot({ path: `${shots}/collection-gamepad-focus.png` });
+  await press(page, B);
+  await expect(page.getByTestId('screen-menu')).toBeVisible();
+
   // A key switches the prompts back to keys.
   await page.keyboard.press('Shift');
   await expect(html).toHaveAttribute('data-input', 'keyboard');

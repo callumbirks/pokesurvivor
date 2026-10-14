@@ -1,11 +1,12 @@
 {
   "unreleased": {
-    "prs": [59],
+    "prs": [59, 62],
     "entries": {
       "new": [],
       "changed": [],
       "fixed": [
         "Server restarts no longer stall when a player reconnects during shutdown.",
+        "Moving through the Pokémon screen with a controller or the arrow keys goes where you expect: along the filters and up and down the grid.",
         "Co-op movement no longer rubberbands when input updates bunch up, and choice menus use less network traffic."
       ],
       "behindTheScenes": []
