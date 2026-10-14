@@ -92,6 +92,8 @@ export type SimEvent =
   | { type: 'hazard'; id: EntityId; phase: 'warn' | 'hit' }
   | { type: 'player-hurt'; playerId: PlayerId; amount: number; label: HitLabel }
   | { type: 'player-healed'; playerId: PlayerId; amount: number }
+  /** Successful enemy support healing; positions let clients show effects on the recipient. */
+  | { type: 'enemy-healed'; id: EntityId; x: number; y: number; amount: number }
   | { type: 'player-down'; playerId: PlayerId }
   | { type: 'player-revived'; playerId: PlayerId; by: PlayerId | null }
   | { type: 'focus-sash'; playerId: PlayerId }

@@ -245,6 +245,36 @@ describe('events', () => {
     // The second time, no new shapes are sent.
     expect(enc.write(new BinaryWriter(), events)).toBeUndefined();
   });
+
+  it.each(['binary', 'json'] as const)(
+    'carries recipient healing through %s snapshots without a table change',
+    (format) => {
+      const local = lateGame(0.1, 11);
+      const me = local.state.players[0]!;
+      const event: SimEvent = {
+        type: 'enemy-healed',
+        id: 1234,
+        x: Math.round(me.x) + 20,
+        y: Math.round(me.y),
+        amount: 31.26,
+      };
+      const enc = new SnapshotEncoder({ viewerId: me.id, format });
+      const dec = new SnapshotDecoder(local.state.players.map((p) => p.id));
+      expect(dec.decode(enc.encode(local.state, [event], 1, 0)).events).toContainEqual({
+        ...event,
+        amount: 31.3,
+      });
+      expect(
+        dec.decode(enc.encode(local.state, [{ ...event, amount: 7 }], 2, 0)).events,
+      ).toContainEqual({ ...event, amount: 7 });
+      expect(
+        isRelevant(
+          { ...event, x: me.x + 2000 },
+          { viewerId: me.id, x: me.x, y: me.y, radius: 950, visible: () => true },
+        ),
+      ).toBe(false);
+    },
+  );
 });
 
 describe('snapshot buffer', () => {

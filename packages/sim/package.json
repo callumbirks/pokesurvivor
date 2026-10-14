@@ -12,6 +12,7 @@
     "test": "vitest run --pool=threads --maxWorkers=2",
     "bench": "tsx test/bench.ts",
     "shields": "tsx test/measure-shields.ts",
+    "heals": "tsx test/measure-heals.ts",
     "test:slow": "vitest run --config vitest.slow.config.ts"
   },
   "dependencies": {

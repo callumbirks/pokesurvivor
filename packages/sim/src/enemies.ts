@@ -11,7 +11,6 @@ import { addHazard } from './hazards.js';
 import { TAU, clamp, dist, dist2, hash2, norm } from './math.js';
 import { pathDir } from './pathing.js';
 import { dropPickup, dropXp } from './pickups.js';
-import { attackOf } from './players.js';
 import { spawnProjectile } from './projectiles.js';
 import { aheadOfPlayer, spawnCap } from './spawner.js';
 import { weatherSpeedMult } from './weather.js';
@@ -99,13 +98,20 @@ export function createEnemy(
     pt: 0,
     dashX: 0,
     dashY: 0,
-    shotCd: def.shotCooldown ? rand.range(0.3, def.shotCooldown) : 0,
+    shotCd:
+      def.behavior === 'healer'
+        ? rand.range(...d.game.tuning.enemyHeals.initialCooldown)
+        : def.shotCooldown
+          ? rand.range(0.3, def.shotCooldown)
+          : 0,
     stuckT: 0,
     sideT: 0,
     side: 1,
     shield: 0,
     shieldT: 0,
     shieldCd: 0,
+    healCredit: 0,
+    healCd: 0,
     skillCd:
       def.behavior === 'shielder'
         ? rand.range(...d.game.tuning.enemyShields.initialCooldown)
@@ -261,7 +267,15 @@ export function hurtEnemy(ctx: Ctx, e: EnemyState, amount: number, o: HurtOption
     }
     amount = d - a;
   }
-  e.hp -= Math.max(1, Math.round(amount));
+  const hpDamage = Math.max(1, Math.round(amount));
+  const healing = ctx.d.game.tuning.enemyHeals;
+  // Count HP damage only, including partial shield overflow. Each point can fund healing once;
+  // consuming this credit stops overlapping healers (and shield/heal packs) from infinite regen.
+  e.healCredit = Math.min(
+    e.maxHp * healing.maxHpFraction,
+    e.healCredit + Math.min(e.hp, hpDamage) * healing.damageFraction,
+  );
+  e.hp -= hpDamage;
   emit(ctx, {
     type: 'enemy-hurt',
     id: e.id,
@@ -469,6 +483,7 @@ function updateEnemy(ctx: Ctx, e: EnemyState, pl: PlayerState): void {
   if (e.losT > 0) e.losT -= dt;
   // Before behaviour early returns (e.g. thieves), so every recipient's shield expires.
   e.shieldCd = Math.max(0, e.shieldCd - dt);
+  e.healCd = Math.max(0, e.healCd - dt);
   if (e.shieldT > 0) {
     e.shieldT = Math.max(0, e.shieldT - dt);
     if (e.shieldT === 0) e.shield = 0;
@@ -628,7 +643,8 @@ function updateEnemy(ctx: Ctx, e: EnemyState, pl: PlayerState): void {
     }
     e.shotCd -= dt;
     if (e.shotCd <= 0 && d < range) {
-      e.shotCd = e.def.shotCooldown || 2;
+      e.shotCd =
+        e.behavior === 'healer' ? ctx.d.game.tuning.enemyHeals.cooldown : e.def.shotCooldown || 2;
       special(ctx, e, pl, ddx, ddy);
     }
   }
@@ -744,22 +760,27 @@ function special(ctx: Ctx, e: EnemyState, pl: PlayerState, dx: number, dy: numbe
   }
 }
 
-/**
- * Heals nearby enemies by 7% of their HP (15% was more than you could deal with several healers),
- * more the harder the team hits, with diminishing returns: ×1.27 at double attack, ×2.24 at ten
- * times, ×2.5 at most.
- */
+/** Restore a limited share of HP damage. All healers share the recipient's credit and cooldown. */
 function healAround(ctx: Ctx, e: EnemyState): void {
-  const pow = Math.max(
-    1,
-    ...activePlayers(ctx.s).map((p) =>
-      attackOf(p) > 0 && p.baseAttack > 0 ? attackOf(p) / p.baseAttack : 1,
-    ),
-  );
-  const k = 0.07 * Math.min(2.5, Math.pow(pow, 0.35));
-  for (const o of queryEnemies(ctx, e.x, e.y, 150)) {
-    if (o.dead || o.hp >= o.maxHp) continue;
-    o.hp = Math.min(o.maxHp, o.hp + o.maxHp * k);
+  const tuning = ctx.d.game.tuning.enemyHeals;
+  const targets = queryEnemies(ctx, e.x, e.y, tuning.radius)
+    .filter(
+      (o) =>
+        !o.dead &&
+        o.hp < o.maxHp &&
+        o.healCredit > 0 &&
+        o.healCd <= 0 &&
+        (tuning.affectsShielded || o.shield <= 0) &&
+        (tuning.affectsBosses || (!o.boss && !o.legend)),
+    )
+    .sort((a, b) => dist2(a.x, a.y, e.x, e.y) - dist2(b.x, b.y, e.x, e.y) || a.id - b.id)
+    .slice(0, tuning.maxTargets);
+  for (const o of targets) {
+    const amount = Math.min(o.maxHp - o.hp, o.maxHp * tuning.maxHpFraction, o.healCredit);
+    o.hp += amount;
+    o.healCredit = Math.max(0, o.healCredit - amount);
+    o.healCd = tuning.recipientCooldown;
+    emit(ctx, { type: 'enemy-healed', id: o.id, x: o.x, y: o.y, amount });
   }
   emit(ctx, { type: 'enemy-action', id: e.id, action: 'heal' });
 }

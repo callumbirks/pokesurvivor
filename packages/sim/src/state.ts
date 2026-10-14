@@ -417,6 +417,10 @@ export interface EnemyState {
   shieldT: number;
   /** Time until any caster can shield this enemy again, counted from application. */
   shieldCd: number;
+  /** Healing available from actual HP damage taken; bounded by enemyHeals tuning. */
+  healCredit: number;
+  /** Time until any healer may heal this enemy again. */
+  healCd: number;
   skillCd: number;
   minions: EntityId[];
   jump: JumpState | null;

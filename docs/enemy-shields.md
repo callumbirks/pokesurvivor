@@ -1,4 +1,4 @@
-# Enemy shield balance (2026-10-14)
+# Enemy support balance: shields and healing (2026-10-14)
 
 The target is 1.3–1.6× time to kill for a shielded regular enemy. One fully consumed shield adds
 30% HP; repeated shields remain useful, but have a long exposed interval. Shielders retain their
@@ -80,3 +80,113 @@ their HP bar even at full HP, plus a blue remaining-shield bar above it on the s
 The support icon moves up to clear both bars. Full and delta snapshots send remaining shield HP,
 rounded up, in a new enemy-table column. This changes table width and requires **protocol v5**;
 deploy client and server together. See [protocol.md](protocol.md).
+
+## Enemy healing
+
+This follow-up targets 1.3–1.6× kill time for regular enemies with one or several healers, while
+mixed healer/shielder packs must remain killable. It is based on main after PRs #24–#26
+(`c945dcf8eb906af1e44557df93c958138dbf5d35`, protocol v6). The removed original is available through
+`git show a14661bf:legacy/js/entities/enemy.js`; its `healAround` and skill cadence match the port.
+No stronger-than-original healing rule was found. The original also had green bursts on each
+recipient, which the port previously omitted.
+
+### Healing sources and rules
+
+There is one enemy healing source, `healAround`, used by the `healer` behaviour. Fixed healers:
+Clefairy, Clefable, Chansey, Cleffa, Marill, Azumarill, Blissey, Delcatty, Happiny, Audino,
+Alomomola, Sylveon, Comfey and Hatterene (dex 35, 36, 113, 173, 183, 184, 242, 301, 440, 531,
+594, 700, 764, 858). Their run roster is rolled by tier, like shielders. Boss AI does not cast
+heals, but nearby support healers previously healed bosses and rift legendaries.
+
+The old amount is `maxHp × 0.07 × min(2.5, max(1, strongestPlayerAttackRatio)^0.35)`, where the
+ratio includes attack upgrades/cards and attack buffs. Thus each cast restores 7–17.5% of max HP;
+the representative attack ratios 1.4/2/3 produce 7.87%/8.92%/10.28%. Time, tier, co-op, elite and
+shiny scaling increase max HP and therefore the absolute heal; there is no separate time/level
+multiplier. Every wounded, living enemy whose body touches the 150-unit query circle is healed,
+including the caster. There is no target limit, recipient cooldown or restriction on shielded
+targets. Several healers can restore HP separately; all healing clamps to max HP.
+
+The initial cast delay is random 0.3–3.5 seconds; subsequent casts are every 3.5 seconds **while
+a player is within the healer's activation range** (230 + 6 × tier index). The timer continues
+outside that range, so a ready healer casts on entering it. The ally healing radius and player
+activation range are distinct. There is no other enemy regeneration, self-heal, lifesteal or
+healing from weather, hazards, moves or springs. Springs/pickups/regen affect players only.
+Shiny max-HP initialization at creation is not periodic healing.
+
+New parameters live next to shields in `tuning.json.enemyHeals`:
+
+| Rule                    | Old                                                | New                                                                                     |
+| ----------------------- | -------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Amount                  | 7–17.5% max HP per cast; scales with player attack | Consume earned healing credit, at most 10% max HP per cast                              |
+| Credit                  | No limit on cumulative restored HP                 | Actual HP damage earns 30% of that damage as credit; stored credit capped at 10% max HP |
+| Caster cooldown         | 3.5 s                                              | 3.75 s (`cooldown`)                                                                     |
+| Initial caster delay    | 0.3–3.5 s                                          | 0.3–3.75 s (`initialCooldown`)                                                          |
+| Recipient cooldown      | None                                               | 3.75 s after successful healing, shared by all healers (`recipientCooldown`)            |
+| Targets                 | All wounded living enemies                         | Nearest 3 eligible targets, including self (`maxTargets`)                               |
+| Ally radius             | 150 + body radius                                  | Same (`radius`)                                                                         |
+| Player activation range | 230 + 6 × tier                                     | Same                                                                                    |
+| Max HP / resurrection   | No overheal or resurrection                        | Same                                                                                    |
+| Bosses / legendaries    | Healable                                           | Excluded (`affectsBosses: false`)                                                       |
+| Shielded targets        | Healable                                           | Wait for the shield to break/expire (`affectsShielded: false`)                          |
+
+Every heal consumes credit once. A later heal needs new HP damage, and another caster shares
+the same credit and cooldown. Shield absorption earns **zero** credit; partial shield overflow
+earns credit for the actual HP loss only. Credit counts damage from attacks and damage-over-time
+effects; healing itself never generates credit. Increasing attack no longer independently buffs
+enemy heal amounts. Old solo saves and arena stashes start at zero credit/cooldown; current saves
+restore the fields exactly.
+
+This bounds total healing to 30% of HP damage. Without shields, ignoring unused credit, the
+sustained extra-health factor cannot exceed `1 / (1 - 0.3) ≈ 1.43`. The 10% cap and cooldown also
+limit burst healing and coverage. Shielded packs retain exposed intervals and cannot fund healing
+with absorbed shield damage; killing either support removes its future benefit.
+
+### Before/after healing measurement
+
+Run `pnpm --filter @pokesurvivor/sim heals`. It extends the shield fixture with the **same**
+median-tier targets, spawn scaling, neutral DPS and half-second hits. The player's actual attack
+multiplier now matches the DPS build, so the original heal attack scaling is measured correctly.
+Targets stand 140 units from the player, and immortal supports are placed 80 units around them;
+this engages both the player activation range and ally radius. Shield-only results remain the
+same as above. Healers first become ready at 0/1.1/2.2 seconds; shielders at 0/2/4 seconds.
+These remain controlled balance fixtures, not playtest telemetry, and cast/burst timing can vary.
+
+| Minute | HP     | DPS | No supports | Old: 1 healer | New: 1 healer | Old: 3 healers | New: 3 healers | New ratios (1 / 3) |
+| ------ | ------ | --- | ----------- | ------------- | ------------- | -------------- | -------------- | ------------------ |
+| 3      | 626    | 62  | 10.03 s     | 12.03 s       | 13.03 s       | 28.03 s        | 13.53 s        | 1.30× / 1.35×      |
+| 8      | 5,599  | 180 | 31.03 s     | 133.53 s      | 43.53 s       | >180 s         | 42.53 s        | 1.40× / 1.37×      |
+| 15     | 17,020 | 510 | 33.03 s     | >180 s        | 47.03 s       | >180 s         | 46.03 s        | 1.42× / 1.39×      |
+
+At minute 3, one healer is slightly stronger (+1 second TTK) to hit the requested support feel;
+three healers are much weaker. The nominal new 10% cap can exceed an early old heal, but the
+damage budget, target cap, longer cooldown and shared recipient cooldown remove the late-game
+and multi-healer growth. A flat max-HP percentage alone would retain that problem. Several
+casters cannot create more credit; differences of about a second reflect when the final heal
+lands relative to the half-second damage bursts.
+
+Healing added 187.8 / 2,241 / 6,961.5 HP with one healer, versus 147.9 / 18,482.9 / at least
+87,502.4 HP before. For the 180-second censored trials, “>180 s” means the target was still alive;
+it does not claim that every one-healer trial is mathematically immortal.
+
+The **combined** baseline already includes the nerfed shields from PR #24:
+
+| Minute | Old: 1 healer + 1 shielder | New: 1 + 1 | Old: 3 healers + 3 shielders | New: 3 + 3 | New ratios (1 + 1 / 3 + 3) |
+| ------ | -------------------------- | ---------- | ---------------------------- | ---------- | -------------------------- |
+| 3      | 20.03 s                    | 18.03 s    | 109.03 s                     | 19.03 s    | 1.80× / 1.90×              |
+| 8      | >180 s                     | 64.03 s    | >180 s                       | 61.03 s    | 2.06× / 1.97×              |
+| 15     | >180 s                     | 67.53 s    | >180 s                       | 68.03 s    | 2.04× / 2.06×              |
+
+Mixed packs add more toughness than either support alone, but die within 18–68 seconds in these
+fixtures. Regression tests cover the 1.3–1.6× isolated-healer goal (one sim tick of tolerance) and
+keep mixed packs below 2.1×. There is no unlimited replacement of lost HP.
+
+### Healing readability and protocol
+
+The caster keeps its heart icon, charge animation, green radius ring and heal sound. Each
+successful recipient now gets a green pulse, particles and a green `+HP` number (the pulse
+remains when damage numbers are disabled). This uses a new cosmetic `enemy-healed` event through
+the existing shape codec, with position and actual restored amount. HP already travels in the
+snapshot. The shape codec needs no new columns or input contract changes. Following the
+coordinated release decision, this follow-up uses **protocol v8**, on top of PR #27's v7
+manual-aim hold-to-fire changes. The version handshake rejects older versions, so deploy
+client and server together. The before/after balance fixture remains unchanged after syncing #27.
