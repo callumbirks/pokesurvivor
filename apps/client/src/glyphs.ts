@@ -115,11 +115,28 @@ export function splitGlyphs(text: string): (string | { button: PadButton })[] {
     });
 }
 
-/** A UI string with glyph placeholders, as text and glyphs. */
+/** The separator between the controls in a hint line ("{a} jump · {b} back"). */
+const HINT_SEPARATOR = ' · ';
+
+/**
+ * A UI string with glyph placeholders, as text and glyphs. Each control between ` · `
+ * separators stays on one line (`.glyph-group`), so a long line wraps between controls, never
+ * between a glyph and what it does.
+ */
 export function glyphText(text: string, size = GLYPH_PX): Node[] {
-  return splitGlyphs(text).map((p) =>
-    typeof p === 'string' ? document.createTextNode(p) : glyph(p.button, size),
-  );
+  const out: Node[] = [];
+  text.split(HINT_SEPARATOR).forEach((part, i) => {
+    if (i) out.push(document.createTextNode(HINT_SEPARATOR));
+    const group = document.createElement('span');
+    group.className = 'glyph-group';
+    group.append(
+      ...splitGlyphs(part).map((p) =>
+        typeof p === 'string' ? document.createTextNode(p) : glyph(p.button, size),
+      ),
+    );
+    out.push(group);
+  });
+  return out;
 }
 
 let atlas: HTMLImageElement | null = null;

@@ -1,38 +1,12 @@
-/* The game screen (canvas and overlays), ported from the original game (PMD boxes, level-up
- * cards, the results grid). Everything is scoped under .ps-game so it doesn't touch the menus. */
-@font-face {
-  font-family: 'Pixelify';
-  src: url('/fonts/PixelifyPS-400.ttf') format('truetype');
-  font-weight: 400 550;
-  font-display: swap;
-}
-@font-face {
-  font-family: 'Pixelify';
-  src: url('/fonts/PixelifyPS-700.ttf') format('truetype');
-  font-weight: 551 900;
-  font-display: swap;
-}
-
+/* The game screen (canvas and overlays): the level-up cards, pause, results and toasts, in the
+ * menus' windows (ui.css). Everything is scoped under .ps-game so it doesn't touch the menus. */
 .ps-game {
-  --ps-ink: #fff;
-  --ps-muted: #b9cbf0;
-  --ps-box1: #2c519f;
-  --ps-box2: #1a3170;
-  --ps-edge: #f4f8ff;
-  --ps-edge-in: #5b83d6;
-  --ps-edge-out: #0b1838;
-  --ps-gold: #ffd23f;
-  --ps-shadow: #0a1430;
   position: absolute;
   inset: 0;
   overflow: hidden;
-  background: #0b1020;
-  color: var(--ps-ink);
-  font:
-    16px/1.35 'Pixelify',
-    'Segoe UI',
-    system-ui,
-    sans-serif;
+  background: #141012;
+  color: var(--text);
+  font: 16px/1.35 var(--font);
   -webkit-font-smoothing: none;
   user-select: none;
   -webkit-user-select: none;
@@ -62,6 +36,7 @@
 }
 
 /* ---------- full-screen overlays ---------- */
+/* Over the run: the game shows through, darker, with one window on it. */
 .ps-screen,
 .ps-choice {
   position: absolute;
@@ -70,13 +45,13 @@
   align-items: center;
   justify-content: center;
   padding: 16px;
-  background: radial-gradient(circle at 50% 40%, rgba(10, 20, 50, 0.55), rgba(3, 6, 16, 0.88));
-  animation: ps-fade 0.2s ease-out;
+  background: rgba(20, 16, 18, 0.6);
+  animation: ps-fade 0.12s steps(2);
 }
 /* Phones upright: covers everything in the game, the pause menu included. */
 .ps-rotate {
   z-index: 10;
-  background: rgba(5, 10, 30, 0.94);
+  background: rgba(20, 16, 18, 0.94);
   text-align: center;
 }
 .ps-rotate .ps-box {
@@ -101,34 +76,24 @@
     opacity: 0;
   }
 }
-@keyframes ps-pop {
-  from {
-    transform: scale(0.94);
-    opacity: 0;
-  }
-}
+/* The overlays' window (ui.css `.win`, centred). */
 .ps-box {
   position: relative;
   width: min(600px, 100%);
   max-height: 100%;
   overflow: auto;
   text-align: center;
-  background: linear-gradient(180deg, var(--ps-box1), var(--ps-box2));
-  border: 3px solid var(--ps-edge);
-  border-radius: 12px;
-  box-shadow:
-    0 0 0 3px var(--ps-edge-out),
-    inset 0 0 0 2px var(--ps-edge-in),
-    0 18px 50px rgba(0, 0, 0, 0.55);
-  padding: 20px 22px;
-  text-shadow: 2px 2px 0 var(--ps-shadow);
-  animation: ps-pop 0.22s ease-out;
+  border: 9px solid transparent;
+  border-image: var(--frame) 9 fill / 9px / 0 stretch;
+  image-rendering: pixelated;
+  box-shadow: var(--win-shadow);
+  padding: 12px 16px;
+  animation: ps-fade 0.12s steps(2);
 }
 .ps-box h2,
 .ps-box h3 {
   margin: 0 0 6px;
   font-weight: 700;
-  letter-spacing: 0.5px;
 }
 .ps-box h2 {
   font-size: 26px;
@@ -138,99 +103,49 @@
   margin-top: 12px;
 }
 .ps-game .sub {
-  color: var(--ps-muted);
+  color: var(--muted);
   margin: 0 0 14px;
   font-size: 15px;
 }
 .ps-game .note {
-  color: var(--ps-muted);
+  color: var(--muted);
   font-size: 13px;
   margin: 12px 0 0;
 }
 .ps-game .note.warn {
-  color: #ffb0b8;
+  color: #ffb0a6;
 }
 .ps-game .muted {
-  color: var(--ps-muted);
+  color: var(--muted);
   font-size: 12px;
 }
 .ps-game .gold {
-  color: var(--ps-gold);
+  color: var(--gold);
 }
 .ps-game .row {
   display: flex;
-  gap: 10px;
+  gap: 12px;
   align-items: center;
   justify-content: center;
   flex-wrap: wrap;
-  margin-top: 12px;
-}
-.ps-game kbd {
-  display: inline-block;
-  padding: 0 6px;
-  border: 2px solid rgba(244, 248, 255, 0.4);
-  border-bottom-width: 3px;
-  border-radius: 5px;
-  font: inherit;
-  font-size: 13px;
-}
-.ps-game img.pix {
-  image-rendering: pixelated;
-  vertical-align: middle;
-}
-
-/* ---------- buttons ---------- */
-.ps-game .btn {
-  appearance: none;
-  cursor: pointer;
-  padding: 10px 20px;
-  border: 3px solid var(--ps-edge);
-  border-radius: 9px;
-  background: linear-gradient(180deg, #3d67c0, #26468f);
-  box-shadow:
-    0 0 0 2px var(--ps-edge-out),
-    0 4px 0 var(--ps-edge-out);
-  color: var(--ps-ink);
-  font: inherit;
-  font-size: 17px;
-  font-weight: 700;
-  text-shadow: 2px 2px 0 var(--ps-shadow);
-  transition:
-    transform 0.06s,
-    filter 0.12s;
-}
-.ps-game .btn:hover {
-  filter: brightness(1.15);
-}
-.ps-game .btn:active {
-  transform: translateY(2px);
-}
-.ps-game .btn.gold {
-  background: linear-gradient(180deg, #ffe37a, #f0a31e);
-  color: #3a2300;
-  text-shadow: 1px 1px 0 rgba(255, 255, 255, 0.4);
-  border-color: #fff7d6;
-}
-.ps-game .btn.ghost {
-  background: transparent;
-  box-shadow: none;
-  border-color: rgba(244, 248, 255, 0.35);
+  margin-top: 14px;
 }
 .ps-game .btn.small {
-  padding: 6px 12px;
-  font-size: 14px;
   margin-top: 10px;
 }
 
 /* ---------- choice cards ---------- */
+/* The options, as a list: the highlighted one (mouse, keys, the gamepad's `.focus`) is the light
+   bar with the pixel cursor, as in the menus' cursor lists. */
 .ps-cards {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 6px;
   width: min(560px, 100%);
   margin: 0 auto;
 }
 .ps-card {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 14px;
@@ -239,29 +154,70 @@
   cursor: pointer;
   color: inherit;
   font: inherit;
-  text-shadow: inherit;
-  background: rgba(0, 0, 0, 0.2);
-  border: 2px solid rgba(244, 248, 255, 0.3);
-  border-radius: 12px;
-  padding: 12px 14px;
-  transition:
-    transform 0.08s,
-    background 0.12s,
-    border-color 0.12s,
-    opacity 0.12s;
+  background: var(--bg2);
+  border: 0;
+  padding: 10px 14px 10px 26px;
 }
-.ps-card:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: var(--ps-edge);
-  transform: translateX(4px);
+.ps-card::before {
+  content: '';
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  width: 12px;
+  height: 22px;
+  margin-top: -11px;
+  background: var(--ink);
+  clip-path: polygon(
+    0 0,
+    16.67% 0,
+    16.67% 9.09%,
+    33.33% 9.09%,
+    33.33% 18.18%,
+    50% 18.18%,
+    50% 27.27%,
+    66.67% 27.27%,
+    66.67% 36.36%,
+    83.33% 36.36%,
+    83.33% 45.45%,
+    100% 45.45%,
+    100% 54.55%,
+    83.33% 54.55%,
+    83.33% 63.64%,
+    66.67% 63.64%,
+    66.67% 72.73%,
+    50% 72.73%,
+    50% 81.82%,
+    33.33% 81.82%,
+    33.33% 90.91%,
+    16.67% 90.91%,
+    16.67% 100%,
+    0 100%
+  );
+  visibility: hidden;
 }
+.ps-card:hover,
+.ps-card:focus-visible,
+html[data-input='gamepad'] .ps-card.focus {
+  background: var(--text);
+  color: var(--bg);
+  outline: none;
+}
+.ps-card:hover::before,
+.ps-card:focus-visible::before,
+html[data-input='gamepad'] .ps-card.focus::before {
+  visibility: visible;
+}
+.ps-card:hover .ds,
+.ps-card:focus-visible .ds,
+html[data-input='gamepad'] .ps-card.focus .ds {
+  color: var(--rule);
+}
+/* An evolution (or the item found): a gold edge. A bond: a pink one. */
 .ps-card.evo {
-  border-color: var(--ps-gold);
-  background: rgba(255, 210, 63, 0.12);
+  box-shadow: inset 4px 0 0 var(--gold);
 }
 .ps-card.bond {
-  border-color: #ff8ad8;
-  background: rgba(255, 138, 216, 0.12);
+  box-shadow: inset 4px 0 0 #ff8ad8;
 }
 .ps-cards.done .ps-card {
   opacity: 0.45;
@@ -269,15 +225,14 @@
 }
 .ps-cards.done .ps-card.picked {
   opacity: 1;
-  border-color: var(--ps-gold);
-  background: rgba(255, 210, 63, 0.18);
+  box-shadow: inset 0 0 0 3px var(--gold);
 }
 .ps-card .ico {
   flex: 0 0 46px;
   height: 46px;
-  border-radius: 10px;
   display: grid;
   place-items: center;
+  box-shadow: inset 0 0 0 2px var(--ink);
 }
 .ps-card .txt {
   flex: 1;
@@ -291,75 +246,81 @@
   flex-wrap: wrap;
 }
 .ps-card .ds {
-  color: var(--ps-muted);
+  color: var(--muted);
   font-size: 14px;
 }
-.ps-card .key {
+/* The key that picks it: a key cap with the keyboard, the A glyph on the highlighted one with
+   a pad. */
+.ps-card .key .kb-only {
+  display: inline-block;
+  min-width: 1.6em;
+  padding: 0 4px;
+  text-align: center;
   font-size: 13px;
-  color: var(--ps-muted);
-  border: 2px solid rgba(244, 248, 255, 0.3);
-  border-radius: 6px;
-  padding: 2px 8px;
+  color: var(--ink);
+  background: var(--title);
+  box-shadow: 2px 2px 0 var(--ink);
 }
 .ps-game .tag-chip {
-  font-size: 11px;
-  padding: 2px 7px;
-  border-radius: 5px;
-  color: #10131a;
-  text-shadow: none;
-  font-weight: 700;
+  font-size: 12px;
+  padding: 1px 7px;
+  color: var(--ink);
+  box-shadow: inset 0 0 0 2px var(--ink);
+  font-weight: 400;
 }
 .ps-deadline {
   display: inline-block;
   margin: -4px 0 10px;
-  padding: 2px 10px;
-  border-radius: 8px;
-  background: rgba(0, 0, 0, 0.3);
-  color: var(--ps-muted);
+  padding: 1px 10px;
+  background: var(--ink);
+  color: var(--muted);
   font-size: 14px;
 }
 .ps-deadline.soon {
-  color: #ff8a96;
+  color: #ff8a7a;
 }
 .bond-title {
   color: #ff8ad8;
 }
-/* Paused for someone else's choice. */
+/* Paused for someone else's choice: a small window under the HUD's top. */
 .ps-wait {
   position: absolute;
   top: 92px;
   left: 50%;
   transform: translateX(-50%);
-  padding: 6px 16px;
-  border-radius: 10px;
-  background: rgba(10, 16, 28, 0.82);
-  border: 2px solid rgba(244, 248, 255, 0.3);
-  text-shadow: 2px 2px 0 var(--ps-shadow);
+  padding: 2px 12px;
+  border: 9px solid transparent;
+  border-image: var(--frame) 9 fill / 9px / 0 stretch;
+  image-rendering: pixelated;
+  box-shadow: var(--win-shadow);
   pointer-events: none;
 }
 .ps-wait .note {
   margin: 0;
-  color: #ffd23f;
+  color: var(--gold);
 }
 
 /* ---------- loading, pause ---------- */
+/* Wide enough for the gamepad's controls on one line. */
+.ps-pause {
+  width: min(680px, 100%);
+}
 .ps-loading .progress {
   height: 10px;
   margin-top: 14px;
-  border-radius: 6px;
-  background: rgba(0, 0, 0, 0.35);
+  background: var(--ink);
   overflow: hidden;
 }
 .ps-loading .progress i {
   display: block;
   height: 100%;
   width: 0;
-  background: var(--ps-gold);
-  transition: width 0.2s;
+  background: var(--accent);
+  transition: width 0.2s steps(4);
 }
 .ps-sound {
   display: grid;
-  gap: 8px;
+  gap: 10px;
   margin: 12px auto 4px;
   width: min(320px, 100%);
   text-align: left;
@@ -369,15 +330,17 @@
   grid-template-columns: 90px 1fr;
   align-items: center;
   gap: 10px;
-  color: var(--ps-muted);
+  color: var(--muted);
   font-size: 14px;
 }
 .ps-slider input {
   width: 100%;
-  accent-color: var(--ps-gold);
 }
 .ps-check {
-  color: var(--ps-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
   font-size: 14px;
 }
 
@@ -388,22 +351,24 @@
 .ps-game .stats {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  gap: 6px;
   margin: 10px 0 14px;
   text-align: left;
 }
-.ps-game .stats > div {
-  background: rgba(0, 0, 0, 0.22);
-  border-radius: 9px;
+.ps-game .stats > div,
+.ps-achievement-rewards {
+  background: var(--bg2);
   padding: 8px 10px;
 }
-.ps-game .stats > div > span:first-child {
+.ps-game .stats > div > span:first-child,
+.ps-achievement-rewards > span:first-child {
   display: block;
-  color: var(--ps-muted);
+  color: var(--muted);
   font-size: 12px;
   text-transform: uppercase;
 }
-.ps-game .stats b {
+.ps-game .stats b,
+.ps-achievement-rewards b {
   font-size: 22px;
 }
 .ps-game .stats .moves {
@@ -464,25 +429,15 @@
   display: flex;
   justify-content: space-between;
   gap: 8px;
+  padding-bottom: 4px;
+  border-bottom: 3px solid var(--rule);
 }
 .ps-reward + .ps-reward {
   margin-left: 10px;
 }
 .ps-achievement-rewards {
-  background: rgba(0, 0, 0, 0.22);
-  border-radius: 9px;
-  padding: 8px 10px;
   margin-bottom: 14px;
   text-align: left;
-}
-.ps-achievement-rewards > span:first-child {
-  display: block;
-  color: var(--ps-muted);
-  font-size: 12px;
-  text-transform: uppercase;
-}
-.ps-achievement-rewards b {
-  font-size: 22px;
 }
 .ps-achievement-rewards .muted {
   font-size: 13px;
@@ -490,8 +445,19 @@
 .ps-team-results .left {
   opacity: 0.7;
 }
+/* A shiny caught in the run: a fixed stage, the sprite standing on its bottom edge. */
+.ps-caught-stage {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  width: 100px;
+  height: 84px;
+  padding-bottom: 6px;
+  overflow: hidden;
+}
 
 /* ---------- toasts ---------- */
+/* Small windows down the right: gold ones for achievements. */
 .ps-toasts {
   position: absolute;
   top: 96px;
@@ -507,27 +473,28 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 7px 12px;
-  border-radius: 9px;
-  background: rgba(10, 16, 28, 0.88);
-  border: 2px solid rgba(244, 248, 255, 0.35);
+  padding: 1px 8px;
+  border: 9px solid transparent;
+  border-image: var(--frame) 9 fill / 9px / 0 stretch;
+  image-rendering: pixelated;
+  box-shadow: var(--win-shadow);
   font-size: 14px;
-  text-shadow: 2px 2px 0 var(--ps-shadow);
-  animation: ps-slide 0.25s ease-out;
-  transition: opacity 0.4s;
+  animation: ps-slide 0.2s steps(3);
+  transition: opacity 0.4s steps(3);
 }
 .ps-toast.out {
   opacity: 0;
 }
 .ps-toast.good {
-  border-color: #5fe08a;
+  color: var(--green);
 }
 .ps-toast.warn {
-  border-color: #ffb0b8;
+  border-image-source: var(--frame-talk);
+  color: #ffc4b8;
 }
 .ps-toast.achievement {
-  border-color: var(--ps-gold);
-  color: var(--ps-gold);
+  border-image-source: var(--frame-hot);
+  color: var(--ink);
 }
 @keyframes ps-slide {
   from {
@@ -538,13 +505,13 @@
 
 @media (max-height: 520px) {
   .ps-box {
-    padding: 12px 14px;
+    padding: 8px 12px;
   }
   .ps-box h2 {
     font-size: 20px;
   }
   .ps-card {
-    padding: 7px 10px;
+    padding: 6px 10px 6px 24px;
   }
   .ps-card .ico {
     flex-basis: 36px;
@@ -559,24 +526,36 @@
   .ps-toasts {
     top: 60px;
   }
+  /* Results fit a phone in landscape: wider, the four numbers in one row. */
+  .ps-results {
+    width: min(680px, 100%);
+  }
+  .ps-results h2 {
+    margin-bottom: 2px;
+  }
+  .ps-game .stats {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+    margin: 6px 0 8px;
+  }
+  .ps-game .stats > div,
+  .ps-achievement-rewards {
+    padding: 4px 8px;
+  }
+  .ps-game .stats b,
+  .ps-achievement-rewards b {
+    font-size: 18px;
+  }
+  .ps-results .row {
+    margin-top: 8px;
+  }
 }
-/* A shiny caught in the run: a fixed stage, the sprite standing on its bottom edge. */
-.ps-caught-stage {
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  width: 100px;
-  height: 84px;
-  padding-bottom: 6px;
-  overflow: hidden;
+@media (prefers-reduced-motion: reduce) {
+  .ps-rotate-ico {
+    animation: none;
+  }
 }
-/* The gamepad's highlighted option (choice-ui.ts). */
-html[data-input='gamepad'] .ps-card.focus {
-  border-color: var(--ps-gold);
-  background: rgba(255, 210, 63, 0.16);
-  transform: translateX(4px);
-  box-shadow: 0 0 0 2px rgba(255, 210, 63, 0.35);
-}
+/* With a pad, the key column shows the A glyph on the highlighted card only. */
 .ps-card .key .pad-only:empty {
   display: none;
 }
@@ -584,7 +563,5 @@ html[data-input='gamepad'] .ps-card .key:has(.pad-only:empty) {
   visibility: hidden;
 }
 html[data-input='gamepad'] .ps-card .key {
-  border: 0;
-  padding: 0;
   line-height: 0;
 }
