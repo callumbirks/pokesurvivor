@@ -147,6 +147,19 @@ test('desktop: T and the HUD button switch the aim; the mouse aims and fires', a
   await expect(page.getByTestId('set-crosshair-cyan')).toHaveAttribute('aria-checked', 'true');
   await expect(page.getByTestId('set-crosshair-magenta')).toHaveAttribute('aria-checked', 'false');
   await expect(page.getByTestId('set-crosshair-cyan')).toHaveAccessibleName('Cyan');
+  // And its size: 1× by default, set to 1.5× (it's a slider: the screen doesn't redraw).
+  const xhair = page.getByTestId('set-crosshairScale');
+  await xhair.fill('1.5');
+  await expect(xhair.locator('xpath=following-sibling::span')).toHaveText('×1.5');
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (JSON.parse(localStorage.getItem('ps.settings') ?? '{}') as { crosshairScale?: number })
+            .crosshairScale,
+      ),
+    )
+    .toBe(1.5);
   if (shots) await page.screenshot({ path: `${shots}/settings-crosshair.png` });
   await page.getByTestId('set-tab-graphics').click();
   // HUD size: Auto by default (1.5× here), dragged to a fixed size, back to Auto.
@@ -201,6 +214,7 @@ test('desktop: T and the HUD button switch the aim; the mouse aims and fires', a
   await page.getByTestId('resume').click();
   const at2 = await mouseAim(page, 200, -100);
   await expect.poll(() => crosshairColour(page, at2)).toBe('#22e6ff');
+  if (shots) await page.screenshot({ path: `${shots}/crosshair-cyan.png` });
   await page.mouse.down();
   await page.waitForTimeout(150);
   expect(await crosshairColour(page, at2)).toBe('#22e6ff');

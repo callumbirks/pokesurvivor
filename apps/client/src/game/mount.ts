@@ -957,8 +957,10 @@ class Run {
       this.cursorHidden = show;
       this.canvas.style.cursor = show ? 'none' : '';
     }
-    if (show && at)
-      drawCrosshair(ctx, at[0], at[1], CROSSHAIR_COLORS[settings.get().crosshairColor]);
+    if (show && at) {
+      const s = settings.get();
+      drawCrosshair(ctx, at[0], at[1], CROSSHAIR_COLORS[s.crosshairColor], s.crosshairScale);
+    }
   }
 
   dispose(): void {

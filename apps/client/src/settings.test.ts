@@ -39,4 +39,14 @@ describe('crosshair colour setting', () => {
     expect(crosshairOutline(CROSSHAIR_COLORS.white)).toMatch(/^rgba\(10,/);
     expect(crosshairOutline(CROSSHAIR_COLORS.black)).toMatch(/^rgba\(244,/);
   });
+
+  it('loads the crosshair size, clamped to 0.25–3, 1 by default', () => {
+    expect(storeWith({}).store.get().crosshairScale).toBe(1);
+    expect(storeWith({ crosshairScale: 1.25 }).store.get().crosshairScale).toBe(1.25);
+    expect(storeWith({ crosshairScale: 0.1 }).store.get().crosshairScale).toBe(0.25);
+    expect(storeWith({ crosshairScale: 9 }).store.get().crosshairScale).toBe(3);
+    for (const bad of ['2', null, Number.NaN, Infinity])
+      expect(storeWith({ crosshairScale: bad }).store.get().crosshairScale).toBe(1);
+    expect(storeWith({}).store.synced()).not.toHaveProperty('crosshairScale');
+  });
 });

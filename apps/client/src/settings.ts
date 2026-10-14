@@ -41,6 +41,8 @@ export interface Settings {
   aimMode: AimMode;
   /** The manual-aim crosshair's colour (`CROSSHAIR_COLORS`). Local only, like `aimMode`. */
   crosshairColor: CrosshairColor;
+  /** The crosshair's size, 0.25–3 (lines, gap and outline; not tied to the HUD size). Local. */
+  crosshairScale: number;
   /**
    * The in-run HUD's size: `auto` (it grows with the window, `autoHudScale`) or a fixed scale,
    * 0.75–2. Local only: it depends on the screen. (It replaced `hudScale`, a multiplier of the
@@ -52,8 +54,8 @@ export interface Settings {
 }
 
 /**
- * The fields stored in the server save (its `settings`); `aimMode`, `crosshairColor`, `hudSize`
- * and `language` stay local.
+ * The fields stored in the server save (its `settings`); `aimMode`, `crosshairColor`,
+ * `crosshairScale`, `hudSize` and `language` stay local.
  */
 export const SYNCED_KEYS = [
   'quality',
@@ -79,6 +81,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = {
   muted: false,
   aimMode: 'auto',
   crosshairColor: 'magenta',
+  crosshairScale: 1,
   hudSize: 'auto',
   language: 'en',
 };
@@ -107,6 +110,8 @@ export function sanitizeSettings(raw: unknown): Partial<Settings> {
   if (r.aimMode === 'auto' || r.aimMode === 'manual') out.aimMode = r.aimMode;
   // Unknown colours are dropped: the default (magenta) applies.
   if (isCrosshairColor(r.crosshairColor)) out.crosshairColor = r.crosshairColor;
+  const xhair = num(r.crosshairScale, 0.25, 3);
+  if (xhair !== undefined) out.crosshairScale = xhair;
   if (r.hudSize === 'auto') out.hudSize = 'auto';
   else {
     const hud = num(r.hudSize, 0.75, 2);

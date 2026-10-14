@@ -188,11 +188,13 @@ export function drawCrosshair(
   x: number,
   y: number,
   color: string,
+  /** `settings.crosshairScale`: everything (lines, gap, outline) grows with it. */
+  scale = 1,
 ): void {
   const cx = Math.round(x);
   const cy = Math.round(y);
-  // In 2 px "pixels": arms 1 thick and 3 long, 2 from the centre, and the centre dot.
-  const P = 2;
+  // In 2 px "pixels" (at scale 1): arms 1 thick and 3 long, 2 from the centre, and the centre dot.
+  const P = 2 * scale;
   const rects: [number, number, number, number][] = [
     [-5, -0.5, 3, 1],
     [2, -0.5, 3, 1],

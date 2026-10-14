@@ -48,6 +48,7 @@ export const SLIDER_KEYS = [
   'musicVolume',
   'sfxVolume',
   'stickScale',
+  'crosshairScale',
   'hudSize',
 ] as const satisfies readonly (keyof Settings)[];
 type SliderKey = (typeof SLIDER_KEYS)[number];
@@ -73,7 +74,9 @@ function slider(
     (out.textContent =
       key === 'stickScale'
         ? `×${Number(input.value).toFixed(1)}`
-        : `${Math.round(Number(input.value) * 100)}%`);
+        : key === 'crosshairScale'
+          ? `×${Number(Number(input.value).toFixed(2))}`
+          : `${Math.round(Number(input.value) * 100)}%`);
   show();
   input.addEventListener('input', () => {
     show();
@@ -290,6 +293,11 @@ export function settingsScreen(
           ),
         ),
         row(t('settings.crosshairColour'), t('settings.crosshairColourHelp'), crosshairSwatches()),
+        row(
+          t('settings.crosshairSize'),
+          t('settings.crosshairSizeHelp'),
+          slider('crosshairScale', 0.25, 3, 0.05),
+        ),
         h('h4', { class: 'set-h' }, t('settings.onMobileOrTablet')),
         row(
           t('settings.joystickSize'),
