@@ -178,7 +178,8 @@ Each is a module of functions over `Ctx`, stepped after hazards: `interact.ts`, 
   walled circle carved into a far corner of the map (`world.arena`), themed after one of the
   legendary's types, with its weather forced. The map's enemies wait in `arena.stash`, projectiles,
   fields and hazards are cleared, nothing spawns and the biome doesn't change. The legendary (a boss
-  with `legend`, walking, 3200 + 9 HP per second played × late-game and co-op scaling) must fall
+  with `legend`, walking, (3200 + 9 HP per second played) × late-game × co-op ×
+  `rift.hpCurve` scaling) must fall
   within 120 s. Win: 3 tickets, 10 × 8 coins, a boss's loot with the ×10 ticket at
   `legendaryTicket10Chance`, a bond for everyone and `riftWins`/`legendariesDefeated`; the reward
   in the arena flies to you; 5 s later everyone is back where they were. Lose (everyone down 1.4 s,
@@ -357,3 +358,15 @@ isolates output from bot survival; it disables low-health boss phases and exclud
 that requires hurting a player. It is a damage-fitting diagnostic, not an invulnerable win-rate test.
 The normal matrix continues to run with damage enabled. Metadata includes the rift tuning and probe
 configuration. The CSV win/TTK summarizer intentionally ignores probe rows.
+
+Legend HP tuning: `rift.hpCurve` supplies `m0` (onset in run minutes), `a` (growth per minute)
+and `p` (exponent). The existing HP base is multiplied by
+`(1 + a * max(0, minute - m0)) ** p`, with no cap after minute 20. Contact and shot damage
+keep their existing formula. The curve has no dependency on player upgrades or prestige.
+
+To refit the parametric HP curve, collect max-meta typical `--probe-seconds=45` rows for each
+team size, then run `pnpm --filter @pokesurvivor/sim rifts:fit /tmp/probe-*.jsonl --m0=4 --target=45`.
+This manual tool fits one multiplier against each minute/team median delivered DPS × target
+seconds, with equal weight per group in log space. It removes the input's existing curve using
+recorded tuning, searches the growth rate, solves the exponent, and prints rounded parameters
+and every group's damage-equivalent duration. It never changes tuning or asserts balance values.
