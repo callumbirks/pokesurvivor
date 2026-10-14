@@ -154,3 +154,52 @@ describe('manual aim', () => {
     expect(angleGap(restored.state.players[0]!.aim, Math.PI)).toBeLessThan(0.01);
   });
 });
+
+describe('fire held', () => {
+  /** One move, nobody around; `fire` held (or not) with the aim pointing up. */
+  function alone(move: string, fire: boolean, aim: number | null = -Math.PI / 2) {
+    const sim = quietSim();
+    const p = player(sim);
+    giveMove(sim, p, move);
+    sim.setInput(p.id, { moveX: 0, moveY: 0, aim, fire });
+    sim.drainEvents();
+    steps(sim, seconds(1.2));
+    return { sim, p, casts: sim.drainEvents().filter((e) => e.type === 'cast') };
+  }
+
+  for (const move of ['ember', 'flamethrower', 'hydro-pump', 'tackle', 'quick-attack'])
+    it(`fires ${move} along the aim with no enemy in reach, as the cooldown allows`, () => {
+      const held = alone(move, true);
+      expect(held.casts.length).toBeGreaterThan(0);
+      for (const c of held.casts) if (c.type === 'cast') expect(c.aim).toBe(-Math.PI / 2);
+      expect(alone(move, false).casts).toHaveLength(0);
+    });
+
+  it('shots fly the aimed way', () => {
+    const { sim, p } = alone('ember', true, 0.5);
+    const shots = sim.state.projectiles.filter((q) => q.ownerId === p.id);
+    expect(shots.length).toBeGreaterThan(0);
+    for (const q of shots) expect(angleGap(Math.atan2(q.vy, q.vx), 0.5)).toBeLessThan(0.1);
+  });
+
+  it('meteors land along the aim; a chain still needs an enemy in the cone', () => {
+    const met = alone('rock-slide', true, 0);
+    expect(met.casts.length).toBeGreaterThan(0);
+    const fields = met.sim.state.fields.filter((f) => f.kind === 'meteor');
+    for (const f of fields)
+      expect(angleGap(Math.atan2(f.y - met.p.y, f.x - met.p.x), 0)).toBeLessThan(0.3);
+    expect(alone('thunderbolt', true).casts).toHaveLength(0);
+  });
+
+  it('means nothing in auto-aim, and stops when released', () => {
+    expect(alone('ember', true, null).casts).toHaveLength(0);
+    const { sim, p } = alone('ember', true);
+    expect(p.input.fire).toBe(true);
+    sim.setInput(p.id, { moveX: 0, moveY: 0, aim: 0 });
+    expect(p.input.fire).toBe(false);
+    steps(sim, seconds(0.5));
+    sim.drainEvents();
+    steps(sim, seconds(1.5));
+    expect(sim.drainEvents().some((e) => e.type === 'cast')).toBe(false);
+  });
+});

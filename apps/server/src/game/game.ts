@@ -51,6 +51,8 @@ interface Slot extends GamePlayerInfo {
   slot: number | null;
   /** Manual aim (radians, quantised on the wire), or null: auto-aim. Persists like movement. */
   aim: number | null;
+  /** Fire held (with `aim`). Persists like movement. */
+  fire: boolean;
   /** Highest input seq received / applied on the current socket. */
   lastSeq: number;
   ackSeq: number;
@@ -113,6 +115,7 @@ export class Game {
           moveY: 0,
           slot: null,
           aim: null,
+          fire: false,
           lastSeq: 0,
           ackSeq: 0,
           connected: true,
@@ -184,7 +187,13 @@ export class Game {
     if (!slots.some((s) => s.connected && !s.left)) return;
     for (const s of slots) {
       if (s.left) continue;
-      this.sim.setInput(s.userId, { moveX: s.moveX, moveY: s.moveY, slot: s.slot, aim: s.aim });
+      this.sim.setInput(s.userId, {
+        moveX: s.moveX,
+        moveY: s.moveY,
+        slot: s.slot,
+        aim: s.aim,
+        fire: s.fire,
+      });
       s.slot = null;
       s.ackSeq = s.lastSeq;
     }
@@ -227,6 +236,7 @@ export class Game {
     slot.moveY = m.moveY;
     if (m.slot != null) slot.slot = m.slot;
     slot.aim = m.aim === undefined ? null : decodeAim(m.aim);
+    slot.fire = m.fire === true;
   }
 
   intent(userId: string, intent: WireIntent): ChoiceResult {
@@ -248,6 +258,7 @@ export class Game {
     if (!slot || slot.left) return;
     slot.connected = false;
     slot.moveX = slot.moveY = 0;
+    slot.fire = false;
     slot.slot = null;
     this.sim.setConnected(userId, false);
   }

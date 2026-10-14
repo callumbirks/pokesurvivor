@@ -130,6 +130,8 @@ export function decodeClientMessage(raw: string): Decoded<ClientMessage> {
       const slotOk = slot === undefined || slot === null || (isUint(slot) && slot < 16);
       const aim = m.aim;
       const aimOk = aim === undefined || (isUint(aim) && aim < AIM_STEPS);
+      // Fire held only means something with a manual aim.
+      const fireOk = m.fire === undefined || (m.fire === true && aim !== undefined);
       if (
         !isStr(m.gameId, 64) ||
         !isUint(m.seq) ||
@@ -137,7 +139,8 @@ export function decodeClientMessage(raw: string): Decoded<ClientMessage> {
         !isFinite(m.moveY) ||
         !slotOk ||
         !aimOk ||
-        !onlyKeys(m, ['gameId', 'seq', 'moveX', 'moveY', 'slot', 'aim'])
+        !fireOk ||
+        !onlyKeys(m, ['gameId', 'seq', 'moveX', 'moveY', 'slot', 'aim', 'fire'])
       )
         return fail('bad input');
       const clamp = (v: number) => Math.max(-1, Math.min(1, v));
@@ -151,6 +154,7 @@ export function decodeClientMessage(raw: string): Decoded<ClientMessage> {
           moveY: clamp(m.moveY),
           ...(slot !== undefined ? { slot } : {}),
           ...(aim !== undefined ? { aim } : {}),
+          ...(m.fire === true ? { fire: true as const } : {}),
         },
       };
     }

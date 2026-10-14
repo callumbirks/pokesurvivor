@@ -27,7 +27,7 @@ export type ToWorker =
     }
   /** Assets loaded: the run starts. */
   | { type: 'start' }
-  /** `aim`: the protocol's quantised manual aim (`encodeAim`), or null for auto-aim. */
+  /** `aim`: the protocol's quantised manual aim (`encodeAim`), or null for auto-aim. `fire`: held. */
   | {
       type: 'input';
       seq: number;
@@ -35,6 +35,8 @@ export type ToWorker =
       moveY: number;
       slot: number | null;
       aim: number | null;
+      /** Fire held (only with `aim`). */
+      fire: boolean;
     }
   | { type: 'intent'; rid: number; intent: Intent }
   | { type: 'pause'; paused: boolean }

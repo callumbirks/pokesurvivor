@@ -56,7 +56,7 @@ export function createPlayer(
     index,
     connected: true,
     left: false,
-    input: { moveX: 0, moveY: 0, slot: null, aim: null },
+    input: { moveX: 0, moveY: 0, slot: null, aim: null, fire: false },
     x,
     y: 0,
     r: body.radius,

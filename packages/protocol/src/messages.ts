@@ -7,7 +7,7 @@
 // events pass through unchanged.
 
 /** Bumped on every breaking change to the wire format. */
-export const PROTOCOL_VERSION = 6;
+export const PROTOCOL_VERSION = 7;
 
 /** Largest client message the server accepts, in bytes. */
 export const MAX_CLIENT_MESSAGE_BYTES = 4096;
@@ -147,6 +147,11 @@ export interface InputMessage {
    * Absent: auto-aim. Persists like movement, so it's in every input while manual aim is on.
    */
   aim?: number;
+  /**
+   * Fire held (the mouse button or a trigger): aimed moves fire even with nothing in reach. Only
+   * with `aim`, and only sent while held (absent: not held).
+   */
+  fire?: true;
 }
 
 /** Steps of a quantised aim angle (one byte: ~1.4° each). */

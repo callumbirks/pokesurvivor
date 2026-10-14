@@ -175,6 +175,7 @@ export function createSoloConnection(opts: SoloOptions): SoloConnection {
             moveY: m.moveY,
             slot: m.slot ?? null,
             aim: m.aim ?? null,
+            fire: m.fire === true,
           });
         } else if (message.type === 'game.loaded') {
           if (!game) return false;

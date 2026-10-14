@@ -101,6 +101,11 @@ export class TouchControls {
     return [e.clientX - r.left, e.clientY - r.top];
   }
 
+  /** Is this point (client px) on a HUD button? */
+  hitsButton(clientX: number, clientY: number): boolean {
+    return this.hit(clientX, clientY) !== null;
+  }
+
   private hit(cx: number, cy: number): Button | null {
     const [x, y] = this.local({ clientX: cx, clientY: cy });
     for (let i = this.buttons.length - 1; i >= 0; i--) {

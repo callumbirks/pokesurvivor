@@ -7,7 +7,14 @@ import { loadGameData, t } from '@pokesurvivor/data';
 import type { Game, NetClient, Results, RoomConnection, Snapshot } from '@pokesurvivor/netclient';
 import type { SimEvent } from '@pokesurvivor/sim';
 import { audio, biomeMusic } from '../audio.js';
-import { AimTracker, aimKey, drawAimIndicator, toggleAimMode } from './aim.js';
+import {
+  AimTracker,
+  MouseFire,
+  aimKey,
+  drawAimIndicator,
+  drawCrosshair,
+  toggleAimMode,
+} from './aim.js';
 import { settings } from '../settings.js';
 import { preloadSprites } from '../sprites.js';
 import { AchievementTracker, type AchievementSave } from './achievements.js';
@@ -361,6 +368,9 @@ class Run {
   private readonly input: Input;
   private readonly touch: TouchControls;
   private readonly aim = new AimTracker();
+  private readonly mouseFire: MouseFire;
+  /** The system cursor is hidden over the game (the crosshair replaces it). */
+  private cursorHidden = false;
   private readonly tracker: AchievementTracker | null;
   private readonly offs: (() => void)[] = [];
   private queue: { tick: number; events: SimEvent[] }[] = [];
@@ -431,8 +441,16 @@ class Run {
       const r = canvas.getBoundingClientRect();
       this.aim.mouseMove(e.clientX - r.left, e.clientY - r.top);
     };
+    const leave = () => this.aim.mouseLeave();
     canvas.addEventListener('pointermove', mouse);
-    this.offs.push(() => canvas.removeEventListener('pointermove', mouse));
+    canvas.addEventListener('pointerleave', leave);
+    this.offs.push(
+      () => canvas.removeEventListener('pointermove', mouse),
+      () => canvas.removeEventListener('pointerleave', leave),
+    );
+    // Fire held: the left button over the game (not on a HUD button).
+    this.mouseFire = new MouseFire(canvas, window, (x, y) => this.touch.hitsButton(x, y));
+    this.offs.push(() => this.mouseFire.dispose());
     this.tracker = save ? new AchievementTracker(save, conn.selfId) : null;
     this.offs.push(conn.on('snapshot', (s) => this.onSnapshot(s)));
     this.pause = new PauseFlow({
@@ -468,8 +486,13 @@ class Run {
       const [x, y] = this.canMove() ? this.input.axis(this.touch.vector()) : [0, 0];
       const slot = this.pendingSlot;
       this.pendingSlot = null;
-      return { moveX: x, moveY: y, slot, aim: this.aim.input() };
+      return { moveX: x, moveY: y, slot, aim: this.aim.input(), fire: this.firing() };
     });
+  }
+
+  /** Fire held (manual aim): the mouse button over the game or the gamepad's right trigger. */
+  private firing(): boolean {
+    return this.aim.manual && this.canMove() && (this.mouseFire.held || this.input.fireHeld());
   }
 
   /** The run ended: stop sending input. */
@@ -828,6 +851,7 @@ class Run {
         time: latest.time,
         // Aim (e2e): what we send (null: auto), the server's aim for us, our Pokémon on screen.
         aim: this.aim.input(),
+        fire: this.firing(),
         serverAim: latest.players.find((p) => p.id === this.conn.selfId)?.aim ?? null,
         self: frame.self ? this.camera.toScreen(frame.self.x, frame.self.y) : null,
       };
@@ -913,6 +937,25 @@ class Run {
       ctx.fillRect(0, 0, w, h);
       ctx.restore();
     }
+    this.drawCursor(ctx);
+  }
+
+  /**
+   * Manual aim with a mouse: a crosshair instead of the system cursor over the game. The cursor
+   * comes back on HUD buttons, in menus, choices and pause, in auto mode and on touch devices.
+   */
+  private drawCursor(ctx: CanvasRenderingContext2D): void {
+    const at = this.aim.pointer;
+    let show = !!at && this.aim.manual && !this.touch.active && this.canMove() && !this.results;
+    if (show && at) {
+      const r = this.canvas.getBoundingClientRect();
+      show = !this.touch.hitsButton(r.left + at[0], r.top + at[1]);
+    }
+    if (show !== this.cursorHidden) {
+      this.cursorHidden = show;
+      this.canvas.style.cursor = show ? 'none' : '';
+    }
+    if (show && at) drawCrosshair(ctx, at[0], at[1], this.firing());
   }
 
   dispose(): void {
