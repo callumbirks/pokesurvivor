@@ -111,3 +111,25 @@ describe('restart reconnect window', () => {
     net.close();
   });
 });
+
+describe('network stats hooks', () => {
+  it('emits each RTT sample and the server lag', () => {
+    const socket = new Socket();
+    const net = new NetClient({ url: 'ws://test/ws', createSocket: () => socket, now: () => 1000 });
+    socket.welcome();
+    const rtts: number[] = [];
+    const lags: unknown[] = [];
+    net.on('rtt', (ms) => rtts.push(ms));
+    net.on('lag', (lag) => lags.push(lag));
+    socket.onmessage?.({
+      data: JSON.stringify({ type: 'pong', id: 1, sentAt: 960, serverTime: 0 }),
+    });
+    socket.onmessage?.({
+      data: JSON.stringify({ type: 'server.lag', late: 2, skipped: 1, worstMs: 180 }),
+    });
+    expect(rtts).toEqual([40]);
+    expect(net.stats().rttMs).toBe(40);
+    expect(lags).toEqual([{ late: 2, skipped: 1, worstMs: 180 }]);
+    net.close();
+  });
+});
