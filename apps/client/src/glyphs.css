@@ -18,6 +18,11 @@
   gap: 2px;
   vertical-align: middle;
 }
+/* In a button the glyph's art (its tile less the transparent edge) fits inside the frame: the
+   button grows to hold it. */
+.btn .glyph {
+  margin-block: -2px;
+}
 /* A control in a hint line (`glyphText`): its glyphs and label never wrap apart. */
 .glyph-group {
   white-space: nowrap;

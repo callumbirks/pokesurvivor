@@ -272,7 +272,7 @@ html[data-input='gamepad'] .cursor-item.nav-focus {
   background: var(--rule);
 }
 
-/* ---------- buttons, keys and sliders ---------- */
+/* ---------- buttons, keys, sliders and checkboxes ---------- */
 /* Secondary: outlined on the raised fill. Primary (`.primary`, or the older `.gold`): filled
    light. Ghost: outline only. Disabled: no fill, no shadow, dim text on hatching. */
 .btn {
@@ -392,4 +392,25 @@ input[type='range']::-moz-range-thumb {
   border: 0;
   border-radius: 0;
   box-shadow: 2px 2px 0 var(--ink);
+}
+/* Checkboxes: still native inputs, drawn as a square pixel box with a pixel tick. */
+input[type='checkbox'] {
+  appearance: none;
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  vertical-align: middle;
+  cursor: pointer;
+  background: var(--ink);
+  box-shadow: inset 0 0 0 2px var(--muted);
+}
+input[type='checkbox']:hover {
+  box-shadow: inset 0 0 0 2px var(--text);
+}
+input[type='checkbox']:checked {
+  background: var(--text)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='7' height='6' shape-rendering='crispEdges' fill='%23272223'%3E%3Cpath d='M6 0h1v1h-1zM5 1h1v1h-1zM6 1h1v1h-1zM0 2h1v1h-1zM4 2h1v1h-1zM5 2h1v1h-1zM0 3h1v1h-1zM1 3h1v1h-1zM3 3h1v1h-1zM4 3h1v1h-1zM1 4h1v1h-1zM2 4h1v1h-1zM3 4h1v1h-1zM2 5h1v1h-1z'/%3E%3C/svg%3E")
+    no-repeat center / 14px 12px;
+  box-shadow: inset 0 0 0 2px var(--text);
 }

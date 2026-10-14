@@ -343,9 +343,6 @@ html[data-input='gamepad'] .ps-card.focus .ds {
   color: var(--muted);
   font-size: 14px;
 }
-.ps-check input {
-  accent-color: var(--accent);
-}
 
 /* ---------- results ---------- */
 .ps-results {

@@ -248,13 +248,10 @@ select.field option {
 }
 .check {
   display: inline-flex;
-  gap: 4px;
+  gap: 8px;
   align-items: center;
   margin: 0;
   color: var(--text);
-}
-input[type='checkbox'] {
-  accent-color: var(--accent);
 }
 
 /* Tabs, filter chips, region tabs and segmented controls: the chosen one is inverse video, as
