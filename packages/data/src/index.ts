@@ -1,5 +1,6 @@
 // Game data: static JSON imports (bundled by Vite/esbuild, loaded by tsx/Vitest), validated with
 // the zod schemas on first use, plus derived lookup maps. Works in Node and the browser.
+import changelogJson from '../changelog.json' with { type: 'json' };
 import achievementsJson from '../json/achievements.json' with { type: 'json' };
 import biomesJson from '../json/biomes.json' with { type: 'json' };
 import bodiesJson from '../json/bodies.json' with { type: 'json' };
@@ -21,6 +22,7 @@ import {
   AchievementsFileSchema,
   BiomesFileSchema,
   BodiesFileSchema,
+  ChangelogFileSchema,
   EnemiesFileSchema,
   GachaFileSchema,
   ItemsFileSchema,
@@ -62,6 +64,7 @@ import {
 import { indexBy, parseDataFile } from './util.js';
 import type { z } from 'zod';
 
+export * from './changelog.js';
 export * from './i18n.js';
 export * from './personality.js';
 export { indexBy, parseDataFile } from './util.js';
@@ -69,12 +72,14 @@ export * from './schemas/index.js';
 
 /**
  * The raw JSON of every data file, keyed by file name (without `.json`). Unvalidated. The sprite
- * manifest is separate: see `@pokesurvivor/data/sprites`.
+ * manifest is separate: see `@pokesurvivor/data/sprites`. `changelog` is `changelog.json` at the
+ * package root (see `loadChangelog`).
  */
 export const rawData = {
   achievements: achievementsJson,
   biomes: biomesJson,
   bodies: bodiesJson,
+  changelog: changelogJson,
   enemies: enemiesJson,
   gacha: gachaJson,
   items: itemsJson,
@@ -96,6 +101,7 @@ export const dataSchemas = {
   achievements: AchievementsFileSchema,
   biomes: BiomesFileSchema,
   bodies: BodiesFileSchema,
+  changelog: ChangelogFileSchema,
   enemies: EnemiesFileSchema,
   gacha: GachaFileSchema,
   items: ItemsFileSchema,

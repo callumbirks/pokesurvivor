@@ -2,10 +2,13 @@
   "name": "@pokesurvivor/tools",
   "version": "0.0.0",
   "private": true,
-  "description": "Sprite manifest and collision-body generation.",
+  "description": "Sprite manifest and collision-body generation, the changelog and the release step.",
   "type": "module",
   "scripts": {
     "generate-sprites": "tsx sprites/generate.ts",
+    "changelog": "tsx changelog/cli.ts render",
+    "changelog:check": "tsx changelog/cli.ts check",
+    "release": "tsx changelog/cli.ts release",
     "typecheck": "tsc"
   },
   "devDependencies": {

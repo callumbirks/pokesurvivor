@@ -660,5 +660,17 @@
     "game-cancelled": "The game was cancelled: nobody loaded in time",
     "room-handoff-pending": "Your room is still on the previous server. You will rejoin its lobby when the game finishes.",
     "room-handoff-expired": "Your previous room membership expired while its game was finishing. You can join a room again."
+  },
+  "changelog": {
+    "whatsNew": "What's new",
+    "updatesAndFixes": "Updates and fixes",
+    "newUpdate": "New update",
+    "new": "New",
+    "changed": "Changed",
+    "fixed": "Fixed",
+    "behindTheScenes": "Behind the scenes",
+    "unreleased": "Not released yet",
+    "noReleasesYet": "No updates yet. Check back after the next release.",
+    "version": "Version {0}"
   }
 }

@@ -36,7 +36,8 @@ before larger changes.
   metadata (`sprite-metadata.json`). Regenerate `packages/data/json/sprites.json` and
   `bodies.json` with `pnpm --filter @pokesurvivor/tools generate-sprites` after changing sprites.
   See the data README for geometry/timing edits.
-- `tools/` — sprite manifest and collision-body generation from assets.
+- `tools/` — sprite manifest and collision-body generation from assets; the changelog CLI
+  (`pnpm changelog`, `pnpm release`; source `packages/data/changelog.json`, see CONTRIBUTING.md).
 
 Workspace packages export TypeScript source (`"exports": "./src/index.ts"`); there is no
 per-package build. Vite, Vitest and tsx compile them, and the server build bundles them with

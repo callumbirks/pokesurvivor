@@ -1,0 +1,29 @@
+# Changelog
+
+What changed for players in each release, newest first. Generated from
+`packages/data/changelog.json` by `pnpm changelog`: edit the JSON, not this file. See
+[CONTRIBUTING.md](CONTRIBUTING.md#changelog) for how to add entries.
+
+## Unreleased
+
+PRs: [#31](https://github.com/callumbirks/pokesurvivor/pull/31), [#32](https://github.com/callumbirks/pokesurvivor/pull/32), [#33](https://github.com/callumbirks/pokesurvivor/pull/33), [#35](https://github.com/callumbirks/pokesurvivor/pull/35)
+
+### New
+
+- What's new: a new button on the main menu lists every update. A dot shows when there's one you haven't read.
+- The results screen shows what your achievements paid out, in solo and co-op.
+- Pick the manual-aim crosshair's colour and size in Settings → Controls.
+
+### Changed
+
+- HUD size is Auto by default and grows with the window, or pick a fixed size from 75% to 200%.
+- The crosshair is magenta by default and no longer changes colour while you fire.
+
+### Fixed
+
+- Reward menus ignore clicks and keys for a moment after they appear, so you can't pick a reward by accident.
+- The HUD size slider can be dragged all the way again.
+
+### Behind the scenes
+
+- Each release now gets a version number, shown in Settings, and a changelog.

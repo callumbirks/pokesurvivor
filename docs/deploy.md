@@ -4,6 +4,26 @@ The whole game is one Docker image: a Node 22 process that serves the client, th
 WebSocket game server (`/ws`) on one port (`PORT`, default
 `3000`). The only other service it needs is Postgres.
 
+## Releasing a version
+
+Each deploy is a numbered release (v1, v2, …) that players see in the game: the What's new screen
+lists it, and Settings shows the version. Before deploying, on an up-to-date, clean `main`:
+
+```sh
+pnpm release --dry-run   # shows the version, its date, PRs and lines; changes nothing
+pnpm release             # unreleased → vN, regenerates CHANGELOG.md, commits "Release vN", tags vN
+git push --follow-tags   # pushes the commit and the tag; deploy from that commit
+```
+
+`pnpm release` moves `unreleased` in `packages/data/changelog.json` into version N+1, dated today
+(local time), with the PRs collected there. It doesn't push. It refuses to run when there are no
+unreleased lines, when the working tree has uncommitted changes, or when the tag already exists.
+To undo a release that hasn't been pushed: `git tag -d vN && git reset --hard HEAD~1`.
+
+How pull requests add lines to `unreleased` is in
+[CONTRIBUTING.md](../CONTRIBUTING.md#changelog). A build with unreleased lines shows its version as
+e.g. `v7+dev` (`dev` before the first release).
+
 ## 1. Create the database
 
 In the Dokploy project: **Create Service → Database → PostgreSQL**.
