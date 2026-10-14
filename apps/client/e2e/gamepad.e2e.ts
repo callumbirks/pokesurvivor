@@ -12,7 +12,9 @@ const shots = process.env.E2E_SHOTS;
 const A = 0;
 const B = 1;
 const START = 9;
+const UP = 12;
 const DOWN = 13;
+const RIGHT = 15;
 
 declare global {
   interface Window {
@@ -70,12 +72,12 @@ test('a gamepad: glyphs, menu focus, and the pause menu', async ({ page }) => {
   const html = page.locator('html');
   await expect(html).toHaveAttribute('data-input', 'keyboard');
 
-  // The d-pad shows the focus, then moves it down the menu to the settings; A opens them.
+  // The d-pad moves the selection down the menu to the settings; A opens them.
   await press(page, DOWN);
   await expect(html).toHaveAttribute('data-input', 'gamepad');
   await expect(page.locator('.nav-focus')).toHaveCount(1);
-  const first = await focusedId(page);
-  expect(first).toMatch(/^menu-/);
+  // The bar on Solo is the focus already: the first press goes on to Multiplayer.
+  expect(await focusedId(page)).toBe('menu-lobby');
   for (let i = 0; i < 12 && (await focusedId(page)) !== 'menu-settings'; i++)
     await press(page, DOWN);
   expect(await focusedId(page)).toBe('menu-settings');
@@ -88,16 +90,19 @@ test('a gamepad: glyphs, menu focus, and the pause menu', async ({ page }) => {
   await press(page, B);
   await expect(page.getByTestId('screen-menu')).toBeVisible();
 
-  // The gacha: the first press lands on the selected region, the d-pad moves through the regions
-  // (each shows its banner), B goes back.
+  // The gacha: the selection bar on the first region is the focus, so the first press moves on
+  // to the next (each region shows its banner). Right doesn't jump up to Back; up does.
   await page.goto('/#gacha');
   await expect(page.getByTestId('banner-kanto')).toHaveClass(/\bon\b/);
-  await press(page, DOWN);
-  expect(await focusedId(page)).toBe('banner-kanto');
   await press(page, DOWN);
   expect(await focusedId(page)).toBe('banner-johto');
   await expect(page.getByTestId('banner-johto')).toHaveClass(/\bon\b/);
   await expect(page.getByTestId('pity')).toContainText('Johto');
+  await press(page, RIGHT);
+  expect(await focusedId(page)).not.toBe('back');
+  await press(page, UP);
+  await press(page, UP);
+  expect(await focusedId(page)).toBe('back');
   if (shots) await page.screenshot({ path: `${shots}/gacha-gamepad-focus.png` });
   await press(page, B);
   await expect(page.getByTestId('screen-menu')).toBeVisible();

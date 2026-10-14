@@ -122,12 +122,14 @@ describe('MenuNav', () => {
     expect(nav.key('KeyA', document.activeElement)).toBe(false);
     expect(nav.key('Escape', document.activeElement)).toBe(true);
     expect(backs).toBe(1);
-    // Typing: the field keeps its keys.
+    // Typing: the field keeps the arrows; Esc leaves it (and doesn't go back).
     const field = document.createElement('input');
     root.append(field);
     field.focus();
     expect(nav.key('ArrowDown', field)).toBe(false);
-    expect(nav.key('Escape', field)).toBe(false);
+    expect(nav.key('Escape', field)).toBe(true);
+    expect(document.activeElement).not.toBe(field);
+    expect(backs).toBe(1);
     // A drop-down keeps the arrows (they change its value), but Esc goes back.
     const select = document.createElement('select');
     root.append(select);
@@ -160,11 +162,41 @@ describe('MenuNav', () => {
     expect(focusedId()).toBe('back');
   });
 
-  it('starts on the default control if there is one', () => {
-    const { nav, settings } = menu();
-    settings.dataset.navDefault = '';
-    nav.press('up');
+  it('acts from a highlight already on screen: the first press moves on from it, or presses it', () => {
+    // A cursor list's selection bar (or the open tab) is shown before any input.
+    const { nav, shop } = menu();
+    shop.dataset.navDefault = '';
+    nav.press('down');
     expect(focusedId()).toBe('settings');
+    const m = menu();
+    const clicks: string[] = [];
+    m.shop.addEventListener('click', () => clicks.push('shop'));
+    m.shop.dataset.navDefault = '';
+    m.nav.press('confirm');
+    expect(clicks).toEqual(['shop']);
+  });
+
+  it('enters the title row and the top bar only going up, not sideways', () => {
+    const root = screen();
+    const head = document.createElement('header');
+    head.className = 'scr-head';
+    root.append(head);
+    const back = button('back', 100, 0, head);
+    // A list down the left, the pulls far below to the right.
+    const kanto = button('kanto', 0, 60, root);
+    button('johto', 0, 100, root);
+    button('pull', 300, 400, root);
+    const nav = new MenuNav(() => root);
+    kanto.focus();
+    nav.press('right');
+    expect(focusedId()).toBe('pull');
+    kanto.focus();
+    nav.press('up');
+    expect(focusedId()).toBe('back');
+    // From the title row itself, sideways moves stay in it or leave it as usual.
+    back.focus();
+    nav.press('down');
+    expect(focusedId()).toBe('kanto');
   });
 
   it('A presses the focused control and B the back button (or the scope’s back)', () => {
