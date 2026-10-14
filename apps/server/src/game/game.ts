@@ -75,6 +75,8 @@ export class Game {
   private events: SimEvent[] = [];
   private snapAcc = 0;
   private seq = 0;
+  private wasPaused = false;
+  private snapshotDirty = false;
 
   constructor(
     readonly roomId: string,
@@ -206,12 +208,24 @@ export class Game {
       s.ackSeq = s.lastSeq;
     }
     this.sim.step();
-    this.events.push(...this.sim.drainEvents());
-    this.snapAcc += this.settings.snapshotHz;
-    if (this.snapAcc >= TICK_HZ || this.sim.ended) {
-      this.snapAcc -= TICK_HZ;
+    const events = this.sim.drainEvents();
+    this.events.push(...events);
+    if (events.some((e) => e.type === 'choice-resolved')) this.snapshotDirty = true;
+    const paused = this.sim.paused;
+    // Tick choices at 30 Hz (deadlines still run), but a frozen world only needs a heartbeat.
+    // Choice mutations and pause/resume transitions are delivered on the very next tick.
+    this.snapAcc += paused ? 1 : this.settings.snapshotHz;
+    if (
+      this.snapAcc >= TICK_HZ ||
+      paused !== this.wasPaused ||
+      this.snapshotDirty ||
+      this.sim.ended
+    ) {
+      this.snapAcc = this.snapAcc >= TICK_HZ ? this.snapAcc - TICK_HZ : 0;
+      this.snapshotDirty = false;
       this.sendSnapshots();
     }
+    this.wasPaused = paused;
     if (this.sim.ended) this.finish(this.sim.state.ended?.reason ?? 'ended');
   }
 
@@ -252,12 +266,14 @@ export class Game {
     // The sim validates the fields of each intent type and rejects unknown ones.
     const result = this.sim.submitIntent(userId, intent as unknown as Intent) as
       ChoiceResult | undefined;
+    if (result?.ok) this.snapshotDirty = true;
     return result ?? { ok: false, error: 'unknown intent' };
   }
 
   /** The client lost track of the deltas: its next snapshot is full. */
   resync(userId: string): void {
     this.slots.get(userId)?.encoder.reset();
+    this.snapshotDirty = true;
   }
 
   /** The player's socket closed: idle and invulnerable, their choices resolve by themselves. */
@@ -269,6 +285,7 @@ export class Game {
     slot.fire = false;
     slot.slot = null;
     this.sim.setConnected(userId, false);
+    this.snapshotDirty = true;
   }
 
   /** Back within the grace period: a full snapshot and play continues. */
@@ -279,6 +296,7 @@ export class Game {
     slot.lastSeq = slot.ackSeq = 0;
     if (this.phase === 'running') {
       this.sim.setConnected(userId, true);
+      this.snapshotDirty = true;
       this.sendStart(slot, session, true);
     }
   }
@@ -291,6 +309,7 @@ export class Game {
     slot.left = true;
     slot.connected = false;
     this.sim.removePlayer(userId);
+    this.snapshotDirty = true;
     if (this.sim.ended) this.finish(this.sim.state.ended?.reason ?? 'everyone-left');
   }
 

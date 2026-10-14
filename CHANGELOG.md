@@ -11,6 +11,7 @@ PRs: [#59](https://github.com/callumbirks/pokesurvivor/pull/59)
 ### Fixed
 
 - Server restarts no longer stall when a player reconnects during shutdown.
+- Co-op movement no longer rubberbands when input updates bunch up, and choice menus use less network traffic.
 
 ## v9 - 2026-10-14
 

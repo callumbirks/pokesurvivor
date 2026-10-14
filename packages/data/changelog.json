@@ -4,7 +4,10 @@
     "entries": {
       "new": [],
       "changed": [],
-      "fixed": ["Server restarts no longer stall when a player reconnects during shutdown."],
+      "fixed": [
+        "Server restarts no longer stall when a player reconnects during shutdown.",
+        "Co-op movement no longer rubberbands when input updates bunch up, and choice menus use less network traffic."
+      ],
       "behindTheScenes": []
     }
   },
