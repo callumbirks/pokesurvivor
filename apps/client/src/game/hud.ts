@@ -454,8 +454,8 @@ export class Hud {
       ctx.textAlign = 'center';
       ctx.fillStyle = 'rgba(180,200,230,.55)';
       if (k.pad) {
-        ctx.font = F(600, 11);
-        drawGlyphText(ctx, controlsHint(false, k.aimMode, true), w / 2, h - 5, 16, k.pad);
+        ctx.font = F(600, 13);
+        drawGlyphText(ctx, controlsHint(false, k.aimMode, true), w / 2, h - 8, 24, k.pad);
       } else ctx.fillText(controlsHint(touch.active, k.aimMode), w / 2, h - 4);
     }
 
@@ -497,7 +497,8 @@ export class Hud {
     const label = t(manual ? 'hud.aimManual' : 'hud.aimAuto');
     ctx.save();
     ctx.font = F(800, 11);
-    const keyW = touch.active && !k.pad ? 0 : 18;
+    // Room for the key (T) or the gamepad's glyph (R3, bigger).
+    const keyW = k.pad ? 26 : touch.active ? 0 : 18;
     const bw = Math.ceil(ctx.measureText(label).width) + 36 + keyW;
     const bh = 28;
     let right = w - 16;
@@ -535,7 +536,7 @@ export class Hud {
     ctx.fillText(label, x + 29, cy + 4);
     if (k.pad) {
       // The button that does the same: R3.
-      drawGlyph(ctx, 'r3', x + bw - keyW - 4, cy - 8, 16, k.pad);
+      drawGlyph(ctx, 'r3', x + bw - keyW - 2, cy - 12, 24, k.pad);
     } else if (keyW) {
       // The key that does the same.
       const kx = x + bw - keyW - 4;
@@ -642,7 +643,8 @@ export class Hud {
       ctx.fillStyle = fused ? BOND : on ? col : 'rgba(180,200,230,.6)';
       ctx.textAlign = 'left';
       const button = k.pad ? SLOT_PAD[i] : undefined;
-      if (button) drawGlyph(ctx, button, x + 2, y + 2, 12, k.pad ?? undefined);
+      // The pad's button sits on the slot's corner, big enough to read.
+      if (button) drawGlyph(ctx, button, x - 8, y - 8, 24, k.pad ?? undefined);
       else ctx.fillText(String(i + 1), x + 3, y + 10);
       // The active one's name on top ("Ember +2" with a bond).
       if (on) {
@@ -650,7 +652,9 @@ export class Hud {
         ctx.textAlign = 'center';
         ctx.fillStyle = fused ? BOND : col;
         const name = moveName(m.id);
-        ctx.fillText(fused ? `${name} +${group.length - 1}` : name, x + S / 2, y - 7);
+        // Higher with the pad, clear of the button's glyph on the corner.
+        const ny = button ? y - 12 : y - 7;
+        ctx.fillText(fused ? `${name} +${group.length - 1}` : name, x + S / 2, ny);
       }
     }
     // A saved bond (no two loose moves yet).

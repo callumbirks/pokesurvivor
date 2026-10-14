@@ -1,6 +1,8 @@
 /* Controller glyphs (glyphs.ts) and what follows the active input device (input-device.ts). */
+/* 32 px by default (glyphs.ts `GLYPH_PX`): the 16 px tiles at 2×. Centred on the text's middle,
+   with negative margins so a glyph doesn't make its line taller than the text needs. */
 .glyph {
-  --gs: 16px;
+  --gs: 32px;
   display: inline-block;
   width: var(--gs);
   height: var(--gs);
@@ -9,6 +11,7 @@
   background-size: calc(var(--gs) * 25) var(--gs);
   background-position: calc(var(--gi, 0) * var(--gs) * -1) 0;
   image-rendering: pixelated;
+  margin-block: calc((1.25em - var(--gs)) / 2);
 }
 .glyphs {
   display: inline-flex;

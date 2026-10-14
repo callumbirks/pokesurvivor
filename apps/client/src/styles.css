@@ -453,7 +453,7 @@ html[data-input='gamepad'] .cursor-item.nav-focus {
   display: flex;
   gap: 14px;
   justify-content: flex-end;
-  font-size: 14px;
+  font-size: 16px;
   color: var(--title);
   text-shadow: 2px 2px 0 var(--ink);
 }
@@ -2073,6 +2073,10 @@ input[type='range']::-moz-range-thumb {
 }
 .keys span {
   color: var(--muted);
+}
+/* A list of controls: each row as tall as its glyphs. */
+.keys .glyph {
+  margin-block: 0;
 }
 .credits {
   color: var(--muted);
