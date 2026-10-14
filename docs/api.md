@@ -47,7 +47,7 @@ missions and achievements).
 | Method & path              | Body                      | Notes                                                                                      |
 | -------------------------- | ------------------------- | ------------------------------------------------------------------------------------------ |
 | `GET /api/save`            | –                         | The save (below)                                                                           |
-| `PUT /api/save/partner`    | `{ dex, shiny? }`         | Must own it (and its shiny if `shiny`)                                                     |
+| `PUT /api/save/partner`    | `{ dex, shiny? }`         | Must own it (and its shiny if `shiny`); a room in its lobby shows it to the members        |
 | `PATCH /api/save/profile`  | `{ favourites?, title? }` | `favourites`: up to 3 owned `{ dex, shiny }`. `title`: an unlocked achievement id, or null |
 | `PATCH /api/save/settings` | any subset of `settings`  | Merged into the current settings                                                           |
 | `POST /api/save/starter`   | `{ dex, answers? }`       | The first Pokémon (below). `{ achievements, save }`                                        |
