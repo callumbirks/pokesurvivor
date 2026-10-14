@@ -1,9 +1,11 @@
 // The end-of-run screen (original implementation `showOver`), from `game.results` (co-op, recorded by the
 // server from its own sim) or the solo report (`POST /api/runs`, capped by the server). It shows
 // what was credited, the reward breakdown, moves, tickets and shinies, the players who left early,
-// and the achievements the run unlocked (solo; co-op unlocks arrive with the save).
+// and the achievements the run unlocked with the rewards they paid (from the solo report, or the
+// player's entry in `game.results`), totalled apart from the run's own coins and tickets.
 import { loadGameData, t } from '@pokesurvivor/data';
 import type { Results } from '@pokesurvivor/netclient';
+import type { UnlockedAchievement } from '@pokesurvivor/protocol';
 import { audio } from '../audio.js';
 import { el, icon, spriteEl } from './dom.js';
 import { pokemonName } from './scene/entities.js';
@@ -19,6 +21,66 @@ export interface ResultsOptions {
   /** Did the player own this shiny before the run (null: unknown)? Marks the new ones. */
   ownedShiny?(dex: number): boolean | null;
   onBack(): void;
+}
+
+type AchievementReward = UnlockedAchievement['reward'];
+
+/** The rewards of the achievements a run unlocked, summed per currency (as the server paid them). */
+export function achievementRewardTotals(
+  unlocked: readonly UnlockedAchievement[],
+): Required<AchievementReward> {
+  const total = { coins: 0, tickets: 0, tickets10: 0 };
+  for (const { reward } of unlocked) {
+    total.coins += reward.coins ?? 0;
+    total.tickets += reward.tickets ?? 0;
+    total.tickets10 += reward.tickets10 ?? 0;
+  }
+  return total;
+}
+
+/** `+200 [coin] +5 [ticket] +1 [×10 ticket]`, skipping the currencies with nothing. */
+function rewardParts(reward: AchievementReward, size: number): Node[] {
+  const parts: [number | undefined, string][] = [
+    [reward.coins, 'coin'],
+    [reward.tickets, 'ticket'],
+    [reward.tickets10, 'ticket10'],
+  ];
+  return parts
+    .filter(([n]) => n)
+    .map(([n, id]) =>
+      el('span', { class: 'ps-reward', data: { reward: id } }, `+${n} `, icon(id, size)),
+    );
+}
+
+function renderAchievements(unlocked: readonly UnlockedAchievement[]): Node[] {
+  const byId = loadGameData().achievementById;
+  const total = achievementRewardTotals(unlocked);
+  const out: Node[] = [
+    el('h3', null, t('profile.achievements')),
+    el(
+      'div',
+      { class: 'ps-achievements', data: { testid: 'results-achievements' } },
+      unlocked.map((a) =>
+        el(
+          'div',
+          null,
+          el('span', null, icon('trophy', 16), ` ${byId.get(a.id)?.name ?? a.id}`),
+          el('span', { class: 'muted' }, rewardParts(a.reward, 14)),
+        ),
+      ),
+    ),
+  ];
+  if (total.coins || total.tickets || total.tickets10)
+    out.push(
+      el(
+        'div',
+        { class: 'ps-achievement-rewards', data: { testid: 'results-achievement-rewards' } },
+        el('span', null, t('results.achievementRewards')),
+        el('b', { class: 'gold' }, rewardParts(total, 18)),
+        el('div', { class: 'muted' }, t('results.achievementRewardsNote')),
+      ),
+    );
+  return out;
 }
 
 export function renderResults(results: Results, o: ResultsOptions): HTMLElement {
@@ -164,19 +226,8 @@ export function renderResults(results: Results, o: ResultsOptions): HTMLElement 
       ),
     );
   else if (solo?.capped) box.append(el('p', { class: 'note' }, t('game.capped')));
-  if (solo?.achievements.length) {
-    const byId = loadGameData().achievementById;
-    box.append(
-      el('h3', null, t('profile.achievements')),
-      el(
-        'div',
-        { class: 'ps-achievements' },
-        solo.achievements.map((a) =>
-          el('div', null, icon('trophy', 16), ` ${byId.get(a.id)?.name ?? a.id}`),
-        ),
-      ),
-    );
-  }
+  const unlocked = solo ? solo.achievements : (mine?.achievements ?? []);
+  if (unlocked.length) box.append(...renderAchievements(unlocked));
   box.append(
     el(
       'button',

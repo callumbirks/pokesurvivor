@@ -573,7 +573,8 @@ export class GameServer implements PresenceSource, FriendNotifier {
         ...(p.left ? { leftAfterS: durationS } : {}),
       };
     });
-    const attempt = async (): Promise<string | null> => {
+    type Recorded = Awaited<ReturnType<typeof recordCoopRun>>;
+    const attempt = async (): Promise<Recorded | null> => {
       for (const delayMs of [0, 1000, 5000]) {
         if (delayMs) await new Promise((r) => setTimeout(r, delayMs));
         try {
@@ -593,17 +594,21 @@ export class GameServer implements PresenceSource, FriendNotifier {
       }
       return null;
     };
-    const promise = attempt().then((runId): Results => ({
+    const promise = attempt().then((recorded): Results => ({
       gameId: outcome.gameId,
-      runId,
-      credited: runId !== null,
+      runId: recorded?.runId ?? null,
+      credited: recorded !== null,
       reason: outcome.reason,
-      players: outcome.players.map((p) => ({
-        userId: p.userId,
-        username: p.username,
-        left: p.left,
-        summary: p.summary,
-      })),
+      players: outcome.players.map((p) => {
+        const achievements = recorded?.achievements.get(p.userId);
+        return {
+          userId: p.userId,
+          username: p.username,
+          left: p.left,
+          summary: p.summary,
+          ...(achievements ? { achievements } : {}),
+        };
+      }),
     }));
     this.records.add(promise);
     void promise.finally(() => this.records.delete(promise));

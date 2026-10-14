@@ -248,6 +248,13 @@ describe('coop games over the network', () => {
       const save = await getSave(t.database.db.db, bot.userId);
       expect(save.stats.groupRuns).toBe(before[i]!.stats.groupRuns + 1);
       expect(save.coins).toBeGreaterThanOrEqual(before[i]!.coins);
+      // Each player's results list exactly the achievements the run unlocked for them.
+      const unlocked = Object.keys(save.achievements).filter(
+        (id) => before[i]!.achievements[id] === undefined,
+      );
+      const mine = ra.players.find((p) => p.userId === bot.userId)!;
+      expect(mine.achievements?.map((u) => u.id).sort()).toEqual(unlocked.sort());
+      expect(unlocked).toContain('group-1');
     }
     // Everyone still in the room is back in the lobby, not ready.
     await waitFor(() => a!.client.roomView?.phase === 'lobby', 'back to the lobby');

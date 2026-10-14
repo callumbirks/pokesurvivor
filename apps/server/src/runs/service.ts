@@ -310,13 +310,14 @@ export interface CoopRunReport {
  * Records a coop run reported by the game server's own simulation (not by clients, so it isn't
  * capped) and credits every player, all in one transaction. Each player's `progress` advances
  * their missions and achievements like a solo run's. For the room manager (phase 3c);
- * there is deliberately no HTTP endpoint for it.
+ * there is deliberately no HTTP endpoint for it. Returns the run id and the achievements each
+ * player unlocked (by user id).
  */
 export async function recordCoopRun(
   db: Executor,
   report: CoopRunReport,
   opts: ProgressOptions,
-): Promise<string> {
+): Promise<{ runId: string; achievements: Map<string, UnlockedAchievement[]> }> {
   if (report.players.length === 0) throw new Error('A coop run needs at least one player');
   // Lock saves in a stable order so concurrent reports can't deadlock.
   const players = [...report.players].sort((a, b) => a.userId.localeCompare(b.userId));
@@ -342,17 +343,19 @@ export async function recordCoopRun(
         ...playerColumns(p),
       })),
     );
+    const achievements = new Map<string, UnlockedAchievement[]>();
     for (const player of players) {
       const { userId, pokemon, leftAfterS, ...rest } = player;
       const stats = { ...rest, durationS: leftAfterS ?? report.durationS };
-      await withLockedSave(tx, userId, (save) =>
+      const unlocked = await withLockedSave(tx, userId, (save) =>
         applyRunToSave(
           save,
           { runId: run.id, mode: 'coop', stats, pokemon, endedAt: report.endedAt },
           opts,
         ),
       );
+      achievements.set(userId, unlocked);
     }
-    return run.id;
+    return { runId: run.id, achievements };
   });
 }

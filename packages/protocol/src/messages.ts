@@ -103,6 +103,18 @@ export interface PlayerResult<Summary = unknown> {
   /** Left (or dropped) before the end: credited with what was earned until then. */
   left: boolean;
   summary: Summary;
+  /**
+   * Achievements this run unlocked for the player, with the reward each credited (on top of the
+   * run's own coins and tickets). Absent if the run wasn't recorded.
+   */
+  achievements?: UnlockedAchievement[];
+}
+
+/** An achievement unlocked and paid by the server (as in `POST /api/runs`). */
+export interface UnlockedAchievement {
+  id: string;
+  reward: { coins?: number; tickets?: number; tickets10?: number };
+  title: string | null;
 }
 
 export interface GameResults<Summary = unknown> {

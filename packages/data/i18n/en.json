@@ -133,6 +133,10 @@
     "gachaTickets": "Gacha tickets",
     "maxLevel": "Max level"
   },
+  "results": {
+    "achievementRewards": "Achievement rewards",
+    "achievementRewardsNote": "Added on top of the run's PokéCoins and tickets."
+  },
   "game": {
     "listAnd": "{0} and {1}",
     "secondsShort": "{0} s",
