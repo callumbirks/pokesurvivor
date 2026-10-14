@@ -22,7 +22,8 @@
     "rewardCoinDrops": 10,
     "rewardCoinValue": 8,
     "returnAfterWin": 5,
-    "returnAfterLoss": 1.2
+    "returnAfterLoss": 1.2,
+    "exitHeal": 0.3
   },
   "events": {
     "every": [240, 300],

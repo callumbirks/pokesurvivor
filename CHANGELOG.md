@@ -6,6 +6,12 @@ What changed for players in each release, newest first. Generated from
 
 ## Unreleased
 
+PRs: [#48](https://github.com/callumbirks/pokesurvivor/pull/48)
+
+### Changed
+
+- Coming back from a rift now heals everyone still standing by 30% of their max HP, as well as reviving the fallen.
+
 ## v7 - 2026-10-14
 
 PRs: [#46](https://github.com/callumbirks/pokesurvivor/pull/46)

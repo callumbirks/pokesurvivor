@@ -1,9 +1,11 @@
 {
   "unreleased": {
-    "prs": [],
+    "prs": [48],
     "entries": {
       "new": [],
-      "changed": [],
+      "changed": [
+        "Coming back from a rift now heals everyone still standing by 30% of their max HP, as well as reviving the fallen."
+      ],
       "fixed": [],
       "behindTheScenes": []
     }
