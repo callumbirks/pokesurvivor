@@ -1,14 +1,17 @@
 {
   "unreleased": {
-    "prs": [48, 49],
+    "prs": [48, 49, 52],
     "entries": {
       "new": [
-        "See what your friends are up to: the Friends list and room invites show whether they're in the menus or in a solo or co-op run, with their Pokémon and run time."
+        "See what your friends are up to: the Friends list and room invites show whether they're in the menus or in a solo or co-op run, with their Pokémon and run time.",
+        "Find your Pokémon fast: search, filter and sort when picking a Pokémon for solo runs and in multiplayer rooms."
       ],
       "changed": [
         "Coming back from a rift now heals everyone still standing by 30% of their max HP, as well as reviving the fallen."
       ],
-      "fixed": [],
+      "fixed": [
+        "In a room, changing your Pokémon now shows to everyone straight away, not only once you're ready."
+      ],
       "behindTheScenes": []
     }
   },
