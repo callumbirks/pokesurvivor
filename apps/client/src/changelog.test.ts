@@ -115,6 +115,8 @@ describe("the What's new screen", () => {
     const bts = renderChangelog(v2).querySelector('details.cl-bts');
     expect(bts?.querySelector('summary')?.textContent).toBe('Behind the scenes');
     expect(bts?.hasAttribute('open')).toBe(false);
+    // Reachable by the gamepad's menu navigation, which only visits focusable elements.
+    expect(bts?.querySelector('summary')?.getAttribute('tabindex')).toBe('0');
     expect(bts?.textContent).toContain('New servers.');
   });
 

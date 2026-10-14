@@ -6,19 +6,21 @@ What changed for players in each release, newest first. Generated from
 
 ## Unreleased
 
-PRs: [#32](https://github.com/callumbirks/pokesurvivor/pull/32), [#33](https://github.com/callumbirks/pokesurvivor/pull/33), [#35](https://github.com/callumbirks/pokesurvivor/pull/35), [#36](https://github.com/callumbirks/pokesurvivor/pull/36)
+PRs: [#32](https://github.com/callumbirks/pokesurvivor/pull/32), [#33](https://github.com/callumbirks/pokesurvivor/pull/33), [#34](https://github.com/callumbirks/pokesurvivor/pull/34), [#35](https://github.com/callumbirks/pokesurvivor/pull/35), [#36](https://github.com/callumbirks/pokesurvivor/pull/36), [#37](https://github.com/callumbirks/pokesurvivor/pull/37)
 
 ### New
 
 - What's new: a new button on the main menu lists every update. A dot shows when there's one you haven't read.
 - The results screen shows what your achievements paid out, in solo and co-op.
 - Pick the manual-aim crosshair's colour and size in Settings → Controls.
+- Play the menus with a gamepad: the D-pad or stick moves through every menu and level-up choice, and button prompts match your controller.
 
 ### Changed
 
 - HUD size is Auto by default and grows with the window, or pick a fixed size from 75% to 200%.
 - The crosshair is magenta by default and no longer changes colour while you fire.
 - In co-op, when a teammate goes down or leaves, their enemies now come for you gradually over 10–20 seconds instead of all at once.
+- Server updates no longer close multiplayer lobbies: you reconnect to the same room automatically. Games in progress still finish as before.
 
 ### Fixed
 

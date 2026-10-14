@@ -37,7 +37,8 @@ function sections(entries: ChangelogEntries): Node[] {
       ? h(
           'details',
           { class: 'cl-sec cl-bts', dataset: { testid: 'cl-bts' } },
-          h('summary', null, title),
+          // Focusable, so the gamepad's menu navigation (menu-nav.ts) can reach and open it.
+          h('summary', { tabindex: 0 }, title),
           list,
         )
       : h('div', { class: ['cl-sec', `cl-${section}`] }, h('h4', { class: 'cl-h' }, title), list);
@@ -56,7 +57,7 @@ export function renderChangelog(file: ChangelogFile, opts: { unreleased?: boolea
     pending.length
       ? h(
           'article',
-          { class: 'cl-ver cl-dev', dataset: { testid: 'cl-unreleased' } },
+          { class: 'cl-ver cl-dev', tabindex: 0, dataset: { testid: 'cl-unreleased' } },
           h('div', { class: 'cl-ver-head' }, h('h3', null, t('changelog.unreleased'))),
           pending,
         )
@@ -70,7 +71,8 @@ export function renderChangelog(file: ChangelogFile, opts: { unreleased?: boolea
       : file.versions.map((v) =>
           h(
             'article',
-            { class: 'cl-ver', dataset: { testid: `cl-v${v.version}` } },
+            // Focusable: the gamepad scrolls the list by moving through the releases.
+            { class: 'cl-ver', tabindex: 0, dataset: { testid: `cl-v${v.version}` } },
             h(
               'div',
               { class: 'cl-ver-head' },
