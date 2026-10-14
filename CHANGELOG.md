@@ -6,6 +6,17 @@ What changed for players in each release, newest first. Generated from
 
 ## Unreleased
 
+PRs: [#46](https://github.com/callumbirks/pokesurvivor/pull/46)
+
+### Changed
+
+- A bigger partner card on the main menu, and a softer selection highlight.
+
+### Fixed
+
+- Menus scale up on large screens, the gacha screen keeps its shape on wide monitors, Esc works after using a drop-down, and the first press on a menu moves from the highlighted entry.
+- Controller button prompts no longer flicker to the keyboard's when Steam Input or another remapper is running.
+
 ## v6 - 2026-10-14
 
 PRs: [#41](https://github.com/callumbirks/pokesurvivor/pull/41), [#42](https://github.com/callumbirks/pokesurvivor/pull/42), [#43](https://github.com/callumbirks/pokesurvivor/pull/43), [#44](https://github.com/callumbirks/pokesurvivor/pull/44)
