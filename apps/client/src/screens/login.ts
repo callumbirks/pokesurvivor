@@ -32,7 +32,7 @@ export function loginScreen(app: App): Screen {
   const hint = h('small', { class: 'hint' }, t('login.n316LettersNumbersOr'));
   const submit = h(
     'button',
-    { class: 'btn gold grow', type: 'submit', dataset: { testid: 'login-submit' } },
+    { class: 'btn primary grow', type: 'submit', dataset: { testid: 'login-submit' } },
     t('login.logIn'),
   );
   const tabRow = h('div');
@@ -105,17 +105,21 @@ export function loginScreen(app: App): Screen {
     { class: 'scr scr-login', dataset: { testid: 'screen-login' } },
     h(
       'div',
-      { class: 'box login-box' },
+      { class: 'login-col' },
+      h(
+        'header',
+        { class: 'menu-title login-title' },
+        h('h1', { class: 'field-title' }, 'PokéSurvivor'),
+        h('p', null, t('login.mysteryDungeon')),
+      ),
       h(
         'div',
-        { class: 'logo' },
-        h('div', { class: 't1' }, 'PokéSurvivor'),
-        h('div', { class: 't2' }, t('login.mysteryDungeon')),
+        { class: 'box login-box' },
+        h('p', { class: 'login-tag' }, t('login.surviveTheHordesWithYour')),
+        tabRow,
+        form,
+        h('p', { class: 'note center' }, t('app.savedInCloud')),
       ),
-      h('p', { class: 'login-tag' }, t('login.surviveTheHordesWithYour')),
-      tabRow,
-      form,
-      h('p', { class: 'note center' }, t('app.savedInCloud')),
     ),
   );
   queueMicrotask(() => user.focus());

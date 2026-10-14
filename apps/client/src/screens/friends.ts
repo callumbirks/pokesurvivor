@@ -69,7 +69,7 @@ export function friendsScreen(app: App): Screen {
   });
   const add = h(
     'button',
-    { class: 'btn gold', type: 'submit', dataset: { testid: 'friend-add' } },
+    { class: 'btn primary', type: 'submit', dataset: { testid: 'friend-add' } },
     t('friends.addFriend'),
   );
   const form = h(

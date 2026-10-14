@@ -31,7 +31,7 @@ function toggle(key: 'damageNumbers' | 'calmMode' | 'showFps' | 'muted'): HTMLEl
   return h(
     'button',
     {
-      class: ['btn', 'small', 'switch', on && 'gold'],
+      class: ['btn', 'small', 'switch', on && 'primary'],
       role: 'switch',
       'aria-checked': on ? 'true' : 'false',
       dataset: { testid: `set-${key}` },
@@ -198,11 +198,10 @@ export function settingsScreen(
   const tabRow = h('div');
   const body = h('div', { class: 'set-body' });
   box.body.append(tabRow, body);
-  const settingsBox = box.el.querySelector('.box');
-  settingsBox?.classList.add('settings');
+  box.box.classList.add('settings');
   // The build's version in the corner: the newest release bundled from changelog.json, "+dev"
   // with unreleased changes on top, "dev" before the first release.
-  settingsBox?.append(
+  box.box.append(
     h(
       'span',
       { class: 'version-tag', dataset: { testid: 'version' } },

@@ -32,7 +32,7 @@ export function collectionScreen(app: App, params: URLSearchParams): Screen {
   const banners = data.gacha.banners;
   const box = screenBox(app, { id: 'collection', title: t('menu.pokemon') });
   const total = h('span', { class: 'sub count' });
-  box.header.querySelector('h2')?.append(' ', total);
+  box.title.append(' ', total);
   const genTabs = h('div', { class: 'gen-tabs' });
   const filters = h('div', { class: 'filters' });
   const grid = h('div', { class: 'grid', dataset: { testid: 'collection-grid' } });
@@ -193,7 +193,7 @@ export function collectionScreen(app: App, params: URLSearchParams): Screen {
     const pick = h(
       'button',
       {
-        class: 'btn gold wide-btn',
+        class: 'btn primary wide-btn',
         disabled: usingThis,
         dataset: { testid: 'choose-partner', sfx: 'none' },
       },

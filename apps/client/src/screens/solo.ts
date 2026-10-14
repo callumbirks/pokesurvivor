@@ -34,7 +34,7 @@ export function soloScreen(app: App): Screen {
     const inRoom = !!app.net?.roomView;
     const start = h(
       'button',
-      { class: 'btn gold big-btn', disabled: inRoom, dataset: { testid: 'solo-start' } },
+      { class: 'btn primary big-btn', disabled: inRoom, dataset: { testid: 'solo-start' } },
       t('menu.play'),
     );
     const blocked = inRoom

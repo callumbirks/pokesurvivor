@@ -110,7 +110,7 @@ export function shopScreen(app: App): Screen {
         const buy = h(
           'button',
           {
-            class: ['btn', 'small', !maxed && 'gold'],
+            class: ['btn', 'small', !maxed && 'primary'],
             disabled: maxed || s.coins < cost,
             dataset: { testid: `buy-${u.id}`, sfx: 'none' },
           },

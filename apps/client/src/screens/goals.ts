@@ -119,7 +119,7 @@ export function goalsScreen(app: App): Screen {
           const claim = h(
             'button',
             {
-              class: ['btn', 'small', done && !m.claimed && 'gold'],
+              class: ['btn', 'small', done && !m.claimed && 'primary'],
               disabled: !done || m.claimed,
               dataset: { testid: `claim-${kind}-${index}`, sfx: 'none' },
             },
