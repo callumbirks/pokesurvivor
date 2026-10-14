@@ -15,7 +15,7 @@ import {
   drawCrosshair,
   toggleAimMode,
 } from './aim.js';
-import { settings } from '../settings.js';
+import { CROSSHAIR_COLORS, settings } from '../settings.js';
 import { preloadSprites } from '../sprites.js';
 import { AchievementTracker, type AchievementSave } from './achievements.js';
 import { ChoiceOverlay } from './choice-ui.js';
@@ -957,7 +957,10 @@ class Run {
       this.cursorHidden = show;
       this.canvas.style.cursor = show ? 'none' : '';
     }
-    if (show && at) drawCrosshair(ctx, at[0], at[1], this.firing());
+    if (show && at) {
+      const s = settings.get();
+      drawCrosshair(ctx, at[0], at[1], CROSSHAIR_COLORS[s.crosshairColor], s.crosshairScale);
+    }
   }
 
   dispose(): void {

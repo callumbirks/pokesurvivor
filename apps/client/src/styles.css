@@ -396,6 +396,20 @@ select.field {
   gap: 6px;
   flex-wrap: wrap;
 }
+.chip.swatch {
+  padding: 4px;
+  line-height: 0;
+}
+.chip.swatch .dot {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px rgba(244, 248, 255, 0.45);
+}
+.chip.swatch.on {
+  box-shadow: 0 0 0 2px var(--gold);
+}
 .gen-tabs {
   display: flex;
   gap: 5px;

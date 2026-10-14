@@ -62,15 +62,29 @@ const storedMode = (page: Page) =>
   );
 
 /** Points the mouse `dx, dy` from our Pokémon and waits until we and the sim aim that way. */
-async function mouseAim(page: Page, dx: number, dy: number): Promise<void> {
+async function mouseAim(page: Page, dx: number, dy: number): Promise<[number, number]> {
   const self = (await counts(page))?.self;
   if (!self) throw new Error('no self');
   const box = (await page.getByTestId('game').locator('canvas').boundingBox())!;
-  await page.mouse.move(box.x + self[0] + dx, box.y + self[1] + dy, { steps: 4 });
+  const at: [number, number] = [box.x + self[0] + dx, box.y + self[1] + dy];
+  await page.mouse.move(at[0], at[1], { steps: 4 });
   const want = Math.atan2(dy, dx);
   await expect.poll(async () => gap((await counts(page))?.aim ?? 99, want)).toBeLessThan(0.1);
   await expect.poll(async () => gap((await counts(page))?.serverAim ?? 99, want)).toBeLessThan(0.1);
+  return at;
 }
+
+/** The colour drawn at the crosshair's centre dot for a cursor at page point `at` ("#rrggbb"). */
+const crosshairColour = (page: Page, at: [number, number]) =>
+  page.locator('canvas.ps-canvas').evaluate((c: HTMLCanvasElement, [x, y]) => {
+    const r = c.getBoundingClientRect();
+    const k = c.width / r.width;
+    // The dot covers the 2 × 2 CSS px up and left of the rounded cursor point.
+    const px = (Math.round(x - r.left) - 0.5) * k;
+    const py = (Math.round(y - r.top) - 0.5) * k;
+    const d = c.getContext('2d')!.getImageData(Math.floor(px), Math.floor(py), 1, 1).data;
+    return `#${[d[0], d[1], d[2]].map((v) => (v ?? 0).toString(16).padStart(2, '0')).join('')}`;
+  }, at);
 
 test('desktop: T and the HUD button switch the aim; the mouse aims and fires', async ({
   browser,
@@ -85,10 +99,14 @@ test('desktop: T and the HUD button switch the aim; the mouse aims and fires', a
   await expect.poll(() => storedMode(page)).toBe('manual');
   await mouseAim(page, 220, 0);
   await mouseAim(page, 0, -160);
-  await mouseAim(page, -150, 120);
-  // Holding the left button over the game fires (the crosshair turns gold); releasing stops.
+  const at = await mouseAim(page, -150, 120);
+  // The crosshair is magenta by default.
+  await expect.poll(() => crosshairColour(page, at)).toBe('#ff00ff');
+  // Holding the left button over the game fires; releasing stops. The crosshair keeps its colour.
   await page.mouse.down();
   await expect.poll(async () => (await counts(page))?.fire).toBe(true);
+  await page.waitForTimeout(150);
+  expect(await crosshairColour(page, at)).toBe('#ff00ff');
   // The crosshair replaces the system cursor over the game.
   expect(await page.locator('canvas.ps-canvas').evaluate((c) => getComputedStyle(c).cursor)).toBe(
     'none',
@@ -123,6 +141,26 @@ test('desktop: T and the HUD button switch the aim; the mouse aims and fires', a
   await expect(page.getByTestId('screen-settings')).toContainText('Switch aiming');
   await page.getByTestId('set-aim-manual').click();
   await expect.poll(() => storedMode(page)).toBe('manual');
+  // The crosshair colour: magenta is chosen; pick cyan (the tab redraws with it chosen).
+  await expect(page.getByTestId('set-crosshair-magenta')).toHaveAttribute('aria-checked', 'true');
+  await page.getByTestId('set-crosshair-cyan').click();
+  await expect(page.getByTestId('set-crosshair-cyan')).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByTestId('set-crosshair-magenta')).toHaveAttribute('aria-checked', 'false');
+  await expect(page.getByTestId('set-crosshair-cyan')).toHaveAccessibleName('Cyan');
+  // And its size: 1× by default, set to 1.5× (it's a slider: the screen doesn't redraw).
+  const xhair = page.getByTestId('set-crosshairScale');
+  await xhair.fill('1.5');
+  await expect(xhair.locator('xpath=following-sibling::span')).toHaveText('×1.5');
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (JSON.parse(localStorage.getItem('ps.settings') ?? '{}') as { crosshairScale?: number })
+            .crosshairScale,
+      ),
+    )
+    .toBe(1.5);
+  if (shots) await page.screenshot({ path: `${shots}/settings-crosshair.png` });
   await page.getByTestId('set-tab-graphics').click();
   // HUD size: Auto by default (1.5× here), dragged to a fixed size, back to Auto.
   const hudSize = () =>
@@ -170,6 +208,17 @@ test('desktop: T and the HUD button switch the aim; the mouse aims and fires', a
     .toBe(true);
   expect(await node.evaluate((el) => el.isConnected)).toBe(true);
   if (shots) await page.screenshot({ path: `${shots}/settings-controls.png` });
+
+  // Back in the game the crosshair is cyan, held or not.
+  await page.getByTestId('back').click();
+  await page.getByTestId('resume').click();
+  const at2 = await mouseAim(page, 200, -100);
+  await expect.poll(() => crosshairColour(page, at2)).toBe('#22e6ff');
+  if (shots) await page.screenshot({ path: `${shots}/crosshair-cyan.png` });
+  await page.mouse.down();
+  await page.waitForTimeout(150);
+  expect(await crosshairColour(page, at2)).toBe('#22e6ff');
+  await page.mouse.up();
   await page.context().close();
 });
 

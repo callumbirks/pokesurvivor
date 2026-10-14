@@ -6,6 +6,21 @@
 export type Quality = 'auto' | 'high' | 'medium' | 'low';
 export type AimMode = 'auto' | 'manual';
 
+/** The manual-aim crosshair's colours (the settings offer these as swatches), magenta first. */
+export const CROSSHAIR_COLORS = {
+  magenta: '#ff00ff',
+  white: '#ffffff',
+  red: '#ff3040',
+  green: '#3dff5a',
+  cyan: '#22e6ff',
+  yellow: '#ffe62e',
+  orange: '#ff9a1f',
+  black: '#101018',
+} as const;
+export type CrosshairColor = keyof typeof CROSSHAIR_COLORS;
+const isCrosshairColor = (v: unknown): v is CrosshairColor =>
+  typeof v === 'string' && Object.hasOwn(CROSSHAIR_COLORS, v);
+
 export interface Settings {
   /** How many effects and particles are drawn; `auto` lowers it when the game stutters. */
   quality: Quality;
@@ -24,6 +39,10 @@ export interface Settings {
    * touch joystick, the gamepad's right stick). Local only: it depends on the device.
    */
   aimMode: AimMode;
+  /** The manual-aim crosshair's colour (`CROSSHAIR_COLORS`). Local only, like `aimMode`. */
+  crosshairColor: CrosshairColor;
+  /** The crosshair's size, 0.25–3 (lines, gap and outline; not tied to the HUD size). Local. */
+  crosshairScale: number;
   /**
    * The in-run HUD's size: `auto` (it grows with the window, `autoHudScale`) or a fixed scale,
    * 0.75–2. Local only: it depends on the screen. (It replaced `hudScale`, a multiplier of the
@@ -35,8 +54,8 @@ export interface Settings {
 }
 
 /**
- * The fields stored in the server save (its `settings`); `aimMode`, `hudSize` and `language` stay
- * local.
+ * The fields stored in the server save (its `settings`); `aimMode`, `crosshairColor`,
+ * `crosshairScale`, `hudSize` and `language` stay local.
  */
 export const SYNCED_KEYS = [
   'quality',
@@ -61,6 +80,8 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = {
   sfxVolume: 0.7,
   muted: false,
   aimMode: 'auto',
+  crosshairColor: 'magenta',
+  crosshairScale: 1,
   hudSize: 'auto',
   language: 'en',
 };
@@ -87,6 +108,10 @@ export function sanitizeSettings(raw: unknown): Partial<Settings> {
   const sfx = num(r.sfxVolume, 0, 1);
   if (sfx !== undefined) out.sfxVolume = sfx;
   if (r.aimMode === 'auto' || r.aimMode === 'manual') out.aimMode = r.aimMode;
+  // Unknown colours are dropped: the default (magenta) applies.
+  if (isCrosshairColor(r.crosshairColor)) out.crosshairColor = r.crosshairColor;
+  const xhair = num(r.crosshairScale, 0.25, 3);
+  if (xhair !== undefined) out.crosshairScale = xhair;
   if (r.hudSize === 'auto') out.hudSize = 'auto';
   else {
     const hud = num(r.hudSize, 0.75, 2);
