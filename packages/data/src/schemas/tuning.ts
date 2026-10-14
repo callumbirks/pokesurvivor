@@ -44,6 +44,19 @@ export const TuningFileSchema = z.strictObject({
       /** Positive exponent; independent of contact/shot damage and player prestige. */
       p: z.number().positive(),
     }),
+    /** Extra legend HP for coordinated teams larger than two. Starts at hpCurve.m0;
+     * multiply HP by 1 + perPlayerAfterDuo * max(0, players - 2) * progress ** rampPower,
+     * where progress = clamp((minute - hpCurve.m0) / rampMinutes, 0, 1).
+     * The existing early co-op base, solo/duo HP and damage remain unchanged.
+     */
+    coopHp: z.strictObject({
+      /** Extra multiplier per player beyond the first two, once the ramp is complete. */
+      perPlayerAfterDuo: z.number().nonnegative(),
+      /** Run minutes after hpCurve.m0 until the full co-op uplift applies. */
+      rampMinutes: z.number().positive(),
+      /** Eases the onset; a power above one starts with zero added slope. */
+      rampPower: z.number().positive(),
+    }),
     /** Distance from a player a rift opens at (before the placement fallbacks). */
     distance: RangeSchema,
     /** Chance the legendary is shiny (if it has shiny sprites). */

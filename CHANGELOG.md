@@ -11,6 +11,7 @@ PRs: [#59](https://github.com/callumbirks/pokesurvivor/pull/59), [#61](https://g
 ### Changed
 
 - Legendaries are rarer in the gacha: base chance 0.15%, with pity starting at pull 180 and guaranteed by 220. Collect the rest of a region first!
+- Rift legends get tougher after the first few minutes, especially with three or four players.
 
 ### Fixed
 

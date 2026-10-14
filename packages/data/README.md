@@ -91,3 +91,8 @@ Rift legend HP adds a parametric multiplier to its existing time/late-game/co-op
 `m0` in run minutes, growth rate `a`, and exponent `p`; the schema documents and validates
 them. This controls HP only and keeps growing beyond the fitted window. It does not scale
 legend damage or depend on a player's prestige.
+
+`rift.coopHp` adds a late large-team multiplier after `hpCurve.m0`:
+`1 + perPlayerAfterDuo * max(0, players - 2) * clamp((minute - m0) / rampMinutes, 0, 1) ** rampPower`.
+Its named fields control the per-player uplift, ramp duration in minutes, and eased onset.
+The original early co-op base, solo/duo HP, legend damage and prestige behavior stay unchanged.

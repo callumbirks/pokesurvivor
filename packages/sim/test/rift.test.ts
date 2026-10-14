@@ -7,7 +7,7 @@ import { addEnemy, createEnemy, hurtEnemy } from '../src/enemies.js';
 import { createSim, type Sim } from '../src/index.js';
 import { dropPickup } from '../src/pickups.js';
 import { hurtPlayer } from '../src/players.js';
-import { legendHpMultiplier, placeRift, updateRift } from '../src/rift.js';
+import { legendCoopHpMultiplier, legendHpMultiplier, placeRift, updateRift } from '../src/rift.js';
 import { addMove } from '../src/moves.js';
 import { bossAlive } from '../src/runevents.js';
 import { WALL, isFree, terrainAt } from '../src/world.js';
@@ -64,11 +64,24 @@ function killLegend(sim: Sim): void {
   hurtEnemy(sim.ctx, e, e.hp + e.shield + 1, { by: player(sim).id });
 }
 
-it('applies the configured HP formula only after the curve onset', () => {
+it('applies configured time and co-op HP formulas only after the onset', () => {
   const curve = R.hpCurve;
   expect(legendHpMultiplier(curve.m0 - 1, curve)).toBe(1);
   expect(legendHpMultiplier(curve.m0, curve)).toBe(1);
   expect(legendHpMultiplier(curve.m0 + 1, curve)).toBeCloseTo((1 + curve.a) ** curve.p);
+  const coop = R.coopHp;
+  const end = curve.m0 + coop.rampMinutes;
+  expect(legendCoopHpMultiplier(curve.m0, 4, curve.m0, coop)).toBe(1);
+  expect(legendCoopHpMultiplier(end, 2, curve.m0, coop)).toBe(1);
+  expect(legendCoopHpMultiplier(end, 4, curve.m0, coop)).toBeCloseTo(
+    1 + 2 * coop.perPlayerAfterDuo,
+  );
+  expect(legendCoopHpMultiplier(curve.m0 + coop.rampMinutes / 2, 4, curve.m0, coop)).toBeCloseTo(
+    1 + 2 * coop.perPlayerAfterDuo * 0.5 ** coop.rampPower,
+  );
+  expect(legendCoopHpMultiplier(end + coop.rampMinutes, 4, curve.m0, coop)).toBeCloseTo(
+    1 + 2 * coop.perPlayerAfterDuo,
+  );
 });
 
 describe('rift schedule', () => {
