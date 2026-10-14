@@ -16,6 +16,10 @@ PRs: [#48](https://github.com/callumbirks/pokesurvivor/pull/48), [#49](https://g
 
 - Coming back from a rift now heals everyone still standing by 30% of their max HP, as well as reviving the fallen.
 
+### Fixed
+
+- Starting a solo run right after leaving a room no longer gets blocked by the old room.
+
 ## v7 - 2026-10-14
 
 PRs: [#46](https://github.com/callumbirks/pokesurvivor/pull/46)

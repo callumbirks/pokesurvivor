@@ -155,7 +155,7 @@ export class GameServer implements PresenceSource, FriendNotifier {
 
   removeRoom(room: Room, handedOff = false): void {
     this.rooms.delete(room.id);
-    if (!handedOff) this.background(() => this.registry.remove(room.id));
+    if (!handedOff) void this.background(() => this.registry.remove(room.id));
     if (room.game && room.game.phase !== 'ended') this.removeGame(room.game);
     if (this.draining) this.checkDrained();
   }
@@ -657,6 +657,7 @@ export class GameServer implements PresenceSource, FriendNotifier {
         else if (reserved)
           throw new GameError('room_pending', 'That room is still on the previous server');
       }
+      const completion: { release?: Promise<void> } = {};
       const mutateLobby = () =>
         this.exclusive(async () => {
           const room = this.roomOf.get(session.userId);
@@ -665,13 +666,16 @@ export class GameServer implements PresenceSource, FriendNotifier {
             (this.draining && (!room || room.phase === 'lobby' || room.phase === 'loading'))
           )
             throw new GameError('server_draining', 'Your room is moving to the new server');
-          return this.handleRequest(session, m);
+          return this.handleRequest(session, m, completion);
         });
       // Existing running-game intents/leave/kick stay independent of registry I/O.
       const data =
         current?.phase === 'running' && m.type !== 'room.join' && m.type !== 'room.create'
-          ? await this.handleRequest(session, m)
+          ? await this.handleRequest(session, m, completion)
           : await mutateLobby();
+      // Room.leave updates memory synchronously and queues its fenced DB release. Await
+      // that release outside exclusive(): awaiting it inside would wait on ourselves.
+      await completion.release;
       session.send({
         type: 'reply',
         rid: m.rid,
@@ -707,6 +711,7 @@ export class GameServer implements PresenceSource, FriendNotifier {
   private async handleRequest(
     session: Session,
     m: ClientMessage & { rid: number },
+    completion: { release?: Promise<void> },
   ): Promise<unknown> {
     const { userId, username } = session;
     switch (m.type) {
@@ -762,7 +767,7 @@ export class GameServer implements PresenceSource, FriendNotifier {
           throw new GameError('no_invite', 'No pending invite to this room');
         if (!(await this.registry.join(userId, room.id, current?.id)))
           throw new GameError('room_pending', 'Your existing room is still on the previous server');
-        current?.leave(userId);
+        void current?.leave(userId);
         room.join(userId, username);
         return room.view();
       }
@@ -773,10 +778,10 @@ export class GameServer implements PresenceSource, FriendNotifier {
         return undefined;
       }
       case 'room.leave':
-        this.roomOf.get(userId)?.leave(userId);
+        completion.release = this.roomOf.get(userId)?.leave(userId);
         return undefined;
       case 'room.kick':
-        this.inRoom(userId).kick(userId, m.userId);
+        completion.release = this.inRoom(userId).kick(userId, m.userId);
         return undefined;
       case 'room.status':
         this.inRoom(userId).setStatus(userId, m.status);
@@ -862,10 +867,10 @@ export class GameServer implements PresenceSource, FriendNotifier {
     return task;
   }
 
-  private background(work: () => Promise<void>): void {
-    void this.exclusive(work).catch((err: unknown) =>
-      this.log.error({ err }, 'room reservation update failed'),
-    );
+  private background(work: () => Promise<void>): Promise<void> {
+    const task = this.exclusive(work);
+    void task.catch((err: unknown) => this.log.error({ err }, 'room reservation update failed'));
+    return task;
   }
 
   async flush(): Promise<void> {
@@ -889,8 +894,8 @@ export class GameServer implements PresenceSource, FriendNotifier {
     }
   }
 
-  memberLeft(roomId: string, userId: string): void {
-    this.background(() => this.registry.leave(userId, roomId));
+  memberLeft(roomId: string, userId: string): Promise<void> {
+    return this.background(() => this.registry.leave(userId, roomId));
   }
 
   private async adoptFor(userId: string): Promise<void> {
@@ -932,7 +937,7 @@ export class GameServer implements PresenceSource, FriendNotifier {
       if (this.draining || this.stopped) return false;
       saved.members = saved.members.filter((m) => !this.roomOf.has(m.userId));
       if (!saved.members.length) {
-        this.background(() => this.registry.remove(id));
+        void this.background(() => this.registry.remove(id));
         return true;
       }
       if (!saved.members.some((m) => m.userId === saved.ownerId))
