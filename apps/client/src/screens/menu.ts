@@ -19,7 +19,6 @@ import {
   typeChip,
   typeColor,
 } from '../app/dom.js';
-import { changelogDate } from './changelog.js';
 
 /** Missions done but not claimed yet. */
 export function rewardsToClaim(save: Save): number {
@@ -39,8 +38,37 @@ const MENU_ICON: Record<string, string> = {
   ranking: 'trophy',
   friends: 'user',
   settings: 'gear',
-  changelog: 'star',
 };
+
+/**
+ * What's new, under the partner's stats: the newest version, and a dot until it has been seen on
+ * this device. It never opens the changelog by itself.
+ */
+function whatsNewButton(app: App): HTMLElement {
+  const changelog = loadChangelog();
+  const latest = latestRelease(changelog);
+  const unseen = hasUnseenRelease(changelog);
+  return h(
+    'button',
+    {
+      class: ['btn', 'small', 'ghost', 'whats-new', unseen && 'unseen'],
+      dataset: { testid: 'menu-changelog' },
+      on: { click: () => app.go('changelog') },
+    },
+    icon('star', 16),
+    ` ${t('changelog.whatsNew')}`,
+    latest ? h('span', { class: 'ver' }, `v${latest.version}`) : null,
+    unseen
+      ? h('span', {
+          class: 'new-dot',
+          role: 'img',
+          'aria-label': t('changelog.newUpdate'),
+          title: t('changelog.newUpdate'),
+          dataset: { testid: 'menu-changelog-dot' },
+        })
+      : null,
+  );
+}
 
 export function menuScreen(app: App): Screen {
   const left = h('div', { class: 'menu-left' });
@@ -62,14 +90,7 @@ export function menuScreen(app: App): Screen {
     go: string,
     label: string,
     sub: string,
-    opts: {
-      play?: boolean;
-      gold?: boolean;
-      disabled?: boolean;
-      /** A dot on the icon: something new to look at. */
-      dot?: string;
-      onClick?: () => void;
-    } = {},
+    opts: { play?: boolean; gold?: boolean; disabled?: boolean; onClick?: () => void } = {},
   ) =>
     h(
       'button',
@@ -79,20 +100,7 @@ export function menuScreen(app: App): Screen {
         dataset: { testid: `menu-${go}` },
         on: { click: opts.onClick ?? (() => app.go(go)) },
       },
-      h(
-        'span',
-        { class: 'mi-ico' },
-        MENU_ICON[go] ? icon(MENU_ICON[go], 26) : null,
-        opts.dot
-          ? h('span', {
-              class: 'new-dot',
-              role: 'img',
-              'aria-label': opts.dot,
-              title: opts.dot,
-              dataset: { testid: `menu-${go}-dot` },
-            })
-          : null,
-      ),
+      h('span', { class: 'mi-ico' }, MENU_ICON[go] ? icon(MENU_ICON[go], 26) : null),
       label,
       h('small', { class: opts.gold ? 'gold' : undefined }, sub),
     );
@@ -180,10 +188,9 @@ export function menuScreen(app: App): Screen {
         ` · ${t('pause.defeated')} `,
         h('b', null, num(s.stats.totalKills)),
       ),
+      whatsNewButton(app),
     );
 
-    const changelog = loadChangelog();
-    const latest = latestRelease(changelog);
     const owned = Object.keys(s.owned).length;
     const shinies = Object.keys(s.shiny).length;
     const total = gameData().pokedex.length;
@@ -228,16 +235,6 @@ export function menuScreen(app: App): Screen {
         online ? t('menu.online', { 0: online }) : t('menu.playInAGroupUp'),
       ),
       item('settings', t('menu.settings'), t('menu.soundGraphicsControlsAndAccount')),
-      // The dot shows until the newest release has been seen on this device; it never opens
-      // the screen by itself.
-      item(
-        'changelog',
-        t('changelog.whatsNew'),
-        latest
-          ? `v${latest.version} · ${changelogDate(latest.date)}`
-          : t('changelog.updatesAndFixes'),
-        { dot: hasUnseenRelease(changelog) ? t('changelog.newUpdate') : undefined },
-      ),
       item('logout', t('menu.logOut'), app.user?.username ?? '', {
         onClick: () => void app.logout(),
       }),
