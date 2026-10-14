@@ -282,3 +282,64 @@ things now owned elsewhere:
   everyone present.
 - Life Orb drains HP per second while attacking instead of per cast (see the data README's
   "Rebalanced after the port").
+
+## Manual rift scaling measurements
+
+`pnpm --filter @pokesurvivor/sim rifts --out=/absolute/path/rifts.jsonl` runs a manual
+measurement matrix, separate from both `test` and `test:slow`. It does **not** change tuning.
+The full matrix is deliberately substantial; use filters for quick experiments:
+
+```sh
+pnpm --filter @pokesurvivor/sim rifts --minutes=2,8,15 --seeds=7,99,2026 --players=1 --meta=half --archetypes=projectile --out=/tmp/rifts.jsonl
+pnpm --filter @pokesurvivor/sim rifts:summary /tmp/rifts.jsonl > /tmp/rifts.csv
+```
+
+Defaults: minutes `2,4,6,8,10,12,15,20`, seeds `7,99,2026`, players `1,2,4`, meta
+`none,half,max`, archetypes `projectile,melee,area`, profiles `natural,weak,typical,strong`.
+Lists use comma-separated values. Meta means every permanent upgrade at zero, floor(max/2),
+or max; half leaves the one-level Repertoire upgrade unbought. No bans or rerolls are used.
+Separate filtered processes can write separate JSONL files, then pass all files to `rifts:summary`.
+
+Natural calibration actually plays to each checkpoint, using the existing `pickFirst` upgrade,
+item and bond policy, with deterministic loot/rift seeking, routes from the sim’s navigation field and local obstacle
+avoidance. Natural bots select the slot with the highest summed damage/cooldown, so learning a
+buff does not leave them unable to kill; Choice Band keeps its normal slot lock. The default
+`--progression=protected` enables invulnerability **only during calibration** so late checkpoints
+exist even for weak bots. Run `--progression=ordinary --calibrate-only` to audit ordinary survival;
+omit `--calibrate-only` to measure surviving ordinary builds too. Protected builds are conditional
+progression fixtures, **not evidence of human survival or a measured human median**. Snapshots retain
+full earned loadouts, levels and rift wins, so their bias can be inspected.
+
+Every arena trial uses damage enabled, a full heal, fresh cooldowns and no temporary overworld
+buffs. `debugStartArena()` rolls a real legendary, arena, weather, boss skills and normal 120 s
+limit at the requested run time. Homogeneous teams repeat Charmander, Bulbasaur or Pikachu.
+The arena bot approaches to the shortest active move's range, strafes and seeks downed teammates;
+it is a reproducible encounter policy, not skilled human play. Previous arena progress is not carried
+into later trials; checkpoints come from the independent natural run.
+
+Synthetic profiles explicitly rebuild legal move/stat cards from the median earned move progression
+at that minute/meta/team/archetype. Their level-up budgets are 65%, 100%, 135% of the median earned
+level minus one. Move plans are Ember/Flamethrower/Fire Spin/Swords Dance, Vine Whip/Quick Attack/
+Tackle/Swords Dance, and Thunder Shock/Discharge/Thunderbolt/Swords Dance; the area profile activates
+Discharge once learned. Typical uses the modal earned item and median previous rift wins for bonds;
+weak has no item and one fewer bond; strong has Choice Band and one extra bond (an optimistic
+previous-rift assumption, including at early checkpoints). Strong spends excess cards on offensive
+stats. These are explicit sensitivity profiles; natural results are the calibration cross-check.
+Each row includes the exact moves, levels, evolutions, slots, item and effective modifiers.
+
+JSONL contains revision/config metadata, earned snapshots, progression survival and raw trials.
+Trial metrics include spawn HP/contact/shot damage, win/nullable TTK, fight duration, damage taken
+(sum of rounded `player-hurt` events, excluding Life Orb drain/weather chip), downs (including repeat
+downs after revives), actual legend HP removed / fight seconds, and sustained single-target dummy
+DPS. Damage and DPS are **team totals**; divide by player count for a per-player average.
+The dummy uses 30 s of real casts at fixed close range, no incoming damage, neutral types, clear
+weather and no terrain obstacles. Its collision radius and reference max HP match the rolled legend
+(the latter preserves HP-relative poison damage), while a large current HP prevents overkill.
+It measures potential DPS; arena DPS includes approach, dodging, type/weather effects, boss skills,
+incidental allies and time spent down. Temporary powers are excluded from both.
+
+The CSV summary keeps each archetype separate and reports seed count, wins, win rate, median and
+min–max winning TTK, damage, spawn HP and dummy DPS. `cappedTtk*` substitutes 120 for losses solely
+as a comparison score; it is **not** a kill time or a survival-analysis estimate. Never use only
+winning TTK to declare a cell easy: consult win rate and downs too. Three seeds expose gross
+sensitivity, not a precise win-probability estimate; increase `--seeds` before choosing final tuning.
