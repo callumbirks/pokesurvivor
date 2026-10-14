@@ -3,7 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import { simData } from '../src/data.js';
 import { createSim } from '../src/index.js';
-import { botStep } from './bots.js';
+import { botInputs, botStep, pickFirst } from './bots.js';
 
 describe('full runs', () => {
   it('4 players, 20 minutes: completes with sane progression', () => {
@@ -19,7 +19,24 @@ describe('full runs', () => {
     const kinds = new Set<string>();
     const runEvents = new Set<string>();
     while (sim.state.time < 20 * 60 && !sim.ended) {
-      botStep(sim);
+      pickFirst(sim);
+      botInputs(sim);
+      // This invulnerable progression fixture deliberately engages bosses. Pure kiting bots
+      // can leave every boss alive indefinitely, suppressing all later run events; a balance
+      // change must not turn those incidental paths into a false regression.
+      const boss = sim.state.enemies.find((e) => e.boss && !e.dead);
+      if (boss) {
+        for (const p of sim.state.players) {
+          const dx = boss.x - p.x;
+          const dy = boss.y - p.y;
+          const distance = Math.hypot(dx, dy);
+          sim.setInput(p.id, {
+            moveX: distance > 20 ? dx / distance : 0,
+            moveY: distance > 20 ? dy / distance : 0,
+          });
+        }
+      }
+      sim.step();
       for (const e of sim.drainEvents()) {
         if (e.type === 'enemy-spawned' && e.boss && !e.legend) bossesSpawned++;
         if (e.type === 'run-event') runEvents.add(e.id);

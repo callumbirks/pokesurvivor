@@ -7,8 +7,10 @@ host browser.
 
 The types are in `packages/protocol` (`messages.ts`, `validate.ts`, `tables.ts`, `wire.ts`). The
 client side is `packages/netclient`, which the browser and the bot tests share. The server is in
-`apps/server/src/game/`. `PROTOCOL_VERSION` is **4**. Version 3 added the enemies' behaviour column, buff stacks in
-`details` and the viewer's `self`. Version 4 added `gameId` to `input` and `intent`.
+`apps/server/src/game/`. `PROTOCOL_VERSION` is **5**. Version 3 added the enemies' behaviour column, buff stacks in
+`details` and the viewer's `self`. Version 4 added `gameId` to `input` and `intent`. Version 5
+adds remaining shield HP as enemy column 14 (index 13), rounded up to whole points. The enemy
+table width changes from 13 to 14, so this is breaking: deploy client and server together.
 
 ## Connection
 
@@ -189,6 +191,8 @@ Values are quantized: positions to ½ unit (players to ⅛), angles to 1/64 rad,
 points, flags as bit sets. Strings such as pickup kinds, move ids and types go through a string
 table per connection: a new string is sent once in the JSON part, then referred to by index. A player's flags include `attacking` (casting,
 until just after its next cast), so clients face it towards its aim (the sim's `facingOf`).
+Enemies carry both the `shielded` flag and remaining `shield` HP. The client draws a blue shield
+amount bar above the HP bar, on the same max-HP scale (a full 30% shield covers 30% of the bar).
 Fields carry their timers as seen by a client: `arm` is the seconds left before a mine arms or a
 meteor lands, and `progress` is 0–1 through the field's life, or for a meteor through its fall
 (below 0 while a staggered one of a volley hasn't started).

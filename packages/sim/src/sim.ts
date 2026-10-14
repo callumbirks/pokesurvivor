@@ -378,5 +378,18 @@ export function createSim(config: SimConfig): Sim {
 
 /** Rebuilds a Sim from a state snapshot (a deep copy of `sim.state`, e.g. through JSON). */
 export function restoreSim(state: SimState): Sim {
+  // Solo saves from before recipient cooldowns were introduced remain resumable. Migrate only
+  // those enemies: current snapshots must restore byte-for-byte for deterministic replay.
+  const tuning = simData().game.tuning.enemyShields;
+  for (const e of [...state.enemies, ...(state.arena?.stash ?? [])]) {
+    if (e.shieldCd !== undefined) continue;
+    e.shieldCd = e.shield > 0 ? tuning.reapplyCooldown : 0;
+    e.shield =
+      !tuning.affectsBosses && (e.boss || e.legend)
+        ? 0
+        : Math.min(e.shield, e.maxHp * tuning.maxHpFraction);
+    e.shieldT = e.shield > 0 ? Math.min(e.shieldT, tuning.duration) : 0;
+    if (e.behavior === 'shielder') e.skillCd = Math.min(e.skillCd, tuning.cooldown);
+  }
   return new Sim(state);
 }

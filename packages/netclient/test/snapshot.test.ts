@@ -1,4 +1,10 @@
-import { createSim, isAttacking, type FieldState, type SimEvent } from '@pokesurvivor/sim';
+import {
+  createSim,
+  isAttacking,
+  playerMoveSpeed,
+  type FieldState,
+  type SimEvent,
+} from '@pokesurvivor/sim';
 import { describe, expect, it } from 'vitest';
 import { SnapshotBuffer, interpolate, interpolateList, maxStep } from '../src/buffer.js';
 import { measureJumps } from './jumps.js';
@@ -72,7 +78,8 @@ describe('snapshots', () => {
     // The viewer's own cooldowns (one per move, 0–1) and its speed for prediction.
     expect(snap!.self?.cooldowns).toHaveLength(me.moves.length);
     for (const c of snap!.self!.cooldowns) expect(c >= 0 && c <= 1).toBe(true);
-    expect(snap!.self?.speed).toBeCloseTo(me.baseSpeed * me.speedMul, -1);
+    // The seeded build can now choose Agility: prediction must include buffs/traps/weather.
+    expect(snap!.self?.speed).toBeCloseTo(playerMoveSpeed(s, me), -1);
     expect(Object.keys(snap!.world.broken ?? {}).sort()).toEqual(
       Object.keys(s.world.broken).sort(),
     );
@@ -103,6 +110,36 @@ describe('snapshots', () => {
       r: local.state.arena!.r,
     });
   });
+
+  it.each(['binary', 'json'] as const)(
+    'carries shield HP in full and delta %s snapshots',
+    (format) => {
+      const local = lateGame(1, 11);
+      const enemy = local.state.enemies[0]!;
+      const me = local.state.players[0]!;
+      enemy.x = me.x + 40;
+      enemy.y = me.y;
+      const enc = new SnapshotEncoder({ viewerId: me.id, format });
+      const dec = new SnapshotDecoder([me.id]);
+      let seq = 0;
+      const next = () => dec.decode(enc.encode(local.state, [], ++seq, 0));
+      enemy.shield = 123.4;
+      expect(next().enemies.find((e) => e.id === enemy.id)).toMatchObject({
+        shielded: true,
+        shield: 124,
+      });
+      enemy.shield = 20.5;
+      expect(next().enemies.find((e) => e.id === enemy.id)).toMatchObject({
+        shielded: true,
+        shield: 21,
+      });
+      enemy.shield = 0;
+      expect(next().enemies.find((e) => e.id === enemy.id)).toMatchObject({
+        shielded: false,
+        shield: 0,
+      });
+    },
+  );
 
   it('list every pending choice, the viewer’s own in full', () => {
     const s = structuredClone(sim.state);

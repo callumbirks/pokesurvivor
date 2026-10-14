@@ -10,7 +10,8 @@
   "scripts": {
     "typecheck": "tsc && tsc -p test",
     "test": "vitest run",
-    "bench": "tsx test/bench.ts"
+    "bench": "tsx test/bench.ts",
+    "shields": "tsx test/measure-shields.ts"
   },
   "dependencies": {
     "@pokesurvivor/data": "workspace:*",

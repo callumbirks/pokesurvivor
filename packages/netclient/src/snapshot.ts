@@ -94,6 +94,8 @@ export interface NetEnemy {
   poisoned: boolean;
   slowed: boolean;
   shielded: boolean;
+  /** Remaining shield HP, on the same scale as hp/maxHp. */
+  shield: number;
   fury: boolean;
   dead: boolean;
   phase: string;
@@ -262,7 +264,7 @@ export interface NetMisc {
 // ------------------------------------------------------------------ tables
 
 const T = { players: 0, enemies: 1, projectiles: 2, pickups: 3, fields: 4, hazards: 5, team: 6 };
-const WIDTHS = [11, 13, 8, 4, 9, 10, 9];
+const WIDTHS = [11, 14, 8, 4, 9, 10, 9];
 
 /**
  * Header: seq, tick, time (ms), ackSeq, flags (full, paused), and the seq of the frame this one
@@ -498,6 +500,7 @@ export class SnapshotEncoder {
       Math.round(e.height),
       e.jump ? Math.round((100 * e.jump.t) / (e.jump.dur || 1)) : 0,
       this.str(e.behavior),
+      Math.ceil(Math.max(0, e.shield)),
     ];
   }
 
@@ -880,6 +883,7 @@ export class SnapshotDecoder {
       height: v[10] ?? 0,
       jump: bit(fl, 10) ? (v[11] ?? 0) / 100 : null,
       behavior: this.s(v[12]) ?? 'chase',
+      shield: v[13] ?? 0,
     };
   }
 
