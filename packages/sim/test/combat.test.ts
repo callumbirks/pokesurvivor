@@ -119,6 +119,25 @@ describe('damage', () => {
     expect(damageTo(sim.drainEvents(), e.id)).toBeGreaterThan(0);
   });
 
+  it('scales only percent-HP poison on bosses and legends by the configured factor', () => {
+    const sim = quietSim();
+    const p = player(sim);
+    giveMove(sim, p, 'swords-dance');
+    for (const kind of ['regular', 'boss', 'legend']) {
+      const e = spawnDummy(sim, p.x + 100, p.y);
+      e.boss = kind === 'boss';
+      e.legend = kind === 'legend';
+      e.poison = 2;
+      e.poisonT = 4;
+    }
+    const enemies = [...sim.state.enemies];
+    steps(sim, 1);
+    for (const e of enemies) {
+      const factor = e.boss || e.legend ? d.game.tuning.poison.bossFactor : 1;
+      expect(e.maxHp - e.hp).toBe(Math.round(e.maxHp * 0.012 * e.poison * factor + 1));
+    }
+  });
+
   it('knocks enemies back (bosses excepted)', () => {
     const sim = quietSim();
     const p = player(sim);

@@ -532,7 +532,8 @@ function updateEnemy(ctx: Ctx, e: EnemyState, pl: PlayerState): void {
     e.poisonTick -= dt;
     if (e.poisonTick <= 0) {
       e.poisonTick = 0.6;
-      hurtEnemy(ctx, e, e.maxHp * 0.012 * e.poison + 1, { type: 'poison' });
+      const factor = e.boss || e.legend ? ctx.d.game.tuning.poison.bossFactor : 1;
+      hurtEnemy(ctx, e, e.maxHp * 0.012 * e.poison * factor + 1, { type: 'poison' });
     }
     if (e.poisonT <= 0) e.poison = 0;
   }

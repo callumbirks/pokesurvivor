@@ -470,6 +470,8 @@ function dummyDps(sim: Sim, cell: Cell, seed: number): number {
   const target = spawnDummy(dummy, a.x, a.y, {}, 1e9);
   target.types = [];
   target.flying = true;
+  // Match a legend's percent-HP status resistance without enabling boss movement/attacks.
+  target.legend = true;
   target.maxHp = referenceHp;
   target.r = referenceRadius;
   a.bossId = target.id;
@@ -660,6 +662,8 @@ function main(): void {
     calibrationPath,
     probeSeconds,
     combat,
+    poisonTuning: createSim({ seed: 1, players: [{ id: 'metadata', dex: 25 }] }).ctx.d.game.tuning
+      .poison,
     riftTuning: createSim({ seed: 1, players: [{ id: 'metadata', dex: 25 }] }).ctx.d.game.tuning
       .rift,
   });

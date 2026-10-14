@@ -91,3 +91,9 @@ Rift legend HP adds a parametric multiplier to its existing time/late-game/co-op
 `m0` in run minutes, growth rate `a`, and exponent `p`; the schema documents and validates
 them. This controls HP only and keeps growing beyond the fitted window. It does not scale
 legend damage or depend on a player's prestige.
+
+`rift.coopHp` adds `1 + perPlayerAfterDuo * max(0, players - 2)` at every run time,
+including the first rift. Solo/duo HP, legend damage and prestige behavior stay unchanged.
+
+`poison.bossFactor` scales only poison's percent-max-HP component against map bosses and
+rift legends. Regular enemies, flat tick damage, stack cap and tick interval stay unchanged.
