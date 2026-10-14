@@ -99,11 +99,21 @@ test('two players: invite, ready, busy blocks the start, then both play', async 
   await pb.getByTestId('pause-settings').click();
   await expect(pb.getByTestId('screen-settings')).toBeVisible();
   const before = await simTime();
+  // B turns on the network stats while there.
+  await pb.getByTestId('set-tab-graphics').click();
+  await pb.getByTestId('set-netStats').click();
+  await expect(pb.getByTestId('set-netStats')).toHaveText('Yes');
   await expect.poll(simTime).toBeGreaterThan(before + 0.5);
   await pb.getByTestId('back').click();
   await expect(pb.getByTestId('screen-settings')).toHaveCount(0);
   await expect(pb.getByTestId('pause')).toHaveCount(0);
   await expect(pb.getByTestId('game-phase')).toHaveText('running');
+  // The network stats show in co-op, with the ping and the snapshot rate measured.
+  const stats = pb.getByTestId('netstats');
+  await expect(stats).toBeVisible();
+  await expect(stats.locator('[data-stat="snapRate"]')).toHaveText(/^\d+(\.\d)?\/s$/);
+  await expect(stats.locator('[data-stat="network"]')).not.toHaveText('…');
+  if (process.env.E2E_SHOTS) await pb.screenshot({ path: `${process.env.E2E_SHOTS}/netstats.png` });
 
   // A (the owner) leaves the game: B is told in the game, once (not also by the shell).
   await pa.keyboard.press('Escape');

@@ -28,7 +28,7 @@ const row = (title: string, sub: string | null, control: Node) =>
     control,
   );
 
-function toggle(key: 'damageNumbers' | 'calmMode' | 'showFps' | 'muted'): HTMLElement {
+function toggle(key: 'damageNumbers' | 'calmMode' | 'showFps' | 'netStats' | 'muted'): HTMLElement {
   const on = settings.get()[key];
   return h(
     'button',
@@ -266,6 +266,7 @@ export function settingsScreen(
           toggle('calmMode'),
         ),
         row(t('settings.showFps'), t('settings.framesPerSecondInThe'), toggle('showFps')),
+        row(t('settings.showNetStats'), t('settings.netStatsHelp'), toggle('netStats')),
         document.fullscreenEnabled
           ? row(
               t('settings.fullscreen'),

@@ -28,6 +28,11 @@ export interface Settings {
   /** Fewer screen shakes and softer flashes. */
   calmMode: boolean;
   showFps: boolean;
+  /**
+   * The in-game network stats (ping, packet timing, corrections, frame times). Local only: it's
+   * about this device's connection and browser.
+   */
+  netStats: boolean;
   /** Touch joystick size (how far the finger drags), 0.5–2. */
   stickScale: number;
   /** 0–1. */
@@ -54,8 +59,8 @@ export interface Settings {
 }
 
 /**
- * The fields stored in the server save (its `settings`); `aimMode`, `crosshairColor`,
- * `crosshairScale`, `hudSize` and `language` stay local.
+ * The fields stored in the server save (its `settings`); `netStats`, `aimMode`,
+ * `crosshairColor`, `crosshairScale`, `hudSize` and `language` stay local.
  */
 export const SYNCED_KEYS = [
   'quality',
@@ -75,6 +80,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = {
   damageNumbers: true,
   calmMode: false,
   showFps: false,
+  netStats: false,
   stickScale: 1,
   musicVolume: 0.55,
   sfxVolume: 0.7,
@@ -97,7 +103,7 @@ export function sanitizeSettings(raw: unknown): Partial<Settings> {
   const out: Partial<Settings> = {};
   if (r.quality === 'auto' || r.quality === 'high' || r.quality === 'medium' || r.quality === 'low')
     out.quality = r.quality;
-  for (const key of ['damageNumbers', 'calmMode', 'showFps', 'muted'] as const)
+  for (const key of ['damageNumbers', 'calmMode', 'showFps', 'netStats', 'muted'] as const)
     if (typeof r[key] === 'boolean') out[key] = r[key];
   const num = (v: unknown, min: number, max: number) =>
     typeof v === 'number' && Number.isFinite(v) ? Math.min(max, Math.max(min, v)) : undefined;
