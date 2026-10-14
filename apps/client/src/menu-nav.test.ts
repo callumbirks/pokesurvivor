@@ -111,6 +111,30 @@ describe('MenuNav', () => {
     return { root, play, shop, settings, back, nav };
   }
 
+  it('moves with the arrow keys and goes back with Esc, but not in a field or with a scope on top', () => {
+    const { root, nav, back } = menu();
+    let backs = 0;
+    back.addEventListener('click', () => backs++);
+    expect(nav.key('ArrowDown', document.body)).toBe(true);
+    expect(focusedId()).toBe('play');
+    expect(nav.key('ArrowDown', document.activeElement)).toBe(true);
+    expect(focusedId()).toBe('shop');
+    expect(nav.key('KeyA', document.activeElement)).toBe(false);
+    expect(nav.key('Escape', document.activeElement)).toBe(true);
+    expect(backs).toBe(1);
+    // Typing: the field keeps its keys.
+    const field = document.createElement('input');
+    root.append(field);
+    field.focus();
+    expect(nav.key('ArrowDown', field)).toBe(false);
+    expect(nav.key('Escape', field)).toBe(false);
+    // A run or an overlay on top handles its own keys.
+    const pop = nav.push({ root: screen() });
+    expect(nav.key('ArrowDown', document.body)).toBe(false);
+    pop();
+    expect(nav.key('ArrowDown', document.body)).toBe(true);
+  });
+
   it('shows the focus on the first press, then moves it, skipping disabled and hidden controls', () => {
     const { nav, play } = menu();
     expect(nav.press('down')).toBe(true);

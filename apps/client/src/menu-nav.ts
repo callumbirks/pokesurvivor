@@ -3,11 +3,14 @@
 //   menuNav.push({ root, back?, block? }) → pop      a screen or overlay on top (the game pushes
 //                                                  `block` while playing: the pad is its own then)
 //   menuNav.press('down' | … | 'confirm' | 'back')  one step (the pad, or tests)
-//   installMenuNav(base)                            follows the first gamepad every frame
+//   menuNav.key(code, target)                       a key: the arrows move, Esc goes back
+//   installMenuNav(base)                            follows the first gamepad and the keys
 // Directions repeat while held (`NAV_REPEAT_DELAY_MS`, then every `NAV_REPEAT_MS`). Whatever is
 // held when the screen on top changes is ignored until released, so a press or a stick held in
 // one screen can't act in the next (nor gameplay movement in a menu).
 // On a slider, left / right move it a step; on a switch, left turns it off and right on.
+// The keyboard does the same on the screens outside a run (arrows, Esc; Enter and Space press
+// the focused button as usual); a run and its overlays handle their own keys.
 import { onPadFrame, type PadState } from './input-device.js';
 
 export type NavDir = 'up' | 'down' | 'left' | 'right';
@@ -85,6 +88,27 @@ export class KeyRepeater {
     for (const k of this.down) this.latched.add(k);
     this.nextAt.clear();
   }
+}
+
+/** The keys that navigate, by `KeyboardEvent.code`. */
+const KEY_ACTIONS: Readonly<Record<string, NavAction>> = {
+  ArrowUp: 'up',
+  ArrowDown: 'down',
+  ArrowLeft: 'left',
+  ArrowRight: 'right',
+  Escape: 'back',
+};
+
+/** Typing in a field (or moving a slider) keeps the arrows and Esc for itself. */
+function editing(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  if (target instanceof HTMLInputElement)
+    return target.type !== 'checkbox' && target.type !== 'radio';
+  return (
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement ||
+    target.isContentEditable
+  );
 }
 
 const isDir = (k: string): k is NavDir =>
@@ -183,6 +207,16 @@ export class MenuNav {
     const pressed = this.keys.update(p ? padNavKeys(p) : new Set(), now);
     if (this.scope?.block) return;
     for (const k of pressed) this.press(k === 'a' ? 'confirm' : k === 'b' ? 'back' : (k as NavDir));
+  }
+
+  /**
+   * A key press (`KeyboardEvent.code`) on `target`: an arrow or Esc, on the screens outside a
+   * run, outside a text field. Returns whether it did something (the caller prevents the default).
+   */
+  key(code: string, target: EventTarget | null): boolean {
+    const action = KEY_ACTIONS[code];
+    if (!action || this.stack.length || editing(target)) return false;
+    return this.press(action);
   }
 
   /** One step. Returns whether it did something. */
@@ -318,9 +352,13 @@ export const menuNav = new MenuNav(() => document.querySelector<HTMLElement>('#a
 
 let installed = false;
 
-/** Moves the focus with the first gamepad, every frame. Idempotent. */
+/** Moves the focus with the first gamepad, every frame, and with the keys. Idempotent. */
 export function installMenuNav(): void {
   if (installed) return;
   installed = true;
   onPadFrame((pad, now) => menuNav.pad(pad, now));
+  addEventListener('keydown', (e) => {
+    if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return;
+    if (menuNav.key(e.code, e.target)) e.preventDefault();
+  });
 }
