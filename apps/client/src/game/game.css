@@ -460,6 +460,33 @@
   margin-bottom: 12px;
   font-size: 15px;
 }
+.ps-achievements > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.ps-reward + .ps-reward {
+  margin-left: 10px;
+}
+.ps-achievement-rewards {
+  background: rgba(0, 0, 0, 0.22);
+  border-radius: 9px;
+  padding: 8px 10px;
+  margin-bottom: 14px;
+  text-align: left;
+}
+.ps-achievement-rewards > span:first-child {
+  display: block;
+  color: var(--ps-muted);
+  font-size: 12px;
+  text-transform: uppercase;
+}
+.ps-achievement-rewards b {
+  font-size: 22px;
+}
+.ps-achievement-rewards .muted {
+  font-size: 13px;
+}
 .ps-team-results .left {
   opacity: 0.7;
 }

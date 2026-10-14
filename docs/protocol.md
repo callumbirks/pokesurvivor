@@ -289,7 +289,10 @@ fairer than the end-of-run totals they weren't there for, or nothing. If recordi
 retried after 1 s and 5 s, and then `game.results` has `credited: false`.
 
 `game.results` is `{gameId, runId, credited, reason, players: [{userId, username, left, summary:
-{run: RunSummary, player: PlayerSummary}]}`.
+{run: RunSummary, player: PlayerSummary}, achievements?}]}`. `achievements` (absent if the run
+wasn't recorded) lists the achievements the run unlocked for that player, `[{id, reward: {coins?,
+tickets?, tickets10?}, title}]` as in `POST /api/runs`; their rewards were credited on top of the
+run's own coins and tickets. It was added without a version bump: older clients ignore it.
 
 ## Deploys
 

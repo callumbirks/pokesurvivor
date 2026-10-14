@@ -292,7 +292,7 @@ describe('runs', () => {
     const a = await player();
     const b = await player([1]);
     const startedAt = new Date(Date.now() - 900_000);
-    const runId = await recordCoopRun(
+    const { runId, achievements } = await recordCoopRun(
       t.db.db,
       {
         startedAt,
@@ -322,6 +322,22 @@ describe('runs', () => {
       stats: { runs: 1, groupRuns: 1, bestGroupTimeS: 900, bestTimeS: 900, bestLevel: 40 },
     });
     expect(saveA.achievements).toHaveProperty('group-1');
+    // Each player's unlocks come back with what they credited, for their results screen.
+    const unlockedA = achievements.get(a.userId) ?? [];
+    expect(unlockedA.map((u) => u.id).sort()).toEqual(
+      [
+        'defeat-1k',
+        'group-1',
+        'level-15',
+        'level-30',
+        'own-1',
+        'survive-10',
+        'survive-15',
+        'survive-5',
+      ].sort(),
+    );
+    expect(unlockedA.find((u) => u.id === 'own-1')?.reward).toEqual({ coins: 100 });
+    expect(achievements.get(b.userId)?.some((u) => u.id === 'group-1')).toBe(true);
     expect((await b.get('/api/save')).json()).toMatchObject({ coins: 500 + 600 + 100 + 200 });
     const ledger = await t.db.db
       .select()
