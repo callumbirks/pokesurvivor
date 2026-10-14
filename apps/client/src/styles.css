@@ -1191,6 +1191,30 @@ img.pix {
   min-width: 0;
   min-height: 0;
 }
+/* When the screen is short, the window's list scrolls and the rest (tabs, the actions row
+   at the bottom) stays in view: the window and its body are columns in which only the lists
+   shrink. */
+.page-col > .box,
+.page-col > .box > .box-body {
+  display: flex;
+  flex-direction: column;
+}
+.page-col > .box > *,
+.page-col > .box > .box-body > * {
+  flex-shrink: 0;
+}
+.page-col > .box > .box-body,
+.page-col .box .grid,
+.page-col .box .answers,
+.page-col .box .rk-list,
+.page-col .box .fr-list,
+.page-col .box .goals-body,
+.page-col .box .set-body,
+.page-col .box .cl-list {
+  flex-shrink: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
 /* Opened from a run's pause menu: the game shows through, darker. */
 .scr.page.over-game {
   background: rgba(20, 16, 18, 0.6);
