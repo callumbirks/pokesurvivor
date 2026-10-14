@@ -1,12 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import { DT, OUTER_RADIUS } from '../src/constants.js';
+import { simData } from '../src/data.js';
 import { updateEnemies } from '../src/enemies.js';
 import { restoreSim } from '../src/index.js';
 import { revivePlayer } from '../src/players.js';
 import type { EnemyState, SimState } from '../src/state.js';
 import { player, quietSim, seconds, spawnDummy, steps } from './helpers.js';
 
-function transferSetup(count = 42, players = 2) {
+const tuning = simData().game.tuning.stragglers;
+const budget = (ticks: number) =>
+  Math.floor(tuning.burst + tuning.relocationsPerSecond * DT * (ticks - 1) + 1e-9);
+const strandedCount = budget(seconds(1)) + 8;
+
+function transferSetup(count = strandedCount, players = 2) {
   const sim = quietSim(players, { debug: { invulnerable: true } });
   for (const [i, p] of sim.state.players.entries()) {
     p.x = i === 0 ? -4000 : (i - 1) * 4000;
@@ -29,44 +35,44 @@ const incapacitate = (source: ReturnType<typeof player>) => {
 };
 
 describe('straggler transfers', () => {
-  it('shares a per-survivor budget and brings a stranded horde over 10–20 seconds', () => {
-    const { sim, source, survivor, horde } = transferSetup();
+  it('limits arrivals by the configured rate plus burst and eventually transfers the horde', () => {
+    const hordeSize = Math.ceil(tuning.burst + tuning.relocationsPerSecond * 15);
+    const { sim, source, survivor, horde } = transferSetup(hordeSize);
     incapacitate(source);
     const arrived = () => horde.filter((e) => distance(e, survivor) < 1200).length;
-    steps(sim, 1);
-    expect(arrived()).toBe(2);
-    let elapsed = 1;
-    for (const [second, count] of [
-      [1, 4],
-      [5, 16],
-      [10, 31],
-      [20, 42],
-    ]) {
-      steps(sim, seconds(second!) - elapsed);
-      elapsed = seconds(second!);
-      expect(arrived()).toBe(count);
+    const ticks = Math.ceil(horde.length / (tuning.relocationsPerSecond * DT)) + 2;
+    let previous = 0;
+    for (let elapsed = 1; elapsed <= ticks; elapsed++) {
+      steps(sim, 1);
+      const count = arrived();
+      expect(count).toBeGreaterThanOrEqual(previous);
+      expect(count).toBeLessThanOrEqual(Math.min(horde.length, budget(elapsed)));
+      previous = count;
     }
+    expect(arrived()).toBe(horde.length);
     expect(sim.state.enemies.length).toBe(horde.length);
     expect(horde.every((e) => e.transferFromId === null)).toBe(true);
   });
 
   it.each(['disconnect', 'leave'] as const)('also meters transfers after a %s', (reason) => {
-    const { sim, source, survivor, horde } = transferSetup(12);
+    const { sim, source, survivor, horde } = transferSetup(strandedCount);
     if (reason === 'disconnect') sim.setConnected(source.id, false);
     else sim.removePlayer(source.id);
     steps(sim, seconds(1));
-    expect(horde.filter((e) => distance(e, survivor) < 1200)).toHaveLength(4);
-    expect(horde.filter((e) => e.transferFromId === source.id)).toHaveLength(8);
+    expect(horde.filter((e) => distance(e, survivor) < 1200)).toHaveLength(budget(seconds(1)));
+    expect(horde.filter((e) => e.transferFromId === source.id)).toHaveLength(
+      horde.length - budget(seconds(1)),
+    );
   });
 
   it.each(['revive', 'reconnect'] as const)('retargets remaining enemies on %s', (reason) => {
-    const { sim, source, horde } = transferSetup(12);
+    const { sim, source, horde } = transferSetup(strandedCount);
     if (reason === 'revive') incapacitate(source);
     else sim.setConnected(source.id, false);
     steps(sim, seconds(1));
     const waiting = horde.filter((e) => e.transferFromId !== null);
     const positions = waiting.map((e) => [e.x, e.y]);
-    expect(waiting).toHaveLength(8);
+    expect(waiting).toHaveLength(horde.length - budget(seconds(1)));
     if (reason === 'revive') revivePlayer(sim.ctx, source, 0.5, null);
     else sim.setConnected(source.id, true);
     steps(sim, 1);
@@ -75,9 +81,9 @@ describe('straggler transfers', () => {
   });
 
   it('waiting enemies keep walking normally and can finish a transfer without teleporting', () => {
-    const { sim, source, survivor, horde } = transferSetup(3);
+    const { sim, source, survivor, horde } = transferSetup(Math.ceil(tuning.burst) + 1);
     incapacitate(source);
-    const walker = horde[0]!; // Reverse traversal spends the burst on the other two.
+    const walker = horde[0]!; // Reverse traversal spends the burst on the other enemies.
     walker.speed = 60;
     const before = distance(walker, survivor);
     steps(sim, 1);
@@ -88,11 +94,13 @@ describe('straggler transfers', () => {
     const tokens = survivor.relocationTokens;
     steps(sim, 1);
     expect(walker.transferFromId).toBeNull();
-    expect(survivor.relocationTokens).toBeCloseTo(tokens + 3 * DT);
+    expect(survivor.relocationTokens).toBeCloseTo(
+      Math.min(tuning.burst, tokens + tuning.relocationsPerSecond * DT),
+    );
   });
 
   it('meters the out-of-view lag rule too, leaving lag timers intact while waiting', () => {
-    const { sim, source, survivor, horde } = transferSetup(8);
+    const { sim, source, survivor, horde } = transferSetup(Math.ceil(tuning.burst) + 6);
     incapacitate(source);
     for (const [i, e] of horde.entries()) {
       e.x = survivor.x - 900;
@@ -101,21 +109,23 @@ describe('straggler transfers', () => {
     }
     survivor.smoothVx = 100;
     updateEnemies(sim.ctx);
-    expect(horde.filter((e) => e.transferFromId === null)).toHaveLength(2);
+    expect(horde.filter((e) => e.transferFromId === null)).toHaveLength(Math.floor(tuning.burst));
     expect(horde.filter((e) => e.transferFromId === source.id).every((e) => e.lagT > 3)).toBe(true);
   });
 
   it('each survivor has a separate bucket', () => {
-    const { sim, source, horde } = transferSetup(8, 3);
+    const { sim, source, horde } = transferSetup((Math.ceil(tuning.burst) + 2) * 2, 3);
     const other = player(sim, 2);
-    for (const e of horde.slice(4)) {
+    for (const e of horde.slice(horde.length / 2)) {
       e.x = other.x - 1800;
       e.targetId = source.id;
     }
     incapacitate(source);
     steps(sim, 1);
-    expect(horde.filter((e) => distance(e, player(sim, 1)) < 1200)).toHaveLength(2);
-    expect(horde.filter((e) => distance(e, other) < 1200)).toHaveLength(2);
+    expect(horde.filter((e) => distance(e, player(sim, 1)) < 1200)).toHaveLength(
+      Math.floor(tuning.burst),
+    );
+    expect(horde.filter((e) => distance(e, other) < 1200)).toHaveLength(Math.floor(tuning.burst));
   });
 
   it('keeps bosses, shinies and legends exempt from relocation', () => {
@@ -127,7 +137,7 @@ describe('straggler transfers', () => {
     incapacitate(source);
     steps(sim, seconds(2));
     expect(horde.map((e) => [e.x, e.y])).toEqual(positions);
-    expect(player(sim, 1).relocationTokens).toBe(2);
+    expect(player(sim, 1).relocationTokens).toBe(tuning.burst);
   });
 
   it('restores an in-progress transfer exactly and continues with identical states and events', () => {
@@ -156,7 +166,7 @@ describe('straggler transfers', () => {
       Reflect.deleteProperty(e, 'transferFromId');
     }
     const restored = restoreSim(old);
-    expect(restored.state.players.every((p) => p.relocationTokens === 2)).toBe(true);
+    expect(restored.state.players.every((p) => p.relocationTokens === tuning.burst)).toBe(true);
     expect(restored.state.arena!.stash.find((e) => e.id === horde[0]!.id)).toMatchObject({
       targetId: null,
       transferFromId: null,

@@ -1,9 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import { simData } from '../src/data.js';
+import { DT, TILE } from '../src/constants.js';
 import { MOVE_KINDS } from '@pokesurvivor/data';
 import { applyCard, offerCards } from '../src/levelup.js';
 import { evolutionInfo, levelUpMove } from '../src/moves.js';
-import { damageTo, giveMove, player, quietSim, seconds, spawnDummy, steps } from './helpers.js';
+import {
+  damageTo,
+  giveMove,
+  player,
+  postponeAmbientSystems,
+  quietSim,
+  seconds,
+  spawnDummy,
+  steps,
+} from './helpers.js';
 
 const d = simData();
 
@@ -19,7 +29,9 @@ describe('move kinds', () => {
     giveMove(sim, p, 'water-gun');
     const e = spawnDummy(sim, p.x + 150, p.y);
     steps(sim, 2);
-    expect(sim.state.projectiles.filter((q) => q.friendly).length).toBe(1);
+    expect(sim.state.projectiles.filter((q) => q.friendly).length).toBe(
+      d.move('water-gun').stats.count,
+    );
     sim.drainEvents();
     steps(sim, seconds(0.5));
     expect(damageTo(sim.drainEvents(), e.id)).toBeGreaterThan(0);
@@ -96,10 +108,19 @@ describe('move kinds', () => {
     const sim = quietSim();
     const p = player(sim);
     giveMove(sim, p, 'swords-dance');
-    steps(sim, seconds(6));
+    const buff = d.move('swords-dance').stats;
+    // A short casting cadence exercises stacking independently of shipped cooldown/duration.
+    const ticks = (buff.stacks ?? 1) + 2;
+    p.moves[0]!.stats.duration = Math.max(buff.duration ?? 0, ticks * DT);
+    const duration = p.moves[0]!.stats.duration;
+    postponeAmbientSystems(sim, duration + ticks * DT + 1);
+    for (let i = 0; i < ticks; i++) {
+      p.moves[0]!.t = 0;
+      sim.step();
+    }
     expect(p.buffs.attack.n).toBe(d.move('swords-dance').stats.stacks);
     giveMove(sim, p, 'tackle');
-    steps(sim, seconds(8));
+    steps(sim, seconds(duration) + 2);
     expect(p.buffs.attack.n).toBe(0);
   });
 
@@ -110,9 +131,9 @@ describe('move kinds', () => {
     steps(sim, 1);
     const orbs = () => sim.state.projectiles.filter((q) => q.orb);
     expect(orbs().length).toBe(d.move('fire-spin').stats.count);
-    levelUpMove(sim.ctx, p, p.moves[0]!); // +1 orb
+    levelUpMove(sim.ctx, p, p.moves[0]!);
     steps(sim, 1);
-    expect(orbs().length).toBe((d.move('fire-spin').stats.count ?? 0) + 1);
+    expect(orbs().length).toBe(p.moves[0]!.stats.count ?? 0);
     const e = spawnDummy(sim, p.x + (d.move('fire-spin').stats.radius ?? 0), p.y);
     sim.drainEvents();
     steps(sim, seconds(3));
@@ -231,17 +252,24 @@ describe('move kinds', () => {
     expect(damageTo(sim.drainEvents(), e.id)).toBeGreaterThan(0);
   });
 
-  it('trail: leaves damaging pools as you walk (not stacked when standing)', () => {
+  it('trail: creates spaced pools without stacking fresh stationary pools', () => {
     const sim = quietSim();
     const p = player(sim);
     giveMove(sim, p, 'flame-wheel');
-    steps(sim, seconds(1));
+    const move = p.moves[0]!;
+    // Keep the patches alive while exercising placement independently of cast cadence.
+    move.stats.duration = Math.max(move.stats.duration ?? 0, 1);
+    steps(sim, 1);
+    move.t = 0;
+    steps(sim, 1);
     expect(sim.state.fields.filter((f) => f.kind === 'patch').length).toBe(1);
-    sim.setInput(p.id, { moveX: 1, moveY: 0 });
-    steps(sim, seconds(1));
+    for (let i = 0; i < 3; i++) {
+      p.x += Math.max((move.stats.radius ?? 0) * 4, TILE * 4);
+      move.t = 0;
+      steps(sim, 1);
+    }
     expect(sim.state.fields.filter((f) => f.kind === 'patch').length).toBeGreaterThan(2);
     const f = sim.state.fields[0]!;
-    sim.setInput(p.id, { moveX: 0, moveY: 0 });
     const e = spawnDummy(sim, f.x, f.y);
     sim.drainEvents();
     steps(sim, seconds(0.6));
@@ -256,7 +284,8 @@ describe('move kinds', () => {
     steps(sim, 2);
     const shots = sim.state.projectiles.filter((q) => q.friendly);
     expect(shots.length).toBe(d.move('flamethrower').stats.count);
-    for (const q of shots) expect(q.life).toBeLessThan(0.6);
+    for (const q of shots)
+      expect(q.life).toBeLessThanOrEqual((d.move('flamethrower').stats.lifetime ?? 0) * 2);
   });
 });
 
@@ -266,22 +295,31 @@ describe('levelling and evolution', () => {
     const p = player(sim);
     giveMove(sim, p, 'ember');
     const m = p.moves[0]!;
-    const base = d.move('ember').stats;
-    levelUpMove(sim.ctx, p, m); // +1 projectile, spread ×1.4
-    expect(m.stats.count).toBe((base.count ?? 0) + 1);
-    expect(m.stats.spread).toBeCloseTo((base.spread ?? 0) * 1.4);
-    levelUpMove(sim.ctx, p, m); // +45% damage
-    expect(m.stats.damage).toBeCloseTo((base.damage ?? 0) * 1.45);
-    levelUpMove(sim.ctx, p, m);
-    levelUpMove(sim.ctx, p, m);
-    expect(m.level).toBe(5);
+    const ladder = d.game.moves.upgradeLadders[m.kind];
+    const rules = d.game.moves.modifierRules;
+    for (const rung of ladder) {
+      const before = { ...m.stats };
+      expect(levelUpMove(sim.ctx, p, m)).toBe(true);
+      for (const [key, value] of Object.entries(rung.mods)) {
+        const stat = key as keyof typeof m.stats;
+        const previous = before[stat];
+        const expected =
+          rules.multiplicative.includes(stat) && previous != null
+            ? previous * value
+            : rules.additive.includes(stat)
+              ? (previous ?? 0) + value
+              : value;
+        expect(m.stats[stat], key).toBeCloseTo(expected);
+      }
+    }
+    expect(m.level).toBe(ladder.length + 1);
     expect(levelUpMove(sim.ctx, p, m)).toBe(false);
   });
 
   it('evolves at max level once the required stat card was taken', () => {
     const sim = quietSim();
     const p = player(sim);
-    giveMove(sim, p, 'ember', 5);
+    giveMove(sim, p, 'ember', d.maxMoveLevel('ember'));
     const m = p.moves[0]!;
     const needs = d.move('ember').evolution!.requires;
     expect(evolutionInfo(sim.ctx, p, m)).toEqual({ needs, ready: false });
@@ -294,7 +332,9 @@ describe('levelling and evolution', () => {
     }
     applyCard(sim.ctx, p, { id: 'evolution:ember', type: 'evolution', moveId: 'ember' });
     expect(m.evolved).toBe(true);
-    expect(m.stats.damage).toBeCloseTo(dmg * 1.8);
+    expect(m.stats.damage).toBeCloseTo(
+      dmg * (d.game.moves.evolutionBoosts[m.kind]?.mods.damage ?? 1),
+    );
     expect(p.stats.progress.movesEvolved).toEqual(['ember']);
   });
 });

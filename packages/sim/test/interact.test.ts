@@ -36,7 +36,7 @@ describe('interactables', () => {
     standAt(sim, a, altar.x, altar.y + altar.r + a.r + 4);
     sim.step();
     expect(a.power?.id).toBe(W.altarPowers[0]!.id);
-    expect(a.attackMul).toBeCloseTo(before * 2);
+    expect(a.attackMul).toBeCloseTo(before * W.altarPowers[0]!.effect.value);
     expect(sim.state.world.altarsUsed[altar.key]).toBe(1);
     // Used up: the teammate gets nothing.
     standAt(sim, b, altar.x, altar.y + altar.r + b.r + 4);

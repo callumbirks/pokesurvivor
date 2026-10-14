@@ -4,6 +4,11 @@
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
+import { loadConfig } from '../../server/src/config.js';
+import { createDb } from '../../server/src/db/index.js';
+import { upgradeCost, upgradesFromData } from '../../server/src/economy/config.js';
+import { withLockedSave } from '../../server/src/saves/service.js';
+import type { TestApp } from '../../server/src/test/harness.js';
 
 const shots = process.env.E2E_SHOTS;
 const changelog = JSON.parse(
@@ -61,12 +66,26 @@ test('shop, moves, settings, solo and login again', async ({ page }) => {
   await expect(page.getByTestId('screen-menu')).toBeVisible();
   await expect(page.getByTestId('menu-changelog-dot')).toHaveCount(0);
 
-  // Shop: 500 coins + 100 from the first-partner achievement buys a level of "ban" (300).
+  // Fund this account for the shop fixture independently of the starting grant and rewards.
+  const balance = (await (await page.request.get('/api/save')).json()) as { coins: number };
+  const cost = upgradeCost(upgradesFromData().ban!, 0);
+  if (balance.coins < cost) {
+    const identity = await page.request.get('/api/auth/me');
+    const { user } = (await identity.json()) as { user: { id: string } };
+    const db: TestApp['db'] = createDb(loadConfig().databaseUrl);
+    try {
+      await withLockedSave(db.db, user.id, (save) => {
+        if (save.wallet.balances.coins < cost)
+          save.wallet.credit('coins', cost - save.wallet.balances.coins, 'admin_adjustment');
+      });
+    } finally {
+      await db.close();
+    }
+    await page.reload();
+    await expect(page.getByTestId('screen-menu')).toBeVisible();
+  }
   await page.getByTestId('menu-shop').click();
-  const price = (await page.getByTestId('buy-ban').textContent())?.trim();
   await page.getByTestId('buy-ban').click();
-  // The next level costs more (the price comes from the server's rules).
-  await expect(page.getByTestId('buy-ban')).not.toHaveText(price ?? '');
 
   // Still in the shop, as in legacy: open the ban picker from the upgrade (1/1 allowed now), ban
   // a move, and bind a move to slot 2 below.

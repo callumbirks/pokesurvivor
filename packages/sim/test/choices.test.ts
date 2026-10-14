@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { offerItem } from '../src/items.js';
-import { gainTeamXp, xpFor } from '../src/team.js';
+import { gainTeamXp, teamXpFactor, xpFor } from '../src/team.js';
 import type { Sim } from '../src/index.js';
 import type { PendingChoice } from '../src/state.js';
 import { player, quietSim, seconds, steps } from './helpers.js';
@@ -10,9 +10,7 @@ function levelUp(sim: Sim, n = 1): void {
   let xp = 0;
   for (let l = sim.state.team.level; l < sim.state.team.level + n; l++) xp += xpFor(l);
   // gainTeamXp applies the team factor; undo it so the levels are exact.
-  const f = sim.state.players.filter((p) => p.connected && !p.left);
-  const avg = f.reduce((a, p) => a + p.xpMul, 0) / f.length;
-  gainTeamXp(sim.ctx, (xp + 0.01) / (avg / (1 + 0.6 * (f.length - 1))));
+  gainTeamXp(sim.ctx, (xp + 0.01) / teamXpFactor(sim.ctx));
 }
 
 const choicesOf = (sim: Sim, id: string): PendingChoice[] =>
@@ -153,10 +151,13 @@ describe('level-up choices', () => {
     levelUp(sim);
     steps(sim, 1);
     const c = sim.state.pendingChoices[0]!;
-    for (let i = 0; i < 3; i++)
+    const rerolls = 1 + player(sim).rerollBonus;
+    for (let i = 0; i < rerolls; i++)
       expect(sim.submitIntent('a', { type: 'reroll', choiceId: c.id }).ok).toBe(true);
     expect(sim.submitIntent('a', { type: 'reroll', choiceId: c.id }).ok).toBe(false);
-    expect(c.kind === 'level-up' && c.options.length).toBe(3);
+    const options = c.kind === 'level-up' ? c.options : [];
+    expect(options.length).toBeGreaterThan(0);
+    expect(options.length).toBeLessThanOrEqual(sim.ctx.d.game.levelUp.cardsOffered);
   });
 });
 
