@@ -4,6 +4,8 @@ import { eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { getServerData } from '../data.js';
 import { currencyLedger, runs } from '../db/schema.js';
+import { testRunCaps } from '../test/caps.js';
+import { expectedAchievements } from '../test/rewards.js';
 import { recordCoopRun } from '../runs/service.js';
 import type { MissionSet, MissionState } from '../saves/schema.js';
 import type { SaveView } from '../saves/service.js';
@@ -65,7 +67,7 @@ const mission = (id: string, goal: number, param: string | null = null): Mission
 describe('missions', () => {
   let t: TestApp;
   beforeAll(async () => {
-    t = await createTestApp();
+    t = await createTestApp({ economy: { runCaps: testRunCaps } });
   });
   afterAll(() => t.close());
 
@@ -270,20 +272,27 @@ describe('missions', () => {
     expect(save.owned[16]).toMatchObject({ from: 'rescue' });
     expect(save.legendsBeaten).toHaveProperty('144');
     expect(save.itemsFound).toHaveProperty('leftovers');
-    expect(Object.keys(save.achievements).sort()).toEqual(
-      [
-        'own-1',
-        'survive-5',
-        'survive-10',
-        'level-15',
-        'defeat-1k',
-        'boss-1',
-        'rift-1',
-        'group-1',
-        'defeat-articuno',
-      ].sort(),
+    const expected = expectedAchievements(
+      {
+        'pokemon-owned': 2,
+        'best-time-minutes': 10,
+        'best-level': 20,
+        runs: 1,
+        'total-defeated': 1200,
+        'bosses-defeated': 3,
+        'rift-wins': 1,
+        'arenas-won': 1,
+        'legendaries-defeated': 1,
+        'distinct-items-found': 1,
+        'group-runs': 1,
+      },
+      [144],
     );
-    // rift-1 also unlocks the "Brave" title.
+    expect(Object.keys(save.achievements).sort()).toEqual(expected.map((a) => a.id).sort());
+    // A saved unlock permits its title independently of the run's achievement thresholds.
+    await withLockedSave(t.db.db, c.userId, (save) => {
+      save.data.achievements['rift-1'] = 1;
+    });
     const titled = await c.patch('/api/save/profile', { title: 'rift-1' });
     expect(titled.json()).toMatchObject({ profile: { title: 'rift-1' } });
   });

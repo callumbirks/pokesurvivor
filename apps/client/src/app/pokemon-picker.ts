@@ -97,11 +97,11 @@ export function pokemonPicker(
     dataset: { testid: `${id}-filters` },
   });
   const count = h('span', { class: 'picker-count muted', dataset: { testid: `${id}-count` } });
-  const regions = h('div', { class: 'gen-tabs' });
-  const chips = h('div', { class: 'filters picker-chips' });
-  const types = h('div', { class: 'filters picker-types' });
+  const regions = h('div', { class: 'gen-tabs', dataset: { navRow: '' } });
+  const chips = h('div', { class: 'filters picker-chips', dataset: { navRow: '' } });
+  const types = h('div', { class: 'filters picker-types', dataset: { navRow: '' } });
   const filters = h('div', { class: 'picker-filters' }, regions, chips, types);
-  const grid = h('div', { class: 'grid', dataset: { testid: `${id}-grid` } });
+  const grid = h('div', { class: 'grid', dataset: { testid: `${id}-grid`, navGrid: '' } });
   const info = h('div', { class: 'picker-info' });
   const confirm = h('button', {
     class: ['btn', 'primary', 'wide-btn', opts.confirm.big && 'big-btn'],

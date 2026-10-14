@@ -5,14 +5,15 @@ import { and, eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Db } from '../db/index.js';
 import { currencyLedger, runPlayers, runs } from '../db/schema.js';
-import { DEFAULT_ECONOMY } from '../economy/config.js';
 import { getSave } from '../saves/service.js';
+import { testRunCaps } from '../test/caps.js';
+import { expectedAchievements, rewardTotals } from '../test/rewards.js';
 import { createTestApp, createTestDatabase, grantPokemon, TestClient } from '../test/harness.js';
 import type { TestApp, TestDatabase } from '../test/harness.js';
 import type { RunStats } from './caps.js';
 import { creditTimedOutRuns } from './service.js';
 
-const caps = DEFAULT_ECONOMY.runCaps;
+const caps = testRunCaps;
 const TZ = { timeZone: 'Europe/Madrid' };
 const TIMEOUT_MS = 600_000;
 
@@ -68,7 +69,7 @@ async function runRewards(db: Db, runId: string) {
 describe('solo run checkpoints', () => {
   let t: TestApp;
   beforeAll(async () => {
-    t = await createTestApp();
+    t = await createTestApp({ economy: { runCaps: testRunCaps } });
   });
   afterAll(() => t.close());
 
@@ -96,7 +97,7 @@ describe('solo run checkpoints', () => {
       stats: {
         durationS: 120,
         coins: caps.coinsFlat + 2 * caps.coinsPerMinute,
-        ticketsX1: caps.ticketsX1Flat + 2 * caps.ticketsX1PerMinute,
+        ticketsX1: Math.floor(caps.ticketsX1Flat + 2 * caps.ticketsX1PerMinute),
       },
     });
 
@@ -150,7 +151,16 @@ describe('solo run checkpoints', () => {
 
     const after = await getSave(t.db.db, c.userId);
     expect(await runCoins(t.db, runId)).toBe(70);
-    expect(after.tickets.x1 - before.tickets.x1).toBe(1);
+    const rewards = rewardTotals(
+      expectedAchievements({
+        'pokemon-owned': 1,
+        'best-time-minutes': 3,
+        'best-level': 9,
+        'total-defeated': 120,
+        runs: 1,
+      }),
+    );
+    expect(after.tickets.x1 - before.tickets.x1).toBe(cp.ticketsX1 + rewards.tickets);
     expect(after.stats.runs - before.stats.runs).toBe(1);
     expect(after.stats.bestTimeS).toBeGreaterThanOrEqual(180);
 
@@ -239,7 +249,7 @@ describe('solo run timeout across a server restart', () => {
 
   it('credits runs that timed out while the server was down, from the database', async () => {
     const env = { RUN_CHECKPOINT_TIMEOUT_S: String(TIMEOUT_MS / 1000) };
-    const first = await createTestApp({ database, env });
+    const first = await createTestApp({ database, env, economy: { runCaps: testRunCaps } });
     const c = await player(first);
     const runId = await start(database.db, c, 300);
     const before = await getSave(database.db.db, c.userId);
@@ -248,7 +258,7 @@ describe('solo run timeout across a server restart', () => {
 
     // The server is down past the timeout; nothing is in memory any more.
     await backdate(database.db, runId, 'checkpointAt', TIMEOUT_MS / 1000 + 60);
-    const second = await createTestApp({ database, env });
+    const second = await createTestApp({ database, env, economy: { runCaps: testRunCaps } });
     try {
       // The new instance sweeps once at start.
       await second.app.runSweeper?.sweep();

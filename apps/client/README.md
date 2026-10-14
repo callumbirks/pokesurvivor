@@ -149,7 +149,9 @@ fn)` (spinner on the button, toast on error), loads through `loadInto(el, load, 
   `public/glyphs/`) in the DOM (`inputHint`: keys or glyphs, chosen by CSS) and on the HUD
   (slots, the aim switch, the controls hint). The cursor hides while the pad is in use.
   `menu-nav.ts` moves a focus ring through the screen on top with the d-pad or left stick
-  (repeating), A presses, B goes back, left / right move sliders and switches; the game pushes a
+  (repeating), A presses, B goes back, left / right move sliders and switches. Rows of tabs or chips
+  (`data-nav-row`) move left / right in order and stop at their ends, and grids (`data-nav-grid`)
+  move by row and column, leaving only from their edges; the game pushes a
   blocking scope while playing, and the pause menu, settings and results push their own.
 - **Aiming** (`aim.ts`): auto (the default) or manual, `settings.aimMode` (local to the device),
   switched with T, a gamepad's R3, the HUD's AIM button or the settings. Manual: the mouse aims

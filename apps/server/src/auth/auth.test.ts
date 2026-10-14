@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { DEFAULT_ECONOMY } from '../economy/config.js';
 import { createTestApp, uniqueUsername } from '../test/harness.js';
 import type { TestApp } from '../test/harness.js';
 import { authenticateUpgrade, userFromCookieHeader } from './plugin.js';
@@ -28,13 +29,23 @@ describe('auth', () => {
   it('creates a save with the starting coins recorded in the ledger', async () => {
     const c = await t.newUser();
     const save = await c.get('/api/save');
-    expect(save.json()).toMatchObject({ coins: 500, tickets: { x1: 0, x10: 0 } });
+    const startingCoins = DEFAULT_ECONOMY.startingCoins;
+    expect(save.json()).toMatchObject({ coins: startingCoins, tickets: { x1: 0, x10: 0 } });
     const ledger = await t.db.db.query.currencyLedger.findMany({
       where: (l, { eq }) => eq(l.userId, c.userId),
     });
-    expect(ledger).toMatchObject([
-      { currency: 'coins', delta: 500, balanceAfter: 500, reason: 'starting_grant' },
-    ]);
+    expect(ledger).toMatchObject(
+      startingCoins > 0
+        ? [
+            {
+              currency: 'coins',
+              delta: startingCoins,
+              balanceAfter: startingCoins,
+              reason: 'starting_grant',
+            },
+          ]
+        : [],
+    );
   });
 
   it('rejects usernames that break the rules', async () => {
