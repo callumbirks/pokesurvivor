@@ -581,6 +581,7 @@ export class GameServer implements PresenceSource, FriendNotifier {
             .from(users)
             .where(inArray(users.id, ids))
         : [];
+      if (this.sessions.get(session.userId) !== session) return;
       const byId = new Map(names.map((u) => [u.id, u.username]));
       const now = Date.now();
       session.send({
@@ -592,6 +593,10 @@ export class GameServer implements PresenceSource, FriendNotifier {
     } catch (err) {
       this.log.warn({ err }, 'could not load friends for presence');
     }
+    if (this.sessions.get(session.userId) !== session) return;
+    // Activity/room messages can arrive while friendIds is still loading. The cached
+    // status then predates the recipient list; publish once with the restored friends.
+    this.lastPresence.delete(session.userId);
     this.presenceChanged(session.userId);
   }
 

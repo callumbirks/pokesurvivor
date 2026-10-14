@@ -20,6 +20,7 @@ PRs: [#48](https://github.com/callumbirks/pokesurvivor/pull/48), [#49](https://g
 
 - Upgrades now opens on your current partner after you change it.
 - Starting a solo run right after leaving a room no longer gets blocked by the old room.
+- Friends see your current activity again after you reconnect.
 
 ## v7 - 2026-10-14
 
