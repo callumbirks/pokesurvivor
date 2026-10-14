@@ -8,6 +8,7 @@
 // On short screens (phones in landscape) the filters fold behind a button and the confirm button
 // stays below the details, which scroll.
 import { t, type Pokemon, type UiStringKey } from '@pokesurvivor/data';
+import { menuNav } from '../menu-nav.js';
 import type { App } from './app.js';
 import { gameData, h, pokemonName, replace, typeChip } from './dom.js';
 import {
@@ -136,7 +137,7 @@ export function pokemonPicker(
     const first = grid.querySelector<HTMLElement>('.cell');
     if (!first) return;
     e.preventDefault();
-    first.focus();
+    menuNav.moveTo(first);
   });
   sortBtn.addEventListener('click', () => {
     sort = POKEMON_SORTS[(POKEMON_SORTS.indexOf(sort) + 1) % POKEMON_SORTS.length] ?? 'dex';
@@ -253,7 +254,7 @@ export function pokemonPicker(
               onClick: (e) => {
                 select(p.dex);
                 // A or Enter (not a pointer): on to the confirm button.
-                if (e.detail === 0 && !confirm.disabled) confirm.focus();
+                if (e.detail === 0 && !confirm.disabled) menuNav.moveTo(confirm);
               },
             });
           })

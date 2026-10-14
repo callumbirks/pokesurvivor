@@ -98,6 +98,15 @@ test('solo: search, filter, sort and play with the picked Pokémon', async ({ br
   await expect(page.getByTestId('solo-detail').getByTestId('detail-name')).toHaveText('Charmander');
   await expect(page.getByTestId('solo-count')).toHaveText('6 of 6');
   await shot(page, 'solo-desktop');
+  if (shots) {
+    // A big screen (the menus scale up), and the collection that shares the cells and details.
+    await page.setViewportSize({ width: 1920, height: 1080 });
+    await shot(page, 'solo-1080p');
+    await page.setViewportSize(DESKTOP);
+    await page.goto('/#collection');
+    await shot(page, 'collection');
+    await page.goto('/#solo');
+  }
 
   // Search as you type, by part of the name.
   await page.getByTestId('solo-search').fill('squ');

@@ -4,6 +4,7 @@
 //                                                  `block` while playing: the pad is its own then)
 //   menuNav.press('down' | … | 'confirm' | 'back')  one step (the pad, or tests)
 //   menuNav.key(code, target)                       a key: the arrows move, Esc goes back
+//   menuNav.moveTo(el)                              the screen moves the focus on itself
 //   installMenuNav(base)                            follows the first gamepad and the keys
 // Directions repeat while held (`NAV_REPEAT_DELAY_MS`, then every `NAV_REPEAT_MS`). Whatever is
 // held when the screen on top changes is ignored until released, so a press or a stick held in
@@ -276,6 +277,11 @@ export class MenuNav {
     if (!next) return false;
     this.focus(next);
     return true;
+  }
+
+  /** Moves the focus to `e` (a screen leading on: from a pick to its confirm button). */
+  moveTo(e: HTMLElement): void {
+    this.focus(e);
   }
 
   private changed(): void {

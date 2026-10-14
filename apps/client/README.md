@@ -14,6 +14,7 @@ look (blue Mystery Dungeon boxes, the Pixelify Sans font in `public/fonts/`, OFL
 | `src/app/busy.ts`                                | `BusyStatus`: `busy` in the room while on a busy screen, then the previous status back         |
 | `src/app/toast.ts`                               | Toasts, sticky notices, and `errorText()` (error code → `errors.<code>` in `en.json`)          |
 | `src/app/dom.ts`                                 | `h()`, pixel icons (`icon()`, rarity Poké Balls, `tNodes()`), sprites with `fit`/`feet`        |
+| `src/app/pokemon-picker.ts`                      | The Pokémon picker (solo, the room): search, filters, sort; logic in `pokemon-filter.ts`       |
 | `src/app/slots.ts`                               | The gacha's pixel-art slot machine (port of original `slots.js`)                               |
 | `src/app/backdrop.ts`                            | The living world behind the menus (port of legacy's `Backdrop`)                                |
 | `src/app/game.ts`                                | `mountGame` / `createSoloConnection`: the shell's view of `src/game/`                          |
@@ -68,6 +69,12 @@ fn)` (spinner on the button, toast on error), loads through `loadInto(el, load, 
 - When a game loads (`game.loading`, or `game.start` after a reload) the app opens `#play`,
   which calls `mountGame(el, conn, { onExit })` and shows who has loaded until the deadline.
   Quitting mid-run leaves the room (the server credits what was earned).
+- **Picking a Pokémon** (solo's screen, and the room's "Change Pokémon" on your card) uses one
+  picker: search as you type (names in the player's language, or the dex number), region, type,
+  rarity and shiny filters, and sort by number, name, upgrade levels, rarity or newest. It starts
+  on the partner; the selection follows the focus, A on a cell goes on to the confirm button.
+  Sort and type are buttons, not drop-downs (a gamepad can't open those). Confirming makes the
+  pick the partner (`PUT /api/save/partner`), which the room shows to everyone; not mid-game.
 - **Solo** (`#solo`) is off while in a room: the menu entry and Play are disabled with the
   reason, and the server refuses `POST /api/runs/start` with `409 in_room`. The shell builds the loadout from the save (as the server builds coop
   ones) and calls `createSoloConnection({ loadout, owned, username, api })`, then `mountGame`.
