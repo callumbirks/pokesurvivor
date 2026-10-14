@@ -1,5 +1,5 @@
 import { CloseCode, PROTOCOL_VERSION, encode } from '@pokesurvivor/protocol';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import WebSocket from 'ws';
 import {
   createGameTestServer,
@@ -252,21 +252,50 @@ describe('lobbies', () => {
     await waitFor(() => a.client.friends.get(b.username) === 'online', 'b online for a');
   });
 
-  it('refuses to start a solo run while the player is in a room', async () => {
-    const b = await t.bot();
-    await b.connect();
-    const start = () =>
-      t.app.inject({
-        method: 'POST',
-        url: '/api/runs/start',
-        headers: { cookie: b.cookie },
-        payload: { pokemon: { dex: 25, shiny: false } },
+  it.each([1, 2])(
+    'refuses to start a solo run while the player is in a room, then releases membership before acknowledging leave (%i members)',
+    async (members) => {
+      const bots = await t.party(members);
+      const b = bots[0]!;
+      const roomId = await lobby(bots);
+      const start = () =>
+        t.app.inject({
+          method: 'POST',
+          url: '/api/runs/start',
+          headers: { cookie: b.cookie },
+          payload: { pokemon: { dex: 25, shiny: false } },
+        });
+      const refused = await start();
+      expect(refused.statusCode).toBe(409);
+      expect(refused.json()).toMatchObject({ error: { code: 'in_room' } });
+
+      let release!: () => void;
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
       });
-    await b.client.createRoom();
-    const refused = await start();
-    expect(refused.statusCode).toBe(409);
-    expect(refused.json()).toMatchObject({ error: { code: 'in_room' } });
-    await b.client.leaveRoom();
-    expect((await start()).statusCode).toBe(201);
-  });
+      const remove = t.game.registry.leave.bind(t.game.registry);
+      const blocked = vi.spyOn(t.game.registry, 'leave').mockImplementation(async (...args) => {
+        await gate;
+        await remove(...args);
+      });
+      try {
+        let acknowledged = false;
+        const leftRoom = b.client.next('room', (room) => room === null);
+        const left = b.client.leaveRoom().then(() => {
+          acknowledged = true;
+        });
+        await withTimeout(leftRoom, 2000, 'local leave');
+        expect((await t.game.registry.membership(b.userId))?.id).toBe(roomId);
+        expect(acknowledged).toBe(false);
+        release();
+        await withTimeout(left, 2000, 'durable leave acknowledgement');
+        expect(await t.game.registry.membership(b.userId)).toBeNull();
+        expect((await start()).statusCode).toBe(201);
+      } finally {
+        release();
+        blocked.mockRestore();
+        await t.game.flush();
+      }
+    },
+  );
 });

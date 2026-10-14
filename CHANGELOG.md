@@ -6,7 +6,7 @@ What changed for players in each release, newest first. Generated from
 
 ## Unreleased
 
-PRs: [#48](https://github.com/callumbirks/pokesurvivor/pull/48), [#49](https://github.com/callumbirks/pokesurvivor/pull/49), [#50](https://github.com/callumbirks/pokesurvivor/pull/50)
+PRs: [#48](https://github.com/callumbirks/pokesurvivor/pull/48), [#49](https://github.com/callumbirks/pokesurvivor/pull/49), [#50](https://github.com/callumbirks/pokesurvivor/pull/50), [#53](https://github.com/callumbirks/pokesurvivor/pull/53)
 
 ### New
 
@@ -19,6 +19,8 @@ PRs: [#48](https://github.com/callumbirks/pokesurvivor/pull/48), [#49](https://g
 ### Fixed
 
 - Upgrades now opens on your current partner after you change it.
+- Starting a solo run right after leaving a room no longer gets blocked by the old room.
+- Friends see your current activity again after you reconnect.
 
 ## v7 - 2026-10-14
 
