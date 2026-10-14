@@ -72,6 +72,26 @@ describe('coop games over the network', () => {
     expect(self.id).toBe(a!.userId);
     expect(a!.client.room!.unackedInputs().length).toBeLessThan(30);
     await waitFor(() => a!.client.stats().snapshotsPerSecond > 10, 'snapshot rate');
+    expect(a!.client.stats().inputsPerSecond).toBeGreaterThan(0);
+    for (const b of bots) await b.client.leaveRoom();
+  });
+
+  it('tells the players when the game loop falls behind (the network stats show it)', async () => {
+    const bots = await playing(t, 2);
+    const lags = bots.map((b) => {
+      const got: { late: number; skipped: number; worstMs: number }[] = [];
+      b.client.on('lag', (lag) => got.push(lag));
+      return got;
+    });
+    await bots[0]!.until((s) => s.tick > 10);
+    // Block the event loop for longer than the ticker catches up: it falls behind and skips.
+    const until = performance.now() + 400;
+    while (performance.now() < until);
+    for (const got of lags) {
+      await waitFor(() => got.some((l) => l.skipped > 0), 'server.lag');
+      expect(Math.max(...got.map((l) => l.worstMs))).toBeGreaterThanOrEqual(300);
+      expect(got.reduce((n, l) => n + l.late, 0)).toBeGreaterThan(0);
+    }
     for (const b of bots) await b.client.leaveRoom();
   });
 

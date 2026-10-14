@@ -456,6 +456,64 @@ html[data-input='gamepad'] .ps-card.focus .ds {
   overflow: hidden;
 }
 
+/* ---------- network stats ---------- */
+/* Settings → "Show network stats" or ?netstats: a small window of numbers (netstats-ui.ts). It
+   never takes clicks or taps: the game under it keeps them. */
+.ps-layer > .ps-netstats {
+  pointer-events: none;
+}
+.ps-netstats {
+  position: absolute;
+  top: var(--ns-top, 132px);
+  left: 10px;
+  padding: 1px 6px;
+  border: 9px solid transparent;
+  border-image: var(--frame) 9 fill / 9px / 0 stretch;
+  image-rendering: pixelated;
+  box-shadow: var(--win-shadow);
+  font-size: 12px;
+  line-height: 15px;
+  color: var(--text);
+  opacity: 0.92;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  /* Label, value, detail: every row shares the columns. */
+  display: grid;
+  grid-template-columns: auto auto auto;
+  column-gap: 8px;
+}
+.ps-ns-verdicts {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 10px;
+  margin-bottom: 2px;
+  padding-bottom: 2px;
+  border-bottom: 1px solid var(--rule);
+}
+.ps-ns-verdicts b {
+  font-weight: 400;
+  color: var(--muted);
+}
+.ps-ns-row {
+  display: contents;
+}
+.ps-ns-row .k,
+.ps-ns-row .d {
+  color: var(--muted);
+}
+.ps-netstats [data-tone='good'] {
+  color: var(--green);
+}
+.ps-netstats [data-tone='warn'] {
+  color: var(--gold);
+}
+.ps-netstats [data-tone='bad'] {
+  color: var(--red);
+}
+.ps-netstats .tone[data-tone='idle'] {
+  color: var(--muted);
+}
+
 /* ---------- toasts ---------- */
 /* Small windows down the right: gold ones for achievements. */
 .ps-toasts {
@@ -544,6 +602,13 @@ html[data-input='gamepad'] .ps-card.focus .ds {
 }
 
 @media (max-height: 520px) {
+  /* Phones in landscape: the network stats get smaller. */
+  .ps-netstats {
+    font-size: 10px;
+    line-height: 12px;
+    padding: 0 4px;
+    column-gap: 6px;
+  }
   .ps-box {
     padding: 8px 12px;
   }

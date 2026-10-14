@@ -66,6 +66,8 @@ const RATE_BURST = 120;
 const MAX_DROPPED = 300;
 const MAX_INVALID = 20;
 const HELLO_TIMEOUT_MS = 5000;
+/** `server.lag` goes out at most this often (the lag in between is added up). */
+const LAG_NOTICE_MS = 1000;
 
 interface Connection {
   socket: WebSocket;
@@ -109,6 +111,9 @@ export class GameServer implements PresenceSource, FriendNotifier {
   private readonly maintenance = new Set<Promise<void>>();
   private readonly adoptions = new Set<Promise<void>>();
   private readonly pendingRoomNotices = new Set<string>();
+  /** The game loop's lag since the last `server.lag` (sent to players at most once a second). */
+  private lag = { late: 0, skipped: 0, worstMs: 0 };
+  private lagSentAt = -Infinity;
 
   constructor(private readonly opts: GameServerOptions) {
     this.db = opts.db;
@@ -123,8 +128,11 @@ export class GameServer implements PresenceSource, FriendNotifier {
     this.ticker = new Ticker({
       tickMs: TICK_MS,
       onTick: () => this.tick(),
-      onSkip: (ms) =>
-        this.log.warn({ behindMs: Math.round(ms) }, 'game loop fell behind; skipping'),
+      onLate: (ms) => this.noteLag(false, ms),
+      onSkip: (ms) => {
+        this.log.warn({ behindMs: Math.round(ms) }, 'game loop fell behind; skipping');
+        this.noteLag(true, ms);
+      },
     });
     this.heartbeat = setInterval(() => this.checkHeartbeats(), opts.config.heartbeatMs);
     this.heartbeat.unref();
@@ -199,6 +207,28 @@ export class GameServer implements PresenceSource, FriendNotifier {
         this.games.delete(game);
         game.forceEnd('server-error');
       }
+    }
+    this.flushLag();
+  }
+
+  private noteLag(skipped: boolean, ms: number): void {
+    if (skipped) this.lag.skipped++;
+    else this.lag.late++;
+    this.lag.worstMs = Math.max(this.lag.worstMs, Math.round(ms));
+    this.flushLag();
+  }
+
+  /** Tells the players in running games that the loop fell behind (their network stats show it). */
+  private flushLag(): void {
+    const lag = this.lag;
+    if (!lag.late && !lag.skipped) return;
+    const now = performance.now();
+    if (now - this.lagSentAt < LAG_NOTICE_MS) return;
+    this.lagSentAt = now;
+    this.lag = { late: 0, skipped: 0, worstMs: 0 };
+    for (const game of this.games) {
+      if (game.phase !== 'running') continue;
+      for (const id of game.playerIds) this.sessionOf(id)?.send({ type: 'server.lag', ...lag });
     }
   }
 

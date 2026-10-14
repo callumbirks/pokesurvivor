@@ -400,3 +400,19 @@ describe('prediction follows simulation time, not packet count', () => {
     expect(p.y).toBeCloseTo(20, 8);
   });
 });
+
+describe('prediction corrections (network stats)', () => {
+  it('reports each eased correction in world units, but not a teleport', () => {
+    const h = harness({ upMs: 40, downMs: 40 });
+    h.run(500, { moveX: 0, moveY: 0 });
+    const seen: number[] = [];
+    h.predictor.onCorrection = (units) => seen.push(units);
+    h.me.x += 30;
+    h.run(500, { moveX: 0, moveY: 0 });
+    expect(Math.max(...seen)).toBeCloseTo(30, 0);
+    seen.length = 0;
+    h.me.x += 2000;
+    h.run(200, { moveX: 0, moveY: 0 });
+    expect(seen).toEqual([]);
+  });
+});

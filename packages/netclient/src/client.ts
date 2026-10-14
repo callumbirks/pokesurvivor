@@ -86,6 +86,10 @@ export interface ClientEvents extends Record<string, unknown> {
   snapshot: Snapshot;
   results: Results;
   error: ErrorInfo;
+  /** A round-trip time sample (ms), on each pong. */
+  rtt: number;
+  /** The server's game loop fell behind (`server.lag`; in a running game, at most 1/s). */
+  lag: { late: number; skipped: number; worstMs: number };
 }
 
 export interface NetClientOptions {
@@ -159,6 +163,7 @@ export class NetClient {
   private nextPingId = 1;
   private readonly snapshotRate = new Rate();
   private readonly byteRate = new Rate();
+  private readonly inputRate = new Rate();
 
   constructor(options: NetClientOptions) {
     this.opts = {
@@ -184,13 +189,19 @@ export class NetClient {
     return this.emitter.next(event, filter);
   }
 
-  /** RTT, snapshots per second and bytes per second received. */
-  stats(): { rttMs: number | null; snapshotsPerSecond: number; bytesPerSecond: number } {
+  /** RTT, snapshots and bytes per second received, and inputs per second sent. */
+  stats(): {
+    rttMs: number | null;
+    snapshotsPerSecond: number;
+    bytesPerSecond: number;
+    inputsPerSecond: number;
+  } {
     const now = this.opts.now();
     return {
       rttMs: this.rttMs,
       snapshotsPerSecond: this.snapshotRate.perSecond(now),
       bytesPerSecond: this.byteRate.perSecond(now),
+      inputsPerSecond: this.inputRate.perSecond(now),
     };
   }
 
@@ -425,6 +436,10 @@ export class NetClient {
         return;
       case 'pong':
         this.rttMs = now - m.sentAt;
+        this.emitter.emit('rtt', this.rttMs);
+        return;
+      case 'server.lag':
+        this.emitter.emit('lag', { late: m.late, skipped: m.skipped, worstMs: m.worstMs });
         return;
       case 'reply': {
         const p = this.pending.get(m.rid);
@@ -499,8 +514,11 @@ export class NetClient {
     this.room = new NetRoomConnection(
       this.user.id,
       {
-        send: (message: InputMessage | { type: 'game.loaded' | 'game.resync'; gameId: string }) =>
-          this.sendRaw(message),
+        send: (message: InputMessage | { type: 'game.loaded' | 'game.resync'; gameId: string }) => {
+          const sent = this.sendRaw(message);
+          if (sent && message.type === 'input') this.inputRate.add(this.opts.now());
+          return sent;
+        },
         request: (message: { type: 'intent'; gameId: string; intent: Intent }) =>
           this.request(message),
         now: () => this.opts.now(),
