@@ -6,7 +6,7 @@ What changed for players in each release, newest first. Generated from
 
 ## Unreleased
 
-PRs: [#59](https://github.com/callumbirks/pokesurvivor/pull/59), [#61](https://github.com/callumbirks/pokesurvivor/pull/61), [#62](https://github.com/callumbirks/pokesurvivor/pull/62)
+PRs: [#59](https://github.com/callumbirks/pokesurvivor/pull/59), [#61](https://github.com/callumbirks/pokesurvivor/pull/61), [#62](https://github.com/callumbirks/pokesurvivor/pull/62), [#63](https://github.com/callumbirks/pokesurvivor/pull/63)
 
 ### Changed
 
@@ -16,6 +16,7 @@ PRs: [#59](https://github.com/callumbirks/pokesurvivor/pull/59), [#61](https://g
 
 - Server restarts no longer stall when a player reconnects during shutdown.
 - Moving through the Pokémon screen with a controller or the arrow keys goes where you expect: along the filters and up and down the grid.
+- Co-op movement no longer rubberbands when input updates bunch up, and choice menus use less network traffic.
 
 ## v9 - 2026-10-14
 

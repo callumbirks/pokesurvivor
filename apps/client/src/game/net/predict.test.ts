@@ -19,8 +19,21 @@ function harness(opts: { seed?: number; upMs: number; downMs: number; snapshotEv
   let seq = 0;
   let unacked: PendingInput[] = [];
   const inFlight: { at: number; input: PendingInput }[] = [];
-  const snapshots: { at: number; ack: number; body: ServerBody; speed: number }[] = [];
-  let latest = { ack: 0, body: body(sim), speed: playerMoveSpeed(sim.state, me) };
+  const snapshots: {
+    at: number;
+    ack: number;
+    tick: number;
+    ackedInput: PendingInput | null;
+    body: ServerBody;
+    speed: number;
+  }[] = [];
+  let latest = {
+    ack: 0,
+    tick: 0,
+    ackedInput: null as PendingInput | null,
+    body: body(sim),
+    speed: playerMoveSpeed(sim.state, me),
+  };
   let applied: PendingInput | null = null;
   /** Server position after each input seq it applied (the truth to predict). */
   const truth = new Map<number, { x: number; y: number }>();
@@ -45,6 +58,8 @@ function harness(opts: { seed?: number; upMs: number; downMs: number; snapshotEv
         predictor.update({
           server: latest.body,
           ackSeq: latest.ack,
+          tick: latest.tick,
+          ackedInput: latest.ackedInput,
           unacked,
           speed: latest.speed,
           now: nextInput,
@@ -69,6 +84,8 @@ function harness(opts: { seed?: number; upMs: number; downMs: number; snapshotEv
           snapshots.push({
             at: nextTick + opts.downMs,
             ack,
+            tick: sim.state.tick,
+            ackedInput: applied,
             body: body(sim),
             speed: playerMoveSpeed(sim.state, me),
           });
@@ -82,6 +99,8 @@ function harness(opts: { seed?: number; upMs: number; downMs: number; snapshotEv
       predictor.update({
         server: latest.body,
         ackSeq: latest.ack,
+        tick: latest.tick,
+        ackedInput: latest.ackedInput,
         unacked,
         speed: latest.speed,
         now,
@@ -158,7 +177,9 @@ describe('client-side prediction', () => {
     h.run(500, { moveX: 0, moveY: 0 });
     const t = h.latestTruth();
     expect(Math.hypot(t.x - h.predictor.x, t.y - h.predictor.y)).toBeLessThan(0.5);
-    expect(h.maxError()).toBeLessThan(0.5);
+    // Arrival timing locates an input within one server tick; a turn near a collision can
+    // disagree by that step until the next snapshot. It must stay within a two-tick move.
+    expect(h.maxError()).toBeLessThan((2 * playerMoveSpeed(h.sim.state, h.me) * TICK_MS) / 1000);
     expect(Math.hypot(h.me.x, h.me.y)).toBeGreaterThan(200);
   });
 
@@ -186,9 +207,27 @@ describe('client-side prediction', () => {
     const p = new Predictor(view, 12, ['electric']);
     const server = { x: 10, y: 20, vx: 0, vy: 0, inLiquid: false };
     const unacked = [{ seq: 1, moveX: 1, moveY: 0, sentAt: 0 }];
-    p.update({ server, ackSeq: 0, unacked, speed: 110, now: 100, active: false });
+    p.update({
+      server,
+      ackSeq: 0,
+      tick: 0,
+      ackedInput: null,
+      unacked,
+      speed: 110,
+      now: 100,
+      active: false,
+    });
     expect([p.x, p.y]).toEqual([10, 20]);
-    p.update({ server, ackSeq: 0, unacked, speed: 110, now: 200, active: true });
+    p.update({
+      server,
+      ackSeq: 0,
+      tick: 0,
+      ackedInput: null,
+      unacked,
+      speed: 110,
+      now: 200,
+      active: true,
+    });
     expect(p.x).toBeGreaterThan(10);
   });
 });
@@ -209,17 +248,155 @@ describe('prediction guard', () => {
       let now = 0;
       for (let i = 1; i <= 75; i++, now += TICK_MS) {
         unacked.push({ seq: i, moveX: 1, moveY: 0, sentAt: now });
-        predictor.update({ server, ackSeq: 0, unacked, speed, now, active: true });
+        predictor.update({
+          server,
+          ackSeq: 0,
+          tick: 0,
+          ackedInput: null,
+          unacked,
+          speed,
+          now,
+          active: true,
+        });
         if (now < 900) expect(predictor.fallback).toBe(false);
       }
       expect(predictor.fallback).toBe(true);
       expect(predictor.x).toBe(server.x);
       expect(warnings).toHaveLength(1);
       // Inputs get applied again: prediction resumes.
-      predictor.update({ server, ackSeq: 75, unacked: [], speed, now, active: true });
+      predictor.update({
+        server,
+        ackSeq: 75,
+        tick: 75,
+        ackedInput: unacked.at(-1)!,
+        unacked: [],
+        speed,
+        now,
+        active: true,
+      });
       expect(predictor.fallback).toBe(false);
     } finally {
       console.warn = warn;
     }
+  });
+});
+
+describe('prediction follows simulation time, not packet count', () => {
+  const world = {
+    move(
+      b: { x: number; y: number; walking: boolean; moveAngle: number },
+      x: number,
+      y: number,
+      speed: number,
+    ) {
+      b.x += (x * speed * TICK_MS) / 1000;
+      b.y += (y * speed * TICK_MS) / 1000;
+      b.walking = x !== 0 || y !== 0;
+      b.moveAngle = Math.atan2(y, x);
+    },
+  };
+  const server = (x: number) => ({ x, y: 0, vx: 300, vy: 0, inLiquid: false });
+  const input = (seq: number, sentAt: number) => ({ seq, sentAt, moveX: 1, moveY: 0 });
+
+  it('bounds stalled replay to 30 ticks and discards that speculation on reconnect reset', () => {
+    let moves = 0;
+    const p = new Predictor(
+      {
+        move: (...args) => {
+          moves++;
+          world.move(...args);
+        },
+      },
+      12,
+      [],
+    );
+    const ackedInput = input(1, 0);
+    const stalled = {
+      server: server(10),
+      tick: 1,
+      ackSeq: 1,
+      ackedInput,
+      unacked: [],
+      speed: 300,
+      active: true,
+    };
+    p.update({ ...stalled, now: 5000 });
+    expect(moves).toBe(30);
+    const capped = p.x;
+    moves = 0;
+    p.update({ ...stalled, now: 5100 });
+    expect(moves).toBe(30);
+    expect(p.x).toBe(capped);
+    // Run.resumed() resets the predictor while NetRoomConnection clears its input history;
+    // the reconnect's full authoritative frame must be the new baseline immediately.
+    p.reset();
+    moves = 0;
+    p.update({
+      ...stalled,
+      server: server(500),
+      tick: 200,
+      ackSeq: 0,
+      ackedInput: null,
+      now: 6000,
+    });
+    expect(moves).toBe(0);
+    expect(p.x).toBe(500);
+    expect(p.offX).toBe(0);
+    expect(p.fallback).toBe(false);
+  });
+
+  it('moves identically with one keepalive or many coalesced inputs', () => {
+    const sparse = new Predictor(world, 12, []);
+    const dense = new Predictor(world, 12, []);
+    const ackedInput = input(1, 0);
+    const base = { server: server(10), tick: 1, ackSeq: 1, ackedInput, speed: 300, active: true };
+    for (let now = TICK_MS; now < 200; now += 5) {
+      sparse.update({ ...base, now, unacked: [] });
+      dense.update({
+        ...base,
+        now,
+        unacked: Array.from({ length: Math.floor(now / 5) }, (_, i) => input(i + 2, (i + 1) * 5)),
+      });
+      expect(sparse.x).toBeCloseTo(dense.x, 8);
+      expect(sparse.x).toBeCloseTo(now * 0.3, 8);
+    }
+  });
+
+  it('accepts repeated acks and skipped input sequences without phantom corrections', () => {
+    const p = new Predictor(world, 12, []);
+    for (let tick = 1; tick <= 10; tick++) {
+      const ackedInput = tick < 7 ? input(1, 0) : input(9, 200);
+      const pending = tick < 7 ? Array.from({ length: 8 }, (_, i) => input(i + 2, 200)) : [];
+      const now = (tick + 3.5) * TICK_MS;
+      p.update({
+        server: server(tick * 10),
+        tick,
+        ackSeq: ackedInput.seq,
+        ackedInput,
+        unacked: pending,
+        speed: 300,
+        now,
+        active: true,
+      });
+      expect(p.x).toBeCloseTo(now * 0.3, 8);
+      expect(p.offX).toBeCloseTo(0, 8);
+    }
+  });
+
+  it('uses the latest direction at a tick boundary and holds it between messages', () => {
+    const p = new Predictor(world, 12, []);
+    const ackedInput = input(1, 0);
+    p.update({
+      server: server(10),
+      tick: 1,
+      ackSeq: 1,
+      ackedInput,
+      unacked: [{ ...input(2, TICK_MS), moveX: 0, moveY: 1 }],
+      speed: 300,
+      now: 3 * TICK_MS,
+      active: true,
+    });
+    expect(p.x).toBeCloseTo(10, 8);
+    expect(p.y).toBeCloseTo(20, 8);
   });
 });

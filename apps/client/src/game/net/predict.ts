@@ -1,12 +1,10 @@
 // Client-side prediction and reconciliation for the player's own Pokémon (movement only; the
 // server decides everything else). Each frame:
 //
-//   1. Reconcile: start from where the server last saw us (`serverSelf`, at the snapshot's tick,
-//      with every input up to `ackedInputSeq` applied) and replay the inputs it hasn't applied
-//      yet, one tick each, with the sim's own movement code (`WorldView.move`: same speed, liquids,
-//      ice and collisions as the server).
-//   2. The newest input is being applied during the current tick, so the position is blended
-//      between before and after it by how far into that tick we are: smooth at any frame rate.
+//   1. Reconcile from the server snapshot and replay held movement on the server's tick grid.
+//      Input timestamps select which movement is held; packet counts never determine elapsed
+//      simulation time (the server may apply a packet for several ticks or coalesce several).
+//   2. Blend the final predicted tick for smooth movement at any frame rate.
 //   3. When a new snapshot changes the answer (the server disagreed: knockback, a trap, a dash, a
 //      dropped input), the difference becomes an offset that decays over ~0.1 s instead of a
 //      visible snap. Big jumps (teleports to and from the arena) snap at once.
@@ -40,6 +38,10 @@ export interface PredictionFrame {
   server: ServerBody;
   /** The last input seq the server applied (`server` is the state after it). */
   ackSeq: number;
+  /** Snapshot simulation tick (also advances during choices). */
+  tick: number;
+  /** Latest acknowledged movement, which the server holds until changed. */
+  ackedInput: PendingInput | null;
   /** Inputs sent but not yet applied by the server, oldest first. */
   unacked: readonly PendingInput[];
   /** Speed before liquids (the snapshot's `self.speed`). */
@@ -99,9 +101,12 @@ export class Predictor {
   /** The correction still being eased out (drawn − predicted). */
   offX = 0;
   offY = 0;
-  /** Predicted position after each input seq, as of the previous frame. */
+  /** Predicted position after each simulation tick, as of the previous frame. */
   private prev: Map<number, { x: number; y: number }> | null = null;
   private lastNow = 0;
+  /** Local start time of server tick 1, estimated from the freshest input acknowledgements. */
+  private clockOffset: number | null = null;
+  private clockAck = -1;
   /** When the prediction last started disagreeing with the server (null: it agrees). */
   private divergedSince: number | null = null;
   /** Showing the server position until the prediction agrees again. */
@@ -116,6 +121,8 @@ export class Predictor {
   /** Forget the history (a new run, or a resume). */
   reset(): void {
     this.prev = null;
+    this.clockOffset = null;
+    this.clockAck = -1;
     this.offX = this.offY = 0;
     this.divergedSince = null;
     this.fallback = false;
@@ -123,12 +130,35 @@ export class Predictor {
 
   update(f: PredictionFrame): void {
     const s = f.server;
-    const inputs = f.active ? f.unacked : [];
+    // An ack says this input was held by this tick, not that it consumed one tick. The
+    // freshest sample gives the least-delayed clock estimate; late packets mustn't move the
+    // prediction clock backwards. Repeated acks (including sparse keepalives) don't resample it.
+    if (f.ackedInput && f.ackedInput.seq !== this.clockAck) {
+      const sample = f.ackedInput.sentAt - (f.tick - 1) * TICK_MS;
+      this.clockOffset = this.clockAck < 0 ? sample : Math.max(this.clockOffset ?? sample, sample);
+      this.clockAck = f.ackedInput.seq;
+    }
+    if (this.clockOffset === null && f.unacked[0])
+      this.clockOffset = f.unacked[0].sentAt - f.tick * TICK_MS;
+    const offset = this.clockOffset ?? f.now - f.tick * TICK_MS;
+    // Bound work during a stalled connection. The guard below handles persistent divergence.
+    const target = f.active
+      ? Math.max(f.tick, Math.min(f.tick + 30, (f.now - offset) / TICK_MS))
+      : f.tick;
+    const after = new Map<number, { x: number; y: number }>([[f.tick, { x: s.x, y: s.y }]]);
+    let held = f.ackedInput;
+    let cursor = 0;
+    const inputs: PendingInput[] = [];
+    for (let tick = f.tick + 1; tick <= Math.ceil(target); tick++) {
+      const startsAt = offset + (tick - 1) * TICK_MS;
+      while (f.unacked[cursor] && f.unacked[cursor]!.sentAt <= startsAt + 0.001)
+        held = f.unacked[cursor++]!;
+      inputs.push(held ?? { seq: 0, moveX: 0, moveY: 0, sentAt: startsAt });
+    }
     const steps = replay(this.world, s, inputs, f.speed, this.r, this.types);
-    const after = new Map<number, { x: number; y: number }>([[f.ackSeq, { x: s.x, y: s.y }]]);
-    steps.forEach((b, i) => after.set(inputs[i]!.seq, { x: b.x, y: b.y }));
+    steps.forEach((b, i) => after.set(f.tick + i + 1, { x: b.x, y: b.y }));
 
-    // A correction: the newest input both this frame and the last one predicted, landing
+    // A correction: the newest simulation tick both this frame and the last one predicted, landing
     // somewhere else now. The difference is eased out instead of jumping.
     const dt = this.prev ? Math.max(0, Math.min(0.25, (f.now - this.lastNow) / 1000)) : 0;
     if (this.prev) {
@@ -155,13 +185,13 @@ export class Predictor {
     const last = steps[steps.length - 1];
     if (last) {
       const before = steps.length > 1 ? steps[steps.length - 2]! : s;
-      const newest = inputs[inputs.length - 1]!;
-      const k = Math.max(0, Math.min(1, (f.now - newest.sentAt) / TICK_MS));
+      const k = target - Math.ceil(target) + 1;
       x = before.x + (last.x - before.x) * k;
       y = before.y + (last.y - before.y) * k;
       walking = last.walking;
       if (walking) this.moveAngle = last.moveAngle;
     }
+    if (!f.active) this.offX = this.offY = 0;
     this.x = x + this.offX;
     this.y = y + this.offY;
     this.walking = walking;

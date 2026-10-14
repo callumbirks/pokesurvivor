@@ -810,6 +810,8 @@ class Run {
       this.predictor.update({
         server: serverSelf,
         ackSeq: conn.ackedInputSeq,
+        ackedInput: conn.ackedInput,
+        tick: latest.tick,
         unacked: conn.unackedInputs(),
         speed: latest.self?.speed ?? 0,
         now,
