@@ -375,3 +375,10 @@ and every group's damage-equivalent duration. It never changes tuning or asserts
 arena deadline, with player damage disabled. These isolate offensive kill duration from bot survival
 and are never mixed into the ordinary trial win rate. The default remains `--combat=ordinary`.
 Use the sustained damage probe for fitting; protected offense fights are a phase/uptime cross-check.
+
+For the smoother, safety-biased refit, add `--objective=gentle --smooth-max=1.6 --max-seconds=75`.
+It caps the first minute's HP multiplier and every minute/team reference duration, requires `p >= 1`,
+and minimizes squared log error to the target plus extra penalties below 30 s (weight 0.5) and
+above 60 s (weight 8). It searches the growth rate and solves the convex exponent objective by
+bisection, then rechecks the constraints after rounding. `--objective=log` retains the original
+symmetric fit. These constraints and measured balance numbers are manual-only, outside CI.
