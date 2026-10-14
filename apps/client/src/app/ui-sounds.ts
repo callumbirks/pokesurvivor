@@ -5,7 +5,7 @@
 import { audio, type SfxName } from '../audio.js';
 
 const CLICKABLE =
-  '.btn, .menu-item, .tab, .chip, .gen-tab, .cell:not(.locked), .answer, button.pill';
+  '.btn, .cursor-item, .tab, .chip, .gen-tab, .cell:not(.locked), .answer, button.tb-cell';
 
 /** The sound for a click on `el` (null: none). */
 export function clickSound(el: Element): SfxName | null {

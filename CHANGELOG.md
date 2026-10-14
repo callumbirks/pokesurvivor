@@ -6,6 +6,17 @@ What changed for players in each release, newest first. Generated from
 
 ## Unreleased
 
+PRs: [#41](https://github.com/callumbirks/pokesurvivor/pull/41)
+
+### New
+
+- The arrow keys move through the menus and Esc goes back, like a gamepad's D-pad and B.
+
+### Changed
+
+- A new look for the main menu and gacha: pixel windows, and your partner talks you through the menu.
+- Controller button prompts are twice as big and easier to read, in the menus and in runs.
+
 ## v5 - 2026-10-14
 
 PRs: [#32](https://github.com/callumbirks/pokesurvivor/pull/32), [#33](https://github.com/callumbirks/pokesurvivor/pull/33), [#34](https://github.com/callumbirks/pokesurvivor/pull/34), [#35](https://github.com/callumbirks/pokesurvivor/pull/35), [#36](https://github.com/callumbirks/pokesurvivor/pull/36), [#37](https://github.com/callumbirks/pokesurvivor/pull/37), [#38](https://github.com/callumbirks/pokesurvivor/pull/38)

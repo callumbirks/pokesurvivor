@@ -262,3 +262,77 @@ function paint(el: HTMLElement): void {
   // Durations are in 1/60 s ticks (SpriteCollab AnimData).
   el.style.setProperty('--dur', `${anim.durations.reduce((a, b) => a + b, 0) / 60}s`);
 }
+
+// ---------------------------------------------------------------- cursor lists
+
+/**
+ * A cursor list (`.cursor-list` of `.cursor-item` buttons): one item is selected, drawn as a
+ * light bar with the pixel cursor. Pointing at an item focuses and selects it, and the keyboard
+ * or gamepad focus selects what it lands on, so the mouse, keys and pad share one selection.
+ * Items are told apart by `data-testid`, so the selection survives re-rendering the items.
+ */
+export class CursorList {
+  private key: string | null = null;
+
+  /**
+   * `onSelect` hears each new selection. `navDefault`: the gamepad's first press lands on the
+   * selected item (`data-nav-default`).
+   */
+  constructor(
+    readonly el: HTMLElement,
+    private readonly opts: { onSelect?: (item: HTMLElement) => void; navDefault?: boolean } = {},
+  ) {
+    el.classList.add('cursor-list');
+    el.addEventListener('pointerover', (e) => {
+      if (e.pointerType !== 'mouse') return;
+      const item = this.itemAt(e.target);
+      if (!item || item === this.selected) return;
+      item.focus({ preventScroll: true });
+      this.select(item);
+    });
+    el.addEventListener('focusin', (e) => {
+      const item = this.itemAt(e.target);
+      if (item) this.select(item);
+    });
+  }
+
+  get selected(): HTMLElement | null {
+    return this.items().find((i) => i.classList.contains('on')) ?? null;
+  }
+
+  /** Selects `item` (null: none). */
+  select(item: HTMLElement | null): void {
+    for (const i of this.items()) {
+      const on = i === item;
+      i.classList.toggle('on', on);
+      if (this.opts.navDefault) i.toggleAttribute('data-nav-default', on);
+    }
+    const key = item?.dataset.testid ?? null;
+    const changed = key !== this.key;
+    this.key = key;
+    if (item && changed) this.opts.onSelect?.(item);
+  }
+
+  /**
+   * After the items were rebuilt: selects the same item as before if it is still enabled, else
+   * `fallback`, and tells `onSelect` again (its text may have changed with the items).
+   */
+  refresh(fallback: HTMLElement | null = null): void {
+    const same = this.items().find((i) => i.dataset.testid === this.key && !this.disabled(i));
+    this.key = null;
+    this.select(same ?? fallback);
+  }
+
+  private items(): HTMLElement[] {
+    return [...this.el.querySelectorAll<HTMLElement>('.cursor-item')];
+  }
+
+  private disabled(item: HTMLElement): boolean {
+    return item.matches(':disabled');
+  }
+
+  private itemAt(target: EventTarget | null): HTMLElement | null {
+    const item = target instanceof Element ? target.closest<HTMLElement>('.cursor-item') : null;
+    return item && this.el.contains(item) && !this.disabled(item) ? item : null;
+  }
+}

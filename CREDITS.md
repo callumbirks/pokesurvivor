@@ -133,6 +133,14 @@ The gamepad button icons (`apps/client/public/glyphs/gamepad.png`) are tiles fro
 `apps/client/public/glyphs/LICENSE-kenney.txt`). Some PlayStation glyphs are two of the pack's
 tiles layered.
 
+## Music and sound
+
+The music (`packages/data/json/music.json`) and the sound effects are original compositions
+from the upstream [PokéSurvivor](https://github.com/JPTER78/pokesurvivor) by JPTER78, used
+under the MIT licence (Copyright (c) 2026 JPTER78; its licence covers the code and the music
+in `js/data/music.js`). Nothing is recorded: the songs and effects are synthesized at runtime
+with Web Audio (`apps/client/src/audio.ts`).
+
 ## Datos
 
 Stats base y nombres en español: [PokeAPI](https://pokeapi.co/),

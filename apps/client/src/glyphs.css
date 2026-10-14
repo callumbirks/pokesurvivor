@@ -1,6 +1,8 @@
 /* Controller glyphs (glyphs.ts) and what follows the active input device (input-device.ts). */
+/* 32 px by default (glyphs.ts `GLYPH_PX`): the 16 px tiles at 2×. Centred on the text's middle,
+   with negative margins so a glyph doesn't make its line taller than the text needs. */
 .glyph {
-  --gs: 16px;
+  --gs: 32px;
   display: inline-block;
   width: var(--gs);
   height: var(--gs);
@@ -9,11 +11,16 @@
   background-size: calc(var(--gs) * 25) var(--gs);
   background-position: calc(var(--gi, 0) * var(--gs) * -1) 0;
   image-rendering: pixelated;
+  margin-block: calc((1.25em - var(--gs)) / 2);
 }
 .glyphs {
   display: inline-flex;
   gap: 2px;
   vertical-align: middle;
+}
+/* Glyphs side by side (`glyphText`), apart like on the HUD. */
+.glyph + .glyph {
+  margin-left: 4px;
 }
 .input-hint kbd + kbd {
   margin-left: 4px;
@@ -106,9 +113,9 @@ html[data-input='gamepad'],
 html[data-input='gamepad'] * {
   cursor: none !important;
 }
-/* The control the gamepad focused (menu-nav.ts). */
+/* The control the gamepad focused (menu-nav.ts): the square gold outline that keyboard focus
+   and mouse hover show too (styles.css; cursor lists show their selection bar instead). */
 html[data-input='gamepad'] .nav-focus {
-  outline: 3px solid #ffd23f;
+  outline: 3px solid #ffd65c;
   outline-offset: 2px;
-  box-shadow: 0 0 0 5px rgba(255, 210, 63, 0.25);
 }

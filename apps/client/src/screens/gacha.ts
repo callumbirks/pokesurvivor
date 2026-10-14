@@ -6,6 +6,7 @@ import { audio } from '../audio.js';
 import type { App, Screen } from '../app/app.js';
 import type { GachaBanner, GachaInfo, PayWith, PullResponse, PullResult } from '../app/api.js';
 import {
+  CursorList,
   gameData,
   boxFor,
   h,
@@ -18,16 +19,47 @@ import {
   tNodes,
 } from '../app/dom.js';
 import { SlotMachine } from '../app/slots.js';
-import { loadInto, screenBox } from './common.js';
+import { backButton, loadInto } from './common.js';
 
 let bannerId: string | null = null;
 
 const pct = (x: number) => `${Number((x * 100).toFixed(2))}%`;
 
+/** Cells in the pity bar (each stands for `hardPity / PITY_CELLS` pulls). */
+const PITY_CELLS = 30;
+
 export function gachaScreen(app: App): Screen {
-  const box = screenBox(app, { id: 'gacha', title: t('gacha.gacha') });
+  const body = h('div', { class: 'gacha-body' });
+  const el = h(
+    'section',
+    { class: 'scr scr-gacha', dataset: { testid: 'screen-gacha' } },
+    h(
+      'header',
+      { class: 'scr-head' },
+      h('h1', { class: 'field-title' }, t('gacha.gacha')),
+      backButton(app),
+    ),
+    body,
+  );
   const overlay = h('div', { class: 'pull-fx hidden', dataset: { testid: 'pull-fx' } });
-  box.el.append(overlay);
+  el.append(overlay);
+  const regions = h('nav', {
+    class: 'win regions',
+    'aria-label': t('gacha.gacha'),
+    dataset: { testid: 'banner-tabs' },
+  });
+  // The banner on show is the selected region: pointing at one, moving the focus onto it or
+  // clicking it shows it.
+  const list = new CursorList(regions, {
+    navDefault: true,
+    onSelect: (item) => {
+      bannerId = item.dataset.banner ?? null;
+      for (const b of regions.children) b.toggleAttribute('aria-current', b === item);
+      render();
+    },
+  });
+  /** The banner, the pulls and the odds (re-rendered without touching the regions' focus). */
+  const main = h('div', { class: 'gacha-main' });
   let info: GachaInfo | null = null;
   let pulling = false;
   let machine: SlotMachine | null = null;
@@ -55,143 +87,145 @@ export function gachaScreen(app: App): Screen {
       label: string,
       price: Node,
       affordable: boolean,
-      gold: boolean,
+      primary: boolean,
       testid: string,
     ) => {
       const b = h(
         'button',
         {
-          class: ['btn', 'grow', gold && 'gold'],
+          class: ['btn', 'pull-btn', primary && 'primary'],
           disabled: !affordable,
           // The pull plays its own sounds (original implementation and slots.js).
           dataset: { testid, sfx: 'none' },
         },
-        `${label} · `,
-        price,
+        label,
+        h('span', { class: 'price' }, '· ', price),
       );
       b.addEventListener('click', () => void pull(banner, count, payWith, b));
       return b;
     };
-    const ticket = (n: number, x10 = false) =>
-      h('span', { class: 'price' }, icon(x10 ? 'ticket10' : 'ticket', 18), ` ${n}`);
+    const ticket = (n: number, x10 = false) => [icon(x10 ? 'ticket10' : 'ticket', 18), ` ${n}`];
 
-    replace(
-      box.body,
-      h(
-        'div',
-        { class: 'gen-tabs', dataset: { testid: 'banner-tabs' } },
-        info.banners.map((b) =>
-          h(
-            'button',
-            {
-              class: ['gen-tab', b.id === banner.id && 'on'],
-              dataset: { testid: `banner-${b.id}` },
-              on: {
-                click: () => {
-                  bannerId = b.id;
-                  render();
-                },
-              },
-            },
-            h('b', null, b.name),
-            h('small', null, t('gacha.gen', { 0: b.gen })),
-          ),
+    // The pity bar: the cells so far, and the soft-pity cells underlined from its first pull.
+    const perCell = info.hardPity / PITY_CELLS;
+    const filled = Math.min(PITY_CELLS, Math.floor(pity / perCell));
+    const softCell = Math.floor((info.softPity.from - 1) / perCell);
+    const cells = h(
+      'div',
+      {
+        class: 'pity-cells',
+        role: 'img',
+        'aria-label': t('app.softPityFrom', { 0: info.softPity.from }),
+        title: t('app.softPityFrom', { 0: info.softPity.from }),
+      },
+      Array.from({ length: PITY_CELLS }, (_, i) =>
+        h(
+          'i',
+          { class: [i < filled && 'f', i >= softCell && 'soft'] },
+          i === softCell ? h('small', null, String(info?.softPity.from)) : null,
         ),
       ),
+    );
+
+    replace(
+      main,
       h(
         'div',
-        { class: 'split' },
+        { class: 'win banner-win' },
         h(
           'div',
-          null,
+          {
+            class: 'banner-art',
+            // Flat bands of the region's colours for a sky, over the dungeon floor.
+            style: {
+              '--sky1': c1,
+              '--sky2': c2,
+              '--sky3': c3,
+            },
+          },
           h(
             'div',
-            {
-              class: 'banner',
-              style: {
-                background: `radial-gradient(circle at 80% 30%, rgba(255,210,63,.3), transparent 45%), radial-gradient(circle at 15% 80%, rgba(196,123,255,.3), transparent 50%), linear-gradient(135deg, ${c1}, ${c2} 55%, ${c3})`,
-              },
-            },
-            h('h3', null, `${banner.name} ${t('gacha.mystery')}`),
+            { class: 'banner-txt' },
+            h('h2', null, `${banner.name} ${t('gacha.mystery')}`),
             h('p', null, t('gacha.thePokemonOfGenerationThe', { 0: poolTotal, 1: banner.gen })),
             h(
               'p',
-              { class: 'sub', style: 'margin:0' },
+              null,
               t('gacha.youHaveOf', { 0: owned, 1: genMons.length }),
               shinies ? [' · ', icon('shiny', 12), ` ${shinies}`] : null,
             ),
-            h(
-              'div',
-              { class: 'feat' },
-              banner.featured.map((dex) =>
-                sprite(dex, {
-                  scale: 2,
-                  lively: true,
-                  // Big legendaries (Eternatus, Rayquaza…) scale down to stay under the text.
-                  fit: boxFor({ width: 210, height: 144 }, { width: 104, height: 86 }),
-                  feet: true,
-                }),
-              ),
-            ),
           ),
           h(
             'div',
-            { class: 'row', style: 'margin-top:14px' },
-            pullButton(
-              1,
-              'tickets',
-              t('gacha.pull'),
-              ticket(cost.single),
-              s.tickets.x1 >= cost.single,
-              false,
-              'pull-1',
+            { class: 'feat' },
+            banner.featured.map((dex) =>
+              sprite(dex, {
+                scale: 2,
+                lively: true,
+                // Big legendaries (Eternatus, Rayquaza…) scale down to stay under the text.
+                fit: boxFor({ width: 190, height: 160 }, { width: 104, height: 86 }),
+                feet: true,
+              }),
             ),
-            pullButton(
-              cost.multiCount,
-              'tickets',
-              t('gacha.pullX10'),
-              ticket(cost.multi),
-              s.tickets.x1 >= cost.multi,
-              true,
-              'pull-10',
-            ),
-            pullButton(
-              cost.multiCount,
-              'tickets10',
-              t('gacha.pullX10'),
-              ticket(cost.multiTickets10, true),
-              s.tickets.x10 >= cost.multiTickets10,
-              true,
-              'pull-10b',
-            ),
-          ),
-          h(
-            'p',
-            { class: 'note tickets-line' },
-            tNodes('app.youHaveTickets', {
-              ticket: icon('ticket', 18),
-              ticket10: icon('ticket10', 18),
-              0: num(s.tickets.x1),
-              1: num(s.tickets.x10),
-            }),
-          ),
-          h(
-            'p',
-            { class: 'note pity', dataset: { testid: 'pity' } },
-            t('gacha.pullsWithoutALegendaryIn', { 0: banner.name, 1: pity, 2: info.hardPity }),
-          ),
-          h(
-            'div',
-            { class: 'pity-bar' },
-            h('i', { style: { width: `${Math.min(100, (pity / info.hardPity) * 100)}%` } }),
-            h('b', {
-              style: { left: `${(info.softPity.from / info.hardPity) * 100}%` },
-              title: t('app.softPityFrom', { 0: info.softPity.from }),
-            }),
           ),
         ),
-        rates(info, banner),
       ),
+      h(
+        'div',
+        { class: 'win pulls-win' },
+        h(
+          'div',
+          { class: 'pull-btns' },
+          pullButton(
+            1,
+            'tickets',
+            t('gacha.pullOne'),
+            h('span', null, ticket(cost.single)),
+            s.tickets.x1 >= cost.single,
+            true,
+            'pull-1',
+          ),
+          pullButton(
+            cost.multiCount,
+            'tickets',
+            t('gacha.pullTen'),
+            h('span', null, ticket(cost.multi)),
+            s.tickets.x1 >= cost.multi,
+            false,
+            'pull-10',
+          ),
+          pullButton(
+            cost.multiCount,
+            'tickets10',
+            t('gacha.pullTen'),
+            h('span', null, ticket(cost.multiTickets10, true)),
+            s.tickets.x10 >= cost.multiTickets10,
+            false,
+            'pull-10b',
+          ),
+        ),
+        h(
+          'p',
+          { class: 'tickets-line' },
+          tNodes('app.youHaveTickets', {
+            ticket: icon('ticket', 18),
+            ticket10: icon('ticket10', 18),
+            0: num(s.tickets.x1),
+            1: num(s.tickets.x10),
+          }),
+        ),
+        h(
+          'p',
+          { class: 'pity', dataset: { testid: 'pity' } },
+          tNodes('gacha.pullsWithoutALegendaryIn', {
+            0: banner.name,
+            1: h('b', null, String(pity)),
+            2: String(info.hardPity),
+          }),
+        ),
+        cells,
+      ),
+      rates(info, banner),
     );
   };
 
@@ -200,33 +234,31 @@ export function gachaScreen(app: App): Screen {
     const minRarity = rarity(g.multiGuaranteeMinRarity)?.name ?? String(g.multiGuaranteeMinRarity);
     return h(
       'div',
-      { class: 'panel rates', dataset: { testid: 'rates' } },
+      { class: 'win odds-win', dataset: { testid: 'rates' } },
       h('h3', null, t('gacha.odds')),
       [...g.rates]
         .reverse()
         .map((r) =>
           h(
             'div',
-            null,
-            h(
-              'span',
-              { style: { color: rarity(r.rarity)?.color ?? '#fff' } },
-              rarityBall(r.rarity, 12),
-              ' ',
-              rarity(r.rarity)?.name ?? '',
-            ),
-            h('span', null, `${pct(r.weight / total)} · ${banner.poolSize[String(r.rarity)] ?? 0}`),
+            { class: 'odds-row', style: { color: rarity(r.rarity)?.color ?? 'inherit' } },
+            rarityBall(r.rarity, 12),
+            h('span', null, rarity(r.rarity)?.name ?? ''),
+            h('span', null, pct(r.weight / total)),
+            h('span', { class: 'c' }, String(banner.poolSize[String(r.rarity)] ?? 0)),
           ),
         ),
       h(
         'div',
-        null,
-        h('span', null, icon('shiny', 12), ` ${t('app.shiny')}`),
+        { class: 'odds-row shiny' },
+        icon('shiny', 12),
+        h('span', null, t('app.shiny')),
         h('span', null, pct(g.shinyRate)),
+        h('span', { class: 'c' }),
       ),
       h(
         'ul',
-        { class: 'note rules' },
+        { class: 'rules' },
         h('li', null, t('app.ruleMulti', { 0: g.cost.multiCount, 1: minRarity })),
         h(
           'li',
@@ -354,19 +386,41 @@ export function gachaScreen(app: App): Screen {
     );
   };
 
+  /** The regions, once: the selection then shows its banner. */
+  const showRegions = (g: GachaInfo) => {
+    replace(
+      regions,
+      g.banners.map((b) =>
+        h(
+          'button',
+          {
+            class: 'cursor-item region',
+            dataset: { testid: `banner-${b.id}`, banner: b.id },
+            on: { click: (e) => list.select(e.currentTarget as HTMLElement) },
+          },
+          h('span', null, b.name),
+          h('small', null, t('gacha.gen', { 0: b.gen })),
+        ),
+      ),
+    );
+    replace(body, regions, main);
+    const current = g.banners.find((b) => b.id === bannerId) ?? g.banners[0];
+    list.select(regions.querySelector<HTMLElement>(`[data-banner="${current?.id}"]`));
+  };
+
   loadInto(
-    box.body,
+    body,
     () => app.gacha(),
     (g) => {
       info = g;
-      render();
+      showRegions(g);
     },
   );
   const off = app.events.on('save', () => {
     if (!pulling) render();
   });
   return {
-    el: box.el,
+    el,
     destroy() {
       off();
       machine?.stop();

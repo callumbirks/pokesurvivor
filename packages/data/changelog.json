@@ -1,9 +1,14 @@
 {
   "unreleased": {
-    "prs": [],
+    "prs": [41],
     "entries": {
-      "new": [],
-      "changed": [],
+      "new": [
+        "The arrow keys move through the menus and Esc goes back, like a gamepad's D-pad and B."
+      ],
+      "changed": [
+        "A new look for the main menu and gacha: pixel windows, and your partner talks you through the menu.",
+        "Controller button prompts are twice as big and easier to read, in the menus and in runs."
+      ],
       "fixed": [],
       "behindTheScenes": []
     }

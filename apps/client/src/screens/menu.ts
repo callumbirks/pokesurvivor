@@ -1,5 +1,7 @@
-// Main menu: the partner on the left, the menu list on the right (original implementation). Above the
-// list, a solo run left unfinished in this browser (closed tab, crash, reload): resume or end it.
+// Main menu, in Mystery Dungeon windows on the living world: the title, the partner's window
+// with What's new under it, the menu list on the right, and the partner in a dialogue box at the
+// bottom explaining the highlighted entry. Above What's new, a solo run left unfinished in this
+// browser (closed tab, crash, reload): resume or end it.
 import { latestRelease, loadChangelog, t } from '@pokesurvivor/data';
 import type { App, Screen } from '../app/app.js';
 import type { Save } from '../app/api.js';
@@ -7,6 +9,7 @@ import type { SavedSoloRun } from '../app/game.js';
 import { endSavedRun, resumeSolo, savedSoloRun } from '../app/solo-runs.js';
 import { hasUnseenRelease } from '../changelog.js';
 import {
+  CursorList,
   gameData,
   h,
   icon,
@@ -19,6 +22,7 @@ import {
   typeChip,
   typeColor,
 } from '../app/dom.js';
+import { keyHints } from './common.js';
 
 /** Missions done but not claimed yet. */
 export function rewardsToClaim(save: Save): number {
@@ -41,8 +45,8 @@ const MENU_ICON: Record<string, string> = {
 };
 
 /**
- * What's new, under the partner's stats: the newest version, and a dot until it has been seen on
- * this device. It never opens the changelog by itself.
+ * What's new, under the partner's window: the newest version, and a dot until it has been seen
+ * on this device. It never opens the changelog by itself.
  */
 function whatsNewButton(app: App): HTMLElement {
   const changelog = loadChangelog();
@@ -51,13 +55,13 @@ function whatsNewButton(app: App): HTMLElement {
   return h(
     'button',
     {
-      class: ['btn', 'small', 'ghost', 'whats-new', unseen && 'unseen'],
-      dataset: { testid: 'menu-changelog' },
+      class: ['win', 'hot', 'whats-new', unseen && 'unseen'],
+      dataset: { testid: 'menu-changelog', talk: 'whatsNew' },
       on: { click: () => app.go('changelog') },
     },
-    icon('star', 16),
-    ` ${t('changelog.whatsNew')}`,
-    latest ? h('span', { class: 'ver' }, `v${latest.version}`) : null,
+    icon('star', 20),
+    t('changelog.whatsNew'),
+    latest ? ` · v${latest.version}` : null,
     unseen
       ? h('span', {
           class: 'new-dot',
@@ -71,38 +75,84 @@ function whatsNewButton(app: App): HTMLElement {
 }
 
 export function menuScreen(app: App): Screen {
-  const left = h('div', { class: 'menu-left' });
-  const list = h('nav', { class: 'menu-list' });
-  const savedBox = h('div', { class: 'box saved-run hidden', dataset: { testid: 'saved-run' } });
-  const right = h(
+  const partnerWin = h('section', { class: 'win partner-win' });
+  const savedBox = h('div', {
+    class: 'win saved-run hidden',
+    dataset: { testid: 'saved-run', talk: 'savedRun' },
+  });
+  const whatsNew = h('div', { class: 'whats-new-slot' });
+  const nav = h('nav', { class: 'win menu-win', 'aria-label': t('menu.menu') });
+  const portrait = h('div', { class: 'portrait' });
+  const who = h('div', { class: 'who' });
+  const say = h('p', { class: 'say', 'aria-live': 'polite' });
+  const talkBox = h(
     'div',
-    { class: 'menu-right' },
-    h('div', null, savedBox, h('div', { class: 'box' }, list)),
+    { class: 'win talk talk-box', dataset: { testid: 'menu-talk' } },
+    portrait,
+    h('div', null, who, say),
+    h('span', { class: 'more' }),
   );
   const el = h(
     'section',
     { class: 'scr scr-menu', dataset: { testid: 'screen-menu' } },
-    left,
-    right,
+    h(
+      'header',
+      { class: 'menu-title' },
+      h('h1', { class: 'field-title' }, 'PokéSurvivor'),
+      h('p', null, t('login.mysteryDungeon')),
+    ),
+    h('div', { class: 'menu-left' }, partnerWin, savedBox, whatsNew),
+    nav,
+    talkBox,
+    keyHints([
+      [['Enter'], ['a'], t('menu.choose')],
+      [['↑', '↓'], ['dpadV'], t('menu.move')],
+    ]),
   );
+
+  /** The partner's line for each entry (`data-talk`), filled in on every render. */
+  let lines: Record<string, string> = {};
+  const speak = (key: string | undefined) => {
+    say.textContent = (key && lines[key]) || lines.solo || '';
+  };
+  const list = new CursorList(nav, {
+    navDefault: true,
+    onSelect: (item) => speak(item.dataset.talk),
+  });
+  // What's new, the saved run and the partner explain themselves too.
+  const talkAbout = (e: Event) => {
+    const target =
+      e.target instanceof Element ? e.target.closest<HTMLElement>('[data-talk]') : null;
+    if (target && !target.classList.contains('cursor-item')) speak(target.dataset.talk);
+  };
+  el.addEventListener('pointerover', talkAbout);
+  el.addEventListener('focusin', talkAbout);
 
   const item = (
     go: string,
     label: string,
-    sub: string,
-    opts: { play?: boolean; gold?: boolean; disabled?: boolean; onClick?: () => void } = {},
+    opts: {
+      extra?: Node | null;
+      disabled?: boolean;
+      hint?: string;
+      talk?: string;
+      onClick?: () => void;
+    } = {},
   ) =>
     h(
       'button',
       {
-        class: ['menu-item', opts.play && 'play'],
+        class: ['menu-item', 'cursor-item', go === 'logout' && 'dim'],
         disabled: !!opts.disabled,
-        dataset: { testid: `menu-${go}` },
+        dataset: { testid: `menu-${go}`, talk: opts.talk ?? go },
         on: { click: opts.onClick ?? (() => app.go(go)) },
       },
-      h('span', { class: 'mi-ico' }, MENU_ICON[go] ? icon(MENU_ICON[go], 26) : null),
-      label,
-      h('small', { class: opts.gold ? 'gold' : undefined }, sub),
+      h('span', { class: 'mi-ico' }, MENU_ICON[go] ? icon(MENU_ICON[go], 24) : null),
+      h('span', { class: 'mi-label' }, label),
+      opts.extra ?? null,
+      // Why it's disabled, for screen readers (the partner can't explain an entry that can't be
+      // highlighted).
+      opts.hint ? h('span', { class: 'sr-only' }, opts.hint) : null,
     );
 
   const render = () => {
@@ -116,46 +166,41 @@ export function menuScreen(app: App): Screen {
       if (v === shiny) return;
       void app.act(null, async () => app.setSave(await app.api.setPartner(dex, v)));
     };
+    const name = pokemonName(dex);
     replace(
-      left,
+      partnerWin,
       h(
-        'div',
-        { class: 'logo' },
-        h('div', { class: 't1' }, 'PokéSurvivor'),
-        h('div', { class: 't2' }, t('login.mysteryDungeon')),
+        'button',
+        {
+          class: ['stage', shiny && 'shiny'],
+          title: t('collection.chooseAsPartner', { 0: '' }),
+          dataset: { talk: 'partner' },
+          on: { click: () => app.go('collection', { dex: String(dex) }) },
+        },
+        sprite(dex, {
+          scale: 4,
+          lively: true,
+          shiny,
+          fit: { width: 196, height: 170 },
+          feet: true,
+        }),
       ),
       h(
         'div',
-        { class: 'partner-card' },
+        { class: 'partner-info' },
         h(
-          'button',
-          {
-            class: ['stage', 'big', shiny && 'shiny'],
-            style: { '--stage-c': shiny ? '#9ae6ff' : typeColor(mon?.types[0] ?? 'normal') },
-            title: t('collection.chooseAsPartner', { 0: '' }),
-            on: { click: () => app.go('collection', { dex: String(dex) }) },
-          },
-          sprite(dex, {
-            scale: 4,
-            lively: true,
-            shiny,
-            fit: { width: 256, height: 170 },
-            feet: true,
-          }),
-        ),
-        h(
-          'div',
-          { class: 'nm', dataset: { testid: 'partner-name' } },
-          pokemonName(dex),
+          'h2',
+          { dataset: { testid: 'partner-name' } },
+          name,
           shiny ? [' ', icon('shiny', 24)] : null,
         ),
         h(
           'div',
-          { class: 'lv' },
-          ...(mon?.types.map(typeChip) ?? []),
-          ' ',
-          mon ? rarityBall(mon.rarity, 12) : null,
+          { class: 'no' },
+          t('menu.partnerNo', { 0: String(dex).padStart(3, '0') }),
+          mon ? [' ', rarityBall(mon.rarity, 12)] : null,
         ),
+        h('div', { class: 'types' }, ...(mon?.types.map(typeChip) ?? [])),
         ownsShiny
           ? h(
               'div',
@@ -174,71 +219,81 @@ export function menuScreen(app: App): Screen {
               ),
             )
           : null,
+        h(
+          'dl',
+          { class: 'menu-stats' },
+          h('dt', null, t('menu.runs')),
+          h('dd', null, num(s.stats.runs)),
+          h('dt', null, t('profile.bestTime')),
+          h('dd', null, mmss(s.stats.bestTimeS)),
+          h('dt', null, t('menu.bestLevel')),
+          h('dd', null, num(s.stats.bestLevel)),
+          h('dt', null, t('pause.defeated')),
+          h('dd', null, num(s.stats.totalKills)),
+        ),
       ),
-      h(
-        'div',
-        { class: 'menu-stats' },
-        `${t('menu.runs')} `,
-        h('b', null, num(s.stats.runs)),
-        ` · ${t('profile.bestTime')} `,
-        h('b', null, mmss(s.stats.bestTimeS)),
-        h('br'),
-        `${t('menu.bestLevel')} `,
-        h('b', null, num(s.stats.bestLevel)),
-        ` · ${t('pause.defeated')} `,
-        h('b', null, num(s.stats.totalKills)),
-      ),
-      whatsNewButton(app),
     );
+    replace(whatsNew, whatsNewButton(app));
+    replace(portrait, sprite(dex, { scale: 3, shiny, fit: { width: 84, height: 110 } }));
+    portrait.style.setProperty('--portrait', typeColor(mon?.types[0] ?? 'normal'));
+    who.textContent = name;
 
     const owned = Object.keys(s.owned).length;
-    const shinies = Object.keys(s.shiny).length;
     const total = gameData().pokedex.length;
     const pending = rewardsToClaim(s);
     const room = app.net?.roomView;
     const friends = [...(app.net?.friends.values() ?? [])];
     const online = friends.filter((f) => f !== 'offline').length;
-    replace(
-      list,
+    const roomSize = room ? `${room.members.length}/${room.maxMembers}` : '';
+    lines = {
+      solo: t('menu.talk.solo'),
+      lobby: room ? t('menu.talk.lobbyInRoom', { 0: roomSize }) : t('menu.talk.lobby'),
+      collection: t('menu.talk.collection', { 0: num(owned), 1: num(total) }),
+      gacha: t('menu.talk.gacha'),
+      shop: t('menu.talk.shop'),
+      goals: pending
+        ? pending === 1
+          ? t('menu.talk.goalsReady')
+          : t('menu.talk.goalsReadyMany', { 0: pending })
+        : t('menu.talk.goals'),
+      ranking: t('menu.talk.ranking'),
+      friends: online ? t('menu.talk.friendsOnline', { 0: online }) : t('menu.talk.friends'),
+      settings: t('menu.talk.settings'),
+      logout: t('menu.talk.logout', { 0: app.user?.username ?? '' }),
+      whatsNew: t('menu.talk.whatsNew'),
+      partner: t('menu.talk.partner'),
+      savedRun: t('menu.talk.savedRun'),
+    };
+
+    const solo = item('solo', t('app.solo'), {
       // A player in a party plays with it: no solo runs until they leave the room.
-      item('solo', t('app.solo'), room ? t('app.leaveRoomForSolo') : t('menu.enterTheDungeon'), {
-        play: true,
-        disabled: !!room,
+      disabled: !!room,
+      hint: room ? t('app.leaveRoomForSolo') : undefined,
+    });
+    const lobby = item('lobby', t('app.multiplayer'), {
+      extra: room ? h('span', { class: 'badge gold' }, roomSize) : null,
+    });
+    replace(
+      nav,
+      solo,
+      lobby,
+      item('collection', t('menu.pokemon'), {
+        extra: h('small', null, `${num(owned)}/${num(total)}`),
       }),
-      item(
-        'lobby',
-        t('app.multiplayer'),
-        room
-          ? t('menu.backToYourRoom', { 0: `${room.members.length}/${room.maxMembers}` })
-          : t('menu.playInAGroupUp'),
-        { gold: !!room },
-      ),
-      item(
-        'collection',
-        t('menu.pokemon'),
-        `${owned} / ${total}${shinies ? ` · ${shinies} ✦` : ''}`,
-      ),
-      item('gacha', t('gacha.gacha'), t('menu.n9RegionsPokemonAndShinies')),
-      item('shop', t('menu.upgrades'), t('menu.makeEveryRunStronger')),
-      item(
-        'goals',
-        t('menu.missions'),
-        pending
-          ? t(pending === 1 ? 'menu.rewardToClaim' : 'menu.rewardsToClaim', { 0: pending })
-          : t('menu.missionsAchievementsAndProfile'),
-        { gold: pending > 0 },
-      ),
-      item('ranking', t('menu.leaderboard'), t('menu.whoSurvivesLongest')),
-      item(
-        'friends',
-        t('menu.friends'),
-        online ? t('menu.online', { 0: online }) : t('menu.playInAGroupUp'),
-      ),
-      item('settings', t('menu.settings'), t('menu.soundGraphicsControlsAndAccount')),
-      item('logout', t('menu.logOut'), app.user?.username ?? '', {
-        onClick: () => void app.logout(),
+      item('gacha', t('gacha.gacha')),
+      item('shop', t('menu.upgrades')),
+      item('goals', t('menu.missions'), {
+        extra: pending ? h('span', { class: 'badge' }, String(pending)) : null,
       }),
+      item('ranking', t('menu.leaderboard')),
+      item('friends', t('menu.friends'), {
+        extra: online ? h('small', { class: 'online' }, `${online}`) : null,
+      }),
+      h('hr'),
+      item('settings', t('menu.settings')),
+      item('logout', t('menu.logOut'), { onClick: () => void app.logout() }),
     );
+    list.refresh(room ? lobby : solo);
   };
 
   const renderSaved = (saved: SavedSoloRun | null) => {
@@ -251,7 +306,7 @@ export function menuScreen(app: App): Screen {
     };
     const resume = h(
       'button',
-      { class: 'btn gold small grow', dataset: { testid: 'saved-run-resume' } },
+      { class: 'btn primary small grow', dataset: { testid: 'saved-run-resume' } },
       t('app.savedRunResume'),
     );
     resume.addEventListener('click', () => {
@@ -272,7 +327,7 @@ export function menuScreen(app: App): Screen {
     });
     replace(
       savedBox,
-      h('h4', null, t('app.savedRun')),
+      h('h3', null, t('app.savedRun')),
       h('p', { class: 'sub' }, t(saved.state ? 'app.savedRunInfo' : 'app.savedRunEnded', info)),
       h('div', { class: 'row' }, saved.state ? resume : null, end),
     );
