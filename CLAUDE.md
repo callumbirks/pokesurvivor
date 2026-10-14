@@ -68,7 +68,7 @@ keep them in sync. `pnpm --filter @pokesurvivor/netclient bandwidth` measures sn
 
 CI runs lint, typecheck, each test package, browser flows and Docker in parallel. Docker builds
 both apps; CI does not repeat that build on another runner. Vitest uses two threads per package;
-Playwright runs isolated tests with two workers. pnpm and browser downloads are cached, and only
+Playwright splits isolated tests across two CI shards, with two workers on each runner. pnpm and browser downloads are cached, and only
 the server tests and e2e jobs start Postgres. Lint skips binary sprite directories.
 
 ## Conventions

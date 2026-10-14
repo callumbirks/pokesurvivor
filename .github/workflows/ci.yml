@@ -76,7 +76,12 @@ jobs:
       - run: pnpm --filter @pokesurvivor/server test
 
   e2e:
+    name: e2e (${{ matrix.shard }}/2)
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     services:
       postgres:
         image: postgres:17-alpine
@@ -109,11 +114,11 @@ jobs:
       - name: Install the Playwright browser and OS dependencies
         run: pnpm --filter @pokesurvivor/client exec playwright install --with-deps --only-shell chromium
       - name: Browser flows (coop, solo resume, screens and manual aim)
-        run: pnpm --filter @pokesurvivor/client e2e
+        run: pnpm --filter @pokesurvivor/client e2e --shard=${{ matrix.shard }}/2
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.shard }}
           path: |
             apps/client/playwright-report
             apps/client/test-results
