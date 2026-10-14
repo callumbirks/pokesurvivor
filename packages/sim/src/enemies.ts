@@ -721,6 +721,7 @@ function shoot(ctx: Ctx, e: EnemyState, ax: number, ay: number, spread = 0, n = 
     const a = base + (n === 1 ? 0 : (i / (n - 1) - 0.5) * spread);
     spawnProjectile(ctx, {
       friendly: false,
+      regularHit: e.regularHit,
       type: e.attackType,
       x: e.x,
       y: e.y,
@@ -850,6 +851,7 @@ function summon(ctx: Ctx, e: EnemyState): void {
   for (let i = 0; i < 2; i++) {
     const a = ctx.rand() * TAU;
     const m = createEnemy(ctx, def, e.x + Math.cos(a) * 30, e.y + Math.sin(a) * 22, e.sc);
+    m.regularHit = e.regularHit;
     addEnemy(ctx, m);
     e.minions.push(m.id);
   }

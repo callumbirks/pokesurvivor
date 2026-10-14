@@ -14,7 +14,14 @@ for (const path of paths) {
   for (const line of raw.trim().split('\n')) {
     const row = JSON.parse(line) as WildTrial;
     if (row.kind !== 'wild') continue;
-    const key = [row.minute, row.profile, row.meta, row.players, row.archetype].join(',');
+    const key = [
+      row.phase ?? 'before',
+      row.minute,
+      row.profile,
+      row.meta,
+      row.players,
+      row.archetype,
+    ].join(',');
     const unique = `${key},${row.seed}`;
     if (seen.has(unique)) throw new Error(`duplicate trial ${unique}`);
     seen.add(unique);
@@ -42,11 +49,12 @@ const metrics = {
   stationaryDps: (r: WildTrial) => r.crowds?.stationary.dps ?? null,
   kiteDps: (r: WildTrial) => r.crowds?.kite.dps ?? null,
   firstDown: (r: WildTrial) => r.crowds?.survival.firstDown ?? null,
+  kiteFirstDown: (r: WildTrial) => r.crowds?.survivalKite?.firstDown ?? null,
   crowdEnemies: (r: WildTrial) => r.crowds?.stationary.meanEnemies ?? null,
 };
 console.log(
   [
-    'minute,profile,meta,players,archetype,n,survivalCensored,contactOneShots,shotOneShots',
+    'phase,minute,profile,meta,players,archetype,n,survivalCensored,kiteSurvivalCensored,contactOneShots,shotOneShots',
     ...Object.keys(metrics).flatMap((k) => [`${k}Median`, `${k}Min`, `${k}Max`]),
   ].join(','),
 );
@@ -58,6 +66,7 @@ for (const [key, rows] of [...groups].sort(([a], [b]) =>
       key,
       rows.length,
       rows.filter((r) => r.crowds?.survival.censored).length,
+      rows.filter((r) => r.crowds?.survivalKite?.censored).length,
       rows.filter((r) => r.worstContactPct >= 100).length,
       rows.filter((r) => r.worstShotPct >= 100).length,
       ...Object.values(metrics).flatMap<string | number>((get) => {

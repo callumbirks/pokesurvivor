@@ -24,6 +24,7 @@ import {
 
 export interface WildTrial extends Cell {
   kind: 'wild';
+  phase: 'before' | 'after';
   minute: number;
   seed: number;
   profile: 'natural' | 'typical';
@@ -49,6 +50,7 @@ export interface WildTrial extends Cell {
     stationary: ReturnType<typeof crowd>;
     kite: ReturnType<typeof crowd>;
     survival: ReturnType<typeof crowd>;
+    survivalKite: ReturnType<typeof crowd>;
   } | null;
 }
 
@@ -69,6 +71,7 @@ for (const key of args.keys())
       'seeds',
       'minutes',
       'crowd-seconds',
+      'legacy',
     ].includes(key)
   )
     throw new Error(`unknown argument --${key}`);
@@ -114,6 +117,14 @@ if (!Number.isFinite(crowdSeconds) || crowdSeconds < 0 || crowdSeconds > 120)
   throw new Error('crowd seconds must be 0–120');
 
 function configure(sim: Sim) {
+  if (args.has('legacy'))
+    patchTuning(sim, 'spawner', {
+      damageCurve: [
+        { minute: 0, multiplier: 1 },
+        { minute: 10000, multiplier: 1 + 10000 / 7 },
+      ],
+      regularHitCapFraction: 0,
+    });
   patchTuning(sim, 'spawner', { shinyRate: Number.MIN_VALUE });
   postponeAmbientSystems(sim, 1e6);
   sim.state.spawner.bossIndex = sim.state.roster.bosses.length;
@@ -123,7 +134,7 @@ function configure(sim: Sim) {
 /** Ask the real damage path, including the melee discount, minimum hit and type chart.
  * Neutral values isolate scaling; typed values expose roster matchup extremes, clear weather.
  */
-function damage(sim: Sim, p: PlayerState, raw: number, dex?: number): number {
+function damage(sim: Sim, p: PlayerState, raw: number, dex?: number, regular = false): number {
   const hp = p.hp;
   p.hp = 1e9;
   p.invuln = 0;
@@ -132,6 +143,7 @@ function damage(sim: Sim, p: PlayerState, raw: number, dex?: number): number {
     p,
     raw,
     dex === undefined ? null : sim.ctx.d.game.pokemonByDex.get(dex)!.types[0]!,
+    regular,
   );
   const dealt = 1e9 - p.hp;
   p.hp = hp;
@@ -160,7 +172,8 @@ function rosterProbe(sim: Sim) {
           if (!enemy) throw new Error(`no free probe spawn for ${def.dex}`);
           const shotRaw =
             def.behavior === 'ranged' || def.behavior === 'fan'
-              ? ((def.shotDamage || 10) * enemy.damage) / def.damage
+              ? (((def.shotDamage || 10) * enemy.damage) / def.damage) *
+                (def.behavior === 'fan' ? 0.65 : 1)
               : null;
           const skillRaw =
             def.behavior === 'bomber'
@@ -180,10 +193,10 @@ function rosterProbe(sim: Sim) {
             baseDamage: def.damage,
             raw: enemy.damage,
             hp: enemy.maxHp,
-            contact: damage(sim, p, enemy.damage),
-            typedContact: damage(sim, p, enemy.damage, def.dex),
-            shot: shotRaw === null ? null : damage(sim, p, shotRaw),
-            typedShot: shotRaw === null ? null : damage(sim, p, shotRaw, def.dex),
+            contact: damage(sim, p, enemy.damage, undefined, true),
+            typedContact: damage(sim, p, enemy.damage, def.dex, true),
+            shot: shotRaw === null ? null : damage(sim, p, shotRaw, undefined, true),
+            typedShot: shotRaw === null ? null : damage(sim, p, shotRaw, def.dex, true),
             skill: skillRaw === null ? null : damage(sim, p, skillRaw),
             elite: damage(sim, p, enemy.damage * 1.25),
           };
@@ -318,6 +331,12 @@ emit({
   archetypes,
   crowdSeconds,
   protectedCalibration: true,
+  legacy: args.has('legacy'),
+  spawnerTuning: (() => {
+    const sim = makeSim({ meta: 'none', players: 1, archetype: 'area' }, 1, true);
+    configure(sim);
+    return sim.ctx.d.game.tuning.spawner;
+  })(),
 });
 for (const meta of metas)
   for (const n of players)
@@ -364,10 +383,12 @@ for (const meta of metas)
                   stationary: crowd(sim, cell, seed, false, true),
                   kite: crowd(sim, cell, seed, true, true),
                   survival: crowd(sim, cell, seed, false, false),
+                  survivalKite: crowd(sim, cell, seed, true, false),
                 }
               : null;
             const result = {
               kind: 'wild' as const,
+              phase: args.has('legacy') ? ('before' as const) : ('after' as const),
               ...cell,
               minute,
               seed,

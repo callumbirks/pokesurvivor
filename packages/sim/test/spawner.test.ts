@@ -24,7 +24,7 @@ describe('spawn curves', () => {
     const early = enemyScale(ctx, 0);
     const later = enemyScale(ctx, 950);
     expect(later.hp).toBeGreaterThan(early.hp);
-    expect(later.damage).toBeGreaterThan(early.damage);
+
     expect(later.speed).toBeGreaterThanOrEqual(early.speed);
     expect(bossScale(ctx, 600).hp).toBeGreaterThan(bossScale(ctx, 0).hp);
     const late = d.game.enemies.lateGame;

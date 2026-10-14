@@ -362,6 +362,8 @@ export interface JumpState {
 }
 
 export interface EnemyState {
+  /** Only ordinary wild contact/shots use the regular-hit safety cap; elites/bosses do not. */
+  regularHit?: boolean;
   id: EntityId;
   dex: number;
   def: EnemyDef;
@@ -452,6 +454,8 @@ export interface StatusPayload {
 }
 
 export interface ProjectileState extends StatusPayload {
+  /** Persist the ordinary wild-shot source even after its shooter despawns. */
+  regularHit?: boolean;
   id: EntityId;
   /** Fired by a player (true) or an enemy (false). */
   friendly: boolean;

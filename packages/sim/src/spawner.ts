@@ -8,6 +8,7 @@ import { addEnemy, createEnemy, makeGolden, makeShiny, pokemonName } from './ene
 import { goldenHour, hordeBag } from './runevents.js';
 import { TAU, dist2 } from './math.js';
 import { isFree } from './world.js';
+import { wildDamageMultiplier } from './wilddamage.js';
 import type {
   BossDef,
   EnemyDef,
@@ -38,7 +39,7 @@ export function enemyScale(ctx: Ctx, t: number): EnemyScale {
   const k = ctx.d.late(t);
   return {
     hp: (1 + t / 95) * k,
-    damage: (1 + t / 420) * Math.pow(k, 0.7),
+    damage: wildDamageMultiplier(ctx.d.game.tuning.spawner.damageCurve, t / 60) * Math.pow(k, 0.7),
     speed: 1 + Math.min(0.35, t / 1400),
   };
 }
@@ -198,9 +199,11 @@ export function spawnOne(ctx: Ctx, pl: PlayerState, t: number, angle?: number): 
   const e = createEnemy(ctx, def, pt[0], pt[1], scaled(enemyScale(ctx, t), scaleHp(n) * hpK(t)));
   // Fewer but tougher enemies than the original game (`density`), with more damage and XP each.
   e.damage *= tuning.damageK;
+  e.regularHit = true;
   e.xp = Math.round(e.xp * tuning.xpK);
   // At the cap, new ones are elites, so the difficulty doesn't drop.
   if (s.enemies.length >= tuning.cap * tuning.eliteFrom) {
+    e.regularHit = false;
     e.maxHp = e.hp = Math.round(e.maxHp * 1.6);
     e.damage *= 1.25;
     e.xp = Math.round(e.xp * 1.6);
