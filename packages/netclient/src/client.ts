@@ -15,6 +15,9 @@ import {
   type PresenceStatus,
   type RoomView,
   type FriendEventName,
+  type FriendActivity,
+  type FriendPresence,
+  type SoloClock,
 } from '@pokesurvivor/protocol';
 import type { Intent } from '@pokesurvivor/sim';
 import { Emitter } from './emitter.js';
@@ -132,6 +135,13 @@ export class NetClient {
   room: NetRoomConnection | null = null;
   readonly invites = new Map<string, Invite>();
   readonly friends = new Map<string, PresenceStatus>();
+  /**
+   * What each online friend is doing, and when it arrived (`now()`): a run's clock ticks on from
+   * `elapsedS` at `at` unless paused. Absent: offline, or an older server.
+   */
+  readonly activities = new Map<string, { activity: FriendActivity; at: number }>();
+  /** This client's solo run clock (`setSoloClock`), re-sent after a reconnect. */
+  private soloClock: { clock: SoloClock; at: number } | null = null;
 
   private readonly opts: Required<Omit<NetClientOptions, 'buffer' | 'createSocket'>> &
     Pick<NetClientOptions, 'buffer' | 'createSocket'>;
@@ -215,6 +225,26 @@ export class NetClient {
   }
   start(): Promise<void> {
     return this.request({ type: 'room.start' }).then(() => undefined);
+  }
+
+  /**
+   * Your solo run's clock, for your friends' presence: call it as the run starts, pauses and
+   * resumes (and now and then to correct drift), and with null when it's over. It is sent again
+   * after a reconnect, moved on by the time since.
+   */
+  setSoloClock(clock: SoloClock | null): void {
+    this.soloClock = clock && { clock, at: this.opts.now() };
+    this.sendSoloClock();
+  }
+
+  private sendSoloClock(): void {
+    const c = this.soloClock;
+    if (!c) {
+      this.sendRaw({ type: 'activity', solo: null });
+      return;
+    }
+    const since = c.clock.paused ? 0 : (this.opts.now() - c.at) / 1000;
+    this.sendRaw({ type: 'activity', solo: { ...c.clock, elapsedS: c.clock.elapsedS + since } });
   }
 
   /** Sends a request and resolves with its reply's data (rejects with a `RequestError`). */
@@ -363,6 +393,13 @@ export class NetClient {
     if (m) this.handle(m, now);
   }
 
+  private setPresence(f: FriendPresence, now: number): void {
+    this.friends.set(f.username, f.status);
+    if (f.activity && f.status !== 'offline')
+      this.activities.set(f.username, { activity: f.activity, at: now });
+    else this.activities.delete(f.username);
+  }
+
   private handle(m: ServerMsg, now: number): void {
     switch (m.type) {
       case 'welcome':
@@ -379,6 +416,7 @@ export class NetClient {
         this.pingTimer = timers.setInterval(() => this.heartbeat(), this.heartbeatMs);
         this.setState('open');
         this.heartbeat();
+        if (this.soloClock) this.sendSoloClock();
         this.emitter.emit('welcome', {
           userId: m.userId,
           username: m.username,
@@ -420,11 +458,12 @@ export class NetClient {
         return;
       case 'presence':
         this.friends.clear();
-        for (const f of m.friends) this.friends.set(f.username, f.status);
+        this.activities.clear();
+        for (const f of m.friends) this.setPresence(f, now);
         this.emitter.emit('presence', this.friends);
         return;
       case 'presence.update':
-        this.friends.set(m.username, m.status);
+        this.setPresence(m, now);
         this.emitter.emit('presence', this.friends);
         return;
       case 'friend':

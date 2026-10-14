@@ -27,6 +27,8 @@ describe('client messages', () => {
       { type: 'input', gameId: 'g', seq: 4, moveX: 0, moveY: 0, aim: 0 },
       { type: 'input', gameId: 'g', seq: 5, moveX: 0, moveY: 0, slot: null, aim: 255 },
       { type: 'input', gameId: 'g', seq: 6, moveX: 0, moveY: 0, aim: 12, fire: true },
+      { type: 'activity', solo: { runId: 'r1', elapsedS: 215.5, paused: false } },
+      { type: 'activity', solo: null },
       { type: 'room.create', rid: 1 },
       { type: 'room.invite', rid: 2, username: 'misty' },
       { type: 'room.status', rid: 3, status: 'busy' },
@@ -88,6 +90,12 @@ describe('client messages', () => {
       { type: 'input', gameId: 'g', seq: 1, moveX: 0, moveY: 0, aim: 3, fire: false },
       { type: 'input', gameId: 'g', seq: 1, moveX: 0, moveY: 0, aim: 3, fire: 1 },
       { type: 'input', gameId: 'g', seq: 1, moveX: 0, moveY: 0, fire: true },
+      { type: 'activity' },
+      { type: 'activity', solo: { runId: 'r', elapsedS: -1, paused: false } },
+      { type: 'activity', solo: { runId: '', elapsedS: 1, paused: false } },
+      { type: 'activity', solo: { runId: 'r', elapsedS: 1, paused: 1 } },
+      { type: 'activity', solo: { runId: 'r', elapsedS: 1, paused: false, dex: 25 } },
+      { type: 'activity', solo: null, extra: 1 },
     ]) {
       expect(decodeClientMessage(encode(bad)).ok).toBe(false);
     }

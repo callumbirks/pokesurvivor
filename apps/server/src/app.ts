@@ -99,6 +99,7 @@ export async function buildApp({
         log: app.log.child({ module: 'runs' }),
         timeZone: config.leaderboardTimeZone,
         ...config.soloRuns,
+        onCredited: (ids) => game?.soloRunsClosed(ids),
       })
     : null;
   app.decorate('runSweeper', runSweeper);
@@ -128,6 +129,7 @@ export async function buildApp({
       rateLimit: config.rateLimits.actions,
       inRoom: async (userId) =>
         game?.roomOfUser(userId) != null || !!(await game?.registry.membership(userId)),
+      runClosed: (userId, runId) => game?.soloRunsClosed([runId], userId),
     });
     gachaRoutes(app, { ...common, rateLimit: config.rateLimits.actions });
     missionRoutes(app, { ...common, timeZone: config.leaderboardTimeZone });
