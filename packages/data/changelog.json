@@ -6,10 +6,8 @@
         "The arrow keys move through the menus and Esc goes back, like a gamepad's D-pad and B."
       ],
       "changed": [
-        "A new look for the main menu and gacha: pixel windows, and your partner talks you through the menu.",
-        "Controller button prompts are twice as big and easier to read, in the menus and in runs.",
-        "Every other menu screen gets the new pixel-window look too: Pokémon, Upgrades, Missions, the leaderboard, Friends, the room, Settings, What's new, logging in and choosing your first partner.",
-        "In runs, level-up choices, the pause menu, the results and notifications get the new pixel-window look, and the results fit a phone in landscape."
+        "A whole new look: pixel windows across every menu and in-run screen, and your partner talks you through the main menu. Settings → About now credits everyone behind the game, music included.",
+        "Controller button prompts are twice as big and easier to read, in the menus and in runs."
       ],
       "fixed": [],
       "behindTheScenes": []
