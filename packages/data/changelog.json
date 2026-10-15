@@ -1,10 +1,12 @@
 {
   "unreleased": {
-    "prs": [],
+    "prs": [69],
     "entries": {
       "new": [],
       "changed": [],
-      "fixed": [],
+      "fixed": [
+        "You're prompted to reload when a new version is released, instead of only after big updates."
+      ],
       "behindTheScenes": []
     }
   },

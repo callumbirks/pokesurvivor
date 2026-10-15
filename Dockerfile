@@ -17,6 +17,10 @@ RUN pnpm install --frozen-lockfile
 COPY tsconfig.base.json ./
 COPY apps apps
 COPY packages packages
+# Each build gets an id, baked into the client and written to apps/client/dist/build.json for the
+# server, so open tabs are offered a reload after a deploy. Unique per build by default (a cached
+# build keeps its id: same code, no prompt); pass e.g. `--build-arg BUILD_ID=<commit>` to choose it.
+ARG BUILD_ID=""
 RUN pnpm build
 # The server's production dependencies only (workspace packages are bundled into dist/main.js).
 RUN pnpm deploy --legacy --filter @pokesurvivor/server --prod /out/server
