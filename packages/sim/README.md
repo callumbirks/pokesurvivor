@@ -537,3 +537,9 @@ reading whichever smoothing the measured revision uses. Ahead arrivals/relocatio
 half-plane; path occupancy uses a 350-pixel forward corridor with 60 pixels plus enemy radius on
 either side. Contact rate counts actual touch-cooldown resets, not merely enemies seen nearby.
 These fixtures stress a deliberate train; they do not estimate ordinary attacking-player survival.
+
+For a contact-only damage comparison, add `--contacts-only`; it skips the crowd replays and emits one
+`contact` row per earned checkpoint. `--meta=none|half|max` selects the permanent-upgrade profile
+(default half). Reuse the before file with `--calibration` to keep the exact same natural builds after
+a damage change. For example, `--species=894 --meta=max --minutes=5 --contacts-only` measures a
+max-meta solo Regieleki at minute five without reconstructing the user's exact upgrade choices.
