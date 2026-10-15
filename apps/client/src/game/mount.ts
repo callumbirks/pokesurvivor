@@ -28,7 +28,7 @@ import { clear, el, icon } from './dom.js';
 import { EventEffects } from './events.js';
 import { MateAlerts, MateBanner } from './mate-alerts.js';
 import { buildFrame, type Frame, type SelfView } from './frame.js';
-import { Hud, controlsHint } from './hud.js';
+import { Hud, controlsHint, type SpectateView } from './hud.js';
 import { hudScale } from './hudscale.js';
 import { Input } from './input.js';
 import { Predictor } from './net/predict.js';
@@ -36,6 +36,7 @@ import { NetStatsPanel } from './netstats-ui.js';
 import { NOTICE_TEXT } from './notices.js';
 import { PauseFlow, type PauseView } from './pause.js';
 import { renderResults } from './results.js';
+import { Spectator } from './spectate.js';
 import { Camera } from './scene/camera.js';
 import { EntityLayer, LIFT, pokemonName } from './scene/entities.js';
 import { FX } from './scene/fx.js';
@@ -53,6 +54,16 @@ const PAD_SLOT_KEYS: Record<string, string> = {
   PadB: 'Digit2',
   PadX: 'Digit3',
   PadY: 'Digit4',
+};
+
+/** While spectating: the keys that switch to the previous / next player. */
+const SPECTATE_KEYS: Record<string, -1 | 1> = {
+  ArrowLeft: -1,
+  KeyA: -1,
+  PadLeft: -1,
+  ArrowRight: 1,
+  KeyD: 1,
+  PadRight: 1,
 };
 
 export interface MountGameOptions {
@@ -401,6 +412,8 @@ class Run {
   private readonly touch: TouchControls;
   private readonly aim = new AimTracker();
   private readonly mouseFire: MouseFire;
+  /** Spectating a teammate while down (co-op). */
+  private readonly spectator: Spectator;
   /** The system cursor is hidden over the game (the crosshair replaces it). */
   private cursorHidden = false;
   private readonly tracker: AchievementTracker | null;
@@ -500,6 +513,10 @@ class Run {
     this.mouseFire = new MouseFire(canvas, window, (x, y) => this.touch.hitsButton(x, y));
     this.offs.push(() => this.mouseFire.dispose());
     this.tracker = save ? new AchievementTracker(save, conn.selfId) : null;
+    this.spectator = new Spectator(
+      conn.selfId,
+      conn.spectate ? (target) => conn.spectate?.(target) : null,
+    );
     this.offs.push(conn.on('snapshot', (s) => this.onSnapshot(s)));
     this.pause = new PauseFlow({
       solo: this.isSolo(),
@@ -526,6 +543,8 @@ class Run {
     this.queue = [];
     this.started = false;
     this.startInput();
+    // The server starts a resumed client on its own Pokémon.
+    this.spectator.resend();
   }
 
   private startInput(): void {
@@ -562,6 +581,8 @@ class Run {
 
   private onSnapshot(s: Snapshot): void {
     if (s.events.length) this.queue.push({ tick: s.tick, events: s.events });
+    // Revived, or the one we watch left: spectating follows (and tells the server).
+    this.spectator.update(s.players);
     // Teammates going offline and coming back (the sim marks them; the server holds their slot).
     for (const p of s.players) {
       if (p.id === this.conn.selfId) continue;
@@ -599,6 +620,7 @@ class Run {
       return true;
     }
     if (this.pause.view !== 'playing') return false;
+    if (this.spectateKey(code)) return true;
     if (aimKey(code)) return true;
     const digit = /^(?:Digit|Numpad)([1-4])$/.exec(code);
     if (digit) {
@@ -610,6 +632,38 @@ class Run {
       return true;
     }
     return false;
+  }
+
+  /** C / the pad's Back: spectate or stop; while spectating ← → (A / D, the d-pad) switch whom. */
+  private spectateKey(code: string): boolean {
+    const spec = this.spectator;
+    if (code === 'KeyC' || code === 'PadBack') {
+      if (!spec.available) return false;
+      spec.toggle();
+      return true;
+    }
+    if (!spec.active) return false;
+    const dir = SPECTATE_KEYS[code];
+    if (!dir) return false;
+    spec.cycle(dir);
+    return true;
+  }
+
+  /** What the HUD shows of spectating (null: not offered now). */
+  private spectateView(): SpectateView | null {
+    const spec = this.spectator;
+    if (!spec.available || this.stopped) return null;
+    const who = this.game.players.find((p) => p.id === spec.target);
+    const mon = who ? pokemonName(who.dex) : '';
+    return {
+      active: spec.active,
+      label:
+        spec.target === this.conn.selfId
+          ? t('hud.spectatingYourself', { 0: mon })
+          : t('hud.spectating', { 0: who?.username ?? '', 1: mon }),
+      toggle: () => spec.toggle(),
+      cycle: (dir) => spec.cycle(dir),
+    };
   }
 
   private setSlot(i: number): void {
@@ -872,7 +926,11 @@ class Run {
     this.world.update(dt);
     this.fx.update(dt);
     this.weather.update(latest.misc.weather, dt);
-    const focus = frame.self ?? frame.players.find((p) => !p.left) ?? null;
+    // The camera follows us, or whom we spectate (whose surroundings the server sends then).
+    const watched = this.spectator.active
+      ? frame.players.find((p) => p.id === this.spectator.target)
+      : undefined;
+    const focus = watched ?? frame.self ?? frame.players.find((p) => !p.left) ?? null;
     if (focus) {
       const jump = this.lastSelf
         ? Math.hypot(focus.x - this.lastSelf.x, focus.y - this.lastSelf.y)
@@ -999,6 +1057,7 @@ class Run {
         toggleAim: () => toggleAimMode(),
         pad: inputDevice.device === 'gamepad' ? inputDevice.layout : null,
         showStats: settings.get().showStats,
+        spectate: this.spectateView(),
       });
       this.touch.draw(ctx);
       this.screen.netStats.placeBelow(this.hud.topLeftBottom);

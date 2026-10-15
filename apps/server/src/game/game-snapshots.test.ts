@@ -1,5 +1,6 @@
 import { firstOption, SnapshotDecoder, type Snapshot } from '@pokesurvivor/netclient';
 import { describe, expect, it } from 'vitest';
+import type { PlayerState } from '@pokesurvivor/sim';
 import { Game } from './game.js';
 import type { Session } from './session.js';
 
@@ -105,5 +106,107 @@ describe('snapshot pacing during choices', () => {
     const count = snapshots.length;
     for (let i = 0; i < 30; i++) game.tick();
     expect(snapshots.length - count).toBe(20);
+  });
+});
+
+describe('spectating', () => {
+  /** `a` is down; `b` is far away, next to a coin that only `b`'s surroundings include. */
+  function spectateSetup() {
+    const env = setup();
+    const [a, b] = env.game.sim.state.players as [PlayerState, PlayerState];
+    a.dead = true;
+    a.hp = 0;
+    b.x = a.x + 3000;
+    b.y = a.y;
+    env.game.sim.state.pickups.push({
+      id: 99_999,
+      kind: 'coin',
+      x: b.x + 400,
+      y: b.y,
+      vx: 0,
+      vy: 0,
+      value: 1,
+      itemId: null,
+      pulled: false,
+    });
+    const coin = () => env.snapshots.at(-1)!.pickups.some((k) => k.id === 99_999);
+    return { ...env, a, b, coin };
+  }
+
+  it('centres the interest area on the target, keeping the viewer’s own state', () => {
+    const { game, snapshots, coin, a } = spectateSetup();
+    game.tick();
+    expect(coin()).toBe(false);
+    game.spectate('a', game.id, 'b');
+    // Sent on the next tick, not at the next 20 Hz slot.
+    game.tick();
+    expect(coin()).toBe(true);
+    const last = snapshots.at(-1)!;
+    expect(last.players.map((p) => p.id)).toEqual(['a', 'b']);
+    expect(last.players[0]!.x).toBeCloseTo(a.x, 0);
+    expect(last.self).not.toBeNull();
+    // Back to themselves (null, or their own id): the coin leaves.
+    game.spectate('a', game.id, null);
+    game.tick();
+    expect(coin()).toBe(false);
+    game.spectate('a', game.id, 'b');
+    game.tick();
+    game.spectate('a', game.id, 'a');
+    game.tick();
+    expect(coin()).toBe(false);
+  });
+
+  it('ignores intents from players who are up, for other games and for unknown targets', () => {
+    const { game, coin, a } = spectateSetup();
+    game.spectate('a', 'another-game', 'b');
+    game.tick();
+    expect(coin()).toBe(false);
+    game.spectate('a', game.id, 'nobody');
+    game.tick();
+    expect(coin()).toBe(false);
+    a.dead = false;
+    a.hp = a.maxHp;
+    game.spectate('a', game.id, 'b');
+    game.tick();
+    expect(coin()).toBe(false);
+  });
+
+  it('clears on revive, and when the target disconnects or leaves', () => {
+    const { game, coin, a } = spectateSetup();
+    game.spectate('a', game.id, 'b');
+    game.tick();
+    expect(coin()).toBe(true);
+    a.dead = false;
+    a.hp = a.maxHp;
+    // At the next 20 Hz snapshot.
+    game.tick();
+    game.tick();
+    expect(coin()).toBe(false);
+    // Down again: it doesn't come back by itself.
+    a.dead = true;
+    game.tick();
+    game.tick();
+    expect(coin()).toBe(false);
+
+    game.spectate('a', game.id, 'b');
+    game.tick();
+    expect(coin()).toBe(true);
+    game.disconnect('b');
+    game.tick();
+    expect(coin()).toBe(false);
+    // Disconnected targets are refused.
+    game.spectate('a', game.id, 'b');
+    game.tick();
+    expect(coin()).toBe(false);
+  });
+
+  it('drops a target who left the game', () => {
+    const { game, coin } = spectateSetup();
+    game.spectate('a', game.id, 'b');
+    game.tick();
+    expect(coin()).toBe(true);
+    game.removePlayer('b');
+    game.tick();
+    expect(coin()).toBe(false);
   });
 });
