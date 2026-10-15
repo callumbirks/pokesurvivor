@@ -6,7 +6,7 @@ What changed for players in each release, newest first. Generated from
 
 ## Unreleased
 
-PRs: [#85](https://github.com/callumbirks/pokesurvivor/pull/85), [#86](https://github.com/callumbirks/pokesurvivor/pull/86), [#87](https://github.com/callumbirks/pokesurvivor/pull/87), [#88](https://github.com/callumbirks/pokesurvivor/pull/88), [#89](https://github.com/callumbirks/pokesurvivor/pull/89)
+PRs: [#85](https://github.com/callumbirks/pokesurvivor/pull/85), [#86](https://github.com/callumbirks/pokesurvivor/pull/86), [#87](https://github.com/callumbirks/pokesurvivor/pull/87), [#88](https://github.com/callumbirks/pokesurvivor/pull/88), [#89](https://github.com/callumbirks/pokesurvivor/pull/89), [#90](https://github.com/callumbirks/pokesurvivor/pull/90)
 
 ### New
 
@@ -17,6 +17,7 @@ PRs: [#85](https://github.com/callumbirks/pokesurvivor/pull/85), [#86](https://g
 
 - Power cards now stop at ×20 damage.
 - Synthesis cards now stop at +10 HP regenerated per second.
+- Usernames with offensive words are no longer accepted.
 
 ### Fixed
 

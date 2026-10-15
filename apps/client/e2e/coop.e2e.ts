@@ -1,10 +1,10 @@
 // The phase 4 exit test: two browsers, two accounts. They become friends, one invites the other,
 // both get ready, one opens the gacha (busy) and the owner's start is blocked, they come back
 // and the game starts for both.
-import { randomUUID } from 'node:crypto';
+import { nameSuffix } from './names.js';
 import { expect, test, type Browser, type Page } from '@playwright/test';
 
-const suffix = randomUUID().slice(0, 8);
+const suffix = nameSuffix();
 
 async function newPlayer(browser: Browser, name: string): Promise<Page> {
   // Separate contexts: separate cookies, like two browsers.

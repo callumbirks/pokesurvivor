@@ -1,7 +1,7 @@
 // Single-player screens against the real server: the shop with its move bans and slots, settings sync,
 // the solo flow up to the game, What's new, and logging out and back in. E2E_SHOTS=<dir> saves
 // screenshots of the menu and What's new.
-import { randomUUID } from 'node:crypto';
+import { nameSuffix } from './names.js';
 import { readFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import { loadConfig } from '../../server/src/config.js';
@@ -23,7 +23,7 @@ const shot = async (page: Page, name: string) => {
 };
 
 test('shop, moves, settings, solo and login again', async ({ page }) => {
-  const name = `oak_${randomUUID().slice(0, 8)}`;
+  const name = `oak_${nameSuffix()}`;
   await page.goto('/');
   await page.getByTestId('tab-register').click();
   await page.getByTestId('login-username').fill(name);

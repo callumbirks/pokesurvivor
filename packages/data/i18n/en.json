@@ -692,6 +692,7 @@
     "unauthenticated": "Please log in again.",
     "invalid_credentials": "Wrong username or password.",
     "username_taken": "That name is already taken.",
+    "username_not_allowed": "That username isn't allowed. Please choose another.",
     "rate_limited": "Too many attempts in a row. Please wait a moment.",
     "invalid_request": "That request wasn't valid.",
     "pokemon_not_owned": "You don't have that Pokémon.",

@@ -1,6 +1,6 @@
 {
   "unreleased": {
-    "prs": [85, 86, 87, 88, 89],
+    "prs": [85, 86, 87, 88, 89, 90],
     "entries": {
       "new": [
         "While you're down in co-op, you can spectate your teammates and switch between them.",
@@ -8,7 +8,8 @@
       ],
       "changed": [
         "Power cards now stop at ×20 damage.",
-        "Synthesis cards now stop at +10 HP regenerated per second."
+        "Synthesis cards now stop at +10 HP regenerated per second.",
+        "Usernames with offensive words are no longer accepted."
       ],
       "fixed": [
         "Keyboard and controller: you can now reach the Play button on the Pokémon select screen, and it starts with the Pokémon you picked, not the last one you moved over.",

@@ -8,7 +8,12 @@ import { createSave } from '../saves/service.js';
 import { hashPassword, verifyDummyPassword, verifyPassword } from './password.js';
 import { clearSessionCookie, createAuthHooks, currentUser, setSessionCookie } from './plugin.js';
 import { SESSION_COOKIE, createSession, deleteSession } from './sessions.js';
-import { findUserByUsername, passwordSchema, usernameSchema } from './users.js';
+import {
+  assertUsernameAllowed,
+  findUserByUsername,
+  passwordSchema,
+  usernameSchema,
+} from './users.js';
 
 export interface AuthRoutesOptions {
   db: Database;
@@ -39,6 +44,7 @@ export function authRoutes(app: FastifyInstance, opts: AuthRoutesOptions): void 
 
   app.post('/api/auth/register', { config: { rateLimit } }, async (request, reply) => {
     const { username, password } = parseBody(registerBody, request.body);
+    assertUsernameAllowed(username);
     const passwordHash = await hashPassword(password);
     let userId: string;
     try {
