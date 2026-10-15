@@ -425,6 +425,11 @@ export function restoreSim(state: SimState): Sim {
         if (e?.type === 'stat' && e.op === 'add') p.cardAdd[id] = e.value * n;
       }
     }
+    // Saves from before max HP card ceilings: the picks taken at today's common value.
+    for (const [id, n] of Object.entries(p.statsTaken)) {
+      const e = simData().game.statCardById.get(id)?.effect;
+      if (e?.type === 'maxHp' && p.cardAdd[id] === undefined) p.cardAdd[id] = e.value * n;
+    }
   }
   for (const e of [...state.enemies, ...(state.arena?.stash ?? [])]) {
     e.targetId ??= null;

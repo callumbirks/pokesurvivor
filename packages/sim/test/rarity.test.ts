@@ -13,7 +13,9 @@ const d = simData();
 const cfg = d.game.levelUp;
 const { tiers, odds } = cfg.rarity;
 const rolled = cfg.statCards.filter((c) => c.rarity !== false);
-const capped = cfg.statCards.filter((c) => c.effect.type === 'stat' && c.effect.cap !== undefined);
+const capped = cfg.statCards.filter(
+  (c) => (c.effect.type === 'stat' || c.effect.type === 'maxHp') && c.effect.cap !== undefined,
+);
 const top = tiers.at(-1)!;
 
 const statCard = (id: string, rarity?: string): CardOption => ({
@@ -148,6 +150,31 @@ describe('stat card ceilings', () => {
     expect(capped.length).toBeGreaterThan(0);
     for (const c of capped) {
       const e = c.effect;
+      if (e.type === 'maxHp' && e.cap !== undefined) {
+        const sim = quietSim();
+        const p = player(sim);
+        onlyCards(sim, p, [c.id]);
+        expect(offerCards(sim.ctx, p).map((o) => o.id)).toContain(`stat:${c.id}`);
+        const start = p.maxHp;
+        let picks = 0;
+        while (!atCeiling(sim.ctx, p, c.id) && picks < 10_000) {
+          // Hurt first: the last pick's heal is only what it actually added.
+          p.hp = 1;
+          const before = p.maxHp;
+          applyCard(sim.ctx, p, statCard(c.id, top.id));
+          expect(p.hp).toBeCloseTo(1 + (p.maxHp - before));
+          picks++;
+        }
+        expect(picks).toBeLessThan(10_000);
+        expect(p.cardAdd[c.id]).toBe(e.cap);
+        expect(p.maxHp - start).toBeCloseTo(e.cap);
+        const at = p.maxHp;
+        applyCard(sim.ctx, p, statCard(c.id, top.id));
+        expect(p.maxHp).toBe(at);
+        for (let i = 0; i < 50; i++)
+          expect(offerCards(sim.ctx, p).map((o) => o.id)).not.toContain(`stat:${c.id}`);
+        continue;
+      }
       if (e.type !== 'stat' || e.cap === undefined) continue;
       const sim = quietSim();
       const p = player(sim);

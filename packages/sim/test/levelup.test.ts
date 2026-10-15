@@ -74,7 +74,9 @@ describe('level-up offers', () => {
   });
 
   it('has no pick limits: a card without a ceiling is offered however often it was taken', () => {
-    for (const c of cfg.statCards.filter((c) => c.effect.type !== 'stat' || !c.effect.cap)) {
+    for (const c of cfg.statCards.filter(
+      (c) => !('cap' in c.effect && c.effect.cap !== undefined),
+    )) {
       const sim = quietSim();
       const p = player(sim);
       p.maxSlots = p.slots.length;
