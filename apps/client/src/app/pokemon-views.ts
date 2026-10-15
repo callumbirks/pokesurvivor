@@ -156,7 +156,7 @@ export function statBars(p: Pokemon, prestige = 0): Node[] {
     const tip = Math.min(100 - base, base * (mul - 1));
     return h(
       'div',
-      { class: 'stat' },
+      { class: ['stat', mul > 1 && 'prestiged'] },
       h('span', null, label),
       h(
         'div',

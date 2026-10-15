@@ -2700,6 +2700,10 @@ canvas.backdrop {
   font-style: normal;
   font-size: 12px;
 }
+.stat.prestiged {
+  grid-template-columns: 80px 1fr 92px;
+  white-space: nowrap;
+}
 .prestige-box {
   margin-top: 10px;
   padding-top: 8px;
