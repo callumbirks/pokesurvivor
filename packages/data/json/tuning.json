@@ -27,7 +27,7 @@
     "coopHp": {
       "perPlayerAfterDuo": 0.5,
       "rampFromMinute": 1.25,
-      "rampToMinute": 4,
+      "rampToMinute": 8,
       "rampPower": 2.3,
       "hpCurve": { "m0": 5, "a": 2.17, "p": 1 }
     },
