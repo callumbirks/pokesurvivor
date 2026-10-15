@@ -1,10 +1,11 @@
 {
   "unreleased": {
-    "prs": [80, 81, 82],
+    "prs": [80, 81, 82, 83],
     "entries": {
       "new": [
         "When a teammate revives you, you now get a clear \"You're back up!\" banner naming who revived you, with a green glow and its own sound.",
-        "Upgrade cards now come in Common, Rare, Epic and Legendary, with bigger bonuses, and better odds later in a run."
+        "Upgrade cards now come in Common, Rare, Epic and Legendary, with bigger bonuses, and better odds later in a run.",
+        "See your stats and card bonuses in the top-left corner (toggle in Settings)."
       ],
       "changed": [
         "Wild Pokémon hit about 10% less hard.",
