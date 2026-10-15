@@ -6,11 +6,17 @@ What changed for players in each release, newest first. Generated from
 
 ## Unreleased
 
-PRs: [#88](https://github.com/callumbirks/pokesurvivor/pull/88)
+PRs: [#85](https://github.com/callumbirks/pokesurvivor/pull/85), [#86](https://github.com/callumbirks/pokesurvivor/pull/86), [#87](https://github.com/callumbirks/pokesurvivor/pull/87), [#88](https://github.com/callumbirks/pokesurvivor/pull/88)
 
 ### New
 
+- While you're down in co-op, you can spectate your teammates and switch between them.
 - Prestige: once all of a Pokémon's upgrades are maxed, you can prestige it. This resets its upgrades and earns it a star (up to 3), and each star gives it +5% HP, damage, speed and crit chance, and −5% cooldown and damage taken. Stars show wherever the Pokémon appears.
+
+### Fixed
+
+- Keyboard and controller: you can now reach the Play button on the Pokémon select screen, and it starts with the Pokémon you picked, not the last one you moved over.
+- On phones in portrait, the Pokémon picker grid is no longer squeezed by the filters.
 
 ## v14 - 2026-10-15
 

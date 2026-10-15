@@ -14,7 +14,8 @@ table width changes from 13 to 14, so this is breaking: deploy client and server
 Version 6 added the manual aim, `aim`, to `input`. Version 7 added fire held, `fire`, to
 `input`. Within version 7, `self` gained an optional `momentum` (additive: older clients ignore
 it, and clients read a missing one as 0), and the JSON part an optional `stats` (the viewer's
-stats panel; older clients ignore it, and clients without one show no panel).
+stats panel; older clients ignore it, and clients without one show no panel), and the client message
+`game.spectate` (spectating while down; a new message type, so nothing older sends it).
 
 ## Connection
 
@@ -68,6 +69,7 @@ after 20 invalid messages the socket is closed with 4400.
 | `input {gameId, seq, moveX, moveY, slot?, aim?, fire?}` | while playing, sampled at up to 30/s; sent on change or every 250 ms while active (once with neutral movement on a choice pause). `seq` counts from 1 in each game. Movement is clamped to [−1, 1] and persists. `slot` is a one-shot move switch. `aim`: manual aim, an integer in [0, 256) for the angle × 256 / 2π (`encodeAim` / `decodeAim`); absent means auto-aim. Like movement it persists, so it's in every input while manual aim is on. `fire: true`: fire held (only with `aim`; absent while not held) |
 | `game.loaded {gameId}`                                  | assets loaded (during `loading`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `game.resync {gameId}`                                  | the client couldn't apply a snapshot; the next one must be full                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `game.spectate {gameId, target}`                        | while down in coop: centre your snapshots' interest area on another player (`target`: their user id), or on yourself again (`null`); see "Spectating" under [Snapshots](#snapshots)                                                                                                                                                                                                                                                                                                                                  |
 | `activity {solo: {runId, elapsedS, paused} \| null}`    | your solo run's clock, for friends' presence (see [Friend activity](#friend-activity))                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `room.create {rid}`                                     | → `RoomView`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `room.invite {rid, username}`                           | online friends only                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
@@ -226,6 +228,20 @@ use the same projection.
 **Interest management.** Enemies, projectiles, pickups, fields and hazards are sent within 950
 units of your Pokémon (legacy's radius). They stay until 1100 units, so things at the edge don't
 flicker in and out. Players, the team and pending choices are always sent.
+
+**Spectating.** While you're down in coop, `game.spectate {gameId, target}` moves that area onto
+a teammate (`SnapshotEncoder.focusId`), so the client can follow them with the camera. The server
+only takes it from a player who is down, for a target in the same game who is connected and
+hasn't left; anything else (yourself, `null`, an unknown id, a wrong `gameId`) centres it on you
+again. It is cleared when you're revived (a teammate, or the rift's exit), when the target
+disconnects or leaves (the client then picks the next player and asks again), and when you
+reconnect. Only the area moves: players (your own Pokémon included, so prediction is
+unaffected), `self`, `stats`, your choices and your personal events still come for you, and events
+with a position are filtered around the target. A switch is sent on the next tick. The entities
+around the new target enter through the usual delta rows, the old ones leave as ids: with
+`pnpm --filter @pokesurvivor/netclient bandwidth 6` (4 players, ~66 enemies around the target),
+the first frame after a switch is ~2.2 KB (a full frame is ~6.3 KB, a normal delta under 1 KB),
+the frames after it are normal deltas, and switching back is ~0.3 KB.
 
 **Frame layout.** Frames are binary and use zigzag varints throughout:
 

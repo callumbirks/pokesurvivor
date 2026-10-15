@@ -218,6 +218,57 @@ describe('snapshots', () => {
     sim.state.tick = tick;
   });
 
+  it('centre the interest area on the spectated player, keeping the viewer’s own state', () => {
+    const local = lateGame(3, 5);
+    const s = local.state;
+    const [p0, me] = [s.players[0]!, s.players[1]!];
+    // The viewer is down far from the crowd around everyone else.
+    me.x += 4000;
+    me.y += 4000;
+    me.dead = true;
+    const enc = new SnapshotEncoder({ viewerId: 'p1' });
+    const dec = new SnapshotDecoder(ids);
+    let seq = 0;
+    const step = () => {
+      botStep(local);
+      me.x = p0.x + 4000;
+      me.y = p0.y + 4000;
+      const bytes = enc.encode(s, local.drainEvents(), ++seq, 0) as Uint8Array;
+      return { bytes: bytes.length, snap: dec.decode(bytes) };
+    };
+    const within = (snap: Snapshot, x: number, y: number) =>
+      snap.enemies.every((n) => {
+        const e = s.enemies.find((o) => o.id === n.id)!;
+        return Math.hypot(e.x - x, e.y - y) <= INTEREST_RADIUS + 150;
+      });
+    const full = step();
+    for (let i = 0; i < 10; i++) step();
+    const alone = step();
+    expect(within(alone.snap, me.x, me.y)).toBe(true);
+
+    enc.focusId = 'p0';
+    const switched = step();
+    const near = s.enemies.filter((e) => Math.hypot(e.x - p0.x, e.y - p0.y) <= INTEREST_RADIUS);
+    expect(near.length).toBeGreaterThan(20);
+    expect(switched.snap.enemies.length).toBeGreaterThanOrEqual(near.length);
+    expect(within(switched.snap, p0.x, p0.y)).toBe(true);
+    // Every player is always sent (the viewer's own Pokémon included); `self` stays the viewer's.
+    expect(switched.snap.players.map((p) => p.id)).toEqual(ids);
+    expect(switched.snap.self?.cooldowns).toHaveLength(me.moves.length);
+    // The switch costs about one full frame's worth of rows, once; the deltas after are normal.
+    const after = [step(), step(), step()];
+    expect(switched.bytes).toBeLessThan(full.bytes + 4000);
+    for (const a of after) expect(a.bytes).toBeLessThan(switched.bytes / 2);
+    // Back to the viewer: the crowd leaves (ids only), so that frame is small.
+    enc.focusId = null;
+    const back = step();
+    expect(within(back.snap, me.x, me.y)).toBe(true);
+    expect(back.bytes).toBeLessThan(switched.bytes / 2);
+    // A focus that isn't a player falls back to the viewer.
+    enc.focusId = 'nobody';
+    expect(within(step().snap, me.x, me.y)).toBe(true);
+  });
+
   it('start over with a full snapshot after a reset (reconnect)', () => {
     const enc = new SnapshotEncoder({ viewerId: 'p0' });
     enc.encode(sim.state, [], 1, 0);
