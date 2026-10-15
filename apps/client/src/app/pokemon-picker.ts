@@ -7,7 +7,7 @@
 // always acts on the selection. → from the grid's right edge goes to the confirm button too, and
 // ← from it back to the selected cell. Enter in the search field picks the first result, ↓ goes
 // to it; Esc leaves the field (menu-nav), and B goes back as usual.
-// On short screens (phones in landscape) the filters fold behind a button and the confirm button
+// On phones (in landscape or portrait) the filters fold behind a button, and the confirm button
 // stays below the details, which scroll.
 import { t, type Pokemon, type UiStringKey } from '@pokesurvivor/data';
 import { menuNav } from '../menu-nav.js';
