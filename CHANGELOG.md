@@ -6,11 +6,12 @@ What changed for players in each release, newest first. Generated from
 
 ## Unreleased
 
-PRs: [#85](https://github.com/callumbirks/pokesurvivor/pull/85)
+PRs: [#85](https://github.com/callumbirks/pokesurvivor/pull/85), [#87](https://github.com/callumbirks/pokesurvivor/pull/87)
 
 ### Fixed
 
 - Keyboard and controller: you can now reach the Play button on the Pokémon select screen, and it starts with the Pokémon you picked, not the last one you moved over.
+- On phones in portrait, the Pokémon picker grid is no longer squeezed by the filters.
 
 ## v14 - 2026-10-15
 
