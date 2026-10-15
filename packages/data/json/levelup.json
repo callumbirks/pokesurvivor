@@ -21,7 +21,9 @@
     ],
     "odds": [
       { "minute": 0, "weights": [70, 22, 7, 1] },
-      { "minute": 15, "weights": [40, 35, 20, 5] }
+      { "minute": 15, "weights": [40, 35, 20, 5] },
+      { "minute": 25, "weights": [25, 35, 27, 13] },
+      { "minute": 30, "weights": [15, 30, 35, 20] }
     ]
   },
   "statCards": [
@@ -30,28 +32,28 @@
       "icon": "heart",
       "name": "Vigor",
       "description": "+{value} max HP (and heals it).",
-      "effect": { "type": "maxHp", "value": 14 }
+      "effect": { "type": "maxHp", "value": 16 }
     },
     {
       "id": "attack",
       "icon": "fist",
       "name": "Power",
       "description": "+{percent}% damage with every move.",
-      "effect": { "type": "stat", "stat": "attackMul", "op": "mul", "value": 1.06 }
+      "effect": { "type": "stat", "stat": "attackMul", "op": "mul", "value": 1.08 }
     },
     {
       "id": "speed",
       "icon": "boot",
       "name": "Sprint",
       "description": "+{percent}% movement speed.",
-      "effect": { "type": "stat", "stat": "speedMul", "op": "mul", "value": 1.05, "cap": 1.72 }
+      "effect": { "type": "stat", "stat": "speedMul", "op": "mul", "value": 1.06, "cap": 1.72 }
     },
     {
       "id": "cooldown",
       "icon": "clock",
       "name": "Reflexes",
       "description": "-{percent}% cooldown on every move.",
-      "effect": { "type": "stat", "stat": "cooldownMul", "op": "mul", "value": 0.95, "cap": 0.4 }
+      "effect": { "type": "stat", "stat": "cooldownMul", "op": "mul", "value": 0.935, "cap": 0.4 }
     },
     {
       "id": "defense",
@@ -62,7 +64,7 @@
         "type": "stat",
         "stat": "damageReduction",
         "op": "add",
-        "value": 0.04,
+        "value": 0.05,
         "cap": 0.7
       }
     },
@@ -71,21 +73,21 @@
       "icon": "sprout",
       "name": "Synthesis",
       "description": "+{value} HP regenerated per second.",
-      "effect": { "type": "stat", "stat": "regen", "op": "add", "value": 0.6 }
+      "effect": { "type": "stat", "stat": "regen", "op": "add", "value": 0.7 }
     },
     {
       "id": "magnet",
       "icon": "magnet",
       "name": "Magnet",
       "description": "+{percent}% experience pickup radius.",
-      "effect": { "type": "stat", "stat": "magnet", "op": "mul", "value": 1.2, "cap": 4.83 }
+      "effect": { "type": "stat", "stat": "magnet", "op": "mul", "value": 1.24, "cap": 4.83 }
     },
     {
       "id": "experience",
       "icon": "book",
       "name": "Learning",
       "description": "+{percent}% experience gained.",
-      "effect": { "type": "stat", "stat": "xpMul", "op": "mul", "value": 1.08, "cap": 2.5 }
+      "effect": { "type": "stat", "stat": "xpMul", "op": "mul", "value": 1.1, "cap": 2.5 }
     },
     {
       "id": "heal",
