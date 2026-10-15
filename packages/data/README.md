@@ -92,8 +92,14 @@ Rift legend HP adds a parametric multiplier to its existing time/late-game/co-op
 them. This controls HP only and keeps growing beyond the fitted window. It does not scale
 legend damage or depend on a player's prestige.
 
-`rift.coopHp` adds `1 + perPlayerAfterDuo * max(0, players - 2)` at every run time,
-including the first rift. Solo/duo HP, legend damage and prestige behavior stay unchanged.
+`rift.coopHp` adds `1 + perPlayerAfterDuo * max(0, players - 2) * progress ** rampPower`,
+where `progress = clamp((minute - rampFromMinute) / (rampToMinute - rampFromMinute), 0, 1)`.
+Named run-minute endpoints and the exponent let the first rift retain near-base HP while
+reaching the full large-team uplift later. Solo/duo HP, legend damage and prestige stay unchanged.
 
 `poison.bossFactor` scales only poison's percent-max-HP component against map bosses and
 rift legends. Regular enemies, flat tick damage, stack cap and tick interval stay unchanged.
+
+`rift.coopHp.hpCurve` uses the same uncapped time formula for teams of three or four,
+replacing `rift.hpCurve` only for those teams. It allows softening early co-op encounters
+without changing solo/duo HP. The ramp controls extra co-op HP separately from time growth.

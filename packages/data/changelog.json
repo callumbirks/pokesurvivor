@@ -1,11 +1,12 @@
 {
   "unreleased": {
-    "prs": [69],
+    "prs": [69, 70],
     "entries": {
       "new": [],
       "changed": [],
       "fixed": [
-        "You're prompted to reload when a new version is released, instead of only after big updates."
+        "You're prompted to reload when a new version is released, instead of only after big updates.",
+        "The first rift in 3–4 player co-op is beatable again: rift toughness now ramps up over the first few minutes."
       ],
       "behindTheScenes": []
     }

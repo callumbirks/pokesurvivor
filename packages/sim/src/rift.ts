@@ -255,12 +255,18 @@ export function legendHpMultiplier(minute: number, curve: TuningFile['rift']['hp
   return Math.pow(1 + curve.a * Math.max(0, minute - curve.m0), curve.p);
 }
 
-/** Playtest-calibrated large-team uplift from the first rift; solo/duo stay intact. */
+/** Ease in large-team HP; solo/duo stay intact. */
 export function legendCoopHpMultiplier(
+  minute: number,
   players: number,
-  coop: TuningFile['rift']['coopHp'],
+  coop: Omit<TuningFile['rift']['coopHp'], 'hpCurve'>,
 ): number {
-  return 1 + coop.perPlayerAfterDuo * Math.max(0, players - 2);
+  const progress = clamp(
+    (minute - coop.rampFromMinute) / (coop.rampToMinute - coop.rampFromMinute),
+    0,
+    1,
+  );
+  return 1 + coop.perPlayerAfterDuo * Math.max(0, players - 2) * progress ** coop.rampPower;
 }
 
 function spawnLegend(ctx: Ctx): void {
@@ -271,6 +277,8 @@ function spawnLegend(ctx: Ctx): void {
   const t = s.time;
   const n = Math.max(1, activePlayers(s).length);
   const lk = d.late(t);
+  const rift = d.game.tuning.rift;
+  const curve = n > 2 ? rift.coopHp.hpCurve : rift.hpCurve;
   const def: EnemyDef = {
     dex: mon.dex,
     behavior: mon.types.some((x) => RANGED_TYPES.includes(x)) ? 'ranged' : 'charger',
@@ -279,8 +287,8 @@ function spawnLegend(ctx: Ctx): void {
         lk *
         scaleHp(n) *
         (n > 1 ? 1.4 : 1) *
-        legendHpMultiplier(t / 60, d.game.tuning.rift.hpCurve) *
-        legendCoopHpMultiplier(n, d.game.tuning.rift.coopHp),
+        legendHpMultiplier(t / 60, curve) *
+        legendCoopHpMultiplier(t / 60, n, rift.coopHp),
     ),
     speed: Math.round(clamp(48 + (mon.speed - 78) * 0.6, 48, 105)),
     damage: Math.round((36 + t / 20) * Math.pow(lk, 0.7)),

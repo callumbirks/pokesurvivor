@@ -35,8 +35,9 @@ for (const path of args.filter((a) => !a.startsWith('--'))) {
   const bytes = readFileSync(path);
   const raw = path.endsWith('.gz') ? gunzipSync(bytes).toString('utf8') : bytes.toString('utf8');
   let curve: TuningFile['rift']['hpCurve'] | undefined;
-  // Optional ramp fields preserve measurements from the superseded iteration-3 draft.
-  type RecordedCoop = TuningFile['rift']['coopHp'] & { rampMinutes?: number; rampPower?: number };
+  // Support v10's constant uplift, the old late ramp, and the current early ramp.
+  type RecordedCoop = Pick<TuningFile['rift']['coopHp'], 'perPlayerAfterDuo'> &
+    Partial<Omit<TuningFile['rift']['coopHp'], 'perPlayerAfterDuo'>> & { rampMinutes?: number };
   let coop: RecordedCoop | undefined;
   for (const line of raw.trim().split('\n')) {
     const row = JSON.parse(line) as
@@ -59,13 +60,23 @@ for (const path of args.filter((a) => !a.startsWith('--'))) {
     const identity = `${key}/${row.archetype}/${row.seed}`;
     if (seen.has(identity)) throw new Error(`duplicate probe ${identity}`);
     seen.add(identity);
-    const timeMultiplier = curve ? legendHpMultiplier(row.minute, curve) : 1;
+    const timeCurve = row.players > 2 && coop?.hpCurve ? coop.hpCurve : curve;
+    const timeMultiplier = timeCurve ? legendHpMultiplier(row.minute, timeCurve) : 1;
     const ramp =
       curve && coop?.rampMinutes
         ? Math.min(1, Math.max(0, (row.minute - curve.m0) / coop.rampMinutes)) **
           (coop.rampPower ?? 1)
         : 1;
-    const coopMultiplier = coop ? 1 + (legendCoopHpMultiplier(row.players, coop) - 1) * ramp : 1;
+    const coopMultiplier = !coop
+      ? 1
+      : coop.rampFromMinute !== undefined && coop.rampToMinute !== undefined
+        ? legendCoopHpMultiplier(row.minute, row.players, {
+            ...coop,
+            rampFromMinute: coop.rampFromMinute,
+            rampToMinute: coop.rampToMinute,
+            rampPower: coop.rampPower ?? 1,
+          })
+        : 1 + coop.perPlayerAfterDuo * Math.max(0, row.players - 2) * ramp;
     const baseHp = row.legendHp / (timeMultiplier * coopMultiplier);
     const ratios = groups.get(key) ?? [];
     ratios.push((row.fightDps * targetSeconds) / baseHp);
