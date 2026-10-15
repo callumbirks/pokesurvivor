@@ -1,7 +1,7 @@
 // Manual v12/v13 early-damage and horde-training diagnostics; never run in CI.
 import { execFileSync } from 'node:child_process';
 import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
-import { DT } from '../src/constants.js';
+import { DT, OUTER_RADIUS } from '../src/constants.js';
 import { hurtPlayer } from '../src/players.js';
 import { spawnOne } from '../src/spawner.js';
 import type { Sim } from '../src/index.js';
@@ -153,21 +153,36 @@ function train(cell: Cell, seed: number, minute: number, build: PlayerState, tur
     cohortBehind = 0,
     cohortSamples = 0,
     heading = 0,
+    steeringUntil = 0,
+    previousDirection = 0,
     travel = 0;
   let observedVx = 0,
     observedVy = 0;
   for (let tick = 0; tick < seconds / DT; tick++) {
     const direction = turning && Math.floor((tick * DT) / 12) % 2 ? Math.PI : 0;
-    // Prefer the long run direction; steer around terrain without consulting enemy locations.
-    let chosen = heading;
-    for (const turn of [0, 0.35, -0.35, 0.7, -0.7, 1.2, -1.2, 1.8, -1.8, Math.PI]) {
-      const a = direction + turn;
-      if (isFree(sim.ctx, p.x + Math.cos(a) * 45, p.y + Math.sin(a) * 45, p.r)) {
-        chosen = a;
-        break;
-      }
+    // Hold terrain detours so a fast Pokémon does not oscillate on alternating wall probes.
+    const clear = (a: number) =>
+      [18, 36, 54].every((distance) =>
+        isFree(sim.ctx, p.x + Math.cos(a) * distance, p.y + Math.sin(a) * distance, p.r),
+      );
+    if (direction !== previousDirection) {
+      heading = direction;
+      steeringUntil = 0;
+      previousDirection = direction;
     }
-    heading = chosen;
+    if (tick >= steeringUntil && clear(direction)) {
+      heading = direction;
+      steeringUntil = tick + 1.5 / DT;
+    }
+    if (!clear(heading))
+      for (const turn of [0.5, -0.5, 1, -1, 1.5, -1.5, 2, -2, Math.PI]) {
+        const a = heading + turn;
+        if (clear(a)) {
+          heading = a;
+          steeringUntil = tick + 1.5 / DT;
+          break;
+        }
+      }
     sim.setInput(p.id, { moveX: Math.cos(heading), moveY: Math.sin(heading) });
     const old = new Map(
       sim.state.enemies.map((e) => [e.id, { x: e.x, y: e.y, touchCd: e.touchCd }]),
@@ -219,7 +234,12 @@ function train(cell: Cell, seed: number, minute: number, build: PlayerState, tur
       if (event.type === 'enemy-spawned') {
         const e = sim.state.enemies.find((e) => e.id === event.id);
         // Separate ordinary ring arrivals from summons next to an existing enemy.
-        if (e && Math.hypot(e.x - p.x, (e.y - p.y) / 0.9) > 600 && speed > 35) {
+        if (
+          e &&
+          sim.state.roster.tiers.some((tier) => tier.list.includes(e.def)) &&
+          Math.hypot(e.x - p.x, (e.y - p.y) / 0.9) > OUTER_RADIUS - 10 &&
+          speed > 35
+        ) {
           fresh++;
           if ((e.x - p.x) * dx + (e.y - p.y) * dy > 0) freshAhead++;
         }
