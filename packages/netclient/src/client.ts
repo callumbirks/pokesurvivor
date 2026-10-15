@@ -72,7 +72,14 @@ export interface Invite {
 
 export interface ClientEvents extends Record<string, unknown> {
   state: ConnectionState;
-  welcome: { userId: string; username: string; draining: boolean };
+  /** `build` and `version`: the server's deployed build (absent in development). */
+  welcome: {
+    userId: string;
+    username: string;
+    draining: boolean;
+    build?: string;
+    version?: string;
+  };
   room: RoomView | null;
   invite: Invite;
   'invite.revoked': { roomId: string };
@@ -432,6 +439,8 @@ export class NetClient {
           userId: m.userId,
           username: m.username,
           draining: m.draining,
+          build: m.build,
+          version: m.version,
         });
         return;
       case 'pong':

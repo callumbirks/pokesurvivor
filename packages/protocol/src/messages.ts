@@ -273,6 +273,13 @@ export type ServerMessage<Roster = unknown, Summary = unknown> =
       heartbeatMs: number;
       /** The server is shutting down (no new games). */
       draining: boolean;
+      /**
+       * The deployed build's id (absent in development). A client built differently is an older
+       * or newer bundle and should offer a reload; unlike `protocolVersion`, it still works.
+       */
+      build?: string;
+      /** The deployed build's version label (`v10`, `v10+dev`), sent with `build`. */
+      version?: string;
     }
   | { type: 'pong'; id: number; sentAt: number; serverTime: number }
   | ({ type: 'reply'; rid: number } & (

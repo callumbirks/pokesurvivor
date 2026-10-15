@@ -6,10 +6,11 @@ What changed for players in each release, newest first. Generated from
 
 ## Unreleased
 
-PRs: [#70](https://github.com/callumbirks/pokesurvivor/pull/70)
+PRs: [#69](https://github.com/callumbirks/pokesurvivor/pull/69), [#70](https://github.com/callumbirks/pokesurvivor/pull/70)
 
 ### Fixed
 
+- You're prompted to reload when a new version is released, instead of only after big updates.
 - The first rift in 3–4 player co-op is beatable again: rift toughness now ramps up over the first few minutes.
 
 ## v10 - 2026-10-15

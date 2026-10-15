@@ -24,6 +24,22 @@ How pull requests add lines to `unreleased` is in
 [CONTRIBUTING.md](../CONTRIBUTING.md#changelog). A build with unreleased lines shows its version as
 e.g. `v7+dev` (`dev` before the first release).
 
+### Versions and the reload prompt
+
+Every image build gets a **build id**. The client build (`apps/client/vite.config.ts`) bakes it
+into the bundle and writes it to `apps/client/dist/build.json`; the server in the same image reads
+that file at startup and sends the id, with the version label, in the WebSocket `welcome` and in
+the `X-Build` header of API responses. A tab still running an older bundle (a deploy happened
+since it loaded) sees a different id and shows "Version vN is available. Reload to update": on
+the menus straight away, after the run during a run, and again on the next screen or after five
+minutes when closed. It never reloads by itself; a `PROTOCOL_VERSION` change still forces a
+reload, as before.
+
+The id is unique per build. A build Docker serves from cache (no app or package changed, e.g. a
+docs-only commit) keeps its id, so it prompts nobody. To pick the id yourself, set the build
+argument `BUILD_ID` (Dokploy: the application's **Build-time Arguments**), e.g. to the commit.
+`pnpm dev` has no build id, so development never prompts.
+
 ## 1. Create the database
 
 In the Dokploy project: **Create Service → Database → PostgreSQL**.

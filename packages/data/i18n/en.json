@@ -599,6 +599,7 @@
     "reconnecting": "Connection lost: reconnecting…",
     "superseded": "The game was opened in another tab or device.",
     "newVersion": "A new version of the game is out: reload to update.",
+    "updateAvailable": "Version {0} is available. Reload to update.",
     "connectionFailed": "Couldn't connect to the game server.",
     "coins": "PokéCoins",
     "tickets": "Gacha tickets (×1 and ×10)",

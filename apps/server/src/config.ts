@@ -1,4 +1,6 @@
-import { resolve } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+import { loadChangelog, versionLabel } from '@pokesurvivor/data';
 
 /** Directory of the running code: `src/` under tsx, `dist/` once bundled. Both sit one level below the app. */
 const here = import.meta.dirname;
@@ -48,6 +50,32 @@ export interface GameConfig {
   heartbeatMs: number;
   /** Running games may finish for this long during SIGTERM drain. */
   drainTimeoutMs: number;
+  /** The deployed build (sent in `welcome`), or null in development. */
+  build: BuildInfo | null;
+}
+
+/** A deploy's identity: clients built differently are offered a reload. */
+export interface BuildInfo {
+  /** Opaque and unique per build (`build.json` next to the client bundle). */
+  id: string;
+  /** The version label players see, e.g. `v10`. */
+  version: string;
+}
+
+/**
+ * The build of the client this server serves: the client build writes `build.json` next to its
+ * bundle, with the id it baked into the bundle, so a client and server from one image agree. Null
+ * when there is none (development, where Vite serves the client, or a build without one).
+ */
+export function readBuild(clientDir: string): BuildInfo | null {
+  let id: unknown;
+  try {
+    id = (JSON.parse(readFileSync(join(clientDir, 'build.json'), 'utf8')) as { id?: unknown }).id;
+  } catch {
+    return null;
+  }
+  if (typeof id !== 'string' || !id) return null;
+  return { id, version: versionLabel(loadChangelog()) };
 }
 
 /** Solo runs (client-simulated): checkpoints and the timeout that credits them. */
@@ -89,6 +117,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   if (!Number.isInteger(port) || port < 0 || port > 65535)
     throw new Error(`Invalid PORT: ${env.PORT}`);
 
+  const clientDir = resolve(env.CLIENT_DIR ?? resolve(here, '../../client/dist'));
   return {
     isProduction,
     host: env.HOST ?? '0.0.0.0',
@@ -97,7 +126,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     databaseUrl,
     migrateOnStart: env.MIGRATE_ON_START !== 'false',
     migrationsDir: resolve(here, '../drizzle'),
-    clientDir: resolve(env.CLIENT_DIR ?? resolve(here, '../../client/dist')),
+    clientDir,
     assetsDir: resolve(env.ASSETS_DIR ?? resolve(here, '../../../assets')),
     secureCookies: env.COOKIE_SECURE ? env.COOKIE_SECURE === 'true' : isProduction,
     leaderboardTimeZone: timeZone(env.LEADERBOARD_TIME_ZONE),
@@ -111,6 +140,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       inviteTtlMs: 120_000,
       heartbeatMs: 2000,
       drainTimeoutMs: positiveInt('DRAIN_TIMEOUT_S', env.DRAIN_TIMEOUT_S, 900) * 1000,
+      build: readBuild(clientDir),
     },
     soloRuns: {
       checkpointTimeoutMs:

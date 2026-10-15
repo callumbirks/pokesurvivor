@@ -22,6 +22,10 @@ Version 6 added the manual aim, `aim`, to `input`. Version 7 added fire held, `f
    version differs, the server sends `error {code: "version_mismatch"}` and closes with 4426, and
    the client should reload the page. Otherwise it replies with `welcome`, followed by `room`
    (your room, or null), any pending `invite`s, and `presence` (all your friends).
+   In a deployed server, `welcome` also carries `build` (the deploy's build id) and `version`
+   (its label, e.g. `v10`). A client whose own build id differs is an old (or newer) bundle that
+   still speaks the protocol: it offers a reload without forcing one. Both fields are optional
+   and absent in development; a client without a build id ignores them.
 3. **One socket per user.** A second hello from the same user **supersedes** the first. The old
    socket gets `error {code: "superseded"}` and is closed with 4409. It must not reconnect,
    otherwise two tabs would keep taking the session from each other.
@@ -86,25 +90,25 @@ game already started), `room_full`, `already_member`, `no_invite`, `user_not_fou
 
 ### Server → client
 
-| Message                                                                          | When                                                                                                                                                               |
-| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `welcome {userId, username, serverTime, heartbeatMs, draining, protocolVersion}` | after hello                                                                                                                                                        |
-| `pong {id, sentAt, serverTime}`                                                  | each ping                                                                                                                                                          |
-| `reply {rid, ok, data? \| error}`                                                | each request                                                                                                                                                       |
-| `error {error}`                                                                  | before the server closes the socket (unauthenticated, superseded, version mismatch)                                                                                |
-| `room {room: RoomView \| null}`                                                  | your room after **every** change (it's state: the latest one wins)                                                                                                 |
-| `invite {roomId, from, expiresAt}`                                               | you were invited (expires in 2 min)                                                                                                                                |
-| `invite.revoked {roomId}`                                                        | the invite expired, or the room started or closed                                                                                                                  |
-| `invite.declined {roomId, username}`                                             | to the owner                                                                                                                                                       |
-| `presence {friends: [{username, status, activity?}]}`                            | on connect                                                                                                                                                         |
-| `presence.update {username, status, activity?}`                                  | a friend's presence or activity changed (see [Friend activity](#friend-activity))                                                                                  |
-| `friend {event, username}`                                                       | `request_received`, `request_accepted`, `friend_removed` (from the HTTP friend routes)                                                                             |
-| `notice {code, usernames?, deadline?}`                                           | `dropped-at-loading`, `player-disconnected`, `player-reconnected`, `player-left`, `player-removed`, `owner-changed`, `kicked`, `game-cancelled`, `server-draining` |
-| `game.loading {game, deadline}`                                                  | a game is loading: load what it needs, then send `game.loaded`                                                                                                     |
-| `game.start {game, resumed}`                                                     | the game runs (or you resumed it); a full snapshot follows straight away                                                                                           |
-| `game.results {results}`                                                         | the run is over and recorded                                                                                                                                       |
-| `server.lag {late, skipped, worstMs}`                                            | the game loop fell behind (in a running game, at most 1/s; see [Server lag](#server-lag))                                                                          |
-| binary frame                                                                     | a snapshot                                                                                                                                                         |
+| Message                                                                                            | When                                                                                                                                                               |
+| -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `welcome {userId, username, serverTime, heartbeatMs, draining, protocolVersion, build?, version?}` | after hello                                                                                                                                                        |
+| `pong {id, sentAt, serverTime}`                                                                    | each ping                                                                                                                                                          |
+| `reply {rid, ok, data? \| error}`                                                                  | each request                                                                                                                                                       |
+| `error {error}`                                                                                    | before the server closes the socket (unauthenticated, superseded, version mismatch)                                                                                |
+| `room {room: RoomView \| null}`                                                                    | your room after **every** change (it's state: the latest one wins)                                                                                                 |
+| `invite {roomId, from, expiresAt}`                                                                 | you were invited (expires in 2 min)                                                                                                                                |
+| `invite.revoked {roomId}`                                                                          | the invite expired, or the room started or closed                                                                                                                  |
+| `invite.declined {roomId, username}`                                                               | to the owner                                                                                                                                                       |
+| `presence {friends: [{username, status, activity?}]}`                                              | on connect                                                                                                                                                         |
+| `presence.update {username, status, activity?}`                                                    | a friend's presence or activity changed (see [Friend activity](#friend-activity))                                                                                  |
+| `friend {event, username}`                                                                         | `request_received`, `request_accepted`, `friend_removed` (from the HTTP friend routes)                                                                             |
+| `notice {code, usernames?, deadline?}`                                                             | `dropped-at-loading`, `player-disconnected`, `player-reconnected`, `player-left`, `player-removed`, `owner-changed`, `kicked`, `game-cancelled`, `server-draining` |
+| `game.loading {game, deadline}`                                                                    | a game is loading: load what it needs, then send `game.loaded`                                                                                                     |
+| `game.start {game, resumed}`                                                                       | the game runs (or you resumed it); a full snapshot follows straight away                                                                                           |
+| `game.results {results}`                                                                           | the run is over and recorded                                                                                                                                       |
+| `server.lag {late, skipped, worstMs}`                                                              | the game loop fell behind (in a running game, at most 1/s; see [Server lag](#server-lag))                                                                          |
+| binary frame                                                                                       | a snapshot                                                                                                                                                         |
 
 `RoomView` is `{id, phase, ownerId, members, invited, maxMembers: 4, blockers, loadingDeadline}`.
 Each member is `{userId, username, status, connected, inGame, loaded, partner}`. `blockers`
