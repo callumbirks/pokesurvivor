@@ -15,6 +15,7 @@ PRs: [#85](https://github.com/callumbirks/pokesurvivor/pull/85), [#86](https://g
 ### Changed
 
 - Power cards now stop at ×20 damage.
+- Synthesis cards now stop at +10 HP regenerated per second.
 
 ### Fixed
 

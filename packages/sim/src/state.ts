@@ -225,6 +225,8 @@ export interface PlayerState {
   statsTaken: Record<string, number>;
   /** The multiplier each `mul` stat card's picks have built up (what its ceiling bounds). */
   cardMul: Record<string, number>;
+  /** The amount each `add` stat card's picks have added (what a `capOf: "cards"` ceiling bounds). */
+  cardAdd: Record<string, number>;
   item: string | null;
   /** Regen Leftovers added when equipped (removed again on swap). */
   itemRegen: number;

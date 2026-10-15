@@ -164,6 +164,10 @@ describe('stat card ceilings', () => {
         // Exactly at the ceiling, and the stat moved by the card-driven multiplier only.
         expect(p.cardMul[c.id]).toBe(e.cap);
         expect(p[e.stat] / start).toBeCloseTo(e.cap);
+      } else if (e.capOf === 'cards') {
+        // What the card's picks added is exactly at the ceiling, and so is the stat's growth.
+        expect(p.cardAdd[c.id]).toBe(e.cap);
+        expect(p[e.stat] - start).toBeCloseTo(e.cap);
       } else expect(p[e.stat]).toBe(e.cap);
       // A pick past the ceiling (an offer opened just before) changes nothing.
       const at = p[e.stat];
@@ -185,6 +189,23 @@ describe('stat card ceilings', () => {
     const before = p[e.stat];
     applyCard(sim.ctx, p, statCard(c.id));
     expect(p[e.stat] / before).toBeCloseTo(e.value);
+    expect(atCeiling(sim.ctx, p, c.id)).toBe(false);
+  });
+
+  it("bounds only what an added card built when it says so: items and upgrades aren't counted", () => {
+    const c = capped.find(
+      (c) => c.effect.type === 'stat' && c.effect.op === 'add' && c.effect.capOf === 'cards',
+    );
+    if (!c) return; // No such card in the data right now.
+    const e = c.effect;
+    if (e.type !== 'stat' || e.cap === undefined) throw new Error('unreachable');
+    const sim = quietSim();
+    const p = player(sim);
+    // Another source has already passed the ceiling on its own.
+    p[e.stat] += e.cap * 2;
+    const before = p[e.stat];
+    applyCard(sim.ctx, p, statCard(c.id));
+    expect(p[e.stat] - before).toBeCloseTo(e.value);
     expect(atCeiling(sim.ctx, p, c.id)).toBe(false);
   });
 });

@@ -73,7 +73,14 @@
       "icon": "sprout",
       "name": "Synthesis",
       "description": "+{value} HP regenerated per second.",
-      "effect": { "type": "stat", "stat": "regen", "op": "add", "value": 0.7 }
+      "effect": {
+        "type": "stat",
+        "stat": "regen",
+        "op": "add",
+        "value": 0.7,
+        "cap": 10,
+        "capOf": "cards"
+      }
     },
     {
       "id": "magnet",
