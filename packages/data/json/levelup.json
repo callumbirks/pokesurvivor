@@ -39,7 +39,7 @@
       "icon": "fist",
       "name": "Power",
       "description": "+{percent}% damage with every move.",
-      "effect": { "type": "stat", "stat": "attackMul", "op": "mul", "value": 1.08 }
+      "effect": { "type": "stat", "stat": "attackMul", "op": "mul", "value": 1.08, "cap": 20 }
     },
     {
       "id": "speed",
