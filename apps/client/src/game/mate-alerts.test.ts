@@ -56,10 +56,23 @@ describe('MateAlerts', () => {
 
   it('leaves our own going down alone', () => {
     const { alerts, banner, sfx, toast } = setup();
-    alerts.play([down('me'), revived('me', 'bork')], frame('me', ['me']));
+    alerts.play([down('me')], frame('me', ['me']));
     expect(banner).not.toHaveBeenCalled();
     expect(sfx).not.toHaveBeenCalled();
     expect(toast).not.toHaveBeenCalled();
+  });
+
+  it('shows our own revive as a banner naming who revived us', () => {
+    const { alerts, banner, toast } = setup();
+    alerts.play([revived('me', 'bork')], frame('me'));
+    expect(banner).toHaveBeenCalledWith("You're back up!", 'Revived by bork', true);
+    expect(toast).not.toHaveBeenCalled();
+  });
+
+  it('shows our own revive without a name when nobody did it (a rift exit)', () => {
+    const { alerts, banner } = setup();
+    alerts.play([revived('me', null)], frame('me'));
+    expect(banner).toHaveBeenCalledWith("You're back up!", null, true);
   });
 
   it('drops the hint when nobody is up to revive them', () => {
@@ -113,6 +126,11 @@ describe('MateBanner', () => {
     expect(b.root.classList.contains('out')).toBe(true);
     vi.advanceTimersByTime(400);
     expect(b.root.hidden).toBe(true);
+    expect(b.root.classList.contains('self')).toBe(false);
+    b.show("You're back up!", null, 2.5, true);
+    expect(b.root.classList.contains('self')).toBe(true);
+    b.show("bork's Pikachu is down!", null);
+    expect(b.root.classList.contains('self')).toBe(false);
     b.dispose();
     expect(parent.children).toHaveLength(0);
   });

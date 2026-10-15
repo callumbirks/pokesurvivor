@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { audio } from '../audio.js';
 import { typeColor } from '../icons.js';
 import { EventEffects, hurtColor, type EventSinks } from './events.js';
 import { FX } from './scene/fx.js';
@@ -47,4 +48,42 @@ it('shows a green pulse and amount on the healed recipient', () => {
   expect(text).toHaveBeenCalledWith(20, 2, '+28', '#5fe08a');
   expect(errors).not.toHaveBeenCalled();
   vi.restoreAllMocks();
+});
+
+describe('revives', () => {
+  function setup() {
+    const fx = new FX();
+    const ring = vi.spyOn(fx, 'ring');
+    const glow = vi.fn();
+    const sfx = vi.spyOn(audio, 'sfx').mockImplementation(() => {});
+    const entities = { playerHeight: () => 20 } as unknown as EventSinks['entities'];
+    const effects = new EventEffects({ fx, entities, glow } as unknown as EventSinks);
+    const frame = {
+      self: { x: 0, y: 0 },
+      selfId: 'me',
+      players: [
+        { id: 'me', x: 10, y: 10 },
+        { id: 'bork', x: 50, y: 50 },
+      ],
+    } as unknown as Frame;
+    return { effects, frame, ring, glow, sfx };
+  }
+
+  it('gives our own revive a bigger effect, a glow and its own sound', () => {
+    const { effects, frame, ring, glow, sfx } = setup();
+    effects.play([{ type: 'player-revived', playerId: 'me', by: 'bork' }], frame);
+    expect(ring).toHaveBeenCalledTimes(2);
+    expect(glow).toHaveBeenCalledWith('#5fe08a', expect.any(Number));
+    expect(sfx).toHaveBeenCalledWith('revived', undefined);
+    vi.restoreAllMocks();
+  });
+
+  it("keeps a teammate's revive as it was", () => {
+    const { effects, frame, ring, glow, sfx } = setup();
+    effects.play([{ type: 'player-revived', playerId: 'bork', by: 'me' }], frame);
+    expect(ring).toHaveBeenCalledTimes(1);
+    expect(glow).not.toHaveBeenCalled();
+    expect(sfx).toHaveBeenCalledWith('heal', undefined);
+    vi.restoreAllMocks();
+  });
 });
