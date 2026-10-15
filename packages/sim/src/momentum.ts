@@ -1,15 +1,27 @@
 // Momentum: a per-player kill-streak damage bonus (tuning `momentum`). Every kill credited to a
-// player (their last hit, or their burn/poison ticks) adds a stack, up to the cap; each stack
+// player (their last hit, or their burn/poison ticks) adds a stack, up to the cap (which grows
+// over the run: `momentumCap`); each stack
 // multiplies their move damage. After `graceSeconds` without a kill the stacks drain at
 // `decayPerSecond`, so a short pause doesn't wipe a streak. Taking damage doesn't touch it; a
 // downed player can't kill, so theirs drains the same way.
 import { DT } from './constants.js';
+import type { TuningFile } from '@pokesurvivor/data';
 import type { Ctx } from './ctx.js';
 import type { PlayerState } from './state.js';
 
+/**
+ * The stack cap `time` seconds into the run: linear from `maxStacksStart` to `maxStacks` at
+ * `maxStacksFullMinute`, then held. It only grows, so stacks never need clamping down.
+ */
+export function momentumCap(m: TuningFile['momentum'], time: number): number {
+  const full = m.maxStacksFullMinute * 60;
+  const k = full > 0 ? Math.min(1, Math.max(0, time / full)) : 1;
+  return m.maxStacksStart + (m.maxStacks - m.maxStacksStart) * k;
+}
+
 export function addMomentum(ctx: Ctx, p: PlayerState): void {
   const m = ctx.d.game.tuning.momentum;
-  p.momentum = Math.min(m.maxStacks, p.momentum + 1);
+  p.momentum = Math.max(p.momentum, Math.min(momentumCap(m, ctx.s.time), p.momentum + 1));
   p.momentumIdle = 0;
 }
 

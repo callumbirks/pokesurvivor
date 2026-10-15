@@ -435,7 +435,9 @@ function momentumHelp(): string {
   const pct = (v: number) => String(Math.round(v * 1000) / 10);
   return t('settings.momentumHelp', {
     0: pct(m.perStack),
-    1: pct(m.perStack * m.maxStacks),
-    2: m.graceSeconds,
+    1: pct(m.perStack * m.maxStacksStart),
+    2: pct(m.perStack * m.maxStacks),
+    3: m.maxStacksFullMinute,
+    4: m.graceSeconds,
   });
 }

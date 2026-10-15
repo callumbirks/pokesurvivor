@@ -141,15 +141,24 @@ export const TuningFileSchema = z.strictObject({
     }),
   }),
   /** Kill-streak damage bonus, per player: every kill credited to a player adds a stack. */
-  momentum: z.strictObject({
-    /** Move damage per stack: ×(1 + perStack · stacks). */
-    perStack: z.number().nonnegative(),
-    maxStacks: z.number().int().positive(),
-    /** Seconds after the last kill before stacks start to decay. */
-    graceSeconds: z.number().nonnegative(),
-    /** Stacks lost per second once decaying (gradually, not all at once). */
-    decayPerSecond: z.number().positive(),
-  }),
+  momentum: z
+    .strictObject({
+      /** Move damage per stack: ×(1 + perStack · stacks). */
+      perStack: z.number().nonnegative(),
+      /** The stack cap grows linearly from `maxStacksStart` at the start of the run to
+       * `maxStacks` at `maxStacksFullMinute`, then holds. */
+      maxStacksStart: z.number().int().positive(),
+      maxStacksFullMinute: z.number().nonnegative(),
+      maxStacks: z.number().int().positive(),
+      /** Seconds after the last kill before stacks start to decay. */
+      graceSeconds: z.number().nonnegative(),
+      /** Stacks lost per second once decaying (gradually, not all at once). */
+      decayPerSecond: z.number().positive(),
+    })
+    .refine((m) => m.maxStacksStart <= m.maxStacks, {
+      message: 'momentum.maxStacksStart must not exceed maxStacks',
+      path: ['maxStacksStart'],
+    }),
   poison: z.strictObject({
     /** Scale only poison's percent-max-HP damage against map bosses and rift legends.
      * Flat damage, tick interval, stacks and regular-enemy poison stay unchanged.
