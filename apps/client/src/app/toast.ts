@@ -17,6 +17,17 @@ export function mountToasts(root: HTMLElement): void {
   toastBox = h('div', { class: 'toasts', 'aria-live': 'polite' });
   noticeBox = h('div', { class: 'notices', 'aria-live': 'polite' });
   root.append(noticeBox, toastBox);
+  // Outside runs the notices are a banner at the top that the screens and the top bar make room
+  // for (styles.css), so they never cover the menus: publish how tall it is.
+  if (typeof ResizeObserver !== 'undefined') {
+    const box = noticeBox;
+    new ResizeObserver(() => {
+      // In the stack's own (unzoomed) px, like the screens and the top bar that use it.
+      const zoom = Number(getComputedStyle(box).zoom) || 1;
+      const bottom = box.childElementCount ? box.getBoundingClientRect().bottom / zoom : 0;
+      document.documentElement.style.setProperty('--notices-h', `${Math.ceil(bottom)}px`);
+    }).observe(box);
+  }
 }
 
 export function toast(text: string | Node, kind: ToastKind = 'info', ms = 3200): void {

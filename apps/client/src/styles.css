@@ -569,6 +569,18 @@ button.stage {
   gap: 4px;
   width: min(560px, 100%);
 }
+/* Outside runs the notices are a banner along the top: the screens and the top bar move down by
+   its height (`--notices-h`, toast.ts) so it never covers the title, the menus or the top bar. In a
+   run they stay an overlay below the HUD's top row, and nothing moves. */
+main.screens:not([data-screen='play']) ~ .notices {
+  top: 0;
+}
+main.screens:not([data-screen='play']) .scr {
+  top: var(--notices-h, 0px);
+}
+main.screens:not([data-screen='play']) ~ .topbar {
+  translate: 0 var(--notices-h, 0px);
+}
 /* A multiplayer game shows these itself (app.ts `gameShowsNotices`). */
 .game-notices .notices {
   display: none;
@@ -2258,8 +2270,18 @@ canvas.backdrop {
 
 /* Phones in landscape: the menu as two columns down the right, everything smaller. */
 @media (max-height: 520px) {
+  /* The notice banner on one line where it fits: the menu has no height to spare. */
+  .notices {
+    width: min(800px, 100%);
+  }
+  .update-notice {
+    padding: 0;
+  }
   .scr-menu {
     grid-template-columns: minmax(0, 1fr) 340px;
+    /* With a notice banner too, the partner's window doesn't fit: scroll rather than overlap. */
+    grid-template-rows: auto minmax(min-content, 1fr) auto;
+    overflow-y: auto;
     grid-template-areas:
       'title menu'
       'left menu'
