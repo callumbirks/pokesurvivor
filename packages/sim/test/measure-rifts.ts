@@ -217,7 +217,7 @@ function waypoint(sim: Sim, p: PlayerState, goal: { x: number; y: number }) {
 }
 
 /** Deterministic loot/rift seeking; upgrade, item and bond decisions remain pickFirst. */
-function drive(sim: Sim): void {
+export function drive(sim: Sim): void {
   botInputs(sim);
   const s = sim.state;
   for (const p of s.players) {
@@ -291,7 +291,7 @@ function drive(sim: Sim): void {
  * without slot selection a first-choice bot can stop killing permanently at level three.
  * Rank slots by damage/cooldown (not learned move count), preserving Choice Band's lock.
  */
-function selectAttackSlot(sim: Sim): void {
+export function selectAttackSlot(sim: Sim): void {
   for (const p of sim.state.players) {
     if (p.dead || p.item === 'choice-band') continue;
     const score = (group: string[]) =>
@@ -314,11 +314,13 @@ export function naturalRun(
   minutes: number[],
   protectedRun: boolean,
   emit: (v: unknown) => void,
+  observe?: (sim: Sim) => void,
 ): Snapshot[] {
   const sim = makeSim(cell, seed, false, protectedRun);
   const snapshots: Snapshot[] = [];
   for (const minute of minutes) {
     while (sim.state.time + DT / 2 < minute * 60 && !sim.ended) {
+      observe?.(sim);
       pickFirst(sim);
       drive(sim);
       selectAttackSlot(sim);
@@ -326,6 +328,7 @@ export function naturalRun(
       sim.drainEvents();
     }
     if (sim.ended) break;
+    observe?.(sim);
     pickFirst(sim);
     const snapshot: Snapshot = {
       kind: 'snapshot',
@@ -449,7 +452,7 @@ export function synthetic(
   }
 }
 
-function dummyDps(sim: Sim, cell: Cell, seed: number): number {
+export function dummyDps(sim: Sim, cell: Cell, seed: number): number {
   const dummy = makeSim(cell, seed, true, true);
   dummy.state.time = sim.state.time;
   dummy.state.team.level = sim.state.team.level;
@@ -497,7 +500,7 @@ function dummyDps(sim: Sim, cell: Cell, seed: number): number {
   return (1e9 - target.hp) / 30;
 }
 
-function encounter(
+export function encounter(
   sim: Sim,
   cell: Cell,
   seed: number,

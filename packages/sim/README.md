@@ -446,3 +446,48 @@ shooter disappears. Wild HP, damageK, spawn rates and player progression are unc
 `rift.coopHp.hpCurve` uses the same uncapped time formula for teams of three or four,
 replacing `rift.hpCurve` only for those teams. It allows softening early co-op encounters
 without changing solo/duo HP. The ramp controls extra co-op HP separately from time growth.
+
+### Late-game player growth (manual R8 step 3)
+
+`late-growth` extends the R5 earned-build policy to minutes 15/20/25/30/35, including three-player
+teams. It runs outside CI and never changes gameplay tuning. First earn fresh protected checkpoints,
+then measure them with the same revision and tuning:
+
+```sh
+pnpm --filter @pokesurvivor/sim late-growth --mode=calibrate --out=/tmp/late-builds.jsonl
+pnpm --filter @pokesurvivor/sim late-growth --calibration=/tmp/late-builds.jsonl --multipliers=1,1.5,2 --out=/tmp/late.jsonl
+```
+
+Defaults: half/max meta, 1/3/4 players, projectile/melee/area, seeds 7/99/2026. Filter with `--meta`,
+`--players`, `--archetypes`, `--seeds`, `--minutes`. Keep minute 15 in the calibration for growth
+attribution. Separate processes can write different matrix shards; concatenate their JSONL files.
+The audit observes real card offers before the existing first-choice bot resolves them, without
+sampling extra randomness. `cards` rows contain cumulative offer/pick counts; `snapshot` rows retain
+full earned builds.
+
+`late` rows record neutral team single-target DPS, aggregate damage across 64 tightly packed neutral
+targets, HP/DPS regular-wild TTK, actual kiting kills/s, admitted spawns/s, nominal spawn demand,
+mean crowd size and time above 85% of the configured cap. Crowds use real terrain, typed enemies,
+supports and cap elites, with 15 seconds of warmup followed by 60 seconds of observation. Invulnerable
+players and disabled progression isolate offense, so these are not survival or human win rates.
+Summons/surges can exceed the nominal cap. Admissions count actual spawn events, including summons;
+nominal demand is the trickle formula before cap suppression, excluding surges/summons.
+
+Dummy probes preserve regular max HP for status effects, suppress movement/knockback, use clear
+weather and remove overkill. The 64-target probe is an upper bound on densely packed AoE throughput,
+not a kills/s forecast. Synthetic typical builds reuse R5's four-move reconstruction, earned card
+budget and bonds; surplus typical picks go to HP. They are independently reconstructed at each
+checkpoint and may change move allocation non-monotonically. Natural runs retain exact earned builds;
+their policy can underlevel or choose poor moves compared with humans.
+
+Three-/four-player rifts at minute 20+ include a protected actual 120-second fight (timeouts have
+`ttk: null`) and a protected 60-second sustained moving-legend probe. HP divided by probe DPS is an
+extrapolation, not an observed completion time. Legend types, terrain, shields, status resistance
+and phases still apply. Independent ablations freeze the minute-15 build at the later wild reference
+HP, or remove only later Power/Reflexes picks, item changes or bonds. Their marginal effects overlap
+and must not be summed. Level has no general attack multiplier; move upgrades/evolutions and passive
+stats deliver its damage gains (Rocky Helmet separately uses team level).
+
+`--multipliers=1,1.5,2` also replays each real crowd with fixture-only attack multipliers. This measures
+sensitivity with frozen earned builds, not future progression, and poison/coverage can prevent linear
+DPS gains. Metadata records production revision and effective tuning; cache files must match both.
