@@ -244,6 +244,13 @@ export type ClientMessage<Intent = WireIntent> =
   /** The client couldn't apply a snapshot: the next one must be full. */
   | { type: 'game.resync'; gameId: string }
   /**
+   * While you're down in coop: centre your snapshots' interest area on another player (their
+   * user id), or on yourself again (`target: null`). The server ignores it unless you're down and
+   * the target is in the game and connected, and clears it when you're revived. Added within
+   * protocol 7: a new message type, which nothing older sends.
+   */
+  | { type: 'game.spectate'; gameId: string; target: string | null }
+  /**
    * Your solo run's clock for your friends' presence (on start, pause and resume, at checkpoints,
    * and after a reconnect); `solo: null` when the run is over. The server checks the run is yours
    * and open, and takes the Pokémon from it.

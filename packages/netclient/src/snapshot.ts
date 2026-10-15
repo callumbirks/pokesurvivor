@@ -3,10 +3,10 @@
 // it too) projects the sim state for one viewer; `SnapshotDecoder` (client) rebuilds the view.
 //
 // Interest management: enemies, projectiles, pickups, fields and hazards are sent only near the
-// viewer's Pokémon (enter within `radius`, leave beyond `radius + hysteresis`); players and the
-// team always. Strings (pickup kinds, move ids, types, …) go through a per-connection string
-// table, so new kinds the sim adds (2b) need no wire changes. Pending choices are state: every
-// snapshot lists all of them (the viewer's own in full).
+// viewer's Pokémon, or the player it spectates (`focusId`; enter within `radius`, leave beyond
+// `radius + hysteresis`); players and the team always. Strings (pickup kinds, move ids, types, …)
+// go through a per-connection string table, so new kinds the sim adds (2b) need no wire changes.
+// Pending choices are state: every snapshot lists all of them (the viewer's own in full).
 import {
   BinaryReader,
   BinaryWriter,
@@ -353,6 +353,12 @@ export class SnapshotEncoder {
   readonly viewerId: string;
   readonly radius: number;
   readonly format: SnapshotFormat;
+  /**
+   * Spectating (the server sets it while the viewer is down): the player whose surroundings are
+   * sent instead of the viewer's. Null, or a player who isn't in the state: the viewer. Only the
+   * interest area moves; `self`, `stats`, choices and personal events stay the viewer's.
+   */
+  focusId: string | null = null;
 
   constructor(opts: SnapshotEncoderOptions) {
     this.viewerId = opts.viewerId;
@@ -395,8 +401,9 @@ export class SnapshotEncoder {
     ackSeq: number,
   ): Uint8Array | string {
     const viewer = s.players.find((p) => p.id === this.viewerId);
-    const cx = viewer?.x ?? 0;
-    const cy = viewer?.y ?? 0;
+    const focus = (this.focusId !== null && s.players.find((p) => p.id === this.focusId)) || viewer;
+    const cx = focus?.x ?? 0;
+    const cy = focus?.y ?? 0;
     const enter = this.radius ** 2;
     const leave = (this.radius + HYSTERESIS) ** 2;
     const nextVisible = new Set<number>();

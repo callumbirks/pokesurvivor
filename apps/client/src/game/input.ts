@@ -3,8 +3,10 @@
 //   WASD / arrows   move              1–4      move slot (or pick an option)
 //   Q / E / Tab     previous / next   R        reroll cards     Esc / P  pause
 //   T               auto / manual aim (manual: the mouse aims; see aim.ts)
+//   C               spectate while down (co-op); ← → (or A / D) switch whom (see spectate.ts)
 // Gamepad: left stick or d-pad to move, right stick to aim and RT to fire (manual), LB / RB to cycle moves,
-// A/B/X/Y = move slots 1–4, R3 (right stick press) auto / manual aim, Start pause. In a choice the
+// A/B/X/Y = move slots 1–4, R3 (right stick press) auto / manual aim, Start pause, Back
+// (`PadBack`) spectate while down, the d-pad left / right switches whom. In a choice the
 // d-pad or the stick moves the highlight (`PadUp` … `PadRight`, repeating while held) and A
 // (`PadA`) picks it; B/X/Y (`PadB` …) do nothing there, Back rerolls.
 import { KeyRepeater, padNavKeys } from '../menu-nav.js';
@@ -24,7 +26,7 @@ const PAD_KEYS: Record<number, string> = {
   3: 'PadY',
   4: 'KeyQ',
   5: 'KeyE',
-  8: 'KeyR',
+  8: 'PadBack',
   9: 'Escape',
   11: 'KeyT',
 };

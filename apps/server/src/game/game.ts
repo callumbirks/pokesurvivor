@@ -53,6 +53,8 @@ interface Slot extends GamePlayerInfo {
   aim: number | null;
   /** Fire held (with `aim`). Persists like movement. */
   fire: boolean;
+  /** Spectating while down (`game.spectate`): whose surroundings their snapshots show. */
+  spectate: string | null;
   /** Highest input seq received / applied on the current socket. */
   lastSeq: number;
   ackSeq: number;
@@ -126,6 +128,7 @@ export class Game {
           slot: null,
           aim: null,
           fire: false,
+          spectate: null,
           lastSeq: 0,
           ackSeq: 0,
           connected: true,
@@ -236,6 +239,7 @@ export class Game {
     this.seq++;
     for (const slot of this.slots.values()) {
       if (slot.left || !slot.connected) continue;
+      slot.encoder.focusId = this.spectating(slot);
       const session = this.sessionOf(slot.userId);
       // A client that can't keep up skips snapshots (its encoder keeps its baseline, so the
       // next one is still a correct delta); its events since then are lost (cosmetic).
@@ -262,6 +266,29 @@ export class Game {
     if (m.slot != null) slot.slot = m.slot;
     slot.aim = m.aim === undefined ? null : decodeAim(m.aim);
     slot.fire = m.fire === true;
+  }
+
+  /**
+   * While down, a player can watch a teammate: their snapshots' interest area follows the target
+   * (their own state, choices and stats still come). Anything else clears it: a target that is
+   * themselves, not in the game or not connected, or the sender not down.
+   */
+  spectate(userId: string, gameId: string, target: string | null): void {
+    const slot = this.slots.get(userId);
+    if (this.phase !== 'running' || gameId !== this.id || !slot || slot.left) return;
+    slot.spectate = target === userId ? null : target;
+    if (this.spectating(slot) !== slot.encoder.focusId) this.snapshotDirty = true;
+  }
+
+  /** Whom `slot` spectates now; null once they're revived or the target is gone (cleared). */
+  private spectating(slot: Slot): string | null {
+    if (slot.spectate === null) return null;
+    const me = this.sim.state.players[slot.index];
+    const target = this.slots.get(slot.spectate);
+    const player = target && this.sim.state.players[target.index];
+    if (!me?.dead || !target || target.left || !target.connected || !player || player.left)
+      slot.spectate = null;
+    return slot.spectate;
   }
 
   intent(userId: string, intent: WireIntent): ChoiceResult {
@@ -297,6 +324,8 @@ export class Game {
     if (!slot || slot.left) return;
     slot.connected = true;
     slot.lastSeq = slot.ackSeq = 0;
+    // A fresh client starts on its own Pokémon (it asks again if it wants to spectate).
+    slot.spectate = null;
     if (this.phase === 'running') {
       this.sim.setConnected(userId, true);
       this.snapshotDirty = true;
