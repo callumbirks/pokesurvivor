@@ -6,7 +6,14 @@ What changed for players in each release, newest first. Generated from
 
 ## Unreleased
 
-PRs: [#92](https://github.com/callumbirks/pokesurvivor/pull/92)
+PRs: [#92](https://github.com/callumbirks/pokesurvivor/pull/92), [#94](https://github.com/callumbirks/pokesurvivor/pull/94)
+
+### Changed
+
+- Wild Pokémon get tougher faster after the first few minutes, and hit a little harder later on.
+- Rare, Epic and Legendary upgrade cards are rarer after minute 8.
+- Momentum now tops out at ×1.2 and drains a little faster.
+- Defence now works as toughness (+100% defence halves damage), up to +500%, instead of stopping at 70% damage reduction. Armor, Assault Vest, Harden and prestige give defence.
 
 ### Fixed
 
