@@ -57,6 +57,15 @@ if (!['v13', 'v14', 'v15', 'current'].includes(variant))
   throw new Error('--variant=v13|v14|v15|current');
 if (variant === 'v15') applyV15();
 const prestige = Number(args.get('prestige') ?? 0);
+// --odds=0:70/22/7/1,8:60/30/8/2,…: other rarity odds (minute:weights per tier).
+if (args.has('odds'))
+  (simData().game.levelUp.rarity as { odds: unknown }).odds = args
+    .get('odds')!
+    .split(',')
+    .map((point) => {
+      const [minute, weights] = point.split(':');
+      return { minute: Number(minute), weights: weights!.split('/').map(Number) };
+    });
 /** Minutes with the playtest reconstruction probe (`--friend-minutes`, default 14). */
 const friendMinutes = list('friend-minutes', '14').map(Number);
 const fix = args.get('fix') ?? 'none';
