@@ -69,7 +69,8 @@ In the Dokploy project: **Create Service → Database → PostgreSQL**.
   | `AUTH_RATE_LIMIT_MAX`      | `10`                                      | optional; login and register attempts per IP per minute                                                                                      |
   | `ACTION_RATE_LIMIT_MAX`    | `60`                                      | optional; run starts, checkpoints and friend requests per IP per minute                                                                      |
   | `COOKIE_SECURE`            | `true`                                    | optional; defaults to true when `NODE_ENV=production` (the image sets it)                                                                    |
-  | `DRAIN_TIMEOUT_S`          | `900`                                     | optional; how long running games may finish on a deploy (see §4)                                                                             |
+  | `UPDATE_WARNING_S`         | `30`                                      | optional; on a deploy, players get this long a warning before the server saves coop games and stops (see §4)                                 |
+  | `RESTORE_GRACE_S`          | `60`                                      | optional; a coop game restored after a deploy waits this long for its players before it resumes without the missing                          |
   | `RUN_CHECKPOINT_TIMEOUT_S` | `3600`                                    | optional; an unreported solo run is credited from its last checkpoint after this ([api.md](api.md#checkpoints-and-the-timeout-credit))       |
   | `RUN_SWEEP_INTERVAL_S`     | `60`                                      | optional; how often the server looks for such runs                                                                                           |
   | `SNAPSHOT_HZ`              | `20`                                      | optional; snapshots per second per client (max 30)                                                                                           |
@@ -95,7 +96,7 @@ separate WebSocket domain is needed (the session cookie authenticates the upgrad
 opening the site: it should show the login screen. The protocol is described in
 [protocol.md](protocol.md).
 
-## 4. Health check and zero-downtime deploys
+## 4. Health check and deploys
 
 The image declares a Docker `HEALTHCHECK` that calls `GET /healthz` every 10 s, and Docker Swarm
 (which Dokploy uses for applications) honours it. `/healthz` returns `200` with
@@ -110,112 +111,160 @@ health check then never runs, every task stays `Starting`, the service name neve
 `dokploy-network`, and Traefik answers **502 Bad Gateway** (see
 [Troubleshooting](#troubleshooting-bad-gateway)).
 
-To have Dokploy wait for a healthy container before switching traffic, set this under the
-application's **Advanced → Swarm Settings**:
+Deploys are **stop-first**: the old container stops (after warning players and saving running
+coop games) before the new one starts, so two versions never serve players at the same time.
+Set both of these under the application's **Advanced → Swarm Settings**:
 
-- **Update Config:** `{"Parallelism": 1, "Order": "start-first", "FailureAction": "rollback"}`
+- **Update Config:** `{"Parallelism": 1, "Order": "stop-first", "FailureAction": "rollback"}`
+- **Stop Grace Period:** `60s` (`60000000000` if it asks for nanoseconds). If your Dokploy version
+  doesn't have the field, set it on the service by hand:
+  `docker service update --stop-grace-period 60s <service>` (the service name is the app's name in
+  Dokploy), and check that it survives a redeploy (`docker service inspect <service>`,
+  `StopGracePeriod`).
+
+The grace period must be comfortably above `UPDATE_WARNING_S` (30 s) plus the time to save games,
+hand over lobbies and close (normally under a second; the server gives itself 20 s and exits by
+itself `UPDATE_WARNING_S + 20 s` after `SIGTERM`). Docker's default is **10 s**: with it, Swarm
+kills the server (`SIGKILL`) before it has saved anything, and the coop runs in progress are lost
+without being credited. If you raise `UPDATE_WARNING_S`, raise the grace period with it.
+
+For plain Docker use `--stop-timeout 60`; for an app in Compose, `stop_grace_period: 60s`. The
+repository's Compose file only starts the development database. Dockerfile `STOPSIGNAL SIGTERM`
+specifies the signal, not its grace period.
 
 ### Replicas: keep 1
 
 Keep the application at **1 replica**. Rooms and coop games live in the server's memory, so with
 more than one replica players who want to play together can land on different instances and never
-see each other. The brief overlap of two containers during a `start-first` deploy is fine: the old
-one drains (below) and takes no new rooms.
+see each other.
 
 ### Deploys while people are playing
 
-Coop games run in the server's memory, so a deploy must not kill them. On `SIGTERM` the server
-**drains**: it stops creating rooms and games, tells every client the server is updating, and
-sends lobby clients to reconnect, which with `start-first` reaches the new container. It lets
-running games finish for up to `DRAIN_TIMEOUT_S` (default 900 s = 15 min), then ends the rest and
-credits their players. Finally it closes the sockets and the database pool and exits. It gives up
-`DRAIN_TIMEOUT_S + 15 s` after the signal. The drain ends early once the last game is over.
+Coop games run in the server's memory. On `SIGTERM` the server:
 
-Docker's default stop grace period is **10 s**, after which the container is killed (`SIGKILL`)
-and running games are lost without being credited. Raise it above the drain timeout, e.g.
-**16 minutes** for the default 900 s:
+1. **Warns everyone** (`UPDATE_WARNING_S`, default 30 s). Every connected player gets a banner with
+   a live timer: "Server update in 0:30 · your run will continue right after" in a coop run,
+   "Server update in 0:30" in the menus and lobbies, and "… · your solo run isn't affected" in a
+   solo run (solo runs are simulated in the browser; only their checkpoint uploads pause while
+   the server is down, and they retry). Coop runs **keep playing** during the countdown. Nobody
+   can create a room, join one or start a game meanwhile (`server_draining`, "server updating");
+   a game still loading is called off and its players go back to their lobby.
+2. **Saves every running coop game** at the end of the countdown: it freezes them and writes, in
+   one transaction, a row per game to `game_saves` (migration 0006: the sim state as JSON text,
+   the room and its members, the player slots, who was present, the run's static info, and each
+   player's result as of the save), and releases their room reservations for the next server.
+   Their players are sent to reconnect (close code 1012).
+3. **Hands over lobbies** as before (`game_rooms`, below), including those of games that ended
+   during the countdown, once their results are recorded.
+4. Closes the sockets and the database pool and exits.
 
-- If your Dokploy version has **Stop Grace Period** under **Advanced → Swarm Settings**, set it
-  there (`960s`, or `960000000000` if it asks for nanoseconds).
-- Otherwise set it on the Swarm service by hand:
-  `docker service update --stop-grace-period 16m <service>` (the service name is the app's
-  name in Dokploy). Check that it survives a redeploy (`docker service inspect <service>`,
-  `StopGracePeriod`). Dokploy may recreate the service spec. If it doesn't survive, lower
-  `DRAIN_TIMEOUT_S` to fit what you can set.
+The new server, at startup and **before it accepts connections**, claims every saved game (each
+row is deleted as it is claimed) and restores it **paused**, waiting for its players:
 
-With `start-first` updates the new container is serving before the old one gets `SIGTERM`, so
-new and reconnecting clients go to the new one while the old one finishes its games. A player who
-drops during the drain reconnects to the new instance and can't resume the old game (rooms live
-in memory), but is still credited when it ends.
+- Clients reconnect by themselves (the "Reconnecting…" notice) and get the game again from a full
+  snapshot. They see "Waiting for <names> · 0:42" while someone is missing.
+- As soon as everyone who was in the game is back, or after `RESTORE_GRACE_S` (60 s from the
+  server's start), the game resumes after a **3-2-1** countdown ("Resuming in 3…").
+- Players not back by then are treated exactly like a disconnect: they keep their place for
+  `RECONNECT_GRACE_S` (60 s), and are removed (and credited for what they earned) after that.
+- Pending level-up / item / bond choices and their timers come back as they were: choice timers
+  count sim ticks, and the sim stands still while the game waits.
 
-### Lobby handoff during the overlap
+**If a saved game can't be restored** (an incompatible change to the sim, a row from a newer
+server, a damaged row), the server logs `could not restore a saved game; crediting it as saved`
+with the game and room ids, and ends it like the old drain timeout did: through the normal
+crediting (`recordCoopRun`, the same rewards, missions and achievements), with every player's
+result as of the save and reason `server-shutdown`. Its players get the results when they
+reconnect, and their lobby back. If saving fails at shutdown (the database is down), the games are
+ended and credited on the spot instead, as the drain timeout used to.
 
-The run drain above is unchanged. Lobby/main-menu rooms now survive a graceful deploy using a
-per-room Postgres handoff, which the replacement can adopt **after it is already running**.
-Migration 0004 adds `game_rooms` (ownership, expiry and a pending lobby payload) and
-`game_room_members` (one reserved room per user).
-Migrations still apply automatically on startup. These tables contain no simulation snapshots.
+**Downtime.** About 30 s of warning while everything still works, then the server is down until
+the new container is healthy: the new container starts in a few seconds, and Swarm routes to it at
+its first passing health check (up to ~10 s), so expect roughly **10–20 s** without a server.
+Players see "Reconnecting…" (clients retry for three minutes) and then carry on: coop runs after
+the 3-2-1, lobbies as they were.
 
-- **Before SIGTERM:** the old instance remains fully live. Players can join, leave, be kicked,
-  change readiness or update partners normally while the replacement is booting. No lobby is
-  snapshotted at deploy/build start.
-- **At SIGTERM:** the old instance freezes lobby/loading rooms against new mutations, waits for
-  room requests already in flight, cancels any loading game, and snapshots the final lobby code,
-  host, membership, ready/busy state and partners. Publishing the payload and releasing ownership
-  happen atomically in Postgres. Only then does it detach the local room and close its clients
-  with 1012. Partner refreshes and grace callbacks cannot change a frozen room. Pending invites
-  are transient and must be sent again; there are no per-room configurable settings today.
-- **Running games:** they keep their original ticks, inputs, choices, leave/kick and disconnect
-  behaviour on the old server. When a game ends normally (or at the drain timeout), rewards are
-  recorded as before, then its current members' lobby is handed off in the same way. Those
-  members are not-ready, as after any run. Players who left or were removed are absent from that
-  lobby; their run rewards are still credited normally.
-- **A player disconnecting mid-drain:** their in-game slot cannot resume on the replacement,
-  exactly as before. The replacement shows a waiting notice and holds their existing room
-  reservation, preventing a duplicate room or solo run. It polls only connected users waiting for their room every heartbeat
-  (2 s) and adopts their lobby once published, without requiring another reconnect. The old
-  server still applies the normal `RECONNECT_GRACE_S` (60 s): if the game has not ended by then,
-  that player's membership expires and they are removed/credited for the time played. The
-  replacement clears the waiting notice and explains the expiry; they can then choose a new
-  room. They are not automatically added back to the original lobby after leaving/expiry.
-- **Before adoption on the replacement:** joining a code still owned by the old instance,
-  creating another room for a reserved member, or inviting a member still on the old instance
-  returns the explicit `room_pending` message. Shared unique room codes and memberships prevent
-  competing rooms. Adoption takes a row lock, consumes the payload once, and keeps only members
-  whose current reservation still belongs to it; it does not overwrite a newer room or reapply
-  an old snapshot after membership changes on the new server.
+`SIGINT` (Ctrl-C in development) skips the countdown and saves at once, so `pnpm dev` restarts
+keep coop games too.
+
+If a deploy happens to run `start-first` anyway (the setting was missed), nothing is lost: the
+saved games are restored by the already-running new server when their players reconnect to it.
+But the two versions then overlap during the countdown, which is what stop-first avoids.
+
+### Moving to stop-first: the first deploy of this change
+
+Production before this change runs **v15**: `start-first`, a 16-minute stop grace, and the
+15-minute drain (running coop games finish on the old container, which credits them). v15 can't
+save games, so the deploy that brings this change in must still let v15 drain. Do it in this order:
+
+1. **Don't change the Swarm settings yet.** Keep `"Order": "start-first"` and the 16-minute stop
+   grace for this one deploy. (Switching first would be worse either way: with stop-first and a
+   60 s grace, v15 starts its drain and Swarm kills it after 60 s, losing the coop runs in
+   progress without credit; with stop-first and the 16-minute grace, nothing serves players for
+   up to 15 minutes while v15 drains.)
+2. **Deploy the release at a quiet time**, ideally with no coop runs going. The new container
+   starts and becomes healthy; v15 gets `SIGTERM` and drains as before: its lobbies move to the
+   new server, its running coop games finish there (up to 15 minutes) and are credited by v15.
+   That's safe: this release doesn't change the save format (still version 3), so v15 can
+   credit them. The new server has no saved games to restore this time.
+3. **Wait until the old container is gone:**
+   `docker service ps <app> --format '{{.Name}} {{.CurrentState}} {{.DesiredState}}'` shows only
+   one task `Running` (the old one `Shutdown`).
+4. **Switch to stop-first:** Update Config `{"Parallelism": 1, "Order": "stop-first",
+"FailureAction": "rollback"}` and Stop Grace Period `60s` (above). If saving the settings
+   redeploys the app, that's already a stop-first deploy of the new version: coop runs get the
+   warning and continue on the new container. Remove `DRAIN_TIMEOUT_S` from the environment if
+   you set it; it is no longer read.
+5. Every deploy after that is stop-first.
+
+The blank-screen fix (PR #92: `no-store` on errors and the client's reload-once) ships in the
+same release. During this last `start-first` overlap the old v15 container still answers missing
+assets without `no-store`, so a browser can still get a cached 404 from it once; the new
+`index.html`'s recovery retries past the cache and reloads, and a hard refresh fixes anything
+left. Optionally purge Cloudflare's cache after step 3 (see below). From then on stop-first means
+there's no overlap at all.
+
+### Lobby handoff
+
+Lobby/main-menu rooms survive a deploy using a per-room Postgres handoff that the next server
+adopts. Migration 0004 adds `game_rooms` (ownership, expiry and a pending lobby payload) and
+`game_room_members` (one reserved room per user). Migrations still apply automatically on startup.
+Running games don't use this payload: they are saved to `game_saves` (above).
+
+- **During the countdown:** lobby/loading rooms are frozen against new mutations; a loading game is
+  cancelled. Requests already in flight finish first. Partner refreshes and grace callbacks cannot
+  change a frozen room.
+- **At the end of the countdown:** the server snapshots the final lobby code, host, membership,
+  ready/busy state and partners. Publishing the payload and releasing ownership happen atomically
+  in Postgres. Only then does it detach the local room and close its clients with 1012. Pending
+  invites are transient and must be sent again; there are no per-room configurable settings today.
+- **A game that ended during the countdown:** its results are recorded as usual, then its current
+  members' lobby is handed off the same way. Those members are not-ready, as after any run.
+- **On the next server:** a member's lobby is adopted when they connect (or by polling, every
+  heartbeat, for a connected member still waiting for it). Joining a code still owned by another
+  live instance, creating another room for a reserved member, or inviting a member reserved there
+  returns `room_pending`; the waiting member sees a notice. Adoption takes a row lock, consumes
+  the payload once, and keeps only members whose current reservation still belongs to it.
 
 Handed-off rooms nobody claims expire after `RESTART_RECONNECT_GRACE_S` (default 180 s), including
-while no replacement is running; expired rows are never adopted. The same fresh 180 s window
-starts on adoption for members who have not reconnected. Normal cleanup removes absent members,
-transfers the host, and closes empty rooms. A consumed payload is cleared while the shared
-ownership/membership reservations remain for the live room. Live reservations are renewed by
-the owner every heartbeat in one batch, and expire after 30 seconds if that process disappears.
-Expired memberships stop blocking solo immediately; create/join reclaim their expired reservations
-on demand, without waiting for cleanup. These reservations are not a crash-safe room save.
-Graceful handoff writes must succeed before clients are released.
+while no new server is running; expired rows are never adopted. The same fresh 180 s window starts
+on adoption for members who have not reconnected. Normal cleanup removes absent members, transfers
+the host, and closes empty rooms. Live reservations are renewed by the owner every heartbeat in one
+batch, and expire after 30 seconds if that process disappears (a crash: then the room and any game
+in it are lost; only graceful stops save games). Expired memberships stop blocking solo
+immediately; create/join reclaim their expired reservations on demand. A saved game's room is
+taken back by the server that restores it, and made again if its reservation expired meanwhile.
 
 Global expiry cleanup runs at startup and then about every 30 seconds. Background renewal, cleanup
-and waiting-member polling run outside the lobby request queue; only the brief in-memory attachment
-after a successful adoption is serialized with lobby mutations. Slow maintenance queries therefore
-do not delay local readiness/leave requests or the game ticker. Actions needing their own DB queries
-(create/join, for example) still require the database to respond.
+and waiting-member polling run outside the lobby request queue, so slow maintenance queries do not
+delay local readiness/leave requests or the game ticker.
 
 Authentication uses the existing persisted login cookie; no new resume token is needed. Clients
 retain their lobby UI, show “Reconnecting…”, and retry with jittered exponential backoff (500 ms
 to 10 s) for up to three minutes. A stalled connection/hello retries in 10 s. A protocol-version
 mismatch stops retries and shows Reload, including over a game. Reloading obtains the current
-client and rejoins the handed-off lobby if its reservation has not expired. The two waiting
-notices are additive; protocol v7 is unchanged.
-
-Keep **one replica** with `start-first` updates; brief deploy overlap is supported, arbitrary
-active multi-replica routing is not. Keep the **16-minute stop grace** for the default 900 s drain. For plain Docker use `--stop-timeout 960`; for an app in Compose use
-`stop_grace_period: 16m`. The repository's Compose file only starts the development database.
-Dockerfile `STOPSIGNAL SIGTERM` specifies the signal, not its grace period.
-
-The first deploy from the old version cannot preserve its lobbies, because that version does not
-publish handoffs. Subsequent graceful deploys do. Host crashes and SIGKILL are outside this scope;
-run recording retains its existing database retries and failure limitations.
+client and rejoins the handed-off lobby if its reservation has not expired. The notices are
+additive; protocol v7 is unchanged.
 
 ### Caching behind Cloudflare
 
@@ -228,8 +277,8 @@ The site can sit behind Cloudflare (production does). What the server sends:
 | Sprite sheets under `/sprites/` (busted by a query string) | `public, max-age=31536000, immutable` |
 | **Any error** (status ≥ 400): a missing asset, API errors  | `no-store`                            |
 
-The last row matters for deploys. During the `start-first` overlap (and the drain) Traefik sends
-requests to either container, so a browser that got the **new** `index.html` can have its
+The last row matters for deploys. During a `start-first` overlap (before stop-first deploys, and
+the one transition deploy above) Traefik sends requests to either container, so a browser that got the **new** `index.html` can have its
 `/assets/index-<new hash>.js` answered by the **old** container with a 404. Cloudflare gives a
 response without `Cache-Control` its Browser Cache TTL (`max-age=14400`), and caches 404s at the
 edge for a few minutes by default, so that 404 used to stick: a black or white page that F5
@@ -269,7 +318,7 @@ Dokploy, which is also the Swarm service name):
    docker service ps <app> --format '{{.Name}} {{.CurrentState}} {{.DesiredState}} {{.Error}}'
    ```
 
-   Tasks stuck in `Starting` (often several piled up, because of `start-first`) never became
+   Tasks stuck in `Starting` (several can pile up as Swarm retries) never became
    healthy, so Swarm never adds them to the service's DNS name.
 
 2. Which health check did the container actually get?
@@ -298,7 +347,7 @@ the stale spec goes away (`docker service rm <app>`), and redeploy from Dokploy.
 
 ```sh
 docker build -t pokesurvivor .
-docker run --stop-timeout 960 -p 3000:3000 -e DATABASE_URL=postgres://user:pass@host:5432/db pokesurvivor
+docker run --stop-timeout 60 -p 3000:3000 -e DATABASE_URL=postgres://user:pass@host:5432/db pokesurvivor
 ```
 
 ## Migrations
