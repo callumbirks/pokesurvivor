@@ -6,6 +6,8 @@ What changed for players in each release, newest first. Generated from
 
 ## Unreleased
 
+PRs: [#92](https://github.com/callumbirks/pokesurvivor/pull/92)
+
 ### Fixed
 
 - After an update the game no longer gets stuck on a black or white screen until you hard-refresh.
