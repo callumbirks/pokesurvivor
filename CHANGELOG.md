@@ -6,7 +6,7 @@ What changed for players in each release, newest first. Generated from
 
 ## Unreleased
 
-PRs: [#59](https://github.com/callumbirks/pokesurvivor/pull/59), [#61](https://github.com/callumbirks/pokesurvivor/pull/61), [#62](https://github.com/callumbirks/pokesurvivor/pull/62), [#63](https://github.com/callumbirks/pokesurvivor/pull/63), [#64](https://github.com/callumbirks/pokesurvivor/pull/64), [#65](https://github.com/callumbirks/pokesurvivor/pull/65)
+PRs: [#59](https://github.com/callumbirks/pokesurvivor/pull/59), [#61](https://github.com/callumbirks/pokesurvivor/pull/61), [#62](https://github.com/callumbirks/pokesurvivor/pull/62), [#63](https://github.com/callumbirks/pokesurvivor/pull/63), [#64](https://github.com/callumbirks/pokesurvivor/pull/64), [#65](https://github.com/callumbirks/pokesurvivor/pull/65), [#66](https://github.com/callumbirks/pokesurvivor/pull/66)
 
 ### New
 
@@ -16,12 +16,17 @@ PRs: [#59](https://github.com/callumbirks/pokesurvivor/pull/59), [#61](https://g
 
 - Legendaries are rarer in the gacha: base chance 0.15%, with pity starting at pull 180 and guaranteed by 220. Collect the rest of a region first!
 - Rifts hit harder in 3–4 player co-op from the very first one, and poison no longer melts rift legends and bosses.
+- Wild Pokémon no longer one-shot you in the late game: their regular hits now grow in step with your Pokémon, and upgrading still makes you tougher.
 
 ### Fixed
 
 - Server restarts no longer stall when a player reconnects during shutdown.
 - Moving through the Pokémon screen with a controller or the arrow keys goes where you expect: along the filters and up and down the grid.
 - Co-op movement no longer rubberbands when input updates bunch up, and choice menus use less network traffic.
+
+### Behind the scenes
+
+- Added manual diagnostics for wild Pokémon damage, crowd survival and toughness through a run.
 
 ## v9 - 2026-10-14
 

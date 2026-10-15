@@ -743,7 +743,7 @@ export function resolveCollisions(ctx: Ctx): void {
       }
       for (const pl of targets) {
         if (dist2(p.x, p.y, pl.x, pl.y) < (p.r + pl.r) ** 2) {
-          hurtPlayer(ctx, pl, p.damage, p.type);
+          hurtPlayer(ctx, pl, p.damage, p.type, p.regularHit);
           list.splice(i, 1);
           break;
         }
@@ -838,7 +838,7 @@ export function resolveCollisions(ctx: Ctx): void {
       if (e.touchCd > 0 || e.behavior === 'thief') continue;
       e.touchCd = 0.55;
       emit(ctx, { type: 'enemy-action', id: e.id, action: 'strike' });
-      hurtPlayer(ctx, pl, e.damage, e.attackType);
+      hurtPlayer(ctx, pl, e.damage, e.attackType, e.regularHit);
       if (pl.item === 'rocky-helmet') {
         const prm = ctx.d.item('rocky-helmet').params ?? {};
         hurtEnemy(ctx, e, (prm.damageBase ?? 15) + s.team.level * (prm.damagePerLevel ?? 4), {

@@ -7,6 +7,7 @@ import { clamp, damp, dist, dist2 } from './math.js';
 import { activeGroup, addMove, setActive } from './moves.js';
 import { clearOrbs } from './projectiles.js';
 import { weatherDamageMult, weatherSpeedMult } from './weather.js';
+import { capRegularHit } from './wilddamage.js';
 import { collide, isLiquid, liquidKind, nearestBreakable } from './world.js';
 import type { HitLabel } from './events.js';
 import type { BuffStat, EnemyState, PlayerId, PlayerState } from './state.js';
@@ -219,18 +220,25 @@ export function hurtPlayer(
   p: PlayerState,
   amount: number,
   type: EnemyState['attackType'] | null,
+  regular = false,
 ) {
   // Disconnected players are idle and invulnerable until they come back.
   if (p.invuln > 0 || p.dead || !p.connected || p.left || ctx.s.config.invulnerable) return;
   let label: HitLabel = null;
+  let weather = 1;
   if (type) {
     const k = ctx.d.typeMult(type, p.types);
     label = typeLabel(k);
-    amount *= k * weatherDamageMult(ctx, type);
+    amount *= k;
+    weather = weatherDamageMult(ctx, type);
   }
   // With a melee move active you take 25% less: you have to stand in the crowd to hit.
   const close = activeGroup(p).some((m) => m.kind === 'melee') ? 0.75 : 1;
-  const d = Math.max(1, amount * (1 - reductionOf(p)) * close);
+  const defended = amount * (1 - reductionOf(p)) * close;
+  const capped = regular
+    ? capRegularHit(defended, p.maxHp, ctx.d.game.tuning.spawner.regularHitCapFraction)
+    : defended;
+  const d = Math.max(1, capped * weather);
   p.hp -= d;
   p.invuln = 0.45;
   emit(ctx, { type: 'player-hurt', playerId: p.id, amount: Math.round(d), label });

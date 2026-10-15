@@ -69,7 +69,7 @@ export const median = (xs: number[]): number => {
   return sorted.length % 2 ? sorted[mid]! : (sorted[mid - 1]! + sorted[mid]!) / 2;
 };
 
-function makeSim(cell: Cell, seed: number, noSpawns: boolean, invulnerable = false): Sim {
+export function makeSim(cell: Cell, seed: number, noSpawns: boolean, invulnerable = false): Sim {
   const probe = createSim({ seed: 1, players: [{ id: 'probe', dex: 25 }] });
   const upgrades = Object.fromEntries(
     probe.ctx.d.game.upgrades.map((u) => [
@@ -88,7 +88,7 @@ function makeSim(cell: Cell, seed: number, noSpawns: boolean, invulnerable = fal
   });
 }
 
-function describe(p: PlayerState) {
+export function describe(p: PlayerState) {
   return {
     dex: p.dex,
     moves: p.moves.map((m) => ({ id: m.id, level: m.level, evolved: m.evolved })),
@@ -105,7 +105,7 @@ function describe(p: PlayerState) {
 }
 
 /** Reuse earned loadouts, but start each isolated encounter healed, without temporary powers. */
-function loadBuild(sim: Sim, p: PlayerState, source: PlayerState): void {
+export function loadBuild(sim: Sim, p: PlayerState, source: PlayerState): void {
   const keys = [
     'maxHp',
     'attackMul',
@@ -308,7 +308,7 @@ function selectAttackSlot(sim: Sim): void {
   }
 }
 
-function naturalRun(
+export function naturalRun(
   cell: Cell,
   seed: number,
   minutes: number[],
@@ -353,7 +353,7 @@ function naturalRun(
 }
 
 /** Spend a calibrated number of real level-up cards; no invented attack/HP multipliers. */
-function synthetic(
+export function synthetic(
   sim: Sim,
   cell: Cell,
   level: number,

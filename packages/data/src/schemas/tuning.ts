@@ -14,6 +14,23 @@ export const TuningFileSchema = z.strictObject({
     /** Spawn-rate multiplier (fewer, stronger enemies) and the matching damage/xp multipliers. */
     density: z.number().positive(),
     damageK: z.number().positive(),
+    /** Regular wild damage versus run minute; interpolate, then hold the last value. */
+    damageCurve: z
+      .array(
+        z.strictObject({
+          minute: z.number().nonnegative(),
+          multiplier: z.number().positive(),
+        }),
+      )
+      .min(2)
+      .refine(
+        (points) =>
+          points[0]?.minute === 0 &&
+          points.every((p, i) => i === 0 || p.minute > points[i - 1]!.minute),
+        'Start at minute zero and use strictly increasing minutes',
+      ),
+    /** Max regular contact/shot damage as a fraction of target HP, before weather; 0 disables. */
+    regularHitCapFraction: z.number().nonnegative().max(1),
     xpK: z.number().positive(),
     shinyRate: Chance,
   }),

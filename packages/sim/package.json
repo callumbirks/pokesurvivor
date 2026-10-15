@@ -16,7 +16,9 @@
     "test:slow": "vitest run --config vitest.slow.config.ts",
     "rifts": "tsx test/measure-rifts.ts",
     "rifts:summary": "tsx test/summarize-rifts.ts",
-    "rifts:fit": "tsx test/fit-rift-curve.ts"
+    "rifts:fit": "tsx test/fit-rift-curve.ts",
+    "wilds": "tsx test/measure-wilds.ts",
+    "wilds:summary": "tsx test/summarize-wilds.ts"
   },
   "dependencies": {
     "@pokesurvivor/data": "workspace:*",
