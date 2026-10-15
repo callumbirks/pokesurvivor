@@ -6,12 +6,17 @@ What changed for players in each release, newest first. Generated from
 
 ## Unreleased
 
-PRs: [#80](https://github.com/callumbirks/pokesurvivor/pull/80)
+PRs: [#80](https://github.com/callumbirks/pokesurvivor/pull/80), [#82](https://github.com/callumbirks/pokesurvivor/pull/82)
+
+### New
+
+- Upgrade cards now come in Common, Rare, Epic and Legendary, with bigger bonuses, and better odds later in a run.
 
 ### Changed
 
 - Wild Pokémon hit about 10% less hard.
 - A few wild Pokémon now appear and catch up ahead of you again, so running isn't completely safe.
+- Upgrade cards no longer have pick limits. Sprint, Reflexes, Magnet and Learning stop at a maximum instead, and Armor still stops at 70%.
 
 ## v13 - 2026-10-15
 
