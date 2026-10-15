@@ -1,9 +1,9 @@
 {
   "unreleased": {
-    "prs": [85, 87],
+    "prs": [85, 87, 89],
     "entries": {
       "new": [],
-      "changed": [],
+      "changed": ["Power cards now stop at ×20 damage."],
       "fixed": [
         "Keyboard and controller: you can now reach the Play button on the Pokémon select screen, and it starts with the Pokémon you picked, not the last one you moved over.",
         "On phones in portrait, the Pokémon picker grid is no longer squeezed by the filters."
