@@ -23,6 +23,7 @@ import {
 } from './api.js';
 import { MenuBackdrop } from './backdrop.js';
 import { BusyStatus } from './busy.js';
+import { clockText, everyTick } from '../game/countdown.js';
 import { shellShowsNotice } from './notices.js';
 import {
   gameData,
@@ -287,8 +288,39 @@ export class App {
     this.net = null;
     notice('connection', null);
     notice('room-pending', null);
+    this.stopUpdateClock?.();
+    this.stopUpdateClock = null;
     this.waitingForRoom = false;
     this.renderInvite();
+  }
+
+  private stopUpdateClock: (() => void) | null = null;
+
+  /**
+   * The server is stopping for an update: "Server update in 0:30", ticking down (in a solo run,
+   * that it isn't affected; a coop game shows its own). Cleared once we're on a server that isn't.
+   */
+  private serverUpdateNotice(): void {
+    this.stopUpdateClock?.();
+    this.stopUpdateClock = null;
+    const net = this.net;
+    const at = net?.updateAt ?? null;
+    if (at === null) {
+      // An older server finishing its games (start-first drain), or none.
+      notice('draining', net?.draining ? t('app.serverUpdating') : null, 'gold');
+      return;
+    }
+    this.stopUpdateClock = everyTick(at, (now) => {
+      const solo = this.routeName === 'play' && this.game?.kind === 'solo';
+      const clock = clockText(at, now);
+      notice(
+        'draining',
+        now >= at
+          ? t('app.serverUpdateNow')
+          : t(solo ? 'app.serverUpdateSolo' : 'app.serverUpdate', { 0: clock }),
+        'gold',
+      );
+    });
   }
 
   private connectionState(state: ConnectionState): void {
@@ -296,8 +328,8 @@ export class App {
     if (!net) return;
     if (state === 'open') {
       notice('connection', null);
-      // A new server instance after a deploy isn't draining: clear the old notice.
-      notice('draining', net.draining ? t('app.serverUpdating') : null, 'gold');
+      // A new server instance after a deploy isn't stopping: this clears the old notice.
+      this.serverUpdateNotice();
     } else if (state === 'reconnecting') {
       notice('connection', t('app.reconnecting'), 'error');
     } else if (state === 'failed') {
@@ -379,9 +411,9 @@ export class App {
       notice('room-pending', t('notices.room-handoff-pending'), 'gold');
       return;
     }
-    if (code === 'server-draining') {
-      // Sticky: kept (hidden during a game) so it's still there after it.
-      notice('draining', t('app.serverUpdating'), 'gold');
+    if (code === 'server-draining' || code === 'server-update') {
+      // Sticky: kept (hidden during a coop game, which shows its own) so it's still there after.
+      this.serverUpdateNotice();
       return;
     }
     if (!shellShowsNotice(code, this.gameShowsNotices)) return;

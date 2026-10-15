@@ -7,6 +7,9 @@ import type { SavedRoom } from './room.js';
 
 export const LIVE_LEASE_MS = 30_000;
 
+/** A saved game, as claimed from `game_saves`. */
+export type GameSaveRow = typeof gameSaves.$inferSelect;
+
 /**
  * Room reservations fence codes and membership across server instances (a lobby handed over in
  * a deploy, a crash lease), and saved games (`game_saves`) carry running games across a restart.
@@ -168,7 +171,7 @@ export class RoomRegistry {
   }
 
   /** Takes saved games (all of them, or one room's): each is claimed by exactly one server. */
-  async claimSaves(roomId?: string): Promise<(typeof gameSaves.$inferSelect)[]> {
+  async claimSaves(roomId?: string): Promise<GameSaveRow[]> {
     return this.db
       .delete(gameSaves)
       .where(roomId === undefined ? undefined : eq(gameSaves.roomId, roomId))
@@ -181,7 +184,11 @@ export class RoomRegistry {
    */
   async claimRoom(id: string, userIds: readonly string[]): Promise<void> {
     await this.db.transaction(async (tx) => {
-      const lease = { instanceId: this.instanceId, handoff: null, expiresAt: new Date(Date.now() + LIVE_LEASE_MS) };
+      const lease = {
+        instanceId: this.instanceId,
+        handoff: null,
+        expiresAt: new Date(Date.now() + LIVE_LEASE_MS),
+      };
       await tx
         .insert(gameRooms)
         .values({ id, ...lease })

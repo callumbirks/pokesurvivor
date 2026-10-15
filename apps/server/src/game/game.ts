@@ -6,7 +6,14 @@ import { SnapshotEncoder } from '@pokesurvivor/netclient';
 import type { Game as GameStatic, ResultSummary } from '@pokesurvivor/netclient';
 import { decodeAim, type InputMessage, type WireIntent } from '@pokesurvivor/protocol';
 import { TICK_HZ, createSim, restoreSim } from '@pokesurvivor/sim';
-import type { ChoiceResult, Intent, PlayerConfig, Sim, SimEvent, SimState } from '@pokesurvivor/sim';
+import type {
+  ChoiceResult,
+  Intent,
+  PlayerConfig,
+  Sim,
+  SimEvent,
+  SimState,
+} from '@pokesurvivor/sim';
 import type { SavedGame } from './saved.js';
 import type { Session } from './session.js';
 

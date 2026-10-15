@@ -29,7 +29,7 @@ import { Room, newRoomId, type SavedRoom } from './room.js';
 import { Session } from './session.js';
 import { Ticker } from './ticker.js';
 import { and, eq, inArray } from 'drizzle-orm';
-import { gameSaves, runPlayers, runs, users } from '../db/schema.js';
+import { runPlayers, runs, users } from '../db/schema.js';
 import {
   SOLO_STALE_MS,
   presenceDiffers,
@@ -37,7 +37,7 @@ import {
   soloActivity,
   type SentPresence,
 } from './activity.js';
-import { RoomRegistry } from './registry.js';
+import { RoomRegistry, type GameSaveRow } from './registry.js';
 import { SAVED_GAME_VERSION } from './saved.js';
 
 /** A request failed; the code goes to the client (it maps it to a UI string). */
@@ -1176,7 +1176,7 @@ export class GameServer implements PresenceSource, FriendNotifier {
     }
   }
 
-  private async restoreGame(row: typeof gameSaves.$inferSelect): Promise<void> {
+  private async restoreGame(row: GameSaveRow): Promise<void> {
     if (row.version > SAVED_GAME_VERSION)
       throw new Error(`saved game version ${row.version} is newer than this server`);
     const saved = row.game;
@@ -1213,7 +1213,7 @@ export class GameServer implements PresenceSource, FriendNotifier {
    * drained game, crediting every player's result as of the save, and its players get their
    * lobby back.
    */
-  private async creditSaved(row: typeof gameSaves.$inferSelect): Promise<void> {
+  private async creditSaved(row: GameSaveRow): Promise<void> {
     const saved = row.game;
     const results = await this.record(row.roomId, {
       gameId: row.gameId,

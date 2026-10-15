@@ -24,6 +24,7 @@ import { preloadSprites } from '../sprites.js';
 import { AchievementTracker, type AchievementSave } from './achievements.js';
 import { ChoiceOverlay } from './choice-ui.js';
 import { ChoiceState } from './choices.js';
+import { clockText, everyTick, secondsLeft } from './countdown.js';
 import { clear, el, icon } from './dom.js';
 import { EventEffects } from './events.js';
 import { MateAlerts, MateBanner } from './mate-alerts.js';
@@ -87,7 +88,11 @@ export interface MountGameOptions {
 }
 
 export type GameClient = Pick<NetClient, 'on' | 'state'> &
-  Partial<Pick<NetClient, 'stats'>> & { readonly draining?: boolean };
+  Partial<Pick<NetClient, 'stats'>> & {
+    readonly draining?: boolean;
+    /** When the server stops for an update (`Date.now()` time), or null. */
+    readonly updateAt?: number | null;
+  };
 
 export interface GameHandle {
   dispose(): void;
@@ -175,13 +180,23 @@ class GameScreen {
     }
   }
 
+  /** Stops the live server-update / restored-game countdowns. */
+  private stopUpdateClock: (() => void) | null = null;
+  private stopHoldClock: (() => void) | null = null;
+
   private watchClient(client: GameClient): void {
     // Already updating or reconnecting when the game opened (the shell hides its own notices here).
-    if (client.draining) this.toasts.set('draining', t('game.noticeDraining'), 'warn');
+    if (client.updateAt) this.updateCountdown(client.updateAt);
+    else if (client.draining) this.toasts.set('draining', t('game.noticeDraining'), 'warn');
     if (client.state === 'reconnecting')
       this.toasts.set('connection', t('game.reconnecting'), 'warn');
     this.offs.push(
+      () => this.stopUpdateClock?.(),
+      () => this.stopHoldClock?.(),
       client.on('notice', (n) => {
+        if (n.code === 'server-update' && n.deadline) return this.updateCountdown(n.deadline);
+        if (n.code === 'game-waiting' || n.code === 'game-resuming')
+          return this.holdCountdown(n.code, n.deadline ?? Date.now(), n.usernames ?? []);
         const key = NOTICE_TEXT[n.code];
         if (!key) return;
         const text = t(key, { 0: n.usernames?.join(', ') ?? '' });
@@ -192,12 +207,45 @@ class GameScreen {
         if (s === 'reconnecting') this.toasts.set('connection', t('game.reconnecting'), 'warn');
         else if (s === 'open') {
           this.toasts.clear('connection');
-          // A new server instance after a deploy isn't draining.
-          if (!client.draining) this.toasts.clear('draining');
+          // A new server instance after a deploy isn't stopping.
+          if (!client.draining) {
+            this.stopUpdateClock?.();
+            this.toasts.clear('draining');
+          }
         } else if (s === 'failed' || s === 'closed')
           this.toasts.set('connection', t('game.connectionLost'), 'warn');
       }),
+      // The restored game goes on (or this is a fresh start): no more waiting.
+      this.conn.on('start', () => {
+        this.stopHoldClock?.();
+        this.toasts.clear('hold');
+      }),
     );
+  }
+
+  /** "Server update in 0:30 · your run will continue right after", ticking down. */
+  private updateCountdown(deadline: number): void {
+    this.stopUpdateClock?.();
+    this.stopUpdateClock = everyTick(deadline, (now) =>
+      this.toasts.set('draining', t('game.noticeUpdate', { 0: clockText(deadline, now) }), 'warn'),
+    );
+  }
+
+  /** A restored game: waiting for players (until `deadline`), or resuming in 3, 2, 1. */
+  private holdCountdown(code: 'game-waiting' | 'game-resuming', deadline: number, who: string[]) {
+    this.stopHoldClock?.();
+    this.stopHoldClock = everyTick(deadline, (now) => {
+      if (code === 'game-resuming') {
+        const s = secondsLeft(deadline, now);
+        if (s > 0) this.toasts.set('hold', t('game.noticeResuming', { 0: String(s) }), 'info');
+        else this.toasts.clear('hold');
+      } else
+        this.toasts.set(
+          'hold',
+          t('game.noticeWaiting', { 0: who.join(', '), 1: clockText(deadline, now) }),
+          'info',
+        );
+    });
   }
 
   // ---------------------------------------------------------------- loading

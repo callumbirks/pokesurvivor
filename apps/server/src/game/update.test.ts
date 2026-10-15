@@ -1,7 +1,6 @@
 // Stop-first deploys: on SIGTERM players get a warning (no new rooms or games), then running coop
 // games are saved to the database and a new server instance restores them, waits for their
 // players and resumes after a countdown. One that can't be restored is credited as saved.
-import type { Results } from '@pokesurvivor/netclient';
 import { stateHash, type SimState } from '@pokesurvivor/sim';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
@@ -231,7 +230,7 @@ describe('server updates (stop-first)', () => {
       next = await nextServer(old);
       expect(next.game.liveRooms.get(id)?.game ?? null).toBeNull();
       bots.forEach((b) => b.routeTo(next!.url));
-      const [r] = (await Promise.all(results)) as Results[];
+      const [r] = await Promise.all(results);
       expect(r).toMatchObject({ gameId: oldGame.id, credited: true, reason: 'server-shutdown' });
       const [run] = await next.database.db.db.select().from(runs);
       expect(run).toMatchObject({ mode: 'coop', durationS: time });
@@ -241,9 +240,7 @@ describe('server updates (stop-first)', () => {
       expect(await next.database.db.db.select().from(gameSaves)).toEqual([]);
       await waitFor(
         () =>
-          bots.every(
-            (b) => b.client.roomView?.id === id && b.client.roomView.phase === 'lobby',
-          ),
+          bots.every((b) => b.client.roomView?.id === id && b.client.roomView.phase === 'lobby'),
         'their lobby back',
       );
     } finally {

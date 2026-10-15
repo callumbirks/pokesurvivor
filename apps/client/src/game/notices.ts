@@ -7,6 +7,10 @@ import type { NoticeCode } from '@pokesurvivor/protocol';
 export const NOTICE_TEXT: Partial<Record<NoticeCode, UiStringKey>> = {
   'owner-changed': 'game.noticeOwnerChanged',
   'server-draining': 'game.noticeDraining',
+  // These three have live countdowns (`mount.ts`); the texts take more than the usernames.
+  'server-update': 'game.noticeUpdate',
+  'game-waiting': 'game.noticeWaiting',
+  'game-resuming': 'game.noticeResuming',
   'game-cancelled': 'game.noticeCancelled',
   kicked: 'game.noticeKicked',
   'player-removed': 'game.noticeRemoved',

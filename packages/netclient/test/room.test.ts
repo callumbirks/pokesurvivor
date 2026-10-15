@@ -135,6 +135,40 @@ describe('input pacing', () => {
     expect(sample.to).toBe(fresh);
   });
 
+  it('holds still through a restored game held after a server update, then starts afresh', () => {
+    const { room, sent, sim, game, enc } = setup();
+    room.startInputLoop(() => ({ moveX: 1, moveY: 0, aim: 1, fire: true }));
+    vi.advanceTimersByTime(100);
+    // Reconnected to the new server: a resumed start and a full frame marked paused (no choice).
+    room.handleStart(game, true);
+    enc.reset();
+    const held = room.handleFrame(
+      enc.encode(sim.state, [], 1, 0, { paused: true }) as Uint8Array,
+      Date.now(),
+    )!;
+    expect(held.paused).toBe(true);
+    expect(held.choices).toEqual([]);
+    vi.advanceTimersByTime(100);
+    // One neutral input, then nothing for the whole wait (no keepalives, nothing to replay).
+    expect(sent.at(-1)).toMatchObject({ seq: 1, moveX: 0, moveY: 0 });
+    const count = sent.length;
+    vi.advanceTimersByTime(20_000);
+    expect(sent).toHaveLength(count);
+    // It resumes with another resumed start: inputs count from 1 again, nothing is left over.
+    room.handleStart(game, true);
+    expect(room.unackedInputs()).toEqual([]);
+    expect(room.ackedInput).toBeNull();
+    enc.reset();
+    sim.step();
+    expect(
+      room.handleFrame(enc.encode(sim.state, [], 2, 0) as Uint8Array, Date.now())?.paused,
+    ).toBe(false);
+    vi.advanceTimersByTime(34);
+    expect(sent.at(-1)).toMatchObject({ seq: 1, moveX: 1, fire: true });
+    expect(room.buffer.size).toBe(1);
+    room.setPhase('ended');
+  });
+
   it('retains acknowledged held movement and resets the timeline on a resumed start', () => {
     const { room, snapshot, game } = setup();
     room.sendInput({ moveX: 1, moveY: 0 });
