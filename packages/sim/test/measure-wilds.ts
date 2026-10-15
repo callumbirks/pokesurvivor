@@ -10,6 +10,7 @@ import type { PlayerState } from '../src/state.js';
 import { resetChunks } from '../src/world.js';
 import type { Sim } from '../src/index.js';
 import { botInputs } from './bots.js';
+import { applyV15 } from './variants.js';
 import { patchTuning, postponeAmbientSystems, spawnDummy } from './helpers.js';
 import {
   describe,
@@ -74,6 +75,7 @@ for (const key of args.keys())
       'crowd-seconds',
       'legacy',
       'refresh-pressure',
+      'v15',
     ].includes(key)
   )
     throw new Error(`unknown argument --${key}`);
@@ -137,6 +139,9 @@ const previous = refreshPath
       return map;
     })()
   : undefined;
+
+// --v15: v15's rarity odds, Momentum and wild curves (`variants.ts`), for before/after.
+if (args.has('v15')) applyV15();
 
 function configure(sim: Sim) {
   if (args.has('legacy'))

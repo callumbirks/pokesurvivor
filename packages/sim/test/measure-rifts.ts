@@ -23,6 +23,8 @@ export type Profile = 'natural' | 'weak' | 'typical' | 'strong';
 export interface Cell {
   /** Optional species override for manual playtest reproduction. */
   dex?: number;
+  /** Optional prestige stars (0–3) for every player. */
+  prestige?: number;
   archetype: Archetype;
   meta: Meta;
   players: number;
@@ -85,6 +87,7 @@ export function makeSim(cell: Cell, seed: number, noSpawns: boolean, invulnerabl
       id: `p${i}`,
       dex: cell.dex ?? archetypes[cell.archetype].dex,
       upgrades,
+      ...(cell.prestige ? { prestige: cell.prestige } : {}),
     })),
     debug: { noSpawns, invulnerable },
   });

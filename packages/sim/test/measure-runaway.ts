@@ -3,7 +3,11 @@
 //   pnpm --filter @pokesurvivor/sim runaway --variant=v14 --out=v14.jsonl
 //   pnpm --filter @pokesurvivor/sim runaway --variant=v13 --out=v13.jsonl
 //   pnpm --filter @pokesurvivor/sim runaway --variant=v14 --fix=power-cap-10 --out=fix.jsonl
-//   (--friend-atk= / --friend-regen=: the minute-14 reconstruction with another ATK × or regen)
+//   (--friend-atk= / --friend-regen= / --friend-hp= / --friend-minutes=: the playtest
+//   reconstruction's ATK ×, regen, max HP and minutes)
+// `current` (default) runs this checkout's data. `v15` puts back v15's rarity odds, Momentum and
+// wild curves (`variants.ts`). `--prestige=N` gives the players N stars. `v14` is now the same as
+// `current` without the later changes undone (kept for old commands).
 // `v13` puts back what v14 changed in the shared data: v13's stat cards (old values, the pick
 // limits as ceilings, no rarities) and wild damage (damageK 4.8, forward arrivals 0.15, no forward
 // catch-up). `--fix` applies one candidate fix on top (see FIXES).
@@ -30,6 +34,7 @@ import { enemyScale } from '../src/spawner.js';
 import type { SimState } from '../src/state.js';
 import { resetChunks } from '../src/world.js';
 import { spawnDummy } from './helpers.js';
+import { applyV15 } from './variants.js';
 import {
   archetypes,
   drive,
@@ -46,8 +51,13 @@ const args = new Map(
   }),
 );
 const list = (key: string, fallback: string) => (args.get(key) ?? fallback).split(',');
-const variant = args.get('variant') ?? 'v14';
-if (!['v13', 'v14'].includes(variant)) throw new Error('--variant=v13|v14');
+const variant = args.get('variant') ?? 'current';
+if (!['v13', 'v14', 'v15', 'current'].includes(variant))
+  throw new Error('--variant=v13|v14|v15|current');
+if (variant === 'v15') applyV15();
+const prestige = Number(args.get('prestige') ?? 0);
+/** Minutes with the playtest reconstruction probe (`--friend-minutes`, default 14). */
+const friendMinutes = list('friend-minutes', '14').map(Number);
 const fix = args.get('fix') ?? 'none';
 const minutes = list('minutes', '6,7,8,9,10,11,12,13,14,15,16,18,20').map(Number);
 const seeds = list('seeds', '7,99,2026').map(Number);
@@ -327,7 +337,7 @@ const FRIEND = {
   cooldown: 0.3,
   regen: Number(args.get('friend-regen') ?? 22.7),
   dr: 0.7,
-  maxHp: 506,
+  maxHp: Number(args.get('friend-hp') ?? 506),
   xp: 3.5,
   magnet: 8.31,
 };
@@ -437,7 +447,7 @@ for (const meta of metas)
   for (const n of players)
     for (const dex of dexes)
       for (const seed of seeds) {
-        const cell: Cell = { meta, players: n, archetype: 'projectile', dex };
+        const cell: Cell = { meta, players: n, archetype: 'projectile', dex, prestige };
         const sim = makeSim(cell, seed, false, true);
         // No rifts: every checkpoint is on the map, with its crowd (bonds come only from rifts).
         sim.state.rift.checkT = 1e9;
@@ -495,7 +505,7 @@ for (const meta of metas)
               : null,
             // The playtest's panel on this run's state (its crowd, species and moves).
             friend:
-              probes && minute === 14 && meta === 'max' && n === 1
+              probes && friendMinutes.includes(minute) && meta === 'max' && n === 1
                 ? (['as-is', 'defence-only', 'offence-only'] as const).map((m) =>
                     stand(sim, m, meta, true),
                   )
