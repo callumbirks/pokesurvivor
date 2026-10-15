@@ -28,6 +28,12 @@ describe('activityLabel', () => {
       at: 0,
     };
     expect(activityLabel('in_game', coop, 0)).toBe('Multiplayer • Pikachu • 1:02:05');
+    // A prestiged Pokémon shows its stars.
+    const starred: ActivityEntry = {
+      activity: { kind: 'coop', dex: 25, shiny: true, elapsedS: 3725, prestige: 2 },
+      at: 0,
+    };
+    expect(activityLabel('in_game', starred, 0)).toBe('Multiplayer • Pikachu ★★ • 1:02:05');
     expect(activityLabel('offline', undefined, 0)).toBe('Offline');
     // An older server sends no activity: the plain status.
     expect(activityLabel('in_game', undefined, 0)).toBe('Playing');

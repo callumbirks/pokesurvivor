@@ -23,6 +23,7 @@ import {
   typeColor,
 } from '../app/dom.js';
 import { keyHints } from './common.js';
+import { prestigeOf, stars } from '../app/prestige.js';
 
 /** Missions done but not claimed yet. */
 export function rewardsToClaim(save: Save): number {
@@ -193,6 +194,7 @@ export function menuScreen(app: App): Screen {
           { dataset: { testid: 'partner-name' } },
           name,
           shiny ? [' ', icon('shiny', 24)] : null,
+          dex ? [' ', stars(prestigeOf(s, dex))] : null,
         ),
         h(
           'div',

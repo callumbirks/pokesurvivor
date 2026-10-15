@@ -1,11 +1,16 @@
 // The shop: permanent upgrades per Pokémon, bought with coins (legacy "Upgrades"). Levels and
 // prices come from the server (`GET /api/upgrades`); buying returns the updated save. As in
 // legacy, the "ban" upgrade opens the picker for the banned moves, and the move slots are below.
-import { t, type Move, type Pokemon } from '@pokesurvivor/data';
+// Above the upgrades, the Pokémon's stats with its prestige and the Prestige button: once every
+// upgrade is maxed, the server resets them for a star (`POST /api/save/prestige`).
+import { canPrestige, t, type Move, type Pokemon } from '@pokesurvivor/data';
 import { audio } from '../audio.js';
 import type { App, Screen } from '../app/app.js';
 import { gameData, h, icon, num, pokemonName, replace, sprite } from '../app/dom.js';
+import { confirmDialog } from '../app/confirm-dialog.js';
 import { bindableMoves, movePoolOf, startingMoveOf } from '../app/moves.js';
+import { statBars } from '../app/pokemon-views.js';
+import { prestigeGains, prestigeOf, stars } from '../app/prestige.js';
 import { shopPick, type ShopPick } from '../app/shop-pick.js';
 import { toast } from '../app/toast.js';
 import { loadInto, screenBox } from './common.js';
@@ -30,6 +35,7 @@ export function shopScreen(app: App): Screen {
   const data = gameData();
   const box = screenBox(app, { id: 'shop', title: t('menu.upgrades') });
   const head = h('div', { class: 'upg-head' });
+  const prestigeEl = h('div', { class: 'panel prestige-panel', dataset: { testid: 'prestige' } });
   const list = h('div', { class: 'upg', dataset: { testid: 'upgrades' } });
   let rules: UpgradeRules = {};
 
@@ -60,6 +66,7 @@ export function shopScreen(app: App): Screen {
           'option',
           { value: String(d), selected: d === dex },
           pokemonName(d),
+          prestigeOf(s, d) ? ` ${'★'.repeat(prestigeOf(s, d))}` : '',
           d === partner ? ` (${t('app.partner')})` : '',
           totalLevels(d) ? ` · ${t('app.levels', { 0: totalLevels(d) })}` : '',
         ),
@@ -86,6 +93,7 @@ export function shopScreen(app: App): Screen {
       ),
     );
     const levels = levelsOf(dex);
+    if (mon) renderPrestige(mon, levels);
     const saveMoves = (body: { bindings?: (string | null)[]; bans?: string[] }, el: HTMLElement) =>
       void app.act(null, async () => {
         el.classList.add('saving');
@@ -171,6 +179,86 @@ export function shopScreen(app: App): Screen {
     );
   };
 
+  /** The stats with the prestige share, and the Prestige button with what it would do. */
+  const renderPrestige = (mon: Pokemon, levels: Record<string, number>) => {
+    const s = app.save;
+    if (!s) return;
+    const tuning = data.tuning.prestige;
+    const current = prestigeOf(s, mon.dex);
+    const maxLevels = Object.fromEntries(
+      data.upgrades.map((u) => [u.id, rules[u.id]?.maxLevel ?? u.maxLevel]),
+    );
+    const ready = canPrestige(tuning, maxLevels, levels, current);
+    const atMax = current >= tuning.maxStars;
+    const button = h(
+      'button',
+      {
+        class: ['btn', ready && 'primary'],
+        disabled: !ready,
+        dataset: { testid: 'prestige-button', sfx: 'none' },
+      },
+      '★ ',
+      t('prestige.button'),
+    );
+    button.addEventListener('click', () => void prestige(mon, current, button));
+    replace(
+      prestigeEl,
+      h(
+        'div',
+        { class: 'prestige-head' },
+        h('b', null, mon.name),
+        current ? [' ', stars(current)] : null,
+        h(
+          'p',
+          { class: 'sub', dataset: { testid: 'prestige-status' } },
+          atMax
+            ? t('prestige.maxed', { 0: current })
+            : ready
+              ? t('prestige.ready')
+              : t('prestige.notReady'),
+        ),
+        atMax ? null : button,
+      ),
+      h('div', { class: 'prestige-stats' }, statBars(mon, current)),
+    );
+  };
+
+  const prestige = async (mon: Pokemon, current: number, button: HTMLButtonElement) => {
+    const s = app.save;
+    if (!s) return;
+    const next = current + 1;
+    const bans = s.moveBans[String(mon.dex)] ?? [];
+    const ok = await confirmDialog({
+      testid: 'prestige-dialog',
+      title: t('prestige.confirmTitle', { 0: mon.name }),
+      body: [
+        h('h4', null, t('prestige.resets')),
+        h(
+          'ul',
+          { class: 'dialog-list' },
+          h('li', null, t('prestige.resetUpgrades', { 0: data.upgrades.length })),
+          bans.length ? h('li', null, t('prestige.resetBans')) : null,
+          h('li', { class: 'muted' }, t('prestige.keeps')),
+        ),
+        h('h4', null, t('prestige.gain'), ' ', stars(next)),
+        h('p', { class: 'sub' }, t('prestige.gainStar', { 0: next })),
+        h(
+          'div',
+          { class: 'chips', dataset: { testid: 'prestige-gains' } },
+          prestigeGains(next).map((g) => h('span', { class: 'chip prestige-chip' }, g.text)),
+        ),
+      ],
+      confirmLabel: t('prestige.confirm'),
+      cancelLabel: t('prestige.cancel'),
+    });
+    if (!ok) return;
+    await app.act(button, async () => {
+      app.setSave(await app.api.prestige(mon.dex));
+      audio.sfx('buy');
+      toast(t('prestige.done', { 0: mon.name, 1: next }), 'good');
+    });
+  };
+
   loadInto(
     box.body,
     () =>
@@ -183,7 +271,7 @@ export function shopScreen(app: App): Screen {
         })),
     (r) => {
       rules = r;
-      replace(box.body, head, list);
+      replace(box.body, head, prestigeEl, list);
       render();
     },
   );

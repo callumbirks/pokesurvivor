@@ -202,7 +202,16 @@ scope.onmessage = (ev) => {
             snapshotHz: TICK_HZ,
             choiceTimeoutS: null,
             roster: sim.state.roster,
-            players: [{ id: playerId, username: m.username, index: 0, dex: p.dex, shiny: p.shiny }],
+            players: [
+              {
+                id: playerId,
+                username: m.username,
+                index: 0,
+                dex: p.dex,
+                shiny: p.shiny,
+                ...(m.loadout.prestige ? { prestige: m.loadout.prestige } : {}),
+              },
+            ],
           },
         });
         return;

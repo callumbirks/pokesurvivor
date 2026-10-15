@@ -13,6 +13,7 @@ import { pokemonPicker, type PokemonPicker } from '../app/pokemon-picker.js';
 import { toast } from '../app/toast.js';
 import { activityLine, dotClass, inviteButton, presenceOf, tickActivities } from './friends.js';
 import { screenBox } from './common.js';
+import { stars } from '../app/prestige.js';
 
 const PLAYER_COLORS = ['#ffcb3d', '#5fc8ff', '#7ee07a', '#ff8ad8'];
 
@@ -129,7 +130,12 @@ export function lobbyScreen(app: App): Screen {
           })
         : h('span', { class: 'no-partner' }, '?'),
       h('b', null, m.username),
-      h('small', null, m.partner ? pokemonName(m.partner.dex) : t('app.noPartner')),
+      h(
+        'small',
+        null,
+        m.partner ? pokemonName(m.partner.dex) : t('app.noPartner'),
+        m.partner?.prestige ? [' ', stars(m.partner.prestige)] : null,
+      ),
       h(
         'small',
         null,
