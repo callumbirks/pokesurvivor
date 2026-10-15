@@ -6,6 +6,12 @@ What changed for players in each release, newest first. Generated from
 
 ## Unreleased
 
+PRs: [#88](https://github.com/callumbirks/pokesurvivor/pull/88)
+
+### New
+
+- Prestige: once all of a Pokémon's upgrades are maxed, you can prestige it. This resets its upgrades and earns it a star (up to 3), and each star gives it +5% HP, damage, speed and crit chance, and −5% cooldown and damage taken. Stars show wherever the Pokémon appears.
+
 ## v14 - 2026-10-15
 
 PRs: [#80](https://github.com/callumbirks/pokesurvivor/pull/80), [#81](https://github.com/callumbirks/pokesurvivor/pull/81), [#82](https://github.com/callumbirks/pokesurvivor/pull/82), [#83](https://github.com/callumbirks/pokesurvivor/pull/83)
