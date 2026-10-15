@@ -6,7 +6,11 @@ What changed for players in each release, newest first. Generated from
 
 ## Unreleased
 
-PRs: [#73](https://github.com/callumbirks/pokesurvivor/pull/73)
+PRs: [#73](https://github.com/callumbirks/pokesurvivor/pull/73), [#75](https://github.com/callumbirks/pokesurvivor/pull/75)
+
+### New
+
+- Momentum: chain defeats to build up to +60% damage, so turning to fight the horde pays off. It shows under your HP and drains a few seconds after your last defeat. From minute 15, every level-up also offers Power or Reflexes.
 
 ### Changed
 

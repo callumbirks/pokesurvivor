@@ -1,8 +1,10 @@
 {
   "unreleased": {
-    "prs": [73],
+    "prs": [73, 75],
     "entries": {
-      "new": [],
+      "new": [
+        "Momentum: chain defeats to build up to +60% damage, so turning to fight the horde pays off. It shows under your HP and drains a few seconds after your last defeat. From minute 15, every level-up also offers Power or Reflexes."
+      ],
       "changed": [
         "Rifts in 3–4 player co-op reach full strength sooner, and wild Pokémon hit twice as hard as in v11."
       ],
