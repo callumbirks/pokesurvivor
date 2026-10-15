@@ -1,9 +1,11 @@
 {
   "unreleased": {
-    "prs": [],
+    "prs": [77],
     "entries": {
       "new": [],
-      "changed": [],
+      "changed": [
+        "Early wild Pokémon hit less hard again, and new arrivals now come mostly from behind and the sides, so you can gather a horde and turn to fight it."
+      ],
       "fixed": [],
       "behindTheScenes": []
     }

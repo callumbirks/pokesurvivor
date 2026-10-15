@@ -6,6 +6,12 @@ What changed for players in each release, newest first. Generated from
 
 ## Unreleased
 
+PRs: [#77](https://github.com/callumbirks/pokesurvivor/pull/77)
+
+### Changed
+
+- Early wild Pokémon hit less hard again, and new arrivals now come mostly from behind and the sides, so you can gather a horde and turn to fight it.
+
 ## v12 - 2026-10-15
 
 PRs: [#73](https://github.com/callumbirks/pokesurvivor/pull/73), [#75](https://github.com/callumbirks/pokesurvivor/pull/75)
