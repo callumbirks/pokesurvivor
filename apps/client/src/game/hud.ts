@@ -632,11 +632,11 @@ export class Hud {
     const draining = now - this.momentumDrainAt < 0.35;
     const mul = 1 + cfg.perStack * stacks;
     ctx.save();
-    ctx.font = F(800, 9);
+    ctx.font = F(800, 10);
     ctx.textAlign = 'left';
     const txt = `${t('hud.momentum')} ×${mul.toFixed(2)}`;
     const w = Math.ceil(ctx.measureText(txt).width) + 12;
-    const H = 15;
+    const H = 18;
     ctx.globalAlpha = draining ? 0.72 : 1;
     // A hard offset shadow, the window fill, and an inner rule (gold at the cap).
     ctx.fillStyle = 'rgba(20,16,18,.55)';
@@ -650,7 +650,7 @@ export class Hud {
     ctx.lineWidth = 1;
     ctx.strokeRect(x + 0.5, y + 0.5, w - 1, H - 1);
     ctx.fillStyle = draining ? CHARCOAL.muted : high ? CHARCOAL.gold : CHARCOAL.text;
-    ctx.fillText(txt, x + 6, y + 10);
+    ctx.fillText(txt, x + 6, y + 11);
     // Ten pips under the text; the last one fills partly (and empties as it drains).
     const PIPS = 10;
     const pw = (w - 12 - (PIPS - 1)) / PIPS;
@@ -658,11 +658,11 @@ export class Hud {
     for (let i = 0; i < PIPS; i++) {
       const px = x + 6 + i * (pw + 1);
       ctx.fillStyle = CHARCOAL.rule;
-      ctx.fillRect(px, y + 12, pw, 2);
+      ctx.fillRect(px, y + 13, pw, 3);
       const f = clamp(frac * PIPS - i, 0, 1);
       if (f > 0) {
         ctx.fillStyle = fill;
-        ctx.fillRect(px, y + 12, pw * f, 2);
+        ctx.fillRect(px, y + 13, pw * f, 3);
       }
     }
     ctx.restore();

@@ -27,7 +27,7 @@
   "hud": {
     "powerForS": "{0} power! {1} for {2} s",
     "momentum": "MOMENTUM",
-    "momentumHint": "Momentum! Chain defeats for more damage; it drains a few seconds after your last one.",
+    "momentumHint": "Momentum: chain defeats for more damage!",
     "weatherStarts": "{0}: {1}",
     "fury": "Fury",
     "haste": "Haste",
