@@ -146,20 +146,29 @@ describe('momentum', () => {
   });
 
   it('starts with a smaller cap that grows to the full one, keeping stacks as it grows', () => {
+    // A growing cap as a fixture: the shipped one may be flat (start = full).
+    const grow = {
+      ...momentum,
+      maxStacksStart: Math.max(2, Math.floor(momentum.maxStacks / 2)),
+      maxStacks: Math.max(4, momentum.maxStacks),
+    };
     expect(momentumCap(momentum, 0)).toBe(momentum.maxStacksStart);
-    expect(momentumCap(momentum, momentum.maxStacksFullMinute * 60)).toBe(momentum.maxStacks);
     expect(momentumCap(momentum, momentum.maxStacksFullMinute * 120)).toBe(momentum.maxStacks);
+    expect(momentumCap(grow, 0)).toBe(grow.maxStacksStart);
+    expect(momentumCap(grow, grow.maxStacksFullMinute * 60)).toBe(grow.maxStacks);
+    expect(momentumCap(grow, grow.maxStacksFullMinute * 120)).toBe(grow.maxStacks);
     const sim = quietSim();
+    patchTuning(sim, 'momentum', grow);
     const p = player(sim);
     giveMove(sim, p, 'tackle');
-    p.momentum = momentum.maxStacksStart - 1;
+    p.momentum = grow.maxStacksStart - 1;
     killNext(sim, 3);
-    const early = momentumCap(momentum, sim.state.time);
-    expect(early).toBeLessThan(momentum.maxStacksStart + 1);
+    const early = momentumCap(grow, sim.state.time);
+    expect(early).toBeLessThan(grow.maxStacksStart + 1);
     expect(p.momentum).toBeCloseTo(early);
     // Later the cap has grown: the stacks stay, and more kills go past the old cap.
     p.momentumIdle = -1000; // no decay while time jumps
-    sim.state.time = momentum.maxStacksFullMinute * 60;
+    sim.state.time = grow.maxStacksFullMinute * 60;
     steps(sim, 1);
     expect(p.momentum).toBeCloseTo(early);
     p.momentumIdle = 0;

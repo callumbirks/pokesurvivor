@@ -78,3 +78,17 @@ it('interpolates configured wild damage and caps only marked contact/shots befor
   hurtPlayer(sim.ctx, p, raw, null);
   expect(p.dead).toBe(true);
 });
+
+it('multiplies regular wild HP by the configured HP curve', () => {
+  const sim = quietSim();
+  const { hpCurve } = sim.ctx.d.game.tuning.spawner;
+  for (const point of hpCurve) {
+    const t = point.minute * 60;
+    expect(wildDamageMultiplier(hpCurve, point.minute)).toBe(point.multiplier);
+    expect(enemyScale(sim.ctx, t).hp).toBeCloseTo(
+      (1 + t / 95) * sim.ctx.d.late(t) * point.multiplier,
+    );
+  }
+  const last = hpCurve.at(-1)!;
+  expect(wildDamageMultiplier(hpCurve, last.minute + 5)).toBe(last.multiplier);
+});
