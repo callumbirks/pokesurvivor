@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import type { FastifyInstance, InjectOptions, LightMyRequestResponse } from 'fastify';
 import postgres from 'postgres';
 import { buildApp } from '../app.js';
+import { isOffensiveUsername } from '../auth/profanity.js';
 import type { AppOptions } from '../app.js';
 import { loadConfig } from '../config.js';
 import { createDb, runMigrations } from '../db/index.js';
@@ -67,8 +68,12 @@ export interface TestApp {
 
 let userCounter = 0;
 export function uniqueUsername(prefix = 'user'): string {
-  userCounter += 1;
-  return `${prefix}_${userCounter}_${randomBytes(2).toString('hex')}`.slice(0, 16);
+  for (;;) {
+    userCounter += 1;
+    const name = `${prefix}_${userCounter}_${randomBytes(2).toString('hex')}`.slice(0, 16);
+    // The hex suffix can spell a word in leetspeak (`a55`), which registration would reject.
+    if (!isOffensiveUsername(name)) return name;
+  }
 }
 
 export async function createTestApp(options: TestAppOptions = {}): Promise<TestApp> {

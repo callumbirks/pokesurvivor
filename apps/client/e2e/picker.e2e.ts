@@ -2,11 +2,11 @@
 // it in a room, where the other member sees the change. Extra Pokémon come from quick solo runs
 // reported over the API (a rescue and a caught shiny each, within the server's caps).
 // E2E_SHOTS=<dir> saves screenshots on desktop and on a phone in landscape.
-import { randomUUID } from 'node:crypto';
+import { nameSuffix } from './names.js';
 import { expect, test, type Browser, type Page } from '@playwright/test';
 
 const shots = process.env.E2E_SHOTS;
-const suffix = randomUUID().slice(0, 8);
+const suffix = nameSuffix();
 const DESKTOP = { width: 1280, height: 720 };
 const PHONE = { width: 844, height: 390 };
 const PORTRAIT = { width: 390, height: 844 };

@@ -15,7 +15,7 @@ Every error has the same shape. `code` is stable and maps to a UI string in `en.
 
 | Status | Codes                                                                                                                                                                                                                                                                                                                                                |
 | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 400    | `invalid_request` (body/query validation, incl. unknown dex/item/move/type ids; has `issues`), `unknown_upgrade`, `unknown_title`, `not_a_starter`, `invalid_answers`, `invalid_move`, `duplicate_move`, `unknown_banner`, `invalid_pull_count`, `invalid_payment`, `cannot_friend_self`, `duplicate_favourite`                                      |
+| 400    | `invalid_request` (body/query validation, incl. unknown dex/item/move/type ids; has `issues`), `unknown_upgrade`, `unknown_title`, `not_a_starter`, `invalid_answers`, `invalid_move`, `duplicate_move`, `unknown_banner`, `invalid_pull_count`, `invalid_payment`, `cannot_friend_self`, `duplicate_favourite`, `username_not_allowed`              |
 | 401    | `unauthenticated`, `invalid_credentials`                                                                                                                                                                                                                                                                                                             |
 | 404    | `run_not_found`, `user_not_found`, `request_not_found`, `friend_not_found`, `mission_not_found`                                                                                                                                                                                                                                                      |
 | 409    | `username_taken`, `pokemon_not_owned`, `insufficient_funds`, `upgrade_maxed`, `title_locked`, `starter_already_chosen`, `too_many_bans`, `run_already_finished`, `run_credited_by_timeout`, `in_room`, `mission_not_done`, `mission_already_claimed`, `mission_reroll_used`, `mission_reroll_unavailable`, `already_friends`, `request_already_sent` |
@@ -35,6 +35,11 @@ against `@pokesurvivor/data`.
 
 - Usernames: 3–16 characters of `[A-Za-z0-9_]`, unique ignoring case, and also the public
   nickname. Login matches them ignoring case. Passwords: 8–128 characters, hashed with argon2id.
+- Register rejects offensive usernames with 400 `username_not_allowed` (the body doesn't say which
+  word matched). The check (`apps/server/src/auth/profanity.ts`) uses `obscenity`'s English list
+  after folding case, resolving leetspeak (`0`→o, `1`→i/l, `3`→e, `4`→a, `5`→s, `7`→t, …),
+  removing separators (`f_u_c_k`) and collapsing repeats (`fuuuck`); a whitelist keeps names like
+  Scunthorpe, Dickson and Sharpedo. Register is the only endpoint that sets a username.
 - Register and login are each rate-limited per IP (`AUTH_RATE_LIMIT_MAX` per minute, default 10).
 - Sessions last 30 days and are extended to a full 30 days when used after their first day.
 

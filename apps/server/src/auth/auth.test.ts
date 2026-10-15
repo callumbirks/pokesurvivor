@@ -57,6 +57,28 @@ describe('auth', () => {
     }
   });
 
+  it('rejects offensive usernames without saying which word matched', async () => {
+    const c = t.client();
+    for (const username of ['fuck', 'N1_gg3r', 'f_u_c_k', 'SHIIIIT', 'xX_C0ck_Xx']) {
+      const res = await c.post('/api/auth/register', { username, password: 'pikachu123' });
+      expect(res.statusCode, username).toBe(400);
+      expect(res.json()).toEqual({
+        error: { code: 'username_not_allowed', message: 'Username is not allowed' },
+      });
+    }
+    const users = await t.db.db.query.users.findMany();
+    expect(users.map((u) => u.username.toLowerCase())).not.toContain('fuck');
+  });
+
+  it('accepts names that only look offensive', async () => {
+    const c = t.client();
+    for (const name of ['Scunthorpe', 'Dickson', 'Sharpedo', 'Cofagrigus']) {
+      const username = uniqueUsername(name);
+      const res = await c.post('/api/auth/register', { username, password: 'pikachu123' });
+      expect(res.statusCode, username).toBe(201);
+    }
+  });
+
   it('rejects short passwords and malformed bodies', async () => {
     const c = t.client();
     const short = await c.post('/api/auth/register', { username: uniqueUsername(), password: 'x' });

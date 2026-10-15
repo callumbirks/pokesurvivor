@@ -3,7 +3,7 @@
 // in use and back to keys on a key press, and in a run the pad plays until Start opens the pause
 // menu (choices with the pad are unit-tested in `choice-ui.test.ts`: a level-up takes too long
 // to reach here). E2E_SHOTS=<dir> saves screenshots.
-import { randomUUID } from 'node:crypto';
+import { nameSuffix } from './names.js';
 import { expect, test, type Page } from '@playwright/test';
 
 const shots = process.env.E2E_SHOTS;
@@ -62,7 +62,7 @@ test('a gamepad: glyphs, menu focus, and the pause menu', async ({ page }) => {
   await page.addInitScript(fakePad, 'Xbox Wireless Controller (STANDARD GAMEPAD)');
   await page.goto('/');
   await page.getByTestId('tab-register').click();
-  await page.getByTestId('login-username').fill(`pad_${randomUUID().slice(0, 8)}`);
+  await page.getByTestId('login-username').fill(`pad_${nameSuffix()}`);
   await page.getByTestId('login-password').fill('password123');
   await page.getByTestId('login-submit').click();
   await page.getByTestId('skip-test').click();
