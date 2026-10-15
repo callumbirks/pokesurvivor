@@ -23,6 +23,7 @@ import type { Database } from '../db/index.js';
 import type { FriendEvent, FriendNotifier, PresenceSource } from '../friends/presence.js';
 import { friendIds } from '../friends/service.js';
 import { recordCoopRun } from '../runs/service.js';
+import { getSave } from '../saves/service.js';
 import type { Game, GameOutcome, GameSettings } from './game.js';
 import { Room, newRoomId } from './room.js';
 import { Session } from './session.js';
@@ -263,7 +264,7 @@ export class GameServer implements PresenceSource, FriendNotifier {
         (room.phase === 'loading' || room.phase === 'running')
       ) {
         const { elapsedS, paused } = game.clock;
-        return run('coop', player.dex, player.shiny, elapsedS, paused);
+        return run('coop', player.dex, player.shiny, elapsedS, paused, player.prestige);
       }
       return { kind: 'menu' };
     }
@@ -343,6 +344,11 @@ export class GameServer implements PresenceSource, FriendNotifier {
           ),
         )
         .catch(() => []); // not a uuid
+      // The Pokémon's stars come from the save, like everything else friends see.
+      const prestige = row
+        ? ((await getSave(this.db, session.userId).catch(() => null))?.prestige[String(row.dex)] ??
+          0)
+        : 0;
       if (session.soloSeq !== seq || this.sessions.get(session.userId) !== session) return;
       if (!row) {
         if (session.solo) {
@@ -354,6 +360,7 @@ export class GameServer implements PresenceSource, FriendNotifier {
       known = {
         runId: clock.runId,
         ...row,
+        prestige,
         startedAt: row.startedAt.getTime(),
         elapsedS: 0,
         paused: true,

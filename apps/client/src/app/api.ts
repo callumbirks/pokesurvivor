@@ -47,6 +47,8 @@ export interface Save {
   starter: number | null;
   personality: { trait: string; scores: Record<string, number> } | null;
   upgrades: Record<string, Record<string, number>>;
+  /** dex -> prestige stars (absent: none). Optional: saves cached before prestige lack it. */
+  prestige?: Record<string, number>;
   moveBindings: Record<string, (string | null)[]>;
   moveBans: Record<string, string[]>;
   pity: Record<string, number>;
@@ -122,7 +124,8 @@ export type PayWith = 'tickets' | 'tickets10';
 
 export interface FriendBase {
   username: string;
-  partner: PokemonRef | null;
+  /** `prestige`: the partner's stars, absent when it has none. */
+  partner: (PokemonRef & { prestige?: number }) | null;
   favourites: PokemonRef[];
   title: string | null;
 }
@@ -270,6 +273,10 @@ export class Api {
   }
   buyUpgrade(dex: number, upgradeId: string) {
     return this.request<Save>('POST', '/api/save/upgrades', { dex, upgradeId });
+  }
+  /** Resets a fully upgraded Pokémon's upgrades for a prestige star. */
+  prestige(dex: number) {
+    return this.request<Save>('POST', '/api/save/prestige', { dex });
   }
 
   // ---------------------------------------------------------------- gacha

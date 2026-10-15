@@ -8,6 +8,7 @@ import type { Friend, FriendsList } from '../app/api.js';
 import { h, replace, sprite } from '../app/dom.js';
 import { toast } from '../app/toast.js';
 import { loadInto, screenBox } from './common.js';
+import { stars } from '../app/prestige.js';
 
 export const dotClass = (p: PresenceStatus) =>
   ({ offline: '', online: 'on', in_lobby: 'on', in_game: 'play' })[p];
@@ -205,7 +206,13 @@ export function friendsScreen(app: App): Screen {
                 }),
               )
             : null,
-          h('div', { class: 'grow' }, h('b', null, f.username), activityLine(app, f.username, p)),
+          h(
+            'div',
+            { class: 'grow' },
+            h('b', null, f.username),
+            mon?.prestige ? [' ', stars(mon.prestige)] : null,
+            activityLine(app, f.username, p),
+          ),
           inviteButton(app, f.username, p),
           remove,
         ),

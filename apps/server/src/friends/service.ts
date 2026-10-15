@@ -144,7 +144,8 @@ export async function friendIds(db: Executor, userId: string): Promise<string[]>
 
 export interface FriendSummary {
   username: string;
-  partner: { dex: number; shiny: boolean } | null;
+  /** `prestige`: the partner's stars, absent when it has none. */
+  partner: { dex: number; shiny: boolean; prestige?: number } | null;
   favourites: Favourite[];
   title: string | null;
 }
@@ -166,6 +167,7 @@ interface FriendRow extends Record<string, unknown> {
   accepted_at: Date | string | null;
   partner_dex: number | null;
   partner_shiny: boolean | null;
+  partner_prestige: number | null;
   favourites: Favourite[] | null;
   title: string | null;
 }
@@ -180,6 +182,7 @@ export async function listFriends(
            f.requester_id = ${userId} as outgoing,
            f.created_at, f.accepted_at,
            s.partner_dex, s.partner_shiny,
+           (s.data -> 'prestige' ->> s.partner_dex::text)::int as partner_prestige,
            s.data -> 'profile' -> 'favourites' as favourites,
            s.data -> 'profile' ->> 'title' as title
     from friendships f
@@ -194,7 +197,14 @@ export async function listFriends(
   );
   const summary = (r: FriendRow): FriendSummary => ({
     username: r.username,
-    partner: r.partner_dex === null ? null : { dex: r.partner_dex, shiny: !!r.partner_shiny },
+    partner:
+      r.partner_dex === null
+        ? null
+        : {
+            dex: r.partner_dex,
+            shiny: !!r.partner_shiny,
+            ...(r.partner_prestige ? { prestige: r.partner_prestige } : {}),
+          },
     favourites: r.favourites ?? [],
     title: r.title,
   });

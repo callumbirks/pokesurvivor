@@ -69,6 +69,34 @@ describe('players', () => {
     expect(b!.active).toBe(0);
   });
 
+  it('get their prestige bonus on top of their upgrades, from the per-star tuning', () => {
+    const upgrades = { 'max-hp': 3, attack: 2, speed: 1, cooldown: 2, defense: 1, crit: 4 };
+    const { perStar, maxStars } = simData().game.tuning.prestige;
+    const sim = createSim({
+      seed: 1,
+      players: [
+        { id: 'a', dex: 4, upgrades },
+        { id: 'b', dex: 4, upgrades, prestige: 2 },
+        { id: 'c', dex: 4, upgrades, prestige: 99 },
+      ],
+    });
+    const [a, b, c] = sim.state.players;
+    expect(b!.maxHp).toBe(Math.round(a!.maxHp * (1 + 2 * perStar.hp)));
+    expect(b!.hp).toBe(b!.maxHp);
+    expect(b!.attackMul).toBeCloseTo(a!.attackMul * (1 + 2 * perStar.damage));
+    expect(b!.speedMul).toBeCloseTo(a!.speedMul * (1 + 2 * perStar.speed));
+    expect(b!.cooldownMul).toBeCloseTo(a!.cooldownMul * (1 - 2 * perStar.cooldown));
+    expect(b!.damageReduction).toBeCloseTo(a!.damageReduction + 2 * perStar.damageTaken);
+    expect(b!.critChance).toBeCloseTo(a!.critChance + 2 * perStar.crit);
+    // Stars are capped at the maximum.
+    expect(c!.attackMul).toBeCloseTo(a!.attackMul * (1 + maxStars * perStar.damage));
+    // The stats panel reads the same values, so it includes prestige.
+    const s = playerStats(sim.state, b!);
+    expect(s.maxHp).toBe(b!.maxHp);
+    expect(s.attack).toBeCloseTo(b!.baseAttack * b!.attackMul);
+    expect(s.crit).toBe(b!.critChance);
+  });
+
   it('move with input, clamped to full speed', () => {
     const sim = quietSim();
     const p = player(sim);

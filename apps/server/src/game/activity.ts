@@ -17,6 +17,8 @@ export interface SoloActivity {
   runId: string;
   dex: number;
   shiny: boolean;
+  /** The Pokémon's prestige stars (0: none). */
+  prestige: number;
   /** The run's start (ms): the run time can't be more than the wall-clock time since. */
   startedAt: number;
   elapsedS: number;
@@ -38,7 +40,7 @@ export function soloActivity(solo: SoloActivity, now: number): FriendActivity {
   // Display only, but bounded: never past the wall-clock time since the run started.
   const max = Math.max(0, (now - solo.startedAt) / 1000);
   const elapsedS = Math.min(max, clockAt(solo, solo.at, now));
-  return run('solo', solo.dex, solo.shiny, elapsedS, solo.paused);
+  return run('solo', solo.dex, solo.shiny, elapsedS, solo.paused, solo.prestige);
 }
 
 export function run(
@@ -47,6 +49,7 @@ export function run(
   shiny: boolean,
   elapsedS: number,
   paused: boolean,
+  prestige = 0,
 ): FriendActivity {
   return {
     kind,
@@ -54,6 +57,7 @@ export function run(
     shiny,
     elapsedS: Math.round(elapsedS * 10) / 10,
     ...(paused ? { paused: true as const } : {}),
+    ...(prestige ? { prestige } : {}),
   };
 }
 

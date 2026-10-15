@@ -241,7 +241,12 @@ export class Hud {
       ctx.font = F(800, 13);
       ctx.fillStyle = '#eaf2ff';
       ctx.textAlign = 'left';
-      ctx.fillText(pokemonName(info?.dex ?? 25), px, py + 10);
+      const mon = pokemonName(info?.dex ?? 25);
+      ctx.fillText(mon, px, py + 10);
+      if (info?.prestige) {
+        ctx.fillStyle = '#ffd65c';
+        ctx.fillText('★'.repeat(info.prestige), px + ctx.measureText(mon).width + 4, py + 10);
+      }
       ctx.font = F(700, 11);
       ctx.fillStyle = '#ffcb3d';
       ctx.fillText(`${t('levelUp.lv')} ${team.level}`, px, py + 26);

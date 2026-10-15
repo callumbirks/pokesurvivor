@@ -26,7 +26,7 @@ describe('saves', () => {
     const res = await c.get('/api/save');
     expect(res.statusCode).toBe(200);
     expect(res.json()).toMatchObject({
-      version: 2,
+      version: 3,
       coins: 500,
       tickets: { x1: 0, x10: 0 },
       partner: { dex: null, shiny: false },

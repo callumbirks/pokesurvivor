@@ -48,7 +48,9 @@ export function activityLabel(
   if (status === 'offline' || status === 'in_lobby' || !entry) return statusLabel(status);
   const a = entry.activity;
   if (a.kind === 'menu') return t('friends.mainMenu');
-  const name = loadGameData().pokemonByDex.get(a.dex)?.name ?? `#${a.dex}`;
+  const name =
+    (loadGameData().pokemonByDex.get(a.dex)?.name ?? `#${a.dex}`) +
+    (a.prestige ? ` ${'★'.repeat(a.prestige)}` : '');
   const time = formatRunTime(runClock(entry, now));
   return t(a.kind === 'solo' ? 'friends.activitySolo' : 'friends.activityCoop', {
     0: name,
@@ -59,7 +61,7 @@ export function activityLabel(
 /** The Pokémon a friend is playing right now, if they're in a run. */
 export function activityPokemon(
   entry: ActivityEntry | undefined,
-): { dex: number; shiny: boolean } | null {
+): { dex: number; shiny: boolean; prestige?: number } | null {
   const a = entry?.activity;
-  return a && a.kind !== 'menu' ? { dex: a.dex, shiny: a.shiny } : null;
+  return a && a.kind !== 'menu' ? { dex: a.dex, shiny: a.shiny, prestige: a.prestige } : null;
 }

@@ -6,13 +6,20 @@ import type { SaveView } from '../saves/service.js';
 export interface Partner {
   dex: number;
   shiny: boolean;
+  /** Its prestige stars; absent when it has none. */
+  prestige?: number;
 }
 
 /** The partner a member will play, from their save; null if none is chosen or it isn't owned. */
 export function partnerOf(save: SaveView): Partner | null {
   const { dex } = save.partner;
   if (dex === null || !ownsPokemon(save, dex)) return null;
-  return { dex, shiny: save.partner.shiny && ownsPokemon(save, dex, true) };
+  const prestige = save.prestige[String(dex)];
+  return {
+    dex,
+    shiny: save.partner.shiny && ownsPokemon(save, dex, true),
+    ...(prestige ? { prestige } : {}),
+  };
 }
 
 export interface Loadout {
@@ -23,8 +30,8 @@ export interface Loadout {
 
 /**
  * What a player brings into a coop run, read from their server save (never from the client):
- * the partner, its permanent upgrades, move bindings and bans, and the legendaries they have
- * beaten (rifts favour the others).
+ * the partner, its permanent upgrades, prestige stars, move bindings and bans, and the
+ * legendaries they have beaten (rifts favour the others).
  */
 export async function loadLoadout(db: Executor, userId: string): Promise<Loadout | null> {
   const save = await getSave(db, userId);
@@ -37,6 +44,7 @@ export async function loadLoadout(db: Executor, userId: string): Promise<Loadout
       dex: partner.dex,
       shiny: partner.shiny,
       upgrades: save.upgrades[key] ?? {},
+      prestige: save.prestige[key] ?? 0,
       bannedMoves: save.moveBans[key] ?? [],
       moveBindings: save.moveBindings[key] ?? [],
       legendsBeaten: Object.keys(save.legendsBeaten).map(Number),

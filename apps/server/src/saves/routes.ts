@@ -1,9 +1,10 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { personalityScores, topTrait } from '@pokesurvivor/data';
+import { allUpgradesMaxed, clampStars, personalityScores, topTrait } from '@pokesurvivor/data';
 import { createAuthHooks, currentUser } from '../auth/plugin.js';
 import { getServerData, knownDexSchema, pokemonOf } from '../data.js';
 import type { Database } from '../db/index.js';
+import { pokemonPrestiges } from '../db/schema.js';
 import { upgradeCost } from '../economy/config.js';
 import type { EconomyConfig } from '../economy/config.js';
 import { ApiError, parseBody } from '../http/errors.js';
@@ -34,6 +35,7 @@ const profileBody = z
   .partial();
 const settingsBody = settingsSchema.partial();
 const upgradeBody = z.object({ dex: knownDexSchema, upgradeId: z.string().min(1).max(32) });
+const prestigeBody = z.object({ dex: knownDexSchema });
 const starterBody = z.object({
   dex: knownDexSchema,
   /** Index of the answer picked for each personality-test question, if the test was taken. */
@@ -211,6 +213,41 @@ export function saveRoutes(app: FastifyInstance, opts: SaveRoutesOptions): void 
       );
       levels[upgradeId] = level + 1;
     });
+    return getSave(db, userId);
+  });
+
+  /**
+   * Prestige: once every upgrade of an owned Pokémon is maxed, reset its upgrades (Repertoire and
+   * Ban too) and banned moves for a star, up to `tuning.prestige.maxStars`. Free. Move slot
+   * bindings stay: they don't depend on any upgrade.
+   */
+  app.post('/api/save/prestige', { preHandler: requireUser }, async (request) => {
+    const { dex } = parseBody(prestigeBody, request.body);
+    const tuning = getServerData().tuning.prestige;
+    const maxLevels = Object.fromEntries(
+      Object.entries(economy.upgrades).map(([id, def]) => [id, def.maxLevel]),
+    );
+    const userId = currentUser(request).id;
+    await withLockedSave(db, userId, async (save, tx) => {
+      if (!ownsPokemon(save.data, dex)) throw notOwned(dex, false);
+      const key = String(dex);
+      const stars = clampStars(tuning, save.data.prestige[key]);
+      if (stars >= tuning.maxStars)
+        throw new ApiError(409, 'prestige_maxed', `Pokémon ${dex} has ${stars} stars`);
+      const levels = save.data.upgrades[key] ?? {};
+      if (!allUpgradesMaxed(maxLevels, levels))
+        throw new ApiError(409, 'prestige_not_ready', `Pokémon ${dex} has upgrades left to buy`);
+      const moveBans = save.data.moveBans[key] ?? [];
+      delete save.data.upgrades[key];
+      delete save.data.moveBans[key];
+      save.data.prestige[key] = stars + 1;
+      save.wallet.mark('coins', 'prestige', `${dex}:prestige:${stars + 1}`);
+      await tx
+        .insert(pokemonPrestiges)
+        .values({ userId, dex, stars: stars + 1, reset: { upgrades: levels, moveBans } });
+    });
+    // A room's lobby shows the partner's stars.
+    opts.onPartnerChanged?.(userId);
     return getSave(db, userId);
   });
 }

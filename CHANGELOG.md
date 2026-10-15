@@ -6,11 +6,12 @@ What changed for players in each release, newest first. Generated from
 
 ## Unreleased
 
-PRs: [#85](https://github.com/callumbirks/pokesurvivor/pull/85), [#86](https://github.com/callumbirks/pokesurvivor/pull/86), [#87](https://github.com/callumbirks/pokesurvivor/pull/87), [#89](https://github.com/callumbirks/pokesurvivor/pull/89)
+PRs: [#85](https://github.com/callumbirks/pokesurvivor/pull/85), [#86](https://github.com/callumbirks/pokesurvivor/pull/86), [#87](https://github.com/callumbirks/pokesurvivor/pull/87), [#88](https://github.com/callumbirks/pokesurvivor/pull/88), [#89](https://github.com/callumbirks/pokesurvivor/pull/89)
 
 ### New
 
 - While you're down in co-op, you can spectate your teammates and switch between them.
+- Prestige: once all of a Pokémon's upgrades are maxed, you can prestige it. This resets its upgrades and earns it a star (up to 3), and each star gives it +5% HP, damage, speed and crit chance, and −5% cooldown and damage taken. Stars show wherever the Pokémon appears.
 
 ### Changed
 

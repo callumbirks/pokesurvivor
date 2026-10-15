@@ -212,5 +212,25 @@ export const TuningFileSchema = z.strictObject({
     bossTicket10Chance: Chance,
     legendaryTicket10Chance: Chance,
   }),
+  /**
+   * Pokémon prestige (stars): reached by maxing every permanent upgrade, which then reset. Each
+   * star adds `perStar.<stat>` to that stat's prestige factor (see `prestigeBonus`); enemies never
+   * scale with it.
+   */
+  prestige: z.strictObject({
+    maxStars: z.number().int().positive().max(9),
+    perStar: z.strictObject({
+      /** Max HP, damage and speed: × (1 + perStar × stars). */
+      hp: z.number().nonnegative().max(1),
+      damage: z.number().nonnegative().max(1),
+      speed: z.number().nonnegative().max(1),
+      /** Move cooldowns: × (1 − perStar × stars). */
+      cooldown: z.number().nonnegative().max(0.3),
+      /** Damage reduction (0–1, like the Armor upgrade): + perStar × stars. */
+      damageTaken: z.number().nonnegative().max(0.3),
+      /** Critical hit chance (0–1, like the Critical Hit upgrade): + perStar × stars. */
+      crit: z.number().nonnegative().max(0.3),
+    }),
+  }),
 });
 export type TuningFile = z.infer<typeof TuningFileSchema>;
