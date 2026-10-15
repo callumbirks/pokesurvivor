@@ -14,6 +14,12 @@ interface Candidate {
   card: CardOption;
 }
 
+/** Is there room for one more pick of this stat card? */
+const statRoom = (ctx: Ctx, p: PlayerState, id: string): boolean => {
+  const c = ctx.d.statCard(id);
+  return !c.maxPicks || (p.statsTaken[c.id] ?? 0) < c.maxPicks;
+};
+
 function candidates(ctx: Ctx, p: PlayerState): Candidate[] {
   const { d, rand } = ctx;
   const cfg = d.game.levelUp;
@@ -61,11 +67,9 @@ function candidates(ctx: Ctx, p: PlayerState): Candidate[] {
   }
 
   // --- stats: capped per card; the ones that unlock an evolution are always in ---
-  const room = (c: (typeof cfg.statCards)[number]) =>
-    !c.maxPicks || (p.statsTaken[c.id] ?? 0) < c.maxPicks;
   const stats = rand
     .pickN(
-      cfg.statCards.filter((c) => !waiting.has(c.id) && room(c)),
+      cfg.statCards.filter((c) => !waiting.has(c.id) && statRoom(ctx, p, c.id)),
       cfg.statCandidates,
     )
     .concat(cfg.statCards.filter((c) => waiting.has(c.id)));
@@ -88,20 +92,38 @@ function candidates(ctx: Ctx, p: PlayerState): Candidate[] {
   return out;
 }
 
-/** Up to `cardsOffered` distinct cards, picked by weight; a ready evolution is always one. */
+/**
+ * Up to `cardsOffered` distinct cards, picked by weight; a ready evolution is always one. From
+ * `lateGrowth.offers.fromMinute`, the next slots go to offensive stat cards (Power / Reflexes)
+ * that aren't capped: one at random each, keeping a ready evolution's slot if configured.
+ */
 export function offerCards(ctx: Ctx, p: PlayerState): CardOption[] {
   const n = ctx.d.game.levelUp.cardsOffered;
   const pool = candidates(ctx, p);
   const picked: CardOption[] = [];
   const used = new Set<string>();
-  const evo = pool.findIndex((c) => c.card.type === 'evolution');
-  if (evo >= 0) {
-    const [c] = pool.splice(evo, 1);
-    if (c) {
-      used.add(c.card.id);
-      picked.push(c.card);
-    }
+  const take = (c: Candidate) => {
+    used.add(c.card.id);
+    picked.push(c.card);
+  };
+  const late = ctx.d.game.tuning.lateGrowth.offers;
+  const guaranteed = ctx.s.time >= late.fromMinute * 60 ? late.guaranteedOffenseSlots : 0;
+  const takeEvolution = () => {
+    const evo = pool.findIndex((c) => c.card.type === 'evolution');
+    const [c] = evo >= 0 ? pool.splice(evo, 1) : [];
+    if (c && picked.length < n) take(c);
+  };
+  if (late.preserveReadyEvolution) takeEvolution();
+  let offense = late.statIds.filter((id) => statRoom(ctx, p, id));
+  for (let i = 0; i < guaranteed && picked.length < n && offense.length; i++) {
+    const id = ctx.rand.pick(offense);
+    offense = offense.filter((o) => o !== id);
+    // The candidate itself if it's in the pool (it may say which evolution it unlocks).
+    const at = pool.findIndex((c) => c.card.id === `stat:${id}`);
+    const [c] = at >= 0 ? pool.splice(at, 1) : [];
+    take(c ?? { w: 0, card: { id: `stat:${id}`, type: 'stat', statId: id } });
   }
+  if (!late.preserveReadyEvolution) takeEvolution();
   while (picked.length < n && pool.length) {
     const total = pool.reduce((a, c) => a + c.w, 0);
     let r = ctx.rand() * total;
@@ -115,8 +137,7 @@ export function offerCards(ctx: Ctx, p: PlayerState): CardOption[] {
     }
     const [c] = pool.splice(idx, 1);
     if (!c || used.has(c.card.id)) continue;
-    used.add(c.card.id);
-    picked.push(c.card);
+    take(c);
   }
   return picked;
 }

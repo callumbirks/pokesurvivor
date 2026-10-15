@@ -125,7 +125,7 @@ function hit(
   hurtEnemy(ctx, e, dmg, { dirX, dirY, knockback, label, by: p.id, type });
   onDamageDealt(ctx, p, dmg);
   p.stats.damageDealt += dmg;
-  applyStatus(e, status);
+  applyStatus(e, status, p.id);
 }
 
 // ---------------------------------------------------------------- casting
@@ -244,7 +244,7 @@ function shot(
     y: p.y + Math.sin(a) * offset,
     vx: Math.cos(a) * speed,
     vy: Math.sin(a) * speed,
-    damage: (s.damage ?? 0) * attackOf(p),
+    damage: (s.damage ?? 0) * attackOf(ctx, p),
     r: s.size ?? 6,
     life,
     pierce: int(s.pierce),
@@ -297,7 +297,7 @@ function melee(ctx: Ctx, p: PlayerState, m: MoveState): CastInfo {
   const s = m.stats;
   const radius = s.radius ?? 0;
   const half = Math.min(s.arc ?? 0, TAU) / 2;
-  const dmg = (s.damage ?? 0) * attackOf(p);
+  const dmg = (s.damage ?? 0) * attackOf(ctx, p);
   for (const e of queryEnemies(ctx, p.x, p.y, radius)) {
     if (!inArc(p.x, p.y, e.x, e.y, p.aim, half)) continue;
     hit(ctx, p, e, dmg, e.x - p.x, e.y - p.y, s.knockback ?? 0, m.type, payload(m));
@@ -322,7 +322,7 @@ function beam(ctx: Ctx, p: PlayerState, m: MoveState): CastInfo {
       break;
     }
   }
-  const dmg = (s.damage ?? 0) * attackOf(p);
+  const dmg = (s.damage ?? 0) * attackOf(ctx, p);
   const mx = p.x + (ca * len) / 2;
   const my = p.y + (sa * len) / 2;
   const onBeam = (x: number, y: number, r: number) => {
@@ -344,7 +344,7 @@ function beam(ctx: Ctx, p: PlayerState, m: MoveState): CastInfo {
 function aura(ctx: Ctx, p: PlayerState, m: MoveState): CastInfo {
   const s = m.stats;
   const radius = s.radius ?? 0;
-  const dmg = (s.damage ?? 0) * attackOf(p);
+  const dmg = (s.damage ?? 0) * attackOf(ctx, p);
   for (const e of queryEnemies(ctx, p.x, p.y, radius)) {
     hit(ctx, p, e, dmg, e.x - p.x, e.y - p.y, 0, m.type, payload(m));
   }
@@ -369,7 +369,7 @@ function boomerang(ctx: Ctx, p: PlayerState, m: MoveState): CastInfo {
       y: p.y,
       vx: Math.cos(a) * speed,
       vy: Math.sin(a) * speed,
-      damage: (s.damage ?? 0) * attackOf(p),
+      damage: (s.damage ?? 0) * attackOf(ctx, p),
       r: s.size ?? 6,
       life: out * 4 + 1.5,
       pierce: 999,
@@ -412,7 +412,7 @@ function chain(ctx: Ctx, p: PlayerState, m: MoveState): CastInfo {
       ctx,
       p,
       cur,
-      (s.damage ?? 0) * attackOf(p) * k * hex,
+      (s.damage ?? 0) * attackOf(ctx, p) * k * hex,
       tx - fx,
       ty - fy,
       0,
@@ -457,7 +457,7 @@ function newField(
     t: 0,
     life: 0,
     r: s.radius ?? 0,
-    damage: (s.damage ?? 0) * attackOf(p),
+    damage: (s.damage ?? 0) * attackOf(ctx, p),
     arm: 0,
     shotT: 0,
     range: 0,
@@ -563,7 +563,7 @@ function dash(ctx: Ctx, p: PlayerState, m: MoveState): CastInfo {
   collide(ctx, p);
   p.invuln = Math.max(p.invuln, 0.3);
   const w = s.width || 34;
-  const dmg = (s.damage ?? 0) * attackOf(p);
+  const dmg = (s.damage ?? 0) * attackOf(ctx, p);
   const mx = sx + (ca * len) / 2;
   const my = sy + (sa * len) / 2;
   for (const e of queryEnemies(ctx, mx, my, len / 2 + w)) {
@@ -615,7 +615,7 @@ function orbit(ctx: Ctx, p: PlayerState, m: MoveState): void {
       x: p.x,
       y: p.y,
       r: s.size ?? 6,
-      damage: (s.damage ?? 0) * attackOf(p),
+      damage: (s.damage ?? 0) * attackOf(ctx, p),
       orbAngle: (i / want) * TAU,
       orbRadius: s.radius ?? 0,
       orbSpeed: s.speed ?? 0,
@@ -625,7 +625,7 @@ function orbit(ctx: Ctx, p: PlayerState, m: MoveState): void {
   }
   const live = ctx.s.projectiles.filter(mine);
   live.forEach((q, i) => {
-    q.damage = (s.damage ?? 0) * attackOf(p);
+    q.damage = (s.damage ?? 0) * attackOf(ctx, p);
     q.orbRadius = s.radius ?? 0;
     q.orbSpeed = s.speed ?? 0;
     q.r = s.size ?? 6;

@@ -79,6 +79,7 @@ describe('snapshots', () => {
     for (const c of snap!.self!.cooldowns) expect(c >= 0 && c <= 1).toBe(true);
     // The seeded build can now choose Agility: prediction must include buffs/traps/weather.
     expect(snap!.self?.speed).toBeCloseTo(playerMoveSpeed(s, me), -1);
+    expect(snap!.self?.momentum).toBeCloseTo(me.momentum, 1);
     expect(Object.keys(snap!.world.broken ?? {}).sort()).toEqual(
       Object.keys(s.world.broken).sort(),
     );
@@ -169,6 +170,18 @@ describe('snapshots', () => {
       [1, 'p0', 'item', 50],
       [2, 'p1', 'item', 50],
     ]);
+  });
+
+  it('send the viewer its Momentum stacks, in both formats', () => {
+    const me = sim.state.players[2]!;
+    const saved = me.momentum;
+    me.momentum = 12.34;
+    for (const format of ['binary', 'json'] as const) {
+      const enc = new SnapshotEncoder({ viewerId: me.id, format });
+      const snap = new SnapshotDecoder(ids).decode(enc.encode(sim.state, [], 1, 0));
+      expect(snap.self?.momentum).toBe(12.3);
+    }
+    me.momentum = saved;
   });
 
   it('start over with a full snapshot after a reset (reconnect)', () => {

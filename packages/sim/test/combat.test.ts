@@ -40,7 +40,7 @@ describe('damage', () => {
     sim.drainEvents();
     steps(sim, 2);
     const hit = damageTo(sim.drainEvents(), e.id);
-    const base = (d.move('tackle').stats.damage ?? 0) * attackOf(p);
+    const base = (d.move('tackle').stats.damage ?? 0) * attackOf(sim.ctx, p);
     expect(hit).toBe(Math.max(1, Math.round(base * d.typeMult('normal', e.types))));
     // A second defender uses its configured type multiplier.
     const ghost = spawnDummy(sim, p.x + 30, p.y + 5, { dex: 92 });
@@ -69,7 +69,7 @@ describe('damage', () => {
     sim.drainEvents();
     steps(sim, 2);
     const hurt = sim.drainEvents().find((ev) => ev.type === 'enemy-hurt' && ev.id === e.id);
-    const base = (d.move('tackle').stats.damage ?? 0) * attackOf(p);
+    const base = (d.move('tackle').stats.damage ?? 0) * attackOf(sim.ctx, p);
     expect(hurt && hurt.type === 'enemy-hurt' && hurt.amount).toBe(
       Math.max(
         1,

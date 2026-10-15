@@ -173,6 +173,12 @@ export function loadGameData(): GameData {
   const missions = parse('missions');
   const achievements = parse('achievements');
   const { bodies } = parse('bodies');
+  const tuning = parse('tuning');
+  for (const id of tuning.lateGrowth.offers.statIds) {
+    if (!levelUp.statCards.some((c) => c.id === id)) {
+      throw new Error(`tuning.lateGrowth.offers.statIds: no level-up stat card "${id}"`);
+    }
+  }
 
   const movesByType = new Map<PokemonType, Move[]>();
   for (const move of moves.moves) {
@@ -198,7 +204,7 @@ export function loadGameData(): GameData {
     bodies,
     world: parse('world'),
     weather: parse('weather'),
-    tuning: parse('tuning'),
+    tuning,
 
     pokemonByDex: indexBy(pokedex, (p) => p.dex, 'Pokémon dex'),
     pokemonById: indexBy(pokedex, (p) => p.id, 'Pokémon id'),

@@ -127,6 +127,29 @@ export const TuningFileSchema = z.strictObject({
     rescueOwnedCoins: z.number().int().nonnegative(),
   }),
   combat: z.strictObject({ critMultiplier: z.number().positive() }),
+  /** Earned late-game growth: level-up offers that keep damage scaling after the early game. */
+  lateGrowth: z.strictObject({
+    offers: z.strictObject({
+      /** Run minute from which level-ups guarantee offensive stat cards. */
+      fromMinute: z.number().nonnegative(),
+      /** How many of the offered cards are one of `statIds` (while any isn't at its cap). */
+      guaranteedOffenseSlots: z.number().int().nonnegative(),
+      /** Level-up stat card ids (levelup.json) that count as offensive. */
+      statIds: z.array(z.string()).min(1),
+      /** Never let a guaranteed card take the slot of a ready move evolution. */
+      preserveReadyEvolution: z.boolean(),
+    }),
+  }),
+  /** Kill-streak damage bonus, per player: every kill credited to a player adds a stack. */
+  momentum: z.strictObject({
+    /** Move damage per stack: ×(1 + perStack · stacks). */
+    perStack: z.number().nonnegative(),
+    maxStacks: z.number().int().positive(),
+    /** Seconds after the last kill before stacks start to decay. */
+    graceSeconds: z.number().nonnegative(),
+    /** Stacks lost per second once decaying (gradually, not all at once). */
+    decayPerSecond: z.number().positive(),
+  }),
   poison: z.strictObject({
     /** Scale only poison's percent-max-HP damage against map bosses and rift legends.
      * Flat damage, tick interval, stacks and regular-enemy poison stay unchanged.

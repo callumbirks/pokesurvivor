@@ -197,6 +197,10 @@ export interface PlayerState {
   coinMul: number;
   critChance: number;
   buffs: Record<BuffStat, BuffState>;
+  /** Kill-streak stacks (tuning `momentum`); fractional while decaying. */
+  momentum: number;
+  /** Seconds since this player's last credited kill (decay starts after the grace). */
+  momentumIdle: number;
 
   /** All learned moves. */
   moves: MoveState[];
@@ -442,6 +446,9 @@ export interface EnemyState {
   los: boolean;
   ai: BossAi | null;
   lastHitBy: PlayerId | null;
+  /** Who applied the latest burn / poison stacks: their ticks count as that player's hits. */
+  burnBy: PlayerId | null;
+  poisonBy: PlayerId | null;
 }
 
 // ---------------------------------------------------------------- projectiles, fields, hazards

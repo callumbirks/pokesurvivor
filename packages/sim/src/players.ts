@@ -4,6 +4,7 @@ import { emptyRunProgress } from '@pokesurvivor/protocol';
 import { DT, TILE } from './constants.js';
 import { activePlayers, emit, type Ctx } from './ctx.js';
 import { clamp, damp, dist, dist2 } from './math.js';
+import { momentumMultiplier, tickMomentum } from './momentum.js';
 import { activeGroup, addMove, setActive } from './moves.js';
 import { clearOrbs } from './projectiles.js';
 import { weatherDamageMult, weatherSpeedMult } from './weather.js';
@@ -86,6 +87,8 @@ export function createPlayer(
     coinMul: perks.coinMul,
     critChance: perks.crit,
     buffs: { attack: newBuff(), speed: newBuff(), defense: newBuff(), regen: newBuff() },
+    momentum: 0,
+    momentumIdle: 0,
     moves: [],
     slots: [],
     active: 0,
@@ -139,8 +142,12 @@ export const hasMove = (p: PlayerState, id: string): boolean => p.moves.some((m)
 
 // ---------------------------------------------------------------- effective stats
 
-export const attackOf = (p: PlayerState): number =>
-  p.baseAttack * p.attackMul * (1 + p.buffs.attack.n * p.buffs.attack.amount);
+/** Move damage scale: base, Power and perks, the attack buff, and Momentum. */
+export const attackOf = (ctx: Ctx, p: PlayerState): number =>
+  p.baseAttack *
+  p.attackMul *
+  (1 + p.buffs.attack.n * p.buffs.attack.amount) *
+  momentumMultiplier(ctx, p.momentum);
 
 export function speedOf(ctx: Ctx, p: PlayerState): number {
   return moveSpeedOf(ctx, p) * liquidSpeedMult(ctx, p);
@@ -315,6 +322,7 @@ export function nearestEnemy(ctx: Ctx, x: number, y: number, maxDist: number): E
 }
 
 export function updatePlayer(ctx: Ctx, p: PlayerState): void {
+  tickMomentum(ctx, p);
   if (p.dead || p.left) return;
   const dt = DT;
   if (p.invuln > 0) p.invuln -= dt;

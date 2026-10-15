@@ -54,6 +54,15 @@
     "rescueOwnedCoins": 150
   },
   "combat": { "critMultiplier": 1.5 },
+  "lateGrowth": {
+    "offers": {
+      "fromMinute": 15,
+      "guaranteedOffenseSlots": 1,
+      "statIds": ["attack", "cooldown"],
+      "preserveReadyEvolution": true
+    }
+  },
+  "momentum": { "perStack": 0.02, "maxStacks": 30, "graceSeconds": 3, "decayPerSecond": 5 },
   "poison": { "bossFactor": 0.035 },
   "enemyShields": {
     "maxHpFraction": 0.3,
