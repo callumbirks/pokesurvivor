@@ -482,11 +482,11 @@ their policy can underlevel or choose poor moves compared with humans.
 
 Three-/four-player rifts at minute 20+ include a protected actual 120-second fight (timeouts have
 `ttk: null`) and a protected 60-second sustained moving-legend probe. HP divided by probe DPS is an
-extrapolation, not an observed completion time. Legend types, terrain, shields, status resistance
-and phases still apply. Independent ablations freeze the minute-15 build at the later wild reference
+extrapolation, not an observed completion time. Legend types, terrain, shields and status resistance still apply. The sustained probe holds
+legend health above low-health phases; the actual fight retains those phases. Independent ablations freeze the minute-15 build at the later wild reference
 HP, or remove only later Power/Reflexes picks, item changes or bonds. Their marginal effects overlap
 and must not be summed. Level has no general attack multiplier; move upgrades/evolutions and passive
-stats deliver its damage gains (Rocky Helmet separately uses team level).
+stats deliver its damage gains. Burn ticks and Rocky Helmet retaliation separately use team level.
 
 `--multipliers=1,1.5,2` also replays each real crowd with fixture-only attack multipliers. This measures
 sensitivity with frozen earned builds, not future progression, and poison/coverage can prevent linear
