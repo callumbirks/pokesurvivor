@@ -59,6 +59,10 @@ export class Room {
   game: Game | null = null;
   private loadingTimer: NodeJS.Timeout | null = null;
   private loadingDeadline: number | null = null;
+  /** A restored game: when it stops waiting for its players, and the countdown to resume. */
+  private holdTimer: NodeJS.Timeout | null = null;
+  private holdDeadline = 0;
+  private resumeTimer: NodeJS.Timeout | null = null;
   private starting = false;
   closed = false;
   transferring = false;
@@ -110,6 +114,7 @@ export class Room {
   suspend(): void {
     if (this.loadingTimer) clearTimeout(this.loadingTimer);
     this.loadingTimer = null;
+    this.clearHold();
     for (const m of this.members.values()) {
       if (m.graceTimer) clearTimeout(m.graceTimer);
       m.graceTimer = null;
@@ -295,6 +300,7 @@ export class Room {
     if (this.phase === 'loading') this.checkLoaded();
     this.game?.removePlayer(userId);
     if (!this.closed) this.sync();
+    this.checkHold();
     return released;
   }
 
@@ -317,6 +323,7 @@ export class Room {
     if (this.closed) return;
     this.closed = true;
     if (this.loadingTimer) clearTimeout(this.loadingTimer);
+    this.clearHold();
     for (const userId of [...this.invites.keys()]) this.revokeInvite(userId);
     for (const m of this.members.values()) {
       if (m.graceTimer) clearTimeout(m.graceTimer);
@@ -341,6 +348,7 @@ export class Room {
     }
     this.armGrace(m, this.server.config.reconnectGraceMs);
     this.sync();
+    this.checkHold();
   }
 
   private armGrace(m: Member, timeoutMs: number): void {
@@ -374,6 +382,82 @@ export class Room {
         this.notice('player-reconnected', [m.username], userId);
       }
     }
+    this.sync();
+    this.checkHold();
+  }
+
+  // ---------------------------------------------------------------- a game restored after an update
+
+  /**
+   * A game saved by the previous server: it stays held (paused) until every player who was in
+   * it is back, or `restoreGraceMs` runs out, then resumes after a short countdown. Members not
+   * back by then are treated as having disconnected now.
+   */
+  hold(game: Game, present: readonly string[]): void {
+    this.game = game;
+    this.phase = 'running';
+    game.waitingFor = new Set(present.filter((id) => game.has(id) && this.members.has(id)));
+    const graceMs = this.server.config.restoreGraceMs;
+    this.holdDeadline = Date.now() + graceMs;
+    this.holdTimer = setTimeout(() => this.countdown(), graceMs);
+    this.server.addGame(game);
+  }
+
+  private clearHold(): void {
+    if (this.holdTimer) clearTimeout(this.holdTimer);
+    if (this.resumeTimer) clearTimeout(this.resumeTimer);
+    this.holdTimer = this.resumeTimer = null;
+  }
+
+  /** Tells the held game's connected players something (waiting for whom, or the countdown). */
+  private holdNotice(code: NoticeCode, deadline: number, usernames?: string[]): void {
+    for (const id of this.game?.playerIds ?? [])
+      this.server
+        .sessionOf(id)
+        ?.send({ type: 'notice', code, deadline, ...(usernames ? { usernames } : {}) });
+  }
+
+  /** Someone came back, dropped or left while held: still waiting, or everyone's here. */
+  private checkHold(): void {
+    const game = this.game;
+    if (!game?.held || this.resumeTimer || this.closed || this.transferring) return;
+    const missing = [...this.members.values()].filter(
+      (m) => game.waitingFor.has(m.userId) && game.has(m.userId) && !this.server.isOnline(m.userId),
+    );
+    if (!missing.length) return this.countdown();
+    this.holdNotice(
+      'game-waiting',
+      this.holdDeadline,
+      missing.map((m) => m.username),
+    );
+  }
+
+  /** 3, 2, 1… (at once if nobody is connected: the game is frozen until someone is anyway). */
+  private countdown(): void {
+    if (this.holdTimer) clearTimeout(this.holdTimer);
+    this.holdTimer = null;
+    const game = this.game;
+    if (!game?.held || this.resumeTimer || this.closed || this.transferring) return;
+    if (!game.playerIds.some((id) => this.server.isOnline(id))) return this.resumeHeld();
+    const ms = this.server.config.resumeCountdownMs;
+    this.holdNotice('game-resuming', Date.now() + ms);
+    this.resumeTimer = setTimeout(() => this.resumeHeld(), ms);
+  }
+
+  private resumeHeld(): void {
+    this.clearHold();
+    const game = this.game;
+    if (!game?.held || this.closed || this.transferring) return;
+    game.resume();
+    // Whoever isn't back is treated as a disconnect now: their usual reconnect grace starts.
+    for (const m of this.members.values())
+      if (!this.server.isOnline(m.userId)) {
+        if (m.inGame) {
+          game.disconnect(m.userId);
+          this.notice('player-disconnected', [m.username], m.userId);
+        }
+        this.armGrace(m, this.server.config.reconnectGraceMs);
+      }
     this.sync();
   }
 
@@ -503,7 +587,7 @@ export class Room {
     this.sync();
   }
 
-  private ended(game: Game, outcome: GameOutcome): void {
+  ended(game: Game, outcome: GameOutcome): void {
     if (this.game !== game) return;
     this.phase = 'ended';
     this.server.removeGame(game);

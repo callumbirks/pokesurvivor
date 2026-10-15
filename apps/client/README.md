@@ -34,7 +34,9 @@ look (blue Mystery Dungeon boxes, the Pixelify Sans font in `public/fonts/`, OFL
   call logs out with a notice; an unreachable server shows a retry.
 - **WebSocket.** One `NetClient` while logged in. `reconnecting` shows a sticky notice; a
   final close (superseded by another tab, version mismatch) shows one with a reload button;
-  `server-draining` shows "server updating" until a reconnect reaches a new instance.
+  `server-update` (a deploy) shows "Server update in 0:30" with a live timer until a reconnect
+  reaches the new server; a coop run shows its own ("· your run will continue right after"), then
+  "Waiting for …" and "Resuming in 3…" once the new server has restored it.
 - **Every API call** has a loading and an error state: actions go through `app.act(button,
 fn)` (spinner on the button, toast on error), loads through `loadInto(el, load, show)`
   (spinner, then an error with a retry button).

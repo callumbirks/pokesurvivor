@@ -177,9 +177,23 @@ export type NoticeCode =
   | 'owner-changed'
   | 'kicked'
   | 'game-cancelled'
+  /** Older servers (start-first drain); still understood, no longer sent. */
   | 'server-draining'
   | 'room-handoff-pending'
-  | 'room-handoff-expired';
+  | 'room-handoff-expired'
+  /**
+   * The server stops at `deadline` for an update (no new rooms or games meanwhile). Coop runs
+   * keep going and are saved, then continue on the new server. Added within protocol 7: older
+   * clients ignore unknown notice codes.
+   */
+  | 'server-update'
+  /**
+   * A coop run restored after a server update waits for its players: `usernames` are those not
+   * back yet, `deadline` when it goes on without them. Added within protocol 7.
+   */
+  | 'game-waiting'
+  /** The restored run resumes at `deadline` (a short countdown). Added within protocol 7. */
+  | 'game-resuming';
 
 // ------------------------------------------------------------------ client → server
 

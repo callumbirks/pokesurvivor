@@ -1,8 +1,10 @@
 {
   "unreleased": {
-    "prs": [92, 94],
+    "prs": [92, 93, 94],
     "entries": {
-      "new": [],
+      "new": [
+        "Server updates no longer end co-op runs: you get a short warning, and your run continues right after the update."
+      ],
       "changed": [
         "Wild Pokémon get tougher faster after the first few minutes, and hit a little harder later on.",
         "Rare, Epic and Legendary upgrade cards are rarer after minute 8.",

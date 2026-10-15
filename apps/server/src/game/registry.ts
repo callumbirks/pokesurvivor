@@ -1,13 +1,19 @@
 import { randomUUID } from 'node:crypto';
 import { and, eq, gt, inArray, isNull, lte } from 'drizzle-orm';
 import type { Database, Transaction } from '../db/index.js';
-import { gameRoomMembers, gameRooms } from '../db/schema.js';
+import { gameRoomMembers, gameRooms, gameSaves } from '../db/schema.js';
 import { isUniqueViolation } from '../db/errors.js';
 import type { SavedRoom } from './room.js';
 
 export const LIVE_LEASE_MS = 30_000;
 
-/** A reservation has no sim state: it only fences codes/membership during start-first overlap. */
+/** A saved game, as claimed from `game_saves`. */
+export type GameSaveRow = typeof gameSaves.$inferSelect;
+
+/**
+ * Room reservations fence codes and membership across server instances (a lobby handed over in
+ * a deploy, a crash lease), and saved games (`game_saves`) carry running games across a restart.
+ */
 export class RoomRegistry {
   readonly instanceId = randomUUID();
   constructor(private readonly db: Database) {}
@@ -138,6 +144,61 @@ export class RoomRegistry {
       .where(and(eq(gameRooms.id, room.id), eq(gameRooms.instanceId, this.instanceId)))
       .returning();
     if (!updated.length) throw new Error(`Lost ownership of room ${room.id}`);
+  }
+
+  /**
+   * Saves running games for the next server (stop-first deploys) and lets go of their rooms in
+   * one transaction. The rooms' reservations stay for `ttlMs`, without a lobby payload: nobody
+   * adopts them as lobbies; the server that restores a game takes its room back (`claimRoom`).
+   */
+  async saveGames(rows: (typeof gameSaves.$inferInsert)[], ttlMs: number): Promise<void> {
+    if (!rows.length) return;
+    await this.db.transaction(async (tx) => {
+      await tx.insert(gameSaves).values(rows);
+      await tx
+        .update(gameRooms)
+        .set({ instanceId: null, handoff: null, expiresAt: new Date(Date.now() + ttlMs) })
+        .where(
+          and(
+            eq(gameRooms.instanceId, this.instanceId),
+            inArray(
+              gameRooms.id,
+              rows.map((r) => r.roomId),
+            ),
+          ),
+        );
+    });
+  }
+
+  /** Takes saved games (all of them, or one room's): each is claimed by exactly one server. */
+  async claimSaves(roomId?: string): Promise<GameSaveRow[]> {
+    return this.db
+      .delete(gameSaves)
+      .where(roomId === undefined ? undefined : eq(gameSaves.roomId, roomId))
+      .returning();
+  }
+
+  /**
+   * Owns a restored game's room. Its reservation may have expired (the new server took long to
+   * start): then it's made again, with the members nobody else has reserved since.
+   */
+  async claimRoom(id: string, userIds: readonly string[]): Promise<void> {
+    await this.db.transaction(async (tx) => {
+      const lease = {
+        instanceId: this.instanceId,
+        handoff: null,
+        expiresAt: new Date(Date.now() + LIVE_LEASE_MS),
+      };
+      await tx
+        .insert(gameRooms)
+        .values({ id, ...lease })
+        .onConflictDoUpdate({ target: gameRooms.id, set: lease });
+      if (userIds.length)
+        await tx
+          .insert(gameRoomMembers)
+          .values(userIds.map((userId) => ({ userId, roomId: id })))
+          .onConflictDoNothing();
+    });
   }
 
   /** Row lock selects exactly one adopter. Active reservations remain; payload is consumed. */

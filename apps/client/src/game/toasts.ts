@@ -31,6 +31,13 @@ export class Toasts {
 
   /** A notice that stays until `clear(key)` (or is replaced by the same key). */
   set(key: string, text: string, kind: ToastKind = 'warn'): void {
+    // The same notice with new text (a countdown): changed in place, without its entry animation.
+    const old = this.sticky.get(key);
+    const span = old?.querySelector('span');
+    if (old && span && old.classList.contains(kind)) {
+      if (span.textContent !== text) span.textContent = text;
+      return;
+    }
     this.clear(key);
     const t = el(
       'div',

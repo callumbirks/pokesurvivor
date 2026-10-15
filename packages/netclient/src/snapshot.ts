@@ -400,11 +400,16 @@ export class SnapshotEncoder {
     return i;
   }
 
+  /**
+   * `opts.paused`: mark the frame paused even without a pending choice (the server holds a
+   * restored game until its players are back): clients stop predicting and send no movement.
+   */
   encode(
     s: SimState,
     events: readonly SimEvent[],
     seq: number,
     ackSeq: number,
+    opts: { paused?: boolean } = {},
   ): Uint8Array | string {
     const viewer = s.players.find((p) => p.id === this.viewerId);
     const focus = (this.focusId !== null && s.players.find((p) => p.id === this.focusId)) || viewer;
@@ -498,7 +503,7 @@ export class SnapshotEncoder {
       s.tick,
       Math.round(s.time * 1000),
       ackSeq,
-      flags(this.full, s.pendingChoices.length > 0),
+      flags(this.full, opts.paused === true || s.pendingChoices.length > 0),
       this.full ? 0 : this.lastSeq,
     ];
     this.full = false;
