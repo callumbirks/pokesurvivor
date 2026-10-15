@@ -9,7 +9,13 @@
     "level2": "Level {0}!",
     "chooseYourCard": "Choose your card",
     "stillChoosing": "Still choosing: {0}",
-    "waitingFor": "Waiting for {0}…"
+    "waitingFor": "Waiting for {0}…",
+    "rarity": {
+      "common": "Common",
+      "rare": "Rare",
+      "epic": "Epic",
+      "legendary": "Legendary"
+    }
   },
   "items": {
     "anItem": "An item!",

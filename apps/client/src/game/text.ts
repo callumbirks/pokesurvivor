@@ -1,7 +1,7 @@
 // Display text for what the sim sends as ids: level-up cards, moves, items and types.
 // The client turns these into titles and descriptions from the data.
-import { loadGameData, t } from '@pokesurvivor/data';
-import type { CardOption } from '@pokesurvivor/sim';
+import { formatText, loadGameData, t, type StatCard, type UiStringKey } from '@pokesurvivor/data';
+import { rarityTier, scaledCardEffect, type CardOption } from '@pokesurvivor/sim';
 import { typeColor } from '../icons.js';
 
 export interface CardText {
@@ -14,6 +14,8 @@ export interface CardText {
   icon: string;
   /** Golden card (an evolution). */
   evolution: boolean;
+  /** A stat card's rolled rarity: its name and its gacha rarity colour (the card's frame). */
+  rarity?: { name: string; color: string };
 }
 
 const data = () => loadGameData();
@@ -78,16 +80,39 @@ export function cardText(c: CardOption): CardText {
     case 'stat': {
       const s = c.statId ? d.statCardById.get(c.statId) : undefined;
       const evolves = c.unlocksEvolutionOf;
+      const tier = rarityTier(d.levelUp.rarity, c.rarity);
+      const gacha = tier && d.gacha.rarities.find((r) => r.rarity === tier.gachaRarity);
       return {
         title: s?.name ?? c.statId ?? '',
-        description: s?.description ?? '',
+        description: s ? statCardDescription(s, tier?.multiplier ?? 1) : '',
         tag: evolves ? `${t('levelUp.evolves')} ${moveName(evolves)}` : t('levelUp.upgrade'),
         color: evolves ? '#ffd23f' : '#9fb1c9',
         icon: s?.icon ?? 'star',
         evolution: false,
+        ...(tier && {
+          rarity: {
+            // Tier ids are data; en.json names each one (an unknown id shows as its key).
+            name: t(`levelUp.rarity.${tier.id}` as UiStringKey),
+            color: gacha?.color ?? '#9fb1c9',
+          },
+        }),
       };
     }
   }
+}
+
+/** Up to one decimal, without a trailing ".0". */
+const amount = (x: number) => String(Math.round(x * 10) / 10);
+
+/**
+ * A stat card's description with its amount at the rolled multiplier: `{value}` as it is, `{percent}`
+ * as the bonus of a multiplier (or a fraction) in percent.
+ */
+export function statCardDescription(card: StatCard, multiplier: number): string {
+  const e = scaledCardEffect(card.effect, multiplier);
+  if (e.type === 'heal') return card.description;
+  const percent = e.type === 'stat' && e.op === 'mul' ? Math.abs(e.value - 1) : e.value;
+  return formatText(card.description, { value: amount(e.value), percent: amount(percent * 100) });
 }
 
 /** "A, B and you": a list of names (original implementation). */

@@ -1,10 +1,12 @@
 // @vitest-environment happy-dom
+import { loadGameData, t, type UiStringKey } from '@pokesurvivor/data';
 import type { ChoiceRef } from '@pokesurvivor/netclient';
 import type { PendingChoice } from '@pokesurvivor/sim';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CHOICE_INPUT_GRACE_MS, ChoiceOverlay } from './choice-ui.js';
 import { ChoiceState, type ChoiceSnapshot } from './choices.js';
 import { Input } from './input.js';
+import { statCardDescription } from './text.js';
 import { NAV_REPEAT_DELAY_MS } from '../menu-nav.js';
 
 // The pixel icons paint on a canvas, which happy-dom doesn't have.
@@ -437,5 +439,56 @@ describe('the gamepad in a choice', () => {
     input.poll(2032);
     input.poll(2032 + NAV_REPEAT_DELAY_MS);
     expect(seen.slice(1)).toEqual(['PadDown', 'PadDown']);
+  });
+});
+
+describe('stat card rarities', () => {
+  const d = loadGameData();
+  const { tiers } = d.levelUp.rarity;
+  const top = tiers.at(-1)!;
+  const rarityUp = (): PendingChoice => ({
+    id: 5,
+    playerId: 'me',
+    kind: 'level-up',
+    level: 4,
+    deadlineTick: null,
+    options: [
+      { id: 'stat:attack', type: 'stat', statId: 'attack', rarity: top.id },
+      { id: 'stat:heal', type: 'stat', statId: 'heal' },
+      { id: 'new:ember', type: 'new', moveId: 'ember' },
+    ],
+  });
+
+  it('shows the rarity name, its gacha colour as the frame, and the rolled amount', () => {
+    const h = setup();
+    h.show(snap([rarityUp()], 0));
+    const [power, berry] = h.cards() as HTMLElement[];
+    const color = d.gacha.rarities.find((r) => r.rarity === top.gachaRarity)!.color;
+    expect(power!.classList.contains('rarity')).toBe(true);
+    expect(power!.style.getPropertyValue('--rc')).toBe(color);
+    expect(power!.querySelector('.nm')!.textContent).toContain(
+      t(`levelUp.rarity.${top.id}` as UiStringKey),
+    );
+    expect(power!.querySelector('.ds')!.textContent).toBe(
+      statCardDescription(d.statCardById.get('attack')!, top.multiplier),
+    );
+    // No placeholder left behind, and no rarity on a card without one.
+    expect(power!.querySelector('.ds')!.textContent).not.toMatch(/[{}]/);
+    expect(berry!.classList.contains('rarity')).toBe(false);
+    expect(berry!.querySelector('.nm')!.textContent).toContain(t('levelUp.upgrade'));
+  });
+
+  it('still picks with the keys and the pad', () => {
+    const h = setup();
+    h.show(snap([rarityUp()], 0));
+    h.advance(CHOICE_INPUT_GRACE_MS);
+    h.overlay.key('Digit1');
+    expect(h.send).toHaveBeenLastCalledWith(expect.objectContaining({ cardId: 'stat:attack' }));
+    const g = setup();
+    g.show(snap([rarityUp()], 0));
+    g.advance(CHOICE_INPUT_GRACE_MS);
+    g.overlay.key('PadDown');
+    g.overlay.key('PadA');
+    expect(g.send).toHaveBeenLastCalledWith(expect.objectContaining({ cardId: 'stat:heal' }));
   });
 });

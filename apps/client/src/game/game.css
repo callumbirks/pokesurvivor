@@ -219,6 +219,26 @@ html[data-input='gamepad'] .ps-card.focus .ds {
 .ps-card.bond {
   box-shadow: inset 4px 0 0 #ff8ad8;
 }
+/* A stat card's rarity: a frame in its gacha rarity colour (`--rc`), thicker from Epic. */
+.ps-card.rarity {
+  box-shadow:
+    inset 4px 0 0 var(--rc),
+    inset 0 0 0 2px var(--rc);
+}
+.ps-card.rarity.epic,
+.ps-card.rarity.legendary {
+  box-shadow:
+    inset 6px 0 0 var(--rc),
+    inset 0 0 0 3px var(--rc);
+}
+.ps-card.rarity.legendary {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--rc) 18%, var(--bg2)), var(--bg2) 60%);
+}
+.ps-card.rarity.legendary:hover,
+.ps-card.rarity.legendary:focus-visible,
+html[data-input='gamepad'] .ps-card.rarity.legendary.focus {
+  background: var(--bar);
+}
 .ps-cards.done .ps-card {
   opacity: 0.45;
   pointer-events: none;

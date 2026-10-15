@@ -256,6 +256,7 @@ export class ChoiceOverlay {
       desc: string,
       cls: string,
       tint: string,
+      frame?: string,
     ) => {
       const o = v.options[i];
       const pad = el('span', { class: 'pad-only' });
@@ -263,6 +264,7 @@ export class ChoiceOverlay {
         'button',
         {
           class: `ps-card${cls}${o?.picked ? ' picked' : ''}`,
+          ...(frame && { style: `--rc:${frame}` }),
           type: 'button',
           data: { testid: `option-${i}` },
           on: { click: () => this.pick(i) },
@@ -295,13 +297,19 @@ export class ChoiceOverlay {
       );
       c.options.forEach((o, i) => {
         const tx = cardText(o);
+        const r = tx.rarity;
+        // A rarity replaces the plain "Upgrade" chip, but not the evolution it unlocks.
+        const chips = r
+          ? [chip(r.name, r.color), ...(o.unlocksEvolutionOf ? [chip(tx.tag, tx.color)] : [])]
+          : [chip(tx.tag, tx.color)];
         card(
           i,
           icon(tx.icon, 32),
-          [tx.title, ' ', chip(tx.tag, tx.color)],
+          [tx.title, ' ', ...chips],
           tx.description,
-          tx.evolution ? ' evo' : '',
-          tx.color,
+          tx.evolution ? ' evo' : r ? ` rarity ${o.rarity ?? ''}` : '',
+          r?.color ?? tx.color,
+          r?.color,
         );
       });
       box.append(countdown, cards);
