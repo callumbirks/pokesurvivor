@@ -4,7 +4,8 @@
 // same collision code as the sim (`moveBody`), so prediction and the server agree.
 import { CHUNK_TILES as N } from './constants.js';
 import type { Ctx } from './ctx.js';
-import { simData } from './data.js';
+import { loadGameData, type GameData } from '@pokesurvivor/data';
+import { simDataFor, simDataOf } from './data.js';
 import { makeRand, seedRng } from './rng.js';
 import {
   liquidSpeedMult,
@@ -32,7 +33,8 @@ export class WorldView {
   readonly world: WorldState;
   private readonly ctx: Ctx;
 
-  constructor(seed: number) {
+  /** `data`: the run's game data (the built-in data by default). */
+  constructor(seed: number, data?: GameData) {
     this.world = {
       seed,
       biome: 0,
@@ -47,7 +49,7 @@ export class WorldView {
     const s = { world: this.world } as SimState;
     this.ctx = {
       s,
-      d: simData(),
+      d: simDataFor(data ?? loadGameData()),
       rand: makeRand(seedRng(seed)),
       events: [],
       chunks: createChunkCache(seed),
@@ -151,15 +153,18 @@ export class WorldView {
  */
 export function playerMoveSpeed(state: SimState, p: PlayerState): number {
   // Speed reads only the player, the weather in the state and the static data.
-  return moveSpeedOf({ s: state, d: simData() } as Ctx, p);
+  return moveSpeedOf({ s: state, d: simDataOf(state) } as Ctx, p);
 }
 
-/** The stats panel of a player's own HUD (`statsOf`), from the state and the static data. */
+/**
+ * The stats panel of a player's own HUD (`statsOf`), from the state and the data of the sim it
+ * belongs to (the run's config).
+ */
 export function playerStats(state: SimState, p: PlayerState): PlayerStats {
-  return statsOf({ s: state, d: simData() } as Ctx, p);
+  return statsOf({ s: state, d: simDataOf(state) } as Ctx, p);
 }
 
 /** A move's stats at a level (and evolved): what the client sizes cast visuals with. */
-export function moveStatsAt(id: string, level: number, evolved: boolean) {
-  return simData().moveStats(id, level, evolved);
+export function moveStatsAt(id: string, level: number, evolved: boolean, data?: GameData) {
+  return simDataFor(data ?? loadGameData()).moveStats(id, level, evolved);
 }
