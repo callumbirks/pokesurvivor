@@ -1,17 +1,25 @@
 {
   "unreleased": {
-    "prs": [69, 70, 71],
+    "prs": [],
     "entries": {
       "new": [],
       "changed": [],
-      "fixed": [
-        "You're prompted to reload when a new version is released, instead of only after big updates.",
-        "The first rift in 3–4 player co-op is beatable again: rift toughness now ramps up over the first few minutes."
-      ],
+      "fixed": [],
       "behindTheScenes": []
     }
   },
   "versions": [
+    {
+      "version": 11,
+      "date": "2026-10-15",
+      "prs": [69, 70, 71],
+      "entries": {
+        "fixed": [
+          "You're prompted to reload when a new version is released, instead of only after big updates.",
+          "The first rift in 3–4 player co-op is beatable again: rift toughness now ramps up over the first few minutes."
+        ]
+      }
+    },
     {
       "version": 10,
       "date": "2026-10-15",
