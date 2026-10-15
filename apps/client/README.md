@@ -22,6 +22,7 @@ look (blue Mystery Dungeon boxes, the Pixelify Sans font in `public/fonts/`, OFL
 | `src/icons.ts`, `src/sprites.ts`, `src/audio.ts` | Pixel icons, Pokémon sprite sheets and animator, the Web Audio synth (shared)                  |
 | `src/screens/index.ts`                           | The routes: `#menu`, `#gacha`, … and which are public / busy / show the top bar                |
 | `src/settings.ts`                                | The settings store (local, synced to the save's `settings`), read by the game                  |
+| `src/load-recovery.ts`                           | A bundle, chunk or worker that fails to load: one reload, then a hard-refresh message          |
 | `e2e/`                                           | Playwright tests against a real server                                                         |
 
 ## The app shell

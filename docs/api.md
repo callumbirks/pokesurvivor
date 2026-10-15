@@ -13,6 +13,9 @@ Every error has the same shape. `code` is stable and maps to a UI string in `en.
 { "error": { "code": "username_taken", "message": "Username is taken" } }
 ```
 
+Every response with a status of 400 or more, API or not, has `Cache-Control: no-store`
+([deploy.md](deploy.md#caching-behind-cloudflare)).
+
 | Status | Codes                                                                                                                                                                                                                                                                                                                                                                                        |
 | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 400    | `invalid_request` (body/query validation, incl. unknown dex/item/move/type ids; has `issues`), `unknown_upgrade`, `unknown_title`, `not_a_starter`, `invalid_answers`, `invalid_move`, `duplicate_move`, `unknown_banner`, `invalid_pull_count`, `invalid_payment`, `cannot_friend_self`, `duplicate_favourite`, `username_not_allowed`                                                      |

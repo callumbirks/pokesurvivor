@@ -69,6 +69,13 @@ export async function buildApp({
     done();
   });
   registerErrorHandler(app);
+  // Errors are never cacheable. Without this, Cloudflare gives a 404 its Browser Cache TTL
+  // (`max-age=14400`): during a deploy's overlap a new index.html can get a 404 from the old
+  // container for a new hashed asset, and browsers kept that 404 (a blank page until a
+  // hard refresh). Cloudflare doesn't override `no-store`.
+  app.addHook('onSend', async (_req, reply) => {
+    if (reply.statusCode >= 400) reply.header('cache-control', 'no-store');
+  });
   await app.register(fastifyCookie);
   // Limits are opted into per route (`config.rateLimit`).
   await app.register(fastifyRateLimit, { global: false });

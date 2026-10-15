@@ -1,5 +1,6 @@
 import './ui.css';
 import './styles.css';
+import { loadFailed } from './load-recovery.js';
 
 // Dev-only views (excluded from production builds): /?debug-sim runs the sim locally,
 // /?debug-net plays over the network against the game server. Everything else is the app.
@@ -49,5 +50,7 @@ if (play) {
       const app = new App(root, routes);
       void app.boot();
     },
+    // A chunk that failed to load: reload (once) or say so, rather than a blank page.
+    loadFailed,
   );
 }
