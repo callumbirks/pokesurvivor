@@ -46,8 +46,10 @@ export const TuningFileSchema = z.strictObject({
     burst: z.number().int().positive(),
     /** Continuous seconds outside every living player’s view before catch-up. */
     unseenSeconds: Seconds,
-    /** Rear-centred placement arc; at most 180 degrees, so catch-up never arrives ahead. */
+    /** Rear-centred placement arc used when the rear half is selected. */
     rearArcDegrees: z.number().positive().max(180),
+    /** Share of moving-player catch-up placed in the forward half instead of the rear arc. */
+    aheadShare: z.number().min(0).max(1),
   }),
   rift: z.strictObject({
     /** Every `checkEvery` s after `startAfter` s, a rift opens with `chance` (rising per miss). */

@@ -510,8 +510,9 @@ in the sampled half. Surges/event bursts choose their group's side with the same
 history, then scatter as before; bosses retain their ordinary independent placement.
 
 Unseen stragglers now wait `stragglers.unseenSeconds`, even beyond the old immediate distance trigger.
-Visibility to any living connected teammate resets that grace. Rejoins stay in `rearArcDegrees`
-(at most 180°) of recent travel, including terrain retries and the elliptical spawn ring. A failed
+Visibility to any living connected teammate resets that grace. `stragglers.aheadShare` selects
+the forward half for a small share of catch-up; other rejoins use `rearArcDegrees` (at most 180°).
+Retries stay in the selected half/arc, including the elliptical spawn ring. A failed
 placement leaves the enemy walking for a later retry. Transfers from downed/disconnected/left
 players retain the existing per-survivor token bucket; waiting and failed placement consume no tokens.
 A stationary survivor receives uniform catch-up arrivals.

@@ -1,9 +1,12 @@
 {
   "unreleased": {
-    "prs": [],
+    "prs": [80],
     "entries": {
       "new": [],
-      "changed": [],
+      "changed": [
+        "Wild Pokémon hit about 10% less hard.",
+        "A few wild Pokémon now appear and catch up ahead of you again, so running isn't completely safe."
+      ],
       "fixed": [],
       "behindTheScenes": []
     }
