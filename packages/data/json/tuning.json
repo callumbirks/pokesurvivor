@@ -24,7 +24,13 @@
     "arenaRadius": 11,
     "arenaTime": 120,
     "hpCurve": { "m0": 4, "a": 0.425, "p": 1.326 },
-    "coopHp": { "perPlayerAfterDuo": 1.75 },
+    "coopHp": {
+      "perPlayerAfterDuo": 0.5,
+      "rampFromMinute": 1.25,
+      "rampToMinute": 8,
+      "rampPower": 2.3,
+      "hpCurve": { "m0": 5, "a": 2.17, "p": 1 }
+    },
     "distance": [380, 560],
     "shinyChance": 0.001953125,
     "unbeatenWeight": 4,
