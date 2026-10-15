@@ -1,8 +1,10 @@
 {
   "unreleased": {
-    "prs": [],
+    "prs": [86],
     "entries": {
-      "new": [],
+      "new": [
+        "While you're down in co-op, you can spectate your teammates and switch between them."
+      ],
       "changed": [],
       "fixed": [],
       "behindTheScenes": []

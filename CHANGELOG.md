@@ -6,6 +6,12 @@ What changed for players in each release, newest first. Generated from
 
 ## Unreleased
 
+PRs: [#86](https://github.com/callumbirks/pokesurvivor/pull/86)
+
+### New
+
+- While you're down in co-op, you can spectate your teammates and switch between them.
+
 ## v14 - 2026-10-15
 
 PRs: [#80](https://github.com/callumbirks/pokesurvivor/pull/80), [#81](https://github.com/callumbirks/pokesurvivor/pull/81), [#82](https://github.com/callumbirks/pokesurvivor/pull/82), [#83](https://github.com/callumbirks/pokesurvivor/pull/83)
