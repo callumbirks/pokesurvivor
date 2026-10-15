@@ -3,7 +3,7 @@
 // the boss bar, off-screen arrows (rift, shinies, teammates, the lost Pokémon, thieves), event
 // timers, the banner, move slots with cooldowns, the held item, the aim switch, and touch buttons.
 import { loadGameData, t } from '@pokesurvivor/data';
-import { REVIVE_SECONDS } from '@pokesurvivor/sim';
+import { REVIVE_SECONDS, momentumCap } from '@pokesurvivor/sim';
 import type { AimMode } from '../settings.js';
 import { drawGlyph, drawGlyphText, glyphDrawSize, type PadButton } from '../glyphs.js';
 import { drawIcon as drawIconAt, typeColor } from '../icons.js';
@@ -240,7 +240,10 @@ export class Hud {
     // Momentum, the active buffs, then the altar power.
     let bx = px;
     ctx.textAlign = 'left';
-    if (me) bx = this.drawMomentum(ctx, frame.snap.self?.momentum ?? 0, now, bx, py + 34);
+    if (me) {
+      const stacks = frame.snap.self?.momentum ?? 0;
+      bx = this.drawMomentum(ctx, stacks, momentumCap(this.momentum, snap.time), now, bx, py + 34);
+    }
     const LBL = [
       t('game.buffAttack'),
       t('game.buffSpeed'),
@@ -609,12 +612,14 @@ export class Hud {
   // ---------------------------------------------------------------- momentum
 
   /**
-   * The kill-streak chip, in the menus' charcoal look: "MOMENTUM ×1.36" over ten pips. Gold when
+   * The kill-streak chip, in the menus' charcoal look: "MOMENTUM ×1.36" over ten pips (filled
+   * against the run's current cap). Gold when
    * high (pulsing at the cap); dimmed while it drains. Returns the x after it.
    */
   private drawMomentum(
     ctx: CanvasRenderingContext2D,
     stacks: number,
+    cap: number,
     now: number,
     x: number,
     y: number,
@@ -627,7 +632,8 @@ export class Hud {
       this.momentumHinted = true;
       if (!seenHint(MOMENTUM_HINT_KEY)) this.say(t('hud.momentumHint'), 6);
     }
-    const frac = clamp(stacks / cfg.maxStacks, 0, 1);
+    // Against the current cap (it grows over the run): a full bar early is a smaller ×.
+    const frac = clamp(stacks / cap, 0, 1);
     const high = frac >= MOMENTUM_HIGH;
     const draining = now - this.momentumDrainAt < 0.35;
     const mul = 1 + cfg.perStack * stacks;
@@ -643,7 +649,7 @@ export class Hud {
     ctx.fillRect(x + 2, y + 2, w, H);
     ctx.fillStyle = CHARCOAL.bg;
     ctx.fillRect(x, y, w, H);
-    const atCap = frac >= 1 && !draining;
+    const atCap = frac >= 0.98 && !draining;
     ctx.strokeStyle = atCap
       ? `rgba(255,214,92,${(0.55 + Math.sin(now * 8) * 0.45).toFixed(2)})`
       : CHARCOAL.ink;

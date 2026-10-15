@@ -1,6 +1,7 @@
 // Manual R8 step 3 check of Momentum and the guaranteed offence card. Never runs in CI.
 //   pnpm --filter @pokesurvivor/sim momentum --variant=after --out=after.jsonl
 //   pnpm --filter @pokesurvivor/sim momentum --variant=before --out=before.jsonl
+//   (--max-stacks-start=30: Momentum with v12's flat cap)
 // `before` turns both mechanics off (momentum.perStack 0, no guaranteed slots) for the whole
 // run, so its builds are earned without them. Per cell, a protected natural run (first-choice
 // bots) is checkpointed at each minute; each checkpoint's build then fights a real 60 s wild
@@ -9,6 +10,7 @@
 import { appendFileSync, writeFileSync } from 'node:fs';
 import { DT } from '../src/constants.js';
 import { simData } from '../src/data.js';
+import { momentumCap } from '../src/momentum.js';
 import type { PlayerState, Sim } from '../src/index.js';
 import { botInputs } from './bots.js';
 import { patchTuning, postponeAmbientSystems } from './helpers.js';
@@ -49,6 +51,11 @@ if (variant === 'before') {
   (tuning.momentum as { perStack: number }).perStack = 0;
   (tuning.lateGrowth.offers as { guaranteedOffenseSlots: number }).guaranteedOffenseSlots = 0;
 }
+// --max-stacks-start=N: compare another starting cap (e.g. the flat cap: N = maxStacks).
+if (args.has('max-stacks-start'))
+  (tuning.momentum as { maxStacksStart: number }).maxStacksStart = Number(
+    args.get('max-stacks-start'),
+  );
 const momentumOn = tuning.momentum.perStack > 0;
 emit({ kind: 'metadata', variant, minutes, seeds, players, metas, archetypes, tuning });
 
@@ -93,7 +100,9 @@ function crowd(sim: Sim, minute: number, stand: boolean) {
     stacksMean: mean(samples),
     stacksMedian: quantile(samples, 0.5),
     stacksP90: quantile(samples, 0.9),
-    atCap: samples.filter((s) => s >= tuning.momentum.maxStacks - 0.5).length / samples.length,
+    atCap:
+      samples.filter((s) => s >= momentumCap(tuning.momentum, minute * 60) - 0.5).length /
+      samples.length,
     meanMultiplier: mean(samples.map((s) => 1 + tuning.momentum.perStack * s)),
     endStacks: sim.state.players.map(stacksOf),
   };

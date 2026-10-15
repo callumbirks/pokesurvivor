@@ -6,11 +6,12 @@ What changed for players in each release, newest first. Generated from
 
 ## Unreleased
 
-PRs: [#77](https://github.com/callumbirks/pokesurvivor/pull/77)
+PRs: [#77](https://github.com/callumbirks/pokesurvivor/pull/77), [#78](https://github.com/callumbirks/pokesurvivor/pull/78)
 
 ### Changed
 
 - Early wild Pokémon hit less hard again, and new arrivals now come mostly from behind and the sides, so you can gather a horde and turn to fight it.
+- Momentum's limit now grows during a run: up to +20% at the start, reaching +60% by minute 10.
 
 ## v12 - 2026-10-15
 
