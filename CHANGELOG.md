@@ -6,11 +6,16 @@ What changed for players in each release, newest first. Generated from
 
 ## Unreleased
 
-PRs: [#81](https://github.com/callumbirks/pokesurvivor/pull/81)
+PRs: [#80](https://github.com/callumbirks/pokesurvivor/pull/80), [#81](https://github.com/callumbirks/pokesurvivor/pull/81)
 
 ### New
 
 - When a teammate revives you, you now get a clear "You're back up!" banner naming who revived you, with a green glow and its own sound.
+
+### Changed
+
+- Wild Pokémon hit about 10% less hard.
+- A few wild Pokémon now appear and catch up ahead of you again, so running isn't completely safe.
 
 ## v13 - 2026-10-15
 

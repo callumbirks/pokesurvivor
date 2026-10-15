@@ -13,7 +13,7 @@ import { TAU, clamp, dist, dist2, hash2, norm } from './math.js';
 import { pathDir } from './pathing.js';
 import { dropPickup, dropXp } from './pickups.js';
 import { spawnProjectile } from './projectiles.js';
-import { rejoinBehindPlayer, spawnCap } from './spawner.js';
+import { rejoinPlayer, spawnCap } from './spawner.js';
 import { weatherSpeedMult } from './weather.js';
 import { collide, isLiquid, liquidKind, rollItem } from './world.js';
 import type {
@@ -454,7 +454,7 @@ export function updateEnemies(ctx: Ctx): void {
     else e.lagT = 0;
     if (unseen && e.lagT > tuning.unseenSeconds) {
       if (e.transferFromId !== null && near.relocationTokens < 1 - 1e-9) continue;
-      if (!rejoinBehindPlayer(ctx, e, near)) continue;
+      if (!rejoinPlayer(ctx, e, near)) continue;
       if (e.transferFromId !== null) near.relocationTokens = Math.max(0, near.relocationTokens - 1);
       e.transferFromId = null;
       e.targetId = near.id;

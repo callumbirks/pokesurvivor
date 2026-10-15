@@ -4,7 +4,7 @@ import { TAU } from '../src/math.js';
 import { updateEnemies } from '../src/enemies.js';
 import { restoreSim } from '../src/index.js';
 import { trackVelocities } from '../src/players.js';
-import { arrivalAngle, rejoinBehindPlayer, spawnOne, travelHeading } from '../src/spawner.js';
+import { arrivalAngle, rejoinPlayer, spawnOne, travelHeading } from '../src/spawner.js';
 import { patchTuning, player, quietSim, steps } from './helpers.js';
 import { spawnDummy } from './helpers.js';
 
@@ -80,24 +80,43 @@ describe('arrival direction history', () => {
       ).toBeCloseTo(-1);
   });
 
-  it('keeps relocation retries in the configured rear arc for every travel heading', () => {
+  it.each([0, 1])('keeps catch-up retries in the chosen half at aheadShare %i', (aheadShare) => {
     const sim = quietSim();
+    patchTuning(sim, 'stragglers', { aheadShare });
     const p = player(sim);
     const e = spawnDummy(sim, 0, 0);
     e.flying = true;
     const half = (sim.ctx.d.game.tuning.stragglers.rearArcDegrees * Math.PI) / 360;
+    const speed = Math.max(100, sim.ctx.d.game.tuning.spawner.directionBias.minSpeed * 4);
     for (let i = 0; i < 80; i++) {
       const a = (i * Math.PI) / 40;
-      p.travelVx = Math.cos(a) * 100;
-      p.travelVy = Math.sin(a) * 100;
-      expect(rejoinBehindPlayer(sim.ctx, e, p)).toBe(true);
+      p.travelVx = Math.cos(a) * speed;
+      p.travelVy = Math.sin(a) * speed;
+      expect(rejoinPlayer(sim.ctx, e, p)).toBe(true);
       const dot = (e.x - p.x) * Math.cos(a) + (e.y - p.y) * Math.sin(a);
-      expect(dot).toBeLessThanOrEqual(-Math.cos(half) * Math.hypot(e.x - p.x, e.y - p.y) + 1e-7);
+      if (aheadShare === 1) expect(dot).toBeGreaterThanOrEqual(0);
+      else
+        expect(dot).toBeLessThanOrEqual(-Math.cos(half) * Math.hypot(e.x - p.x, e.y - p.y) + 1e-7);
+    }
+  });
+
+  it('keeps stationary catch-up uniform independently of the forward-share knob', () => {
+    const a = quietSim(),
+      b = quietSim();
+    patchTuning(a, 'stragglers', { aheadShare: 0 });
+    patchTuning(b, 'stragglers', { aheadShare: 1 });
+    const ea = spawnDummy(a, 0, 0),
+      eb = spawnDummy(b, 0, 0);
+    ea.flying = eb.flying = true;
+    for (let i = 0; i < 40; i++) {
+      expect(rejoinPlayer(a.ctx, ea, player(a))).toBe(rejoinPlayer(b.ctx, eb, player(b)));
+      expect([ea.x, ea.y]).toEqual([eb.x, eb.y]);
     }
   });
 
   it('waits the unseen grace even at extreme distance and resets it when seen', () => {
     const sim = quietSim();
+    patchTuning(sim, 'stragglers', { aheadShare: 0 });
     const p = player(sim);
     p.travelVx = 100;
     const e = spawnDummy(sim, p.x - 2000, p.y);

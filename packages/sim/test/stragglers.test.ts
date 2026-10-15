@@ -199,7 +199,7 @@ describe('straggler transfers', () => {
     lagger.flying = true;
     lagger.lagT = tuning.unseenSeconds;
     updateEnemies(sim.ctx);
-    expect(lagger.x).toBeLessThanOrEqual(p.x);
+    expect(distance(lagger, p)).toBeLessThan(1200);
     expect(lagger.lagT).toBe(0);
   });
 });

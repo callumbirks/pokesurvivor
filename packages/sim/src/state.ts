@@ -435,7 +435,7 @@ export interface EnemyState {
   skillCd: number;
   minions: EntityId[];
   jump: JumpState | null;
-  /** Continuous seconds outside everyone's view before rear/side catch-up. */
+  /** Continuous seconds outside everyone's view before catch-up placement. */
   lagT: number;
   /** Most recent movement target; initialized at spawn so a death next tick is covered. */
   targetId: PlayerId | null;
