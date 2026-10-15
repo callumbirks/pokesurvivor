@@ -6,7 +6,11 @@ What changed for players in each release, newest first. Generated from
 
 ## Unreleased
 
-PRs: [#80](https://github.com/callumbirks/pokesurvivor/pull/80)
+PRs: [#80](https://github.com/callumbirks/pokesurvivor/pull/80), [#81](https://github.com/callumbirks/pokesurvivor/pull/81)
+
+### New
+
+- When a teammate revives you, you now get a clear "You're back up!" banner naming who revived you, with a green glow and its own sound.
 
 ### Changed
 

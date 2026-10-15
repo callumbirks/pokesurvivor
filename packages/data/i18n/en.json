@@ -173,6 +173,8 @@
     "mateDown": "{0}'s {1} is down!",
     "mateDownHint": "Go revive them!",
     "mateBack": "{0}'s {1} is back!",
+    "selfBack": "You're back up!",
+    "selfBackBy": "Revived by {0}",
     "noticeOwnerChanged": "{0} now owns the room",
     "noticeDraining": "The server is updating: this game will finish first.",
     "noticeCancelled": "The game was cancelled.",

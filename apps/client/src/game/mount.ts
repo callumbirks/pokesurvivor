@@ -413,6 +413,9 @@ class Run {
   private flashT = 0;
   private flashDur = 1;
   private flashCol = '#fff';
+  private glowT = 0;
+  private glowDur = 1;
+  private glowCol = '#fff';
   private readonly pause: PauseFlow;
   private pauseEl: HTMLElement | null = null;
   private popPauseNav: (() => void) | null = null;
@@ -446,12 +449,13 @@ class Run {
       world: this.world,
       say: (text, s) => this.hud.say(text, s),
       flash: (c, s) => this.flash(c, s),
+      glow: (c, s) => this.glow(c, s),
       owns: (dex) => (save ? save.owned[String(dex)] !== undefined : null),
     });
     const banner = new MateBanner(toasts.root.parentElement ?? layer);
     this.offs.push(() => banner.dispose());
     this.mates = new MateAlerts({
-      banner: (text, hint) => banner.show(text, hint),
+      banner: (text, hint, self) => banner.show(text, hint, undefined, self),
       toast: (text) => toasts.show(text, 'good', 2.5),
       sfx: (name) => audio.sfx(name),
       now: () => performance.now(),
@@ -775,6 +779,12 @@ class Run {
     this.flashT = seconds;
   }
 
+  private glow(color: string, seconds: number): void {
+    this.glowCol = color;
+    this.glowDur = seconds;
+    this.glowT = seconds;
+  }
+
   // ---------------------------------------------------------------- per frame
 
   frame(ts: number, ctx: CanvasRenderingContext2D): void {
@@ -991,6 +1001,21 @@ class Run {
       });
       this.touch.draw(ctx);
       this.screen.netStats.placeBelow(this.hud.topLeftBottom);
+    }
+    if (this.glowT > 0) {
+      this.glowT -= frame.dt;
+      ctx.save();
+      // Clear in the middle, the colour at the edges; fading out. Calm mode softens it like the flash.
+      ctx.globalAlpha =
+        Math.max(0, Math.min(1, (this.glowT / this.glowDur) * 1.6)) *
+        (settings.get().calmMode ? 0.4 : 0.85);
+      const r = Math.hypot(w, h) / 2;
+      const g = ctx.createRadialGradient(w / 2, h / 2, r * 0.45, w / 2, h / 2, r);
+      g.addColorStop(0, 'rgba(0, 0, 0, 0)');
+      g.addColorStop(1, this.glowCol);
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, w, h);
+      ctx.restore();
     }
     if (this.flashT > 0) {
       this.flashT -= frame.dt;

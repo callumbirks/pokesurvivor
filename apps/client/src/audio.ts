@@ -46,6 +46,7 @@ export type SfxName =
   | 'xp'
   | 'coin'
   | 'heal'
+  | 'revived'
   | 'levelup'
   | 'hurt'
   | 'boss'
@@ -660,6 +661,10 @@ class AudioEngine {
         return this.tone('square', 1760, 1760, 0.14, 0.035, 0.05);
       case 'heal':
         return this.arp('triangle', [523, 659, 784, 1047], 0.06, 0.18, 0.06);
+      case 'revived':
+        // We're back up: the heal arpeggio a step higher and longer, with a bell on top.
+        this.arp('triangle', [392, 523, 659, 784, 1047], 0.07, 0.3, 0.07);
+        return this.bells([1568, 2093, 2637], 0.06);
       case 'levelup':
         this.arp('square', [523, 659, 784, 1047], 0.07, 0.14, 0.05);
         return this.arp('triangle', [1047, 1319, 1568], 0.07, 0.3, 0.05);
