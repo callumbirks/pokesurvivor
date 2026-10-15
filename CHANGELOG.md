@@ -6,7 +6,11 @@ What changed for players in each release, newest first. Generated from
 
 ## Unreleased
 
-PRs: [#85](https://github.com/callumbirks/pokesurvivor/pull/85), [#87](https://github.com/callumbirks/pokesurvivor/pull/87)
+PRs: [#85](https://github.com/callumbirks/pokesurvivor/pull/85), [#87](https://github.com/callumbirks/pokesurvivor/pull/87), [#90](https://github.com/callumbirks/pokesurvivor/pull/90)
+
+### Changed
+
+- Usernames with offensive words are no longer accepted.
 
 ### Fixed
 
