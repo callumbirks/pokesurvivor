@@ -10,6 +10,8 @@
 // held when the screen on top changes is ignored until released, so a press or a stick held in
 // one screen can't act in the next (nor gameplay movement in a menu).
 // On a slider, left / right move it a step; on a switch, left turns it off and right on.
+// Rows (`data-nav-row`) and grids (`data-nav-grid`) move in their own order; `data-nav-<dir>`
+// links a control, row or grid to where that direction goes (see `navLink`).
 // The keyboard does the same on the screens outside a run (arrows, Esc; Enter and Space press
 // the focused button as usual); a run and its overlays handle their own keys.
 import { onPadFrame, type PadState } from './input-device.js';
@@ -188,6 +190,26 @@ function rectOf(e: Element): Rect {
 export const NAV_ROW = 'data-nav-row';
 /** A grid of cells (Pokémon): moves go by row and column. */
 export const NAV_GRID = 'data-nav-grid';
+/**
+ * `data-nav-<dir>="<selector>"` on a control, or on a row or grid (then: leaving it from that
+ * edge): where that direction goes, the first visible, enabled match in the scope, before
+ * geometry. Without a match, geometry as usual.
+ */
+export const navLink = (dir: NavDir) => `data-nav-${dir}`;
+
+/**
+ * Whether `e` lies in a grid but outside its scrolled box (a cell scrolled out of view): geometry
+ * skips those, only the grid's own moves reach them. A grid without a box (none laid out) clips
+ * nothing.
+ */
+function clipped(e: Element): boolean {
+  const grid = e.parentElement?.closest(`[${NAV_GRID}]`);
+  if (!grid) return false;
+  const g = grid.getBoundingClientRect();
+  if (!g.width && !g.height) return false;
+  const r = e.getBoundingClientRect();
+  return r.bottom <= g.top || r.top >= g.bottom || r.right <= g.left || r.left >= g.right;
+}
 
 /**
  * Where `dir` goes from `current` inside its group, measured on `stops` (the visible, enabled
@@ -196,7 +218,7 @@ export const NAV_GRID = 'data-nav-grid';
  *   (so along a wrapped row too) and stop at its ends; up / down are left to geometry;
  * - in a grid (`data-nav-grid`, columns counted from its first row), up / down go one row, to the
  *   same column or the last cell of a shorter row, and left / right stay in the row. From its
- *   edges geometry takes over, leaving the grid.
+ *   edges geometry takes over, leaving the grid (sideways: only to what lies beside it).
  * `to`: the control, or null to stay put; undefined: use geometry, without the `exclude` ones
  * and (leaving a grid sideways) only among those `beyond` it.
  */
@@ -234,12 +256,16 @@ export function groupMove(
     const lastRow = Math.floor((items.length - 1) / cols);
     if (Math.floor(i / cols) < lastRow) to = items[Math.min(i + cols, items.length - 1)];
   }
-  // Leaving sideways: only to what lies beyond the grid that way (not the filters above it).
-  const box = items.map(rectOf);
+  // Leaving sideways: only to what lies beside the grid that way (not the filters above it,
+  // however far they reach), next to its cells in view.
+  const box = items.filter((e) => !clipped(e)).map(rectOf);
+  const boxTop = Math.min(...box.map((b) => b.y));
+  const boxBottom = Math.max(...box.map((b) => b.y + b.h));
+  const beside = (r: Rect) => r.y < boxBottom && r.y + r.h > boxTop;
   const beyond = sideways
     ? step > 0
-      ? (r: Rect) => r.x >= Math.max(...box.map((b) => b.x + b.w))
-      : (r: Rect) => r.x + r.w <= Math.min(...box.map((b) => b.x))
+      ? (r: Rect) => beside(r) && r.x >= Math.max(...box.map((b) => b.x + b.w))
+      : (r: Rect) => beside(r) && r.x + r.w <= Math.min(...box.map((b) => b.x))
     : undefined;
   return { to, exclude: items, beyond };
 }
@@ -330,6 +356,17 @@ export class MenuNav {
       this.focus(grouped.to);
       return true;
     }
+    // A link from the control (or the row or grid it leaves) goes first.
+    const link = current.closest(`[${navLink(action)}]`)?.getAttribute(navLink(action));
+    if (link) {
+      const to = [...scope.root.querySelectorAll<HTMLElement>(link)].find(
+        (e) => e !== current && stops.includes(e),
+      );
+      if (to) {
+        this.focus(to);
+        return true;
+      }
+    }
     // The title row's Back and the top bar are reached by going up (or with B), not by a
     // sideways move that happens to point at them.
     const sideways = action === 'left' || action === 'right';
@@ -337,6 +374,7 @@ export class MenuNav {
       (e) =>
         e !== current &&
         !grouped.exclude.includes(e) &&
+        !clipped(e) &&
         (!grouped.beyond || grouped.beyond(rectOf(e))) &&
         !(sideways && !inEdge(current) && inEdge(e)),
     );
