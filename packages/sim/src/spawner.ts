@@ -159,11 +159,13 @@ function freePoint(
   pl: PlayerState,
   angle: number,
   flying: boolean,
+  allowed?: (x: number, y: number) => boolean,
 ): [number, number] | null {
   const players = activePlayers(ctx.s);
   for (let i = 0; i < 8; i++) {
     const a = angle + (i === 0 ? 0 : ctx.rand.range(-0.9, 0.9));
     const [x, y] = ringPoint(ctx, pl, a);
+    if (allowed && !allowed(x, y)) continue;
     if (players.length > 1 && seenByAnyone(players, x, y)) continue;
     if (flying || isFree(ctx, x, y, 14)) return [x, y];
   }
@@ -192,7 +194,18 @@ export function spawnOne(ctx: Ctx, pl: PlayerState, t: number, angle?: number): 
   const { d, s } = ctx;
   const tuning = d.game.tuning.spawner;
   const def = pickDef(ctx, t);
-  const pt = freePoint(ctx, pl, angle ?? ctx.rand() * TAU, d.body(def.dex).hovers);
+  const spawnAngle = angle ?? arrivalAngle(ctx, pl);
+  const heading = travelHeading(ctx, pl);
+  // Retry terrain within the sampled half, rather than moving a rejected rear arrival ahead.
+  const ahead = heading !== null && Math.cos(spawnAngle - heading) >= 0;
+  const allowed =
+    angle !== undefined || heading === null
+      ? undefined
+      : (x: number, y: number) => {
+          const dot = (x - pl.x) * Math.cos(heading) + (y - pl.y) * Math.sin(heading);
+          return ahead ? dot >= 0 : dot <= 0;
+        };
+  const pt = freePoint(ctx, pl, spawnAngle, d.body(def.dex).hovers, allowed);
   if (!pt) return null;
   const shiny = rollShiny(ctx, def.dex);
   const n = activePlayers(s).length;
@@ -286,8 +299,8 @@ export function updateSpawner(ctx: Ctx): void {
   if (!bossFight) sp.surgeT -= DT;
   if (sp.surgeT <= 0) {
     sp.surgeT = rand.range(38, 56);
-    const base = rand() * TAU;
     const target = anchor(ctx);
+    const base = target ? arrivalAngle(ctx, target) : 0;
     const count = Math.min(
       cap - s.enemies.length,
       Math.round((14 + Math.floor(t / 22)) * scaleRate(n) * 0.4),
@@ -300,22 +313,51 @@ export function updateSpawner(ctx: Ctx): void {
 
 /** A few at once from one side (hordes start with this). */
 export function spawnBurst(ctx: Ctx, count: number): void {
-  const base = ctx.rand() * TAU;
   const target = anchor(ctx);
   if (!target) return;
+  const base = arrivalAngle(ctx, target);
   for (let i = 0; i < count && ctx.s.enemies.length < spawnCap(ctx) + 10; i++) {
     spawnOne(ctx, target, ctx.s.time, base + ctx.rand.range(-0.6, 0.6));
   }
 }
 
-/**
- * A straggler comes back ahead of the player (where they're running), out of view. Returns false
- * if there's no room (then it's removed).
+/** Recent travel, not current input. A stopped/slow player gets uniform arrivals. */
+export function travelHeading(ctx: Ctx, pl: PlayerState): number | null {
+  const speed = Math.hypot(pl.travelVx, pl.travelVy);
+  return speed > 1e-6 && speed >= ctx.d.game.tuning.spawner.directionBias.minSpeed
+    ? Math.atan2(pl.travelVy, pl.travelVx)
+    : null;
+}
+
+/** Small forward share, otherwise the rear half including the sides. */
+export function arrivalAngle(ctx: Ctx, pl: PlayerState): number {
+  const heading = travelHeading(ctx, pl);
+  if (heading === null) return ctx.rand() * TAU;
+  const ahead = ctx.rand() < ctx.d.game.tuning.spawner.directionBias.aheadShare;
+  return heading + (ahead ? -Math.PI / 2 : Math.PI / 2) + ctx.rand() * Math.PI;
+}
+
+/** A straggler rejoins outside everyone's view, from the rear arc of recent travel.
+ * Placement retries must obey that arc too, including the ring's elliptical geometry.
+ * On failure the manager keeps the enemy walking and retries; it is never discarded.
  */
-export function aheadOfPlayer(ctx: Ctx, e: EnemyState, pl: PlayerState): boolean {
-  const sp = Math.hypot(pl.smoothVx, pl.smoothVy);
-  const a0 = sp > 20 ? Math.atan2(pl.smoothVy, pl.smoothVx) : ctx.rand() * TAU;
-  const pt = freePoint(ctx, pl, a0 + ctx.rand.range(-0.9, 0.9), e.flying);
+export function rejoinBehindPlayer(ctx: Ctx, e: EnemyState, pl: PlayerState): boolean {
+  const heading = travelHeading(ctx, pl);
+  const halfArc = (ctx.d.game.tuning.stragglers.rearArcDegrees * Math.PI) / 360;
+  const angle =
+    heading === null ? ctx.rand() * TAU : heading + Math.PI + ctx.rand.range(-halfArc, halfArc);
+  const allowed =
+    heading === null
+      ? undefined
+      : (x: number, y: number) => {
+          const dx = x - pl.x,
+            dy = y - pl.y;
+          return (
+            dx * Math.cos(heading) + dy * Math.sin(heading) <=
+            -Math.cos(halfArc) * Math.hypot(dx, dy) + 1e-9
+          );
+        };
+  const pt = freePoint(ctx, pl, angle, e.flying, allowed);
   if (!pt) return false;
   e.x = pt[0];
   e.y = pt[1];

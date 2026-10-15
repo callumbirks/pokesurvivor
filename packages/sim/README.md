@@ -496,3 +496,42 @@ stats deliver its damage gains. Burn ticks and Rocky Helmet retaliation separate
 `--multipliers=1,1.5,2` also replays each real crowd with fixture-only attack multipliers. This measures
 sensitivity with frozen earned builds, not future progression, and poison/coverage can prevent linear
 DPS gains. Metadata records production revision and effective tuning; cache files must match both.
+
+### Arrival direction and horde training
+
+Ordinary ring spawns use each target player's recent **actual** movement, averaged exponentially
+with `spawner.directionBias.smoothingSeconds` (1.5-second time constant). `travelVx/travelVy` are
+separate from the short runner lead, live in serializable sim state, migrate to zero in older saves,
+and reset on teleports. Below `minSpeed`, angles remain uniform. Otherwise `aheadShare` selects the
+forward half and remaining arrivals select the rear half, including the sides. Terrain retries stay
+in the sampled half. Surges/event bursts choose their group's side with the same target-specific
+history, then scatter as before; bosses retain their ordinary independent placement.
+
+Unseen stragglers now wait `stragglers.unseenSeconds`, even beyond the old immediate distance trigger.
+Visibility to any living connected teammate resets that grace. Rejoins stay in `rearArcDegrees`
+(at most 180°) of recent travel, including terrain retries and the elliptical spawn ring. A failed
+placement leaves the enemy walking for a later retry. Transfers from downed/disconnected/left
+players retain the existing per-survivor token bucket; waiting and failed placement consume no tokens.
+A stationary survivor receives uniform catch-up arrivals.
+
+Manual playtest diagnostics (not CI):
+
+```sh
+pnpm --filter @pokesurvivor/sim training --phase=before --out=/tmp/training-before.jsonl
+pnpm --filter @pokesurvivor/sim training --phase=after --calibration=/tmp/training-before.jsonl --out=/tmp/training-after.jsonl
+```
+
+Run each phase on its respective production revision. The calibration can deliberately cross balance
+revisions: it freezes the same earned half-meta natural builds to isolate the proposed damage/arrival
+changes. Defaults cover Charmander, Bulbasaur, Pikachu and Dragapult, seeds 7/99/2026, minutes 2/4/6/8/10.
+`--species`, `--seeds`, `--minutes`, `--seconds` filter the manual matrix. Neutral contact probes report
+weighted roster damage after defence, melee protection and the regular cap, plus hits to down.
+
+Crowds begin with 16 real wild Pokémon gathered behind a player. During the 60-second gather phase,
+attacks and progression are disabled and incoming damage cannot kill the player, so the cohort remains
+observable. Terrain-aware bots either run straight or reverse every 12 seconds. An independent
+1.5-second movement average is used as the **same measurement ruler in both phases**, rather than
+reading whichever smoothing the measured revision uses. Ahead arrivals/relocations use a forward
+half-plane; path occupancy uses a 350-pixel forward corridor with 60 pixels plus enemy radius on
+either side. Contact rate counts actual touch-cooldown resets, not merely enemies seen nearby.
+These fixtures stress a deliberate train; they do not estimate ordinary attacking-player survival.

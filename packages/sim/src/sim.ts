@@ -404,7 +404,11 @@ export function restoreSim(state: SimState): Sim {
   // byte-for-byte for deterministic replay, including enemies stashed outside a rift arena.
   const gameTuning = simData().game.tuning;
   const tuning = gameTuning.enemyShields;
-  for (const p of state.players) p.relocationTokens ??= gameTuning.stragglers.burst;
+  for (const p of state.players) {
+    p.relocationTokens ??= gameTuning.stragglers.burst;
+    p.travelVx ??= 0;
+    p.travelVy ??= 0;
+  }
   for (const e of [...state.enemies, ...(state.arena?.stash ?? [])]) {
     e.targetId ??= null;
     e.transferFromId ??= null;

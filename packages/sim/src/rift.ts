@@ -248,6 +248,7 @@ function teleport(p: PlayerState, x: number, y: number): void {
   p.y = p.prevY = y;
   p.vx = p.vy = 0;
   p.smoothVx = p.smoothVy = 0;
+  p.travelVx = p.travelVy = 0;
 }
 
 /** Time-only HP uplift. Keep early rifts intact and continue scaling beyond the fit window. */

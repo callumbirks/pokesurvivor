@@ -67,6 +67,8 @@ export function createPlayer(
     vy: 0,
     smoothVx: 0,
     smoothVy: 0,
+    travelVx: 0,
+    travelVy: 0,
     prevX: x,
     prevY: 0,
     walking: false,
@@ -411,16 +413,20 @@ export function facingOf(p: {
   return p.attacking || !p.walking ? p.aim : p.moveAngle;
 }
 
-/** Smoothed velocity of each player (enemies lead their target; stragglers come back ahead). */
+/** Track actual movement: short lead for runners, longer history for arrivals. */
 export function trackVelocities(ctx: Ctx): void {
   const dt = DT;
   const k = Math.min(1, dt * 5);
+  const travelK = 1 - Math.exp(-dt / ctx.d.game.tuning.spawner.directionBias.smoothingSeconds);
   for (const p of ctx.s.players) {
     p.smoothVx += ((p.x - p.prevX) / dt - p.smoothVx) * k;
     p.smoothVy += ((p.y - p.prevY) / dt - p.smoothVy) * k;
+    p.travelVx += ((p.x - p.prevX) / dt - p.travelVx) * travelK;
+    p.travelVy += ((p.y - p.prevY) / dt - p.travelVy) * travelK;
     if (Math.abs(p.x - p.prevX) > 200 || Math.abs(p.y - p.prevY) > 200) {
       p.smoothVx = 0; // teleport
       p.smoothVy = 0;
+      p.travelVx = p.travelVy = 0;
     }
     p.prevX = p.x;
     p.prevY = p.y;

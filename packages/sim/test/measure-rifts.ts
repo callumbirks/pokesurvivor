@@ -21,6 +21,8 @@ export type Archetype = keyof typeof archetypes;
 export type Meta = 'none' | 'half' | 'max';
 export type Profile = 'natural' | 'weak' | 'typical' | 'strong';
 export interface Cell {
+  /** Optional species override for manual playtest reproduction. */
+  dex?: number;
   archetype: Archetype;
   meta: Meta;
   players: number;
@@ -81,7 +83,7 @@ export function makeSim(cell: Cell, seed: number, noSpawns: boolean, invulnerabl
     seed,
     players: Array.from({ length: cell.players }, (_, i) => ({
       id: `p${i}`,
-      dex: archetypes[cell.archetype].dex,
+      dex: cell.dex ?? archetypes[cell.archetype].dex,
       upgrades,
     })),
     debug: { noSpawns, invulnerable },

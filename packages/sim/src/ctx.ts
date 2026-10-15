@@ -45,9 +45,15 @@ export function nextId(s: SimState): EntityId {
 }
 
 /** Is (x, y) within `pad` of some active player's view? (original `Camera.sees`) */
-export function seenByAny(s: SimState, x: number, y: number, pad: number): boolean {
+export function seenByAny(
+  s: SimState,
+  x: number,
+  y: number,
+  pad: number,
+  livingOnly = false,
+): boolean {
   for (const p of s.players) {
-    if (!p.connected || p.left) continue;
+    if (!p.connected || p.left || (livingOnly && p.dead)) continue;
     if (Math.abs(x - p.x) < VIEW_W / 2 + pad && Math.abs(y - p.y) < VIEW_H / 2 + pad) return true;
   }
   return false;

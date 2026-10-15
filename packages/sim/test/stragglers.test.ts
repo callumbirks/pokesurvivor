@@ -22,6 +22,7 @@ function transferSetup(count = strandedCount, players = 2) {
   const horde = Array.from({ length: count }, (_, i) => {
     const e = spawnDummy(sim, source.x + (i % 7) * 40, source.y + Math.floor(i / 7) * 40);
     e.flying = true;
+    e.lagT = tuning.unseenSeconds; // Rate fixtures start after the unseen grace.
     return e;
   });
   return { sim, source, survivor: player(sim, 1), horde };
@@ -105,12 +106,16 @@ describe('straggler transfers', () => {
     for (const [i, e] of horde.entries()) {
       e.x = survivor.x - 900;
       e.y = survivor.y + i * 30;
-      e.lagT = 3;
+      e.lagT = tuning.unseenSeconds;
     }
-    survivor.smoothVx = 100;
+    survivor.travelVx = 100;
     updateEnemies(sim.ctx);
     expect(horde.filter((e) => e.transferFromId === null)).toHaveLength(Math.floor(tuning.burst));
-    expect(horde.filter((e) => e.transferFromId === source.id).every((e) => e.lagT > 3)).toBe(true);
+    expect(
+      horde
+        .filter((e) => e.transferFromId === source.id)
+        .every((e) => e.lagT > tuning.unseenSeconds),
+    ).toBe(true);
   });
 
   it('each survivor has a separate bucket', () => {
@@ -183,17 +188,18 @@ describe('straggler transfers', () => {
     const horde = Array.from({ length: 12 }, (_, i) => {
       const e = spawnDummy(sim, p.x - 1800, p.y + i * 35);
       e.flying = true;
+      e.lagT = tuning.unseenSeconds;
       return e;
     });
-    p.smoothVx = 100;
+    p.travelVx = 100;
     updateEnemies(sim.ctx);
     expect(horde.every((e) => distance(e, p) < 1200 && e.transferFromId === null)).toBe(true);
     expect(sim.state.enemies.length).toBe(12);
     const lagger = spawnDummy(sim, p.x - 900, p.y);
     lagger.flying = true;
-    lagger.lagT = 2.5;
+    lagger.lagT = tuning.unseenSeconds;
     updateEnemies(sim.ctx);
-    expect(lagger.x).toBeGreaterThan(p.x);
+    expect(lagger.x).toBeLessThanOrEqual(p.x);
     expect(lagger.lagT).toBe(0);
   });
 });
