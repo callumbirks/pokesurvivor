@@ -6,6 +6,12 @@ What changed for players in each release, newest first. Generated from
 
 ## Unreleased
 
+PRs: [#85](https://github.com/callumbirks/pokesurvivor/pull/85)
+
+### Fixed
+
+- Keyboard and controller: you can now reach the Play button on the Pokémon select screen, and it starts with the Pokémon you picked, not the last one you moved over.
+
 ## v14 - 2026-10-15
 
 PRs: [#80](https://github.com/callumbirks/pokesurvivor/pull/80), [#81](https://github.com/callumbirks/pokesurvivor/pull/81), [#82](https://github.com/callumbirks/pokesurvivor/pull/82), [#83](https://github.com/callumbirks/pokesurvivor/pull/83)

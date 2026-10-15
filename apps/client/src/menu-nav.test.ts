@@ -396,6 +396,77 @@ describe('MenuNav', () => {
       from('cell-6');
       expect(nav.press('down')).toBe(false);
     });
+
+    /**
+     * The Pokémon picker: filter chips wider than the grid above it, a scrolled grid of 3 columns
+     * (its box shows rows 1–2 of 0–3), and beside it the details with a Normal / Shiny switch on
+     * top and the confirm button at the bottom.
+     */
+    function picker() {
+      const root = screen();
+      const chips = document.createElement('div');
+      chips.dataset.navRow = '';
+      root.append(chips);
+      place(button('chip-0', 0, 0, chips), 0, 0, 200, 24);
+      place(button('chip-1', 0, 0, chips), 300, 0, 200, 24);
+      const grid = place(document.createElement('div'), 0, 40, 280, 180);
+      grid.dataset.navGrid = '';
+      grid.dataset.navRight = '[data-testid="confirm"]';
+      root.append(grid);
+      for (let i = 0; i < 12; i++) {
+        const c = place(
+          button(`cell-${i}`, 0, 0, grid),
+          (i % 3) * 90,
+          -50 + Math.floor(i / 3) * 90,
+          80,
+          80,
+        );
+        c.className = i === 4 ? 'cell on' : 'cell';
+      }
+      button('normal', 300, 60, root);
+      const confirm = place(button('confirm', 0, 0, root), 300, 180, 200, 40);
+      confirm.dataset.navLeft = '.cell.on';
+      const nav = new MenuNav(() => root);
+      const from = (id: string) =>
+        root.querySelector<HTMLElement>(`[data-testid="${id}"]`)!.focus();
+      return { nav, from, confirm };
+    }
+
+    it('follows a link from a grid’s edge or a control, before geometry', () => {
+      const { nav, from, confirm } = picker();
+      // → from the grid's right edge: the confirm button, from any row (not the Normal switch).
+      from('cell-5');
+      nav.press('right');
+      expect(focusedId()).toBe('confirm');
+      // ← from it: the selected cell, not the one nearest.
+      nav.press('left');
+      expect(focusedId()).toBe('cell-4');
+      // Inside the grid the link waits for its edge.
+      nav.press('right');
+      expect(focusedId()).toBe('cell-5');
+      // A link to nothing that can take the focus: geometry.
+      confirm.disabled = true;
+      from('cell-5');
+      nav.press('right');
+      expect(focusedId()).toBe('normal');
+    });
+
+    it('leaves a grid sideways only to what lies beside it, and never into cells out of view', () => {
+      const { nav, from, confirm } = picker();
+      delete confirm.dataset.navLeft;
+      confirm.disabled = true;
+      // The chips reach past the grid's right edge but lie above it.
+      from('cell-2');
+      nav.press('right');
+      expect(focusedId()).toBe('normal');
+      confirm.disabled = false;
+      // Down from the confirm button: the cells scrolled out under the grid's box aren't below.
+      from('confirm');
+      expect(nav.press('down')).toBe(false);
+      // Left: the nearest cell in view (rows 1–2), not one scrolled out.
+      nav.press('left');
+      expect(focusedId()).toBe('cell-8');
+    });
   });
 
   it('does nothing under a blocking scope (gameplay), and the top scope wins', () => {
