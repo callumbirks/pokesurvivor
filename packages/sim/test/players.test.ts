@@ -1,11 +1,43 @@
 import { simData } from '../src/data.js';
 import { describe, expect, it } from 'vitest';
-import { hurtPlayer, REVIVE_SECONDS } from '../src/players.js';
+import { momentumMultiplier } from '../src/momentum.js';
+import {
+  attackOf,
+  hurtPlayer,
+  moveSpeedOf,
+  reductionOf,
+  regenOf,
+  REVIVE_SECONDS,
+} from '../src/players.js';
+import { playerStats } from '../src/view.js';
 import { teamXpFactor } from '../src/team.js';
 import { createSim } from '../src/index.js';
 import { player, quietSim, seconds, spawnDummy, steps } from './helpers.js';
 
 describe('players', () => {
+  it('report their stats panel from the same formulas the game uses', () => {
+    const sim = quietSim([{ id: 'a', dex: 4, upgrades: { attack: 2, speed: 2, 'max-hp': 2 } }]);
+    const p = player(sim);
+    const mon = simData().game.pokemonByDex.get(4)!;
+    p.attackMul *= 1.5;
+    p.momentum = 10;
+    p.buffs.attack.n = 1;
+    p.buffs.attack.amount = 0.2;
+    const s = playerStats(sim.state, p);
+    expect(s.attackBase).toBe(mon.attack);
+    // Attack leaves Momentum out (the HUD multiplies it in live).
+    expect(s.attack * momentumMultiplier(sim.ctx, p.momentum)).toBeCloseTo(attackOf(sim.ctx, p));
+    expect(s.speedBase).toBe(mon.speed);
+    expect(s.speed).toBeCloseTo(moveSpeedOf(sim.ctx, p));
+    expect(s.hpBase).toBe(mon.hp);
+    expect(s.maxHp).toBe(p.maxHp);
+    expect(s.cooldown).toBe(p.cooldownMul);
+    expect(s.damageReduction).toBeCloseTo(reductionOf(p));
+    expect(s.regen).toBeCloseTo(regenOf(p));
+    expect(s.xp).toBe(p.xpMul);
+    expect(s.crit).toBe(p.critChance);
+  });
+
   it('start from their Pokémon and permanent upgrades', () => {
     const sim = createSim({
       seed: 1,

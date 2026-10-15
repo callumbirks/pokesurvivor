@@ -19,7 +19,7 @@ import {
   writeFrame,
   type Reader,
 } from '@pokesurvivor/protocol';
-import { isAttacking, playerMoveSpeed } from '@pokesurvivor/sim';
+import { isAttacking, playerMoveSpeed, playerStats } from '@pokesurvivor/sim';
 import type {
   ArenaState,
   LostPokemonState,
@@ -206,6 +206,28 @@ export interface SelfState {
   momentum?: number;
 }
 
+/**
+ * The viewer's stats panel (sim `playerStats`): attack, speed and max HP with their species base,
+ * and the multipliers and amounts with none. Attack leaves out Momentum (`self.momentum`).
+ */
+export interface SelfStats {
+  attackBase: number;
+  attack: number;
+  speedBase: number;
+  speed: number;
+  hpBase: number;
+  maxHp: number;
+  cooldown: number;
+  damageReduction: number;
+  regen: number;
+  magnet: number;
+  xp: number;
+  crit: number;
+}
+
+/** Stats go out when they change, at most this often (ticks): a trap's slow can flicker them. */
+const STATS_EVERY_TICKS = 15;
+
 /** Who a pending choice waits for (every choice, anyone's). */
 export interface ChoiceRef {
   id: number;
@@ -249,6 +271,8 @@ export interface Snapshot {
   misc: NetMisc;
   /** The viewer's own cooldowns and speed (null if it isn't a player). */
   self: SelfState | null;
+  /** The viewer's stats panel: the latest sent (null before the first). Optional for fixtures. */
+  stats?: SelfStats | null;
 }
 
 /**
@@ -298,6 +322,8 @@ interface Extra {
   shinies?: number[];
   ended?: RunEnd | null;
   self?: SelfState;
+  /** The viewer's stats panel, when it changed. Optional: added within protocol 7. */
+  stats?: SelfStats;
 }
 
 export type SnapshotFormat = 'binary' | 'json';
@@ -319,6 +345,8 @@ export class SnapshotEncoder {
   private misc = '';
   private shinies = '';
   private ended: string | null = null;
+  private stats = '';
+  private statsTick = -Infinity;
   private full = true;
   private lastSeq = 0;
   private readonly events = new EventEncoder((s) => this.str(s));
@@ -343,6 +371,8 @@ export class SnapshotEncoder {
     this.misc = '';
     this.shinies = '';
     this.ended = null;
+    this.stats = '';
+    this.statsTick = -Infinity;
     this.events.reset();
     this.full = true;
   }
@@ -414,7 +444,10 @@ export class SnapshotEncoder {
       choices: s.pendingChoices.filter((c) => c.playerId === this.viewerId),
       waiting: s.pendingChoices.map(choiceRef),
     };
-    if (viewer) extra.self = selfState(s, viewer);
+    if (viewer) {
+      extra.self = selfState(s, viewer);
+      this.addStats(s, viewer, extra);
+    }
     const relevant = filterEvents(events, {
       viewerId: this.viewerId,
       x: cx,
@@ -551,6 +584,16 @@ export class SnapshotEncoder {
       h.delay > 0 ? Math.round((100 * Math.min(h.t, h.delay)) / h.delay) : 100,
       h.hit ? 1 : 0,
     ];
+  }
+
+  private addStats(s: SimState, p: PlayerState, extra: Extra): void {
+    if (s.tick - this.statsTick < STATS_EVERY_TICKS) return;
+    const stats = selfStats(s, p);
+    const json = JSON.stringify(stats);
+    if (json === this.stats) return;
+    this.stats = json;
+    this.statsTick = s.tick;
+    extra.stats = stats;
   }
 
   private addDetails(s: SimState, extra: Extra): void {
@@ -714,6 +757,27 @@ function selfState(s: SimState, p: PlayerState): SelfState {
   };
 }
 
+const round = (v: number, step: number) => Math.round(v / step) * step;
+
+/** Rounded to what the panel shows (and a little finer), so small drifts aren't resent. */
+function selfStats(s: SimState, p: PlayerState): SelfStats {
+  const x = playerStats(s, p);
+  return {
+    attackBase: x.attackBase,
+    attack: round(x.attack, 0.1),
+    speedBase: x.speedBase,
+    speed: round(x.speed, 0.1),
+    hpBase: x.hpBase,
+    maxHp: Math.round(x.maxHp),
+    cooldown: round(x.cooldown, 0.001),
+    damageReduction: round(x.damageReduction, 0.001),
+    regen: round(x.regen, 0.01),
+    magnet: round(x.magnet, 0.01),
+    xp: round(x.xp, 0.01),
+    crit: round(x.crit, 0.001),
+  };
+}
+
 /** The fields every choice kind shares (2b's new kinds too). */
 function choiceRef(c: PendingChoice): ChoiceRef {
   return { id: c.id, playerId: c.playerId, kind: c.kind, deadlineTick: c.deadlineTick };
@@ -746,6 +810,7 @@ export class SnapshotDecoder {
   private misc: NetMisc = NO_MISC;
   private shinies: number[] = [];
   private ended: RunEnd | null = null;
+  private stats: SelfStats | null = null;
   private readonly events = new EventDecoder();
   /** Seq of the last frame applied. */
   private lastSeq = -1;
@@ -779,6 +844,7 @@ export class SnapshotDecoder {
     if (extra.misc) this.misc = extra.misc;
     if (extra.shinies) this.shinies = extra.shinies;
     if (extra.ended !== undefined) this.ended = extra.ended;
+    if (extra.stats) this.stats = extra.stats;
     this.events.addShapes(extra.shapes);
     const events = this.events.read(r, (i) => this.s(i));
 
@@ -812,6 +878,7 @@ export class SnapshotDecoder {
       world: Object.fromEntries(Object.entries(this.world).map(([k, v]) => [k, { ...v }])),
       misc: this.misc,
       self: extra.self ?? null,
+      stats: this.stats,
     };
   }
 
@@ -823,6 +890,7 @@ export class SnapshotDecoder {
     this.misc = NO_MISC;
     this.shinies = [];
     this.ended = null;
+    this.stats = null;
     this.events.reset();
   }
 

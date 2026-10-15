@@ -13,7 +13,8 @@ adds remaining shield HP as enemy column 14 (index 13), rounded up to whole poin
 table width changes from 13 to 14, so this is breaking: deploy client and server together.
 Version 6 added the manual aim, `aim`, to `input`. Version 7 added fire held, `fire`, to
 `input`. Within version 7, `self` gained an optional `momentum` (additive: older clients ignore
-it, and clients read a missing one as 0).
+it, and clients read a missing one as 0), and the JSON part an optional `stats` (the viewer's
+stats panel; older clients ignore it, and clients without one show no panel).
 
 ## Connection
 
@@ -267,6 +268,9 @@ for that client.
 - `self`, in every snapshot: the viewer's move cooldowns (0–1 of the full cooldown, per move, in
   1/50 steps) for the HUD, its speed before liquids (`moveSpeedOf`) for client-side
   prediction, and its Momentum stacks (kill streak, 1/10 steps; optional) for the HUD;
+- `stats`, the viewer's only: its stats panel (sim `playerStats`), with attack, speed and max HP
+  and their species base, and cooldown, damage reduction, regen, magnet, XP and crit. It's sent
+  when it changes, at most every 15 ticks, and in every full frame; the client keeps the last;
 - `world`: changes to every keyed record of `state.world` (`broken`, `propHp`, `altarsUsed`,
   `springs`, `chests`, and any the sim adds);
 - `misc`: the rift on the map, the arena (geometry for `terrainRaw`), the weather, the run event
