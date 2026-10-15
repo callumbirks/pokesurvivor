@@ -1,17 +1,25 @@
 {
   "unreleased": {
-    "prs": [77, 78],
+    "prs": [],
     "entries": {
       "new": [],
-      "changed": [
-        "Early wild Pokémon hit less hard again, and new arrivals now come mostly from behind and the sides, so you can gather a horde and turn to fight it.",
-        "Momentum's limit now grows during a run: up to +20% at the start, reaching +60% by minute 10."
-      ],
+      "changed": [],
       "fixed": [],
       "behindTheScenes": []
     }
   },
   "versions": [
+    {
+      "version": 13,
+      "date": "2026-10-15",
+      "prs": [77, 78],
+      "entries": {
+        "changed": [
+          "Early wild Pokémon hit less hard again, and new arrivals now come mostly from behind and the sides, so you can gather a horde and turn to fight it.",
+          "Momentum's limit now grows during a run: up to +20% at the start, reaching +60% by minute 10."
+        ]
+      }
+    },
     {
       "version": 12,
       "date": "2026-10-15",
