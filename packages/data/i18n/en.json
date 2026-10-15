@@ -26,6 +26,8 @@
   },
   "hud": {
     "powerForS": "{0} power! {1} for {2} s",
+    "momentum": "MOMENTUM",
+    "momentumHint": "Momentum! Chain defeats for more damage; it drains a few seconds after your last one.",
     "weatherStarts": "{0}: {1}",
     "fury": "Fury",
     "haste": "Haste",
@@ -506,6 +508,8 @@
     "onMobileOrTablet": "On mobile or tablet",
     "onPc": "On PC",
     "onGamepad": "With a gamepad",
+    "inARun": "In a run",
+    "momentumHelp": "Momentum: every Pokémon you defeat (your burns and poison count too) adds a stack of +{0}% damage, up to +{1}%. {2} s after your last defeat it drains, a few stacks a second, so turn and fight the crowd chasing you to keep it up. It shows under your HP.",
     "gamepadHelp": "Buttons show as the controller's while you play with it, and as keys again as soon as you use the keyboard or the mouse. In menus the d-pad or the left stick moves, A presses and B goes back.",
     "joystickSize": "Joystick size",
     "howFarYouNeedTo": "How far you need to drag your finger.",

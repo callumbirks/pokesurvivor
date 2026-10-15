@@ -248,6 +248,14 @@ export class Sim {
     else if (!this.state.events.current) startEvent(this.ctx, id);
   }
 
+  /** Debug: a player's Momentum to the cap, as if after a streak of kills. */
+  debugMaxMomentum(playerId: PlayerId): void {
+    const p = this.state.players.find((q) => q.id === playerId);
+    if (!p) return;
+    p.momentum = this.ctx.d.game.tuning.momentum.maxStacks;
+    p.momentumIdle = 0;
+  }
+
   /** Debug: start a weather now. */
   debugStartWeather(kind: WeatherId, seconds = 60): void {
     startWeather(this.ctx, kind, seconds);

@@ -29,6 +29,31 @@ const BUFF_COLORS = ['#ff6b4d', '#7fe0ff', '#b0b8c8', '#5fe08a'];
 const BOND = '#ff8ad8';
 const clamp = (v: number, a: number, b: number) => (v < a ? a : v > b ? b : v);
 const TAU = Math.PI * 2;
+/** The menus' charcoal palette (ui.css), for the HUD's Momentum chip. */
+const CHARCOAL = {
+  bg: '#272223',
+  rule: '#4d4240',
+  text: '#f2e9d8',
+  muted: '#a3968a',
+  accent: '#e0603e',
+  ink: '#141012',
+  gold: '#ffd65c',
+};
+/** Momentum shows gold from this fraction of the cap; the first-time hint at this many stacks. */
+const MOMENTUM_HIGH = 2 / 3;
+const MOMENTUM_HINT_STACKS = 5;
+const MOMENTUM_HINT_KEY = 'ps.hint.momentum';
+/** Has this device shown the hint `key` before? Marks it shown. Per device, like the changelog. */
+function seenHint(key: string): boolean {
+  try {
+    if (typeof localStorage === 'undefined') return true;
+    if (localStorage.getItem(key)) return true;
+    localStorage.setItem(key, '1');
+    return false;
+  } catch {
+    return true;
+  }
+}
 /** The gamepad buttons that pick move slots 1–4. */
 const SLOT_PAD: readonly PadButton[] = ['a', 'b', 'x', 'y'];
 /** The gamepad controls hint's glyphs (HUD px, before snapping) and its margin to the bottom. */
@@ -127,6 +152,12 @@ export class Hud {
   /** Local time each move was last cast (bonded slots flash their moves). */
   private castAt = new Map<string, number>();
   private readonly arenaTime = loadGameData().tuning.rift.arenaTime;
+  private readonly momentum = loadGameData().tuning.momentum;
+  /** The previous frame's Momentum stacks, and when they last went down (draining). */
+  private lastMomentum = 0;
+  private momentumDrainAt = -9;
+  /** The first-time explanation was considered this run. */
+  private momentumHinted = false;
 
   /** The scale the current frame is drawn at. */
   private scale = 1;
@@ -206,9 +237,10 @@ export class Hud {
       ctx.textAlign = 'center';
       ctx.fillText(`${Math.ceil(me.hp)} / ${Math.round(me.maxHp)}`, px + 48 + 84, py + 26);
     }
-    // Active buffs, then the altar power.
+    // Momentum, the active buffs, then the altar power.
     let bx = px;
     ctx.textAlign = 'left';
+    if (me) bx = this.drawMomentum(ctx, frame.snap.self?.momentum ?? 0, now, bx, py + 34);
     const LBL = [
       t('game.buffAttack'),
       t('game.buffSpeed'),
@@ -572,6 +604,69 @@ export class Hud {
     }
     ctx.restore();
     touch.addButton(x, top, bw, bh, () => k.toggleAim(), 6);
+  }
+
+  // ---------------------------------------------------------------- momentum
+
+  /**
+   * The kill-streak chip, in the menus' charcoal look: "MOMENTUM ×1.36" over ten pips. Gold when
+   * high (pulsing at the cap); dimmed while it drains. Returns the x after it.
+   */
+  private drawMomentum(
+    ctx: CanvasRenderingContext2D,
+    stacks: number,
+    now: number,
+    x: number,
+    y: number,
+  ): number {
+    const cfg = this.momentum;
+    if (stacks < this.lastMomentum - 0.05) this.momentumDrainAt = now;
+    this.lastMomentum = stacks;
+    if (stacks < 0.05) return x;
+    if (!this.momentumHinted && stacks >= MOMENTUM_HINT_STACKS) {
+      this.momentumHinted = true;
+      if (!seenHint(MOMENTUM_HINT_KEY)) this.say(t('hud.momentumHint'), 6);
+    }
+    const frac = clamp(stacks / cfg.maxStacks, 0, 1);
+    const high = frac >= MOMENTUM_HIGH;
+    const draining = now - this.momentumDrainAt < 0.35;
+    const mul = 1 + cfg.perStack * stacks;
+    ctx.save();
+    ctx.font = F(800, 9);
+    ctx.textAlign = 'left';
+    const txt = `${t('hud.momentum')} ×${mul.toFixed(2)}`;
+    const w = Math.ceil(ctx.measureText(txt).width) + 12;
+    const H = 15;
+    ctx.globalAlpha = draining ? 0.72 : 1;
+    // A hard offset shadow, the window fill, and an inner rule (gold at the cap).
+    ctx.fillStyle = 'rgba(20,16,18,.55)';
+    ctx.fillRect(x + 2, y + 2, w, H);
+    ctx.fillStyle = CHARCOAL.bg;
+    ctx.fillRect(x, y, w, H);
+    const atCap = frac >= 1 && !draining;
+    ctx.strokeStyle = atCap
+      ? `rgba(255,214,92,${(0.55 + Math.sin(now * 8) * 0.45).toFixed(2)})`
+      : CHARCOAL.ink;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x + 0.5, y + 0.5, w - 1, H - 1);
+    ctx.fillStyle = draining ? CHARCOAL.muted : high ? CHARCOAL.gold : CHARCOAL.text;
+    ctx.fillText(txt, x + 6, y + 10);
+    // Ten pips under the text; the last one fills partly (and empties as it drains).
+    const PIPS = 10;
+    const pw = (w - 12 - (PIPS - 1)) / PIPS;
+    const fill = draining ? CHARCOAL.muted : high ? CHARCOAL.gold : CHARCOAL.accent;
+    for (let i = 0; i < PIPS; i++) {
+      const px = x + 6 + i * (pw + 1);
+      ctx.fillStyle = CHARCOAL.rule;
+      ctx.fillRect(px, y + 12, pw, 2);
+      const f = clamp(frac * PIPS - i, 0, 1);
+      if (f > 0) {
+        ctx.fillStyle = fill;
+        ctx.fillRect(px, y + 12, pw * f, 2);
+      }
+    }
+    ctx.restore();
+    return x + w + 5;
   }
 
   // ---------------------------------------------------------------- move slots

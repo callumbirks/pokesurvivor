@@ -160,7 +160,12 @@ describe('momentum', () => {
       hurtEnemy(sim.ctx, e, 1, { by: b.id });
       applyStatus(
         e,
-        { burn: status === 'burn' ? 1 : 0, poison: status === 'poison' ? 1 : 0, slow: 0, knockback: 0 },
+        {
+          burn: status === 'burn' ? 1 : 0,
+          poison: status === 'poison' ? 1 : 0,
+          slow: 0,
+          knockback: 0,
+        },
         a.id,
       );
       e.hp = 1;
