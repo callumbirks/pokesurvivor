@@ -576,6 +576,18 @@ button.stage {
 .notice {
   margin: 6px 8px 0;
 }
+/* The "new version" prompt: its text, then Reload and close; they wrap under it on phones. */
+.update-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 4px 10px;
+  padding: 4px 0;
+}
+.update-notice .row {
+  gap: 6px;
+}
 .invite-pop {
   position: fixed;
   right: 18px;

@@ -6,6 +6,12 @@ What changed for players in each release, newest first. Generated from
 
 ## Unreleased
 
+PRs: [#69](https://github.com/callumbirks/pokesurvivor/pull/69)
+
+### Fixed
+
+- You're prompted to reload when a new version is released, instead of only after big updates.
+
 ## v10 - 2026-10-15
 
 PRs: [#59](https://github.com/callumbirks/pokesurvivor/pull/59), [#61](https://github.com/callumbirks/pokesurvivor/pull/61), [#62](https://github.com/callumbirks/pokesurvivor/pull/62), [#63](https://github.com/callumbirks/pokesurvivor/pull/63), [#64](https://github.com/callumbirks/pokesurvivor/pull/64), [#65](https://github.com/callumbirks/pokesurvivor/pull/65), [#66](https://github.com/callumbirks/pokesurvivor/pull/66)

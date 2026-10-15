@@ -2,11 +2,12 @@ import { connect, type Socket } from 'node:net';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { loadChangelog, versionLabel } from '@pokesurvivor/data';
 import { CloseCode, PROTOCOL_VERSION } from '@pokesurvivor/protocol';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { buildApp } from './app.js';
-import { loadConfig } from './config.js';
+import { loadConfig, readBuild } from './config.js';
 import { createTestDatabase } from './test/harness.js';
 import type { TestDatabase } from './test/harness.js';
 import { createGameTestServer, withTimeout } from './test/bots.js';
@@ -20,12 +21,16 @@ describe('server', () => {
     const assetsDir = mkdtempSync(join(tmpdir(), 'assets-'));
     mkdirSync(join(assetsDir, 'pokemon', '25'), { recursive: true });
     writeFileSync(join(assetsDir, 'pokemon', '25', 'Idle.png'), 'png');
+    // A built client: its build.json names the deploy.
+    const clientDir = join(assetsDir, 'client');
+    mkdirSync(clientDir);
+    writeFileSync(join(clientDir, 'build.json'), JSON.stringify({ id: 'build-42' }));
     const config = loadConfig({
       PORT: '0',
       HOST: '127.0.0.1',
       LOG_LEVEL: 'silent',
       ASSETS_DIR: assetsDir,
-      CLIENT_DIR: join(assetsDir, 'missing'),
+      CLIENT_DIR: clientDir,
     });
     database = await createTestDatabase();
     app = await buildApp({ config, db: database.db });
@@ -51,9 +56,25 @@ describe('server', () => {
     expect((await app.inject({ url: '/sprites/25/Missing.png' })).statusCode).toBe(404);
   });
 
-  it('reports the protocol version', async () => {
+  it('reports the protocol version and the build', async () => {
     const res = await app.inject({ url: '/api/info' });
-    expect(res.json()).toEqual({ protocolVersion: PROTOCOL_VERSION, tickHz: 30 });
+    expect(res.json()).toEqual({
+      protocolVersion: PROTOCOL_VERSION,
+      tickHz: 30,
+      build: 'build-42',
+      version: versionLabel(loadChangelog()),
+    });
+  });
+
+  it('names the build on API responses only', async () => {
+    const api = await app.inject({ url: '/api/auth/me' });
+    expect(api.headers['x-build']).toBe('build-42');
+    expect(api.headers['x-build-version']).toBe(versionLabel(loadChangelog()));
+    expect((await app.inject({ url: '/healthz' })).headers['x-build']).toBeUndefined();
+  });
+
+  it('has no build without a build.json (development)', () => {
+    expect(readBuild(join(tmpdir(), 'no-such-client'))).toBeNull();
   });
 
   it('refuses anonymous WebSockets', async () => {

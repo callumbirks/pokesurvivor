@@ -24,6 +24,10 @@ import { runRoutes } from './runs/routes.js';
 import { RunSweeper } from './runs/sweeper.js';
 import { saveRoutes } from './saves/routes.js';
 
+/** The deployed build's id and version label, on every `/api/` response (absent in development). */
+export const BUILD_HEADER = 'x-build';
+export const VERSION_HEADER = 'x-build-version';
+
 export interface AppOptions {
   config: Config;
   /** Without it, only health, info, the WebSocket and static files are served. */
@@ -85,7 +89,22 @@ export async function buildApp({
     return { status: 'ok', database };
   });
 
-  app.get('/api/info', () => ({ protocolVersion: PROTOCOL_VERSION, tickHz: TICK_HZ }));
+  const build = config.game.build;
+  app.get('/api/info', () => ({
+    protocolVersion: PROTOCOL_VERSION,
+    tickHz: TICK_HZ,
+    ...(build ? { build: build.id, version: build.version } : {}),
+  }));
+  // Every API response names the deployed build, so a client notices a deploy on its next call
+  // too, not only when its WebSocket reconnects.
+  if (build)
+    app.addHook('onSend', async (req, reply) => {
+      // Not while draining: that's the old instance, finishing games during a deploy.
+      if (req.url.startsWith('/api/') && !app.game?.draining) {
+        reply.header(BUILD_HEADER, build.id);
+        reply.header(VERSION_HEADER, build.version);
+      }
+    });
 
   const game = db
     ? new GameServer({

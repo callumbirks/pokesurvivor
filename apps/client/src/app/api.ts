@@ -187,6 +187,8 @@ type Fetch = typeof fetch;
 export class Api {
   /** Called on every 401 from an endpoint that needs a login (the session expired). */
   onUnauthenticated: (() => void) | null = null;
+  /** Called with the server's build on every response that names one (`X-Build`). */
+  onBuild: ((build: string, version: string | undefined) => void) | null = null;
 
   constructor(private readonly fetcher: Fetch = (...args) => fetch(...args)) {}
 
@@ -209,6 +211,8 @@ export class Api {
     } catch (err) {
       throw new ApiError(0, 'network', err instanceof Error ? err.message : String(err));
     }
+    const build = res.headers.get('x-build');
+    if (build) this.onBuild?.(build, res.headers.get('x-build-version') ?? undefined);
     if (res.status === 204) return undefined as T;
     const data: unknown = await res.json().catch(() => null);
     if (!res.ok) {

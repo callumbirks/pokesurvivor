@@ -358,4 +358,13 @@ from its game), `in_game` playing. Changes are also pushed live over the socket
 
 Rooms, invites and coop games run over the WebSocket at `/ws` (same origin, authenticated by the
 session cookie), not over HTTP. [protocol.md](protocol.md) describes the messages, the room
-state machine, snapshots and reconnects. `GET /api/info` returns `{ protocolVersion, tickHz }`.
+state machine, snapshots and reconnects. `GET /api/info` returns `{ protocolVersion, tickHz }`,
+plus `build` and `version` in a deployed server.
+
+## Build
+
+A deployed server knows its build: an opaque id written by the client build to
+`apps/client/dist/build.json` and baked into that bundle (see [deploy.md](deploy.md#versions-and-the-reload-prompt)).
+Every `/api/` response carries it in `X-Build` and its version label (`v10`) in `X-Build-Version`,
+and `welcome` sends both over the WebSocket. A client with a different build id offers a reload.
+Development servers have no build and send neither.

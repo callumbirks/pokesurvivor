@@ -586,6 +586,9 @@ export class GameServer implements PresenceSource, FriendNotifier {
       serverTime: Date.now(),
       heartbeatMs: this.config.heartbeatMs,
       draining: this.draining,
+      ...(this.config.build
+        ? { build: this.config.build.id, version: this.config.build.version }
+        : {}),
     });
     if (this.draining && this.drainDeadline !== null)
       session.send({ type: 'notice', code: 'server-draining', deadline: this.drainDeadline });

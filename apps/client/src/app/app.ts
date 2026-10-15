@@ -35,6 +35,7 @@ import {
   replace,
 } from './dom.js';
 import { mountToasts, notice, toast, toastError } from './toast.js';
+import { UpdatePrompt } from './update-prompt.js';
 
 export interface Screen {
   el: HTMLElement;
@@ -75,6 +76,11 @@ export class App {
   net: NetClient | null = null;
   game: GameSession | null = null;
   readonly busy: BusyStatus;
+  /** Offers a reload when the server runs a newer deploy than this page (not during runs). */
+  readonly updates = new UpdatePrompt(__BUILD_ID__, {
+    show: (version) => this.showUpdate(version),
+    hide: () => notice('update', null),
+  });
 
   private screen: Screen | null = null;
   private routeName = '';
@@ -105,6 +111,7 @@ export class App {
     this.api.onUnauthenticated = () => {
       if (this.user) this.loggedOut(t('errors.sessionExpired'));
     };
+    this.api.onBuild = (build, version) => this.updates.server(build, version);
     addEventListener('hashchange', () => this.render());
     // Settings changed here follow the account (debounced: sliders send many changes).
     settings.subscribe((_s, changed) => {
@@ -238,6 +245,11 @@ export class App {
       fn: Parameters<typeof net.on<K>>[1],
     ) => this.netOffs.push(net.on(event, fn));
     on('state', (s) => this.connectionState(s));
+    // Reconnecting after a deploy lands on the new server: its build tells us we're outdated. A
+    // draining server is the old one, still finishing games.
+    on('welcome', (w) => {
+      if (!w.draining) this.updates.server(w.build, w.version);
+    });
     on('room', () => {
       if (net.roomView) {
         notice('room-pending', null);
@@ -309,6 +321,42 @@ export class App {
     }
     this.root.classList.toggle('game-notices', this.gameShowsNotices);
     this.renderTopbar();
+  }
+
+  /** The "new version" notice: reload now, or close it for a while. */
+  private showUpdate(version: string): void {
+    notice(
+      'update',
+      h(
+        'span',
+        { class: 'update-notice', dataset: { testid: 'update-notice' } },
+        h('span', null, t('app.updateAvailable', { 0: version })),
+        h(
+          'span',
+          { class: 'row' },
+          h(
+            'button',
+            {
+              class: 'btn primary small',
+              dataset: { testid: 'update-reload' },
+              on: { click: () => location.reload() },
+            },
+            t('settings.reload'),
+          ),
+          h(
+            'button',
+            {
+              class: 'btn ghost small',
+              title: t('profile.close'),
+              'aria-label': t('profile.close'),
+              dataset: { testid: 'update-dismiss' },
+              on: { click: () => this.updates.dismiss() },
+            },
+            '✕',
+          ),
+        ),
+      ),
+    );
   }
 
   /** A multiplayer game is on screen: it shows room and connection notices itself. */
@@ -452,6 +500,8 @@ export class App {
     this.screen?.destroy?.();
     this.routeName = name;
     this.busy.setBusyScreen(!!route.busy);
+    // Runs (and their results) are never interrupted; the prompt waits for the menus.
+    this.updates.screen(name === 'play');
     this.screen = route.create(this, params);
     // Menu music everywhere outside a run (it starts on the first click or key); the game plays
     // its own.

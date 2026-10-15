@@ -58,6 +58,28 @@ describe('game sessions', () => {
     expect(b.client.rttMs).toBeGreaterThanOrEqual(40);
   });
 
+  it('names the deployed build in welcome, and nothing in development', async () => {
+    const config = t.app.game!.config;
+    const welcome = async () => {
+      const b = await t.bot();
+      const s = raw(t.url, b.cookie);
+      await s.opened;
+      s.ws.send(encode({ type: 'hello', protocolVersion: PROTOCOL_VERSION }));
+      const m = await waitFor(() => s.messages.find((m) => m.type === 'welcome'), 'welcome');
+      s.ws.close();
+      return m;
+    };
+    const dev = await welcome();
+    expect(dev).not.toHaveProperty('build');
+    expect(dev).not.toHaveProperty('version');
+    config.build = { id: 'build-42', version: 'v42' };
+    try {
+      expect(await welcome()).toMatchObject({ build: 'build-42', version: 'v42' });
+    } finally {
+      config.build = null;
+    }
+  });
+
   it('supersedes the older socket of the same user, which does not reconnect', async () => {
     const b = await t.bot();
     await b.connect();
