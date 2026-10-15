@@ -33,6 +33,7 @@ import {
   regionTabs,
   shinyChipLabel,
 } from './pokemon-views.js';
+import { prestigeOf } from './prestige.js';
 
 const SORT_LABEL: Record<PokemonSort, UiStringKey> = {
   dex: 'picker.sortDex',
@@ -250,6 +251,7 @@ export function pokemonPicker(
               selected: p.dex === selected,
               partner: isPartner,
               hasShiny: ownsShiny(p.dex),
+              prestige: prestigeOf(s, p.dex),
               shiny: isPartner && s.partner.shiny && ownsShiny(p.dex),
               tag: levels ? t('picker.upgradeTag', { 0: levels }) : null,
               // Only this selects: the focus passing over a cell (the keys, the gamepad) doesn't.
@@ -285,6 +287,7 @@ export function pokemonPicker(
         compact: true,
         hasShiny,
         viewShiny,
+        prestige: prestigeOf(s, p.dex),
         onShiny: (shiny) => {
           viewShiny = shiny;
           renderDetail();

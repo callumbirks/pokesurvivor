@@ -292,6 +292,7 @@ class GameScreen {
       dead: r.reason === 'all-down',
       bestTimeS: this.save?.stats.bestTimeS ?? null,
       ownedShiny: (dex) => (this.save ? this.save.shiny[String(dex)] !== undefined : null),
+      players: run?.game.players,
       onBack: () => this.exit(r),
     });
     this.layer.append(view);

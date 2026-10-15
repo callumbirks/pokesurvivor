@@ -234,3 +234,27 @@ export const gachaPulls = pgTable(
   },
   (t) => [index('gacha_pulls_user_id_idx').on(t.userId, t.createdAt)],
 );
+
+/**
+ * Every Pokémon prestige, for auditing: the stars it reached and the upgrade levels and banned
+ * moves it reset. The ledger has a matching zero-coin `prestige` entry.
+ */
+export const pokemonPrestiges = pgTable(
+  'pokemon_prestiges',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    dex: integer('dex').notNull(),
+    /** Stars after this prestige. */
+    stars: smallint('stars').notNull(),
+    /** What it reset: `{ upgrades: { id: level }, moveBans: [moveId] }`. */
+    reset: jsonb('reset').notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index('pokemon_prestiges_user_id_idx').on(t.userId, t.dex),
+    check('pokemon_prestiges_stars_positive', sql`${t.stars} >= 1`),
+  ],
+);

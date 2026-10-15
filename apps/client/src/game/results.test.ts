@@ -93,3 +93,23 @@ describe('results: achievement rewards', () => {
     expect(root.querySelector('[data-testid="results-achievement-rewards"]')).toBeNull();
   });
 });
+
+describe('results: prestige', () => {
+  it("shows each player's Pokémon with its stars", () => {
+    const root = renderResults(coop([player('me'), player('friend')]), {
+      selfId: 'me',
+      dead: true,
+      bestTimeS: null,
+      players: [
+        { id: 'me', username: 'me', index: 0, dex: 25, shiny: false, prestige: 2 },
+        { id: 'friend', username: 'friend', index: 1, dex: 4, shiny: false },
+      ],
+      onBack: () => {},
+    });
+    const own = root.querySelector('[data-testid="results-pokemon"]');
+    expect(own?.textContent).toBe('Pikachu ★★');
+    const team = root.querySelector('.ps-team-results')!;
+    expect(team.querySelectorAll('[data-testid="stars"]')).toHaveLength(1);
+    expect(team.textContent).toContain('Charmander');
+  });
+});

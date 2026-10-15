@@ -1,8 +1,9 @@
 // Pokémon widgets shared by the collection and the Pokémon picker: the region tabs, the
 // shiny / rarity chips, a grid cell, and the detail panel (stage, types, stats, starting move).
-import { t, type Pokemon } from '@pokesurvivor/data';
+import { prestigeBonus, t, type Pokemon } from '@pokesurvivor/data';
 import { boxFor, gameData, h, icon, rarityBall, rarityInfo, sprite, typeChip } from './dom.js';
 import { movePoolOf, startingMoveOf } from './moves.js';
+import { prestigeBox, stars } from './prestige.js';
 
 /**
  * The region (generation) tabs: one per gacha banner, each with `count(gen)` under its name,
@@ -73,6 +74,8 @@ export interface CellOptions {
   shiny: boolean;
   /** A tag in the bottom corner (upgrade levels). */
   tag?: string | null;
+  /** Prestige stars, by the name. */
+  prestige?: number;
   /** `e.detail` is 0 for A or Enter, as for any click without a pointer. */
   onClick: (e: MouseEvent) => void;
 }
@@ -105,6 +108,7 @@ export function pokemonCell(p: Pokemon, o: CellOptions): HTMLElement {
       }),
     ),
     h('b', null, o.own ? p.name : '???'),
+    o.own ? stars(o.prestige, 'cell-stars') : null,
     h(
       'span',
       { class: 'cell-foot' },
@@ -133,6 +137,54 @@ export interface DetailOptions {
   extra?: Node | null;
   /** A shorter stage (the picker, which also shows the filters). */
   compact?: boolean;
+  /** Prestige stars: by the name, as gold tips on the stat bars, and the "Prestige" box. */
+  prestige?: number;
+}
+
+/** Bar lengths: the largest base stats in the Pokédex (HP, attack, speed). */
+const BAR_MAX = { hp: 183, attack: 1.55, speed: 137 };
+
+/**
+ * HP, attack and speed bars of a Pokémon's base stats; with prestige stars, each bar gets a gold
+ * tip for the prestige share and its value includes it, then the "Prestige" box of % chips.
+ */
+export function statBars(p: Pokemon, prestige = 0): Node[] {
+  const b = prestigeBonus(gameData().tuning.prestige, prestige);
+  const pct = (mul: number) => Math.round((mul - 1) * 100);
+  const bar = (label: string, v: number, mul: number, max: number, text: string) => {
+    const base = Math.min(100, (v / max) * 100);
+    const tip = Math.min(100 - base, base * (mul - 1));
+    return h(
+      'div',
+      { class: ['stat', mul > 1 && 'prestiged'] },
+      h('span', null, label),
+      h(
+        'div',
+        { class: 'bar' },
+        h('i', { style: { width: `${base}%` } }),
+        tip > 0 ? h('b', { style: { left: `${base}%`, width: `${tip}%` } }) : null,
+      ),
+      h('span', null, text, mul > 1 ? [' ', h('em', { class: 'gold' }, `+${pct(mul)}%`)] : null),
+    );
+  };
+  return [
+    bar(t('collection.hp'), p.hp, b.hpMul, BAR_MAX.hp, String(Math.round(p.hp * b.hpMul))),
+    bar(
+      t('collection.attack'),
+      p.attack,
+      b.damageMul,
+      BAR_MAX.attack,
+      `×${(p.attack * b.damageMul).toFixed(2)}`,
+    ),
+    bar(
+      t('collection.speed'),
+      p.speed,
+      b.speedMul,
+      BAR_MAX.speed,
+      String(Math.round(p.speed * b.speedMul)),
+    ),
+    prestigeBox(prestige),
+  ].filter((n): n is HTMLElement => n !== null);
 }
 
 /**
@@ -143,18 +195,6 @@ export function pokemonDetail(p: Pokemon, o: DetailOptions): Node[] {
   const data = gameData();
   const banner = data.gacha.banners.find((b) => b.gen === p.gen);
   const shown = o.own && o.viewShiny;
-  const bar = (label: string, v: number, max: number, text: string) =>
-    h(
-      'div',
-      { class: 'stat' },
-      h('span', null, label),
-      h(
-        'div',
-        { class: 'bar' },
-        h('i', { style: { width: `${Math.min(100, (v / max) * 100)}%` } }),
-      ),
-      h('span', null, text),
-    );
   const nodes: (Node | null)[] = [
     h(
       'div',
@@ -202,7 +242,12 @@ export function pokemonDetail(p: Pokemon, o: DetailOptions): Node[] {
         { class: 'muted small' },
         `#${String(p.dex).padStart(3, '0')} · ${banner?.name ?? ''}`,
       ),
-      h('h3', { dataset: { testid: 'detail-name' } }, o.own ? p.name : '???'),
+      h(
+        'h3',
+        { dataset: { testid: 'detail-name' } },
+        o.own ? p.name : '???',
+        o.own && o.prestige ? [' ', stars(o.prestige)] : null,
+      ),
       h(
         'div',
         { style: { color: rarityInfo(p.rarity).color } },
@@ -216,9 +261,7 @@ export function pokemonDetail(p: Pokemon, o: DetailOptions): Node[] {
   ];
   if (o.own)
     nodes.push(
-      bar(t('collection.hp'), p.hp, 183, String(p.hp)),
-      bar(t('collection.attack'), p.attack, 1.55, `×${p.attack.toFixed(2)}`),
-      bar(t('collection.speed'), p.speed, 137, String(p.speed)),
+      ...statBars(p, o.prestige),
       h(
         'p',
         { class: 'small' },

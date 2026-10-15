@@ -5,7 +5,7 @@
 // player's entry in `game.results`), totalled apart from the run's own coins and tickets.
 import { loadGameData, t } from '@pokesurvivor/data';
 import type { Results } from '@pokesurvivor/netclient';
-import type { UnlockedAchievement } from '@pokesurvivor/protocol';
+import type { PlayerLoadout, UnlockedAchievement } from '@pokesurvivor/protocol';
 import { audio } from '../audio.js';
 import { inputHint } from '../glyphs.js';
 import { el, icon, spriteEl } from './dom.js';
@@ -21,7 +21,26 @@ export interface ResultsOptions {
   bestTimeS: number | null;
   /** Did the player own this shiny before the run (null: unknown)? Marks the new ones. */
   ownedShiny?(dex: number): boolean | null;
+  /** The run's players (`GameStatic.players`): their Pokémon and its prestige stars. */
+  players?: readonly PlayerLoadout[];
   onBack(): void;
+}
+
+/** A Pokémon's prestige stars in gold (null without stars). */
+export function starsEl(n: number | undefined): HTMLElement | null {
+  if (!n) return null;
+  return el(
+    'span',
+    { class: 'stars', title: t('prestige.stars', { 0: n }), data: { testid: 'stars' } },
+    '★'.repeat(n),
+  );
+}
+
+/** "Pikachu ★★": a player's Pokémon and its stars. */
+function playedPokemon(info: PlayerLoadout | undefined): HTMLElement | null {
+  if (!info) return null;
+  const stars = starsEl(info.prestige);
+  return el('span', { class: 'ps-played' }, pokemonName(info.dex), stars ? ' ' : null, stars);
 }
 
 type AchievementReward = UnlockedAchievement['reward'];
@@ -90,6 +109,9 @@ export function renderResults(results: Results, o: ResultsOptions): HTMLElement 
   const ps = mine?.summary.player ?? null;
   const box = el('div', { class: 'ps-box ps-results', data: { testid: 'results' } });
   box.append(el('h2', null, o.dead ? t('pause.youFell') : t('pause.runOver')));
+  const own = playedPokemon(o.players?.find((p) => p.id === (mine?.userId ?? o.selfId)));
+  if (own)
+    box.append(el('div', { class: 'ps-results-mon', data: { testid: 'results-pokemon' } }, own));
   const stats = el('div', { class: 'stats' });
   const cell = (label: string, value: Node | string, wide = false, extra?: Node) =>
     stats.append(
@@ -205,6 +227,10 @@ export function renderResults(results: Results, o: ResultsOptions): HTMLElement 
           'div',
           { class: p.left ? 'left' : '' },
           el('b', null, p.username),
+          ...(() => {
+            const mon = playedPokemon(o.players?.find((x) => x.id === p.userId));
+            return mon ? [' · ', mon] : [];
+          })(),
           ` · ${mmss(p.summary.run.durationS)} · `,
           icon('coin', 14),
           ` ${p.summary.run.coins}`,

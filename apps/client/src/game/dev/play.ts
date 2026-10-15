@@ -94,6 +94,7 @@ async function loadSoloLoadout(): Promise<{
     owned: Record<string, unknown>;
     shiny: Record<string, unknown>;
     upgrades: Record<string, Record<string, number>>;
+    prestige?: Record<string, number>;
     moveBans: Record<string, string[]>;
     moveBindings: Record<string, (string | null)[]>;
     legendsBeaten: Record<string, unknown>;
@@ -109,6 +110,7 @@ async function loadSoloLoadout(): Promise<{
       dex,
       shiny: save.partner.shiny && save.shiny[key] !== undefined,
       upgrades: save.upgrades[key] ?? {},
+      prestige: save.prestige?.[key] ?? 0,
       bannedMoves: save.moveBans[key] ?? [],
       moveBindings: save.moveBindings[key] ?? [],
       legendsBeaten: Object.keys(save.legendsBeaten).map(Number),

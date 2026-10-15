@@ -615,6 +615,15 @@ export class EntityLayer {
       ctx.strokeText(name, p.x, y);
       ctx.fillStyle = p.dead ? '#ff8a96' : offline ? '#9aa2ae' : (PLAYER_COLORS[p.index] ?? '#fff');
       ctx.fillText(name, p.x, y);
+      // Their Pokémon's prestige stars, in gold after the name.
+      if (info?.prestige) {
+        const stars = '★'.repeat(info.prestige);
+        const sx = p.x + ctx.measureText(name).width / 2 + 1.5;
+        ctx.textAlign = 'left';
+        ctx.strokeText(stars, sx, y);
+        ctx.fillStyle = '#ffd65c';
+        ctx.fillText(stars, sx, y);
+      }
       ctx.restore();
     }
   }

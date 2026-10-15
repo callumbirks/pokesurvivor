@@ -5,6 +5,7 @@ import { t } from '@pokesurvivor/data';
 import type { App, Screen } from '../app/app.js';
 import { pokemonPicker } from '../app/pokemon-picker.js';
 import { playSolo } from '../app/solo-runs.js';
+import { prestigeOf } from '../app/prestige.js';
 import { gameData } from '../app/dom.js';
 import { screenBox } from './common.js';
 
@@ -39,6 +40,7 @@ export function soloScreen(app: App): Screen {
               dex: p.dex,
               shiny,
               upgrades: s.upgrades[key] ?? {},
+              prestige: prestigeOf(s, p.dex),
               bannedMoves: s.moveBans[key] ?? [],
               moveBindings: s.moveBindings[key] ?? [],
               legendsBeaten: Object.keys(s.legendsBeaten).map(Number),

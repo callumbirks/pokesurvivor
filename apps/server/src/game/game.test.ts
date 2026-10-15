@@ -6,7 +6,8 @@ import { CloseCode, quantizeAim } from '@pokesurvivor/protocol';
 import { eq, inArray } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { runPlayers, runs } from '../db/schema.js';
-import { getSave } from '../saves/service.js';
+import { getServerData } from '../data.js';
+import { getSave, withLockedSave } from '../saves/service.js';
 import {
   createGameTestServer,
   lobby,
@@ -74,6 +75,30 @@ describe('coop games over the network', () => {
     await waitFor(() => a!.client.stats().snapshotsPerSecond > 10, 'snapshot rate');
     expect(a!.client.stats().inputsPerSecond).toBeGreaterThan(0);
     for (const b of bots) await b.client.leaveRoom();
+  });
+
+  it('brings each partner’s prestige from the save into the lobby, the roster and the sim', async () => {
+    const bots = await t.party(2, laggy);
+    const [a, b] = bots;
+    await withLockedSave(t.database.db.db, a!.userId, (save) => {
+      save.data.prestige['25'] = 2;
+    });
+    await lobby(bots);
+    const members = b!.client.roomView!.members;
+    expect(members.find((m) => m.userId === a!.userId)?.partner).toEqual({
+      dex: 25,
+      shiny: false,
+      prestige: 2,
+    });
+    expect(members.find((m) => m.userId === b!.userId)?.partner).toEqual({ dex: 25, shiny: false });
+    await startGame(bots);
+    const game = serverGame(t, a!);
+    expect(game.info.players.find((p) => p.id === a!.userId)?.prestige).toBe(2);
+    expect(game.info.players.find((p) => p.id === b!.userId)?.prestige).toBeUndefined();
+    const [pa, pb] = [a, b].map((x) => game.sim.state.players.find((p) => p.id === x!.userId)!);
+    const { perStar } = getServerData().tuning.prestige;
+    expect(pa!.attackMul).toBeCloseTo(pb!.attackMul * (1 + 2 * perStar.damage));
+    for (const x of bots) await x.client.leaveRoom();
   });
 
   it('tells the players when the game loop falls behind (the network stats show it)', async () => {

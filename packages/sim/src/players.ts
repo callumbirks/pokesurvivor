@@ -1,5 +1,6 @@
 // The players' Pokémon (original implementation, logic only): stats, movement with collisions,
 // liquids, auto-aim (or the player's manual aim), damage, healing, going down and being revived.
+import { prestigeBonus } from '@pokesurvivor/data';
 import { emptyRunProgress } from '@pokesurvivor/protocol';
 import { DT, TILE } from './constants.js';
 import { activePlayers, emit, type Ctx } from './ctx.js';
@@ -27,6 +28,8 @@ export interface PlayerConfig {
   moveBindings?: readonly (string | null)[];
   /** Dex numbers of the legendaries this player has beaten (unbeaten ones come up more in rifts). */
   legendsBeaten?: readonly number[];
+  /** Prestige stars of this Pokémon (0–3): a bonus on top of its upgrades (`prestigeBonus`). */
+  prestige?: number;
 }
 
 /** Seconds a teammate must stand next to you to revive you. */
@@ -48,6 +51,9 @@ export function createPlayer(
   if (!mon) throw new Error(`unknown Pokémon ${cfg.dex}`);
   const body = d.body(cfg.dex);
   const perks = d.perks(cfg.upgrades ?? {});
+  // Prestige multiplies the upgraded stats and adds points where upgrades add points.
+  const star = prestigeBonus(d.game.tuning.prestige, cfg.prestige);
+  const maxHp = Math.round((mon.hp + perks.hp) * star.hpMul);
   // Side by side at the centre of the starting clearing.
   const x = (index - (count - 1) / 2) * 34;
   const p: PlayerState = {
@@ -75,19 +81,19 @@ export function createPlayer(
     moveAngle: Math.PI / 2,
     aim: Math.PI / 2,
     target: null,
-    hp: mon.hp + perks.hp,
-    maxHp: mon.hp + perks.hp,
+    hp: maxHp,
+    maxHp,
     baseSpeed: mon.speed,
     baseAttack: mon.attack,
-    attackMul: perks.attackMul,
-    speedMul: perks.speedMul,
-    cooldownMul: perks.cooldownMul,
-    damageReduction: perks.damageReduction,
+    attackMul: perks.attackMul * star.damageMul,
+    speedMul: perks.speedMul * star.speedMul,
+    cooldownMul: perks.cooldownMul * star.cooldownMul,
+    damageReduction: perks.damageReduction + star.damageReduction,
     regen: perks.regen,
     magnet: BASE_MAGNET * perks.magnetMul,
     xpMul: perks.xpMul,
     coinMul: perks.coinMul,
-    critChance: perks.crit,
+    critChance: perks.crit + star.crit,
     buffs: { attack: newBuff(), speed: newBuff(), defense: newBuff(), regen: newBuff() },
     momentum: 0,
     momentumIdle: 0,

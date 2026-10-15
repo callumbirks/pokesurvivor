@@ -4,7 +4,7 @@ import { z } from 'zod';
  * The JSONB part of a save (`saves.data`). Balances and the partner live in typed columns. Bump
  * `SAVE_DATA_VERSION` and add a step to `migrateSaveData` when the layout changes.
  */
-export const SAVE_DATA_VERSION = 2;
+export const SAVE_DATA_VERSION = 3;
 
 /**
  * National dex number. Stored saves only check the range, so a Pokémon removed from the data
@@ -110,6 +110,11 @@ export const saveDataSchema = z.object({
     .nullable(),
   /** dex -> upgrade id -> level bought. */
   upgrades: z.record(dexKey, z.record(z.string().max(32), z.number().int().nonnegative())),
+  /**
+   * dex -> prestige stars (1 up to `tuning.prestige.maxStars`); absent means none. Prestige
+   * resets the Pokémon's upgrades and bans (`POST /api/save/prestige`).
+   */
+  prestige: z.record(dexKey, z.number().int().min(1).max(9)),
   /** dex -> move id fixed in each of the 4 slots, or null (original `pbind`). */
   moveBindings: z.record(dexKey, z.array(z.string().max(32).nullable()).length(MOVE_SLOTS)),
   /** dex -> moves that never show up in level-up cards (original `pban`, `ban` upgrade). */
@@ -147,6 +152,7 @@ export function newSaveData(): SaveData {
     starter: null,
     personality: null,
     upgrades: {},
+    prestige: {},
     moveBindings: {},
     moveBans: {},
     pity: {},
@@ -213,11 +219,17 @@ function migrateV1(data: Record<string, unknown>): Record<string, unknown> {
   };
 }
 
+/** Version 2 -> 3: Pokémon prestige stars (none yet). */
+function migrateV2(data: Record<string, unknown>): Record<string, unknown> {
+  return { ...data, prestige: {} };
+}
+
 /** Brings stored data of any known version up to `SAVE_DATA_VERSION` and validates it. */
 export function migrateSaveData(version: number, data: unknown): SaveData {
   if (version > SAVE_DATA_VERSION)
     throw new Error(`Save data version ${version} is newer than this server`);
   let current = data as Record<string, unknown>;
   if (version < 2) current = migrateV1(current);
+  if (version < 3) current = migrateV2(current);
   return saveDataSchema.parse(current);
 }

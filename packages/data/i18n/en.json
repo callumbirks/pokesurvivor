@@ -731,7 +731,9 @@
     "not_playing": "No game is running.",
     "bad_request": "That request wasn't valid.",
     "in_room": "Leave your room to play solo.",
-    "room_pending": "This player or room is still on the previous server. Wait for the game to finish and the lobby to reconnect."
+    "room_pending": "This player or room is still on the previous server. Wait for the game to finish and the lobby to reconnect.",
+    "prestige_not_ready": "Max every upgrade of that Pokémon first.",
+    "prestige_maxed": "That Pokémon already has every star."
   },
   "notices": {
     "dropped-at-loading": "{0} couldn't load in time and stays in the room",
@@ -779,5 +781,29 @@
     "change": "Change Pokémon",
     "isNowYourPokemon": "{0} is your Pokémon for this room",
     "gameInProgress": "A game is in progress: change your Pokémon after it."
+  },
+  "prestige": {
+    "title": "Prestige",
+    "stars": "Prestige {0}",
+    "button": "Prestige",
+    "maxed": "Prestige {0}: the highest",
+    "notReady": "Max every upgrade to prestige it.",
+    "ready": "Every upgrade is maxed: prestige it for a star.",
+    "confirmTitle": "Prestige {0}?",
+    "resets": "Resets",
+    "resetUpgrades": "All {0} upgrades go back to level 0, Repertoire and Ban included.",
+    "resetBans": "Its banned moves are cleared.",
+    "keeps": "Its move shortcuts stay. Prestige is free.",
+    "gain": "You gain",
+    "gainStar": "Prestige {0}, in every run with it:",
+    "confirm": "Prestige",
+    "cancel": "Cancel",
+    "done": "{0} reached Prestige {1}!",
+    "hp": "+{0}% HP",
+    "damage": "+{0}% damage",
+    "speed": "+{0}% speed",
+    "cooldown": "−{0}% cooldown",
+    "damageTaken": "−{0}% damage taken",
+    "crit": "+{0}% crit chance"
   }
 }

@@ -13,6 +13,11 @@ export type LedgerReason =
   | 'gacha_refund'
   | 'mission_reward'
   | 'achievement_reward'
+  /**
+   * A zero-coin marker written when a Pokémon is prestiged (`refId` `dex:prestige:stars`), so
+   * the coins spent on its upgrades since its last prestige can be summed from the ledger.
+   */
+  | 'prestige'
   | 'admin_adjustment';
 
 export interface LedgerEntry {
@@ -61,6 +66,15 @@ export class Wallet {
       throw new InsufficientFundsError(currency, -delta, this.#balances[currency]);
     this.#balances[currency] = balanceAfter;
     this.entries.push({ currency, delta, balanceAfter, reason, refId: refId ?? null });
+  }
+
+  /**
+   * Records an event that moves no balance (a zero-delta entry), as a marker other ledger
+   * queries can order against.
+   */
+  mark(currency: Currency, reason: LedgerReason, refId?: string): void {
+    const balanceAfter = this.#balances[currency];
+    this.entries.push({ currency, delta: 0, balanceAfter, reason, refId: refId ?? null });
   }
 
   credit(currency: Currency, amount: number, reason: LedgerReason, refId?: string): void {

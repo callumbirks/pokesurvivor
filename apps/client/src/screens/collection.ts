@@ -17,6 +17,7 @@ import {
 } from '../app/pokemon-views.js';
 import { toast } from '../app/toast.js';
 import { screenBox } from './common.js';
+import { prestigeOf } from '../app/prestige.js';
 
 type Filter = 'all' | 'owned' | 'missing' | 'shiny' | '1' | '2' | '3' | '4' | '5';
 
@@ -120,6 +121,7 @@ export function collectionScreen(app: App, params: URLSearchParams): Screen {
               selected: p.dex === selected,
               partner: isPartner,
               hasShiny: ownsShiny(p.dex),
+              prestige: prestigeOf(s, p.dex),
               shiny: shinyPartner,
               onClick: () => {
                 selected = p.dex;
@@ -174,6 +176,7 @@ export function collectionScreen(app: App, params: URLSearchParams): Screen {
         own,
         hasShiny,
         viewShiny,
+        prestige: prestigeOf(s, p.dex),
         onShiny: (shiny) => {
           viewShiny = shiny;
           renderDetail();
