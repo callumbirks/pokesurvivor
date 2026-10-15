@@ -608,6 +608,13 @@ html[data-input='gamepad'] .ps-card.rarity.legendary.focus {
   color: var(--gold);
   font-size: 14px;
 }
+/* Our own revive: green, not the alarm red. */
+.ps-mate-alert.self .title {
+  color: #9dffb8;
+}
+.ps-mate-alert.self .hint {
+  color: #e8f4ea;
+}
 .ps-mate-alert.in {
   animation: ps-mate-pop 0.3s steps(4);
 }

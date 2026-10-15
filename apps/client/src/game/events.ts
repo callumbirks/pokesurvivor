@@ -59,6 +59,8 @@ export interface EventSinks {
   say(text: string, seconds: number): void;
   /** A white (or coloured) full-screen flash. */
   flash(color: string, seconds: number): void;
+  /** A softer glow around the screen's edges (our own revive). */
+  glow(color: string, seconds: number): void;
   /** Does the player already own this Pokémon (for rescues)? */
   owns(dex: number): boolean | null;
 }
@@ -266,8 +268,19 @@ export class EventEffects {
       case 'player-revived': {
         const p = frame.players.find((x) => x.id === e.playerId);
         if (!p) return;
+        const h = entities.playerHeight(frame, p.id);
+        if (mine(e.playerId)) {
+          // Our own revive is easy to miss in the crowd: a bigger double ring, more sparks, a green
+          // glow around the screen and its own sound (MateAlerts adds the banner).
+          fx.ring(p.x, p.y, 8, 120, '#5fe08a', 0.7, 6);
+          fx.ring(p.x, p.y, 4, 80, '#c8ffd6', 0.5, 3);
+          fx.burst(p.x, p.y - h * 0.5, '#9dffb8', 36, 220);
+          this.k.glow('#5fe08a', 1.2);
+          this.sfx('revived');
+          return;
+        }
         fx.ring(p.x, p.y, 6, 70, '#5fe08a', 0.5, 4);
-        fx.burst(p.x, p.y - entities.playerHeight(frame, p.id) * 0.5, '#9dffb8', 18, 150);
+        fx.burst(p.x, p.y - h * 0.5, '#9dffb8', 18, 150);
         this.sfx('heal');
         return;
       }

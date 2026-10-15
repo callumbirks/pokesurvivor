@@ -6,10 +6,11 @@ What changed for players in each release, newest first. Generated from
 
 ## Unreleased
 
-PRs: [#80](https://github.com/callumbirks/pokesurvivor/pull/80), [#82](https://github.com/callumbirks/pokesurvivor/pull/82)
+PRs: [#80](https://github.com/callumbirks/pokesurvivor/pull/80), [#81](https://github.com/callumbirks/pokesurvivor/pull/81), [#82](https://github.com/callumbirks/pokesurvivor/pull/82)
 
 ### New
 
+- When a teammate revives you, you now get a clear "You're back up!" banner naming who revived you, with a green glow and its own sound.
 - Upgrade cards now come in Common, Rare, Epic and Legendary, with bigger bonuses, and better odds later in a run.
 
 ### Changed
