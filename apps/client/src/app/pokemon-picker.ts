@@ -2,10 +2,12 @@
 // shiny), sort, a grid of the owned Pokémon and the selected one's details with a confirm button.
 //   const picker = pokemonPicker(app, { id: 'solo', confirm: … });
 //   screen.append(picker.el); … picker.refresh() (the room changed); picker.destroy()
-// It starts on the player's partner. The grid's selection follows the focus, so the keys and the
-// gamepad move it; A (or Enter) on a cell goes on to the confirm button. Enter or ↓ in the search
-// field goes to the first result; Esc leaves the field (menu-nav), and B goes back as usual.
-// On short screens (phones in landscape) the filters fold behind a button and the confirm button
+// It starts on the player's partner. The keys and the gamepad move a focus over the grid; only a
+// click, a tap or A (or Enter) on a cell selects it, and A goes on to the confirm button, which
+// always acts on the selection. → from the grid's right edge goes to the confirm button too, and
+// ← from it back to the selected cell. Enter in the search field picks the first result, ↓ goes
+// to it; Esc leaves the field (menu-nav), and B goes back as usual.
+// On phones (in landscape or portrait) the filters fold behind a button, and the confirm button
 // stays below the details, which scroll.
 import { t, type Pokemon, type UiStringKey } from '@pokesurvivor/data';
 import { menuNav } from '../menu-nav.js';
@@ -101,11 +103,15 @@ export function pokemonPicker(
   const chips = h('div', { class: 'filters picker-chips', dataset: { navRow: '' } });
   const types = h('div', { class: 'filters picker-types', dataset: { navRow: '' } });
   const filters = h('div', { class: 'picker-filters' }, regions, chips, types);
-  const grid = h('div', { class: 'grid', dataset: { testid: `${id}-grid`, navGrid: '' } });
+  const confirmId = opts.confirm.testid ?? `${id}-confirm`;
+  const grid = h('div', {
+    class: 'grid',
+    dataset: { testid: `${id}-grid`, navGrid: '', navRight: `[data-testid="${confirmId}"]` },
+  });
   const info = h('div', { class: 'picker-info' });
   const confirm = h('button', {
     class: ['btn', 'primary', 'wide-btn', opts.confirm.big && 'big-btn'],
-    dataset: { testid: opts.confirm.testid ?? `${id}-confirm` },
+    dataset: { testid: confirmId, navLeft: `[data-testid="${id}-grid"] .cell.on` },
   });
   const note = h('p', { class: 'note gold picker-note', dataset: { testid: `${id}-blocked` } });
   const el = h(
@@ -137,6 +143,7 @@ export function pokemonPicker(
     const first = grid.querySelector<HTMLElement>('.cell');
     if (!first) return;
     e.preventDefault();
+    if (e.key === 'Enter' && first.dataset.dex) select(Number(first.dataset.dex));
     menuNav.moveTo(first);
   });
   sortBtn.addEventListener('click', () => {
@@ -225,12 +232,6 @@ export function pokemonPicker(
     renderDetail();
   };
 
-  // The selection follows the focus (the arrow keys, the gamepad, a tap).
-  grid.addEventListener('focusin', (e) => {
-    const cell = e.target instanceof Element ? e.target.closest<HTMLElement>('.cell') : null;
-    if (cell?.dataset.dex) select(Number(cell.dataset.dex));
-  });
-
   const renderGrid = () => {
     const s = app.save;
     if (!s) return;
@@ -251,6 +252,7 @@ export function pokemonPicker(
               hasShiny: ownsShiny(p.dex),
               shiny: isPartner && s.partner.shiny && ownsShiny(p.dex),
               tag: levels ? t('picker.upgradeTag', { 0: levels }) : null,
+              // Only this selects: the focus passing over a cell (the keys, the gamepad) doesn't.
               onClick: (e) => {
                 select(p.dex);
                 // A or Enter (not a pointer): on to the confirm button.
