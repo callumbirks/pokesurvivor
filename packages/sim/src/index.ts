@@ -21,6 +21,7 @@ export { MANUAL_AIM_CONE } from './combat.js';
 export { hash2 } from './math.js';
 export { momentumCap } from './momentum.js';
 export { rerollsLeft } from './choices.js';
+export { rarityTier, rarityWeights, scaledCardEffect } from './rarity.js';
 export type { ChoiceResult } from './choices.js';
 export type { HitLabel, ProgressEventName, SimEvent, SimEventType } from './events.js';
 export { playerRunSummary } from './summary.js';

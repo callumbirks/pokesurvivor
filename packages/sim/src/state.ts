@@ -223,6 +223,8 @@ export interface PlayerState {
   rerollBonus: number;
   /** Times each level-up stat card was taken (move evolutions need one). */
   statsTaken: Record<string, number>;
+  /** The multiplier each `mul` stat card's picks have built up (what its ceiling bounds). */
+  cardMul: Record<string, number>;
   item: string | null;
   /** Regen Leftovers added when equipped (removed again on swap). */
   itemRegen: number;
@@ -594,6 +596,8 @@ export interface CardOption {
   toLevel?: number;
   /** Stat cards that unlock a waiting evolution: the move that's waiting. */
   unlocksEvolutionOf?: string;
+  /** Stat cards: the rolled rarity tier (levelup.json `rarity.tiers` id); none for a heal. */
+  rarity?: string;
 }
 
 interface ChoiceBase {

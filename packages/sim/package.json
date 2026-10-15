@@ -21,7 +21,8 @@
     "wilds:summary": "tsx test/summarize-wilds.ts",
     "late-growth": "tsx test/measure-late-growth.ts",
     "momentum": "tsx test/measure-momentum.ts",
-    "training": "tsx test/measure-training.ts"
+    "training": "tsx test/measure-training.ts",
+    "rarities": "tsx test/measure-rarities.ts"
   },
   "dependencies": {
     "@pokesurvivor/data": "workspace:*",

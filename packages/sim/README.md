@@ -137,7 +137,14 @@ already own" are the server's job.
   own server-generated cards; the game is paused until all are resolved. Item swaps (picking up a
   second held item) pause it too. Level-ups wait for pending swaps.
 - From `tuning.lateGrowth.offers.fromMinute`, every level-up offer holds an offensive stat card
-  (Power or Reflexes, whichever isn't capped) at a random slot; a ready evolution keeps its own.
+  (Power or Reflexes, whichever isn't at its ceiling) at a random slot; a ready evolution keeps
+  its own.
+- Stat cards have no pick limits. Each offered one (except `rarity: false`, Sitrus Berry) rolls a
+  rarity (`rarity.ts`, levelup.json `rarity`): the odds interpolate over the run minute, and the
+  tier's multiplier scales the card's bonus (the part above 1 of a multiplier). A card with a `cap`
+  is clamped to it and no longer offered once there; for a `mul` card it bounds what the card's
+  own picks have built (`PlayerState.cardMul`), not items or upgrades. A pick counts once for
+  evolutions, whatever its rarity.
 - Momentum (`momentum.ts`, `tuning.momentum`): each kill credited to a player (last hit, or their
   burn/poison tick: `burnBy` / `poisonBy`) adds a stack, ×(1 + perStack · stacks) on their move
   damage, up to `momentumCap` (linear from `maxStacksStart` to `maxStacks` at

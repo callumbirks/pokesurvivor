@@ -60,6 +60,12 @@ export const ItemsFileSchema = z.array(ItemSchema).min(1);
 // ---------------- level-up cards ----------------
 
 export const StatCardEffectSchema = z.discriminatedUnion('type', [
+  /**
+   * `cap` is the card's ceiling, and the card stops being offered once it's reached. `add`: a bound
+   * on the stat itself (Armor's damage reduction). `mul`: a bound on the multiplier the card's own
+   * picks have built up (held items and permanent upgrades stay outside it); for a multiplier below
+   * 1 (Reflexes' cooldown) it's a floor. A pick that would pass it is clamped to it.
+   */
   z.strictObject({ type: z.literal('stat'), ...StatEffectSchema.shape }),
   /** Raise max HP and heal the same amount. */
   z.strictObject({ type: z.literal('maxHp'), value: z.number().positive() }),
@@ -70,9 +76,13 @@ export const StatCardSchema = z.strictObject({
   id: IdSchema,
   icon: IdSchema,
   name: TextSchema,
+  /**
+   * Shown with the rolled amount: `{value}` (max HP, HP per second) or `{percent}` (the bonus of a
+   * multiplier or a fraction, as a percentage).
+   */
   description: TextSchema,
-  /** How many times it can be taken per run (unlimited if absent). */
-  maxPicks: z.number().int().positive().optional(),
+  /** Rolls a rarity (default). `false`: always the base effect, shown without a rarity. */
+  rarity: z.boolean().optional(),
   effect: StatCardEffectSchema,
 });
 export type StatCard = z.infer<typeof StatCardSchema>;
@@ -97,6 +107,47 @@ export const LevelUpFileSchema = z.strictObject({
     statWithFreeSlots: z.number().positive(),
     stat: z.number().positive(),
   }),
+  /**
+   * Stat card rarities. A rarity multiplies the card's bonus: the part above 1 of a `mul` effect
+   * (1.06 at ×1.5 is 1.09), or the value of an `add` / max-HP effect.
+   */
+  rarity: z
+    .strictObject({
+      /** Lowest first. `gachaRarity`: the gacha rarity whose colour the card's frame uses. */
+      tiers: z
+        .array(
+          z.strictObject({
+            id: IdSchema,
+            multiplier: z.number().positive(),
+            gachaRarity: z.number().int().positive(),
+          }),
+        )
+        .min(1),
+      /** Weights per tier versus run minute; interpolate, then hold the last point. */
+      odds: z
+        .array(
+          z.strictObject({
+            minute: z.number().nonnegative(),
+            weights: z.array(z.number().nonnegative()),
+          }),
+        )
+        .min(1)
+        .refine(
+          (points) =>
+            points[0]?.minute === 0 &&
+            points.every((p, i) => i === 0 || p.minute > points[i - 1]!.minute),
+          'Start at minute zero and use strictly increasing minutes',
+        ),
+    })
+    .refine(
+      (r) =>
+        r.odds.every((p) => p.weights.length === r.tiers.length && p.weights.some((w) => w > 0)),
+      'Every odds point needs one weight per tier, and some weight above zero',
+    )
+    .refine(
+      (r) => new Set(r.tiers.map((t) => t.id)).size === r.tiers.length,
+      'Tier ids must be unique',
+    ),
   statCards: z.array(StatCardSchema).min(1),
 });
 export type LevelUpFile = z.infer<typeof LevelUpFileSchema>;

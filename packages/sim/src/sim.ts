@@ -409,6 +409,14 @@ export function restoreSim(state: SimState): Sim {
     p.relocationTokens ??= gameTuning.stragglers.burst;
     p.travelVx ??= 0;
     p.travelVy ??= 0;
+    // Pre-rarity saves: what the picks taken would have built at today's common value.
+    if (!p.cardMul) {
+      p.cardMul = {};
+      for (const [id, n] of Object.entries(p.statsTaken)) {
+        const e = simData().game.statCardById.get(id)?.effect;
+        if (e?.type === 'stat' && e.op === 'mul') p.cardMul[id] = e.value ** n;
+      }
+    }
   }
   for (const e of [...state.enemies, ...(state.arena?.stash ?? [])]) {
     e.targetId ??= null;

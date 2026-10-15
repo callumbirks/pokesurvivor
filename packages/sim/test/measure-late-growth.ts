@@ -108,8 +108,8 @@ function audit(sim: Sim) {
       const e = evolutionInfo(sim.ctx, p, m);
       return e && !e.ready;
     }).length,
-    powerRemaining: 40 - (p.statsTaken.attack ?? 0),
-    reflexesRemaining: 10 - (p.statsTaken.cooldown ?? 0),
+    powerCardMul: p.cardMul.attack ?? 1,
+    reflexesCardMul: p.cardMul.cooldown ?? 1,
   }));
 }
 
@@ -285,10 +285,10 @@ if (mode === 'calibrate') {
                 test.state.players.forEach((p, i) => {
                   const old = earlyBuild.state.players[i]!;
                   if (kind === 'cards') {
-                    p.attackMul /=
-                      1.1 ** ((p.statsTaken.attack ?? 0) - (old.statsTaken.attack ?? 0));
-                    p.cooldownMul /=
-                      0.92 ** ((p.statsTaken.cooldown ?? 0) - (old.statsTaken.cooldown ?? 0));
+                    // What the later picks built (checkpoints from before rarities: none).
+                    const built = (id: string) => (p.cardMul?.[id] ?? 1) / (old.cardMul?.[id] ?? 1);
+                    p.attackMul /= built('attack');
+                    p.cooldownMul /= built('cooldown');
                   } else if (kind === 'items') equip(test.ctx, p, old.item);
                   else {
                     p.slots = structuredClone(old.slots);
