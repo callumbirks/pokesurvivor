@@ -1,7 +1,7 @@
 // RoomConnection: what the game screen talks to while a run is on. The network implementation
 // is below; the solo adapter (phase 4: the sim in a Web Worker) implements the same interface,
 // so the renderer, HUD and input code don't care whether the run is local or on the server.
-import { encodeAim, type InputMessage } from '@pokesurvivor/protocol';
+import { encodeAim, type ClientMessage, type InputMessage } from '@pokesurvivor/protocol';
 import type { Intent, MoveInput } from '@pokesurvivor/sim';
 import { TICK_MS } from '@pokesurvivor/sim';
 import { SnapshotBuffer, type SnapshotBufferOptions } from './buffer.js';
@@ -58,6 +58,11 @@ export interface RoomConnection {
   intent(intent: Intent): Promise<IntentResult>;
   /** The clock snapshots were stamped with (sample `buffer` with it). Default `Date.now`. */
   now?(): number;
+  /**
+   * Coop only: while you're down, centre what the server sends on another player (their id), or
+   * on yourself again (null). The server ignores it unless you're down, and clears it on revive.
+   */
+  spectate?(target: string | null): void;
   /** Solo only: stop or resume the run (multiplayer runs never pause for one player). */
   setPaused?(paused: boolean): void;
   /** Solo only: give up the run (it ends and is reported). Multiplayer leaves the room instead. */
@@ -68,9 +73,15 @@ export interface RoomConnection {
   ): () => void;
 }
 
+/** The fire-and-forget game messages a room connection sends. */
+export type RoomMessage = Extract<
+  ClientMessage,
+  { type: 'input' | 'game.loaded' | 'game.resync' | 'game.spectate' }
+>;
+
 /** What `NetRoomConnection` needs from the client that owns the socket. */
 export interface RoomTransport {
-  send(message: InputMessage | { type: 'game.loaded' | 'game.resync'; gameId: string }): boolean;
+  send(message: RoomMessage): boolean;
   request(message: { type: 'intent'; gameId: string; intent: Intent }): Promise<unknown>;
   now(): number;
 }
@@ -198,6 +209,11 @@ export class NetRoomConnection implements RoomConnection {
       if (phase === 'ended') stop();
     });
     return stop;
+  }
+
+  spectate(target: string | null): void {
+    if (this.game && this.phase === 'running')
+      this.transport.send({ type: 'game.spectate', gameId: this.game.gameId, target });
   }
 
   async intent(intent: Intent): Promise<IntentResult> {

@@ -535,6 +535,9 @@ export class GameServer implements PresenceSource, FriendNotifier {
         if (game?.id === m.gameId) game.resync(session.userId);
         return;
       }
+      case 'game.spectate':
+        this.roomOf.get(session.userId)?.game?.spectate(session.userId, m.gameId, m.target);
+        return;
       case 'activity':
         void this.soloClock(session, m.solo).catch((err: unknown) =>
           this.log.warn({ err }, 'could not check a solo run for presence'),

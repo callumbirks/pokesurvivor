@@ -9,7 +9,6 @@ import {
   decodeServerMessage,
   encode,
   type ErrorInfo,
-  type InputMessage,
   type MemberStatus,
   type NoticeCode,
   type PresenceStatus,
@@ -22,7 +21,7 @@ import {
 import type { Intent } from '@pokesurvivor/sim';
 import { Emitter } from './emitter.js';
 import { timers } from './timers.js';
-import { NetRoomConnection } from './room.js';
+import { NetRoomConnection, type RoomMessage } from './room.js';
 import type { SnapshotBufferOptions } from './buffer.js';
 import type { Snapshot } from './snapshot.js';
 import type { Game, Request, Results, ServerMsg } from './types.js';
@@ -523,7 +522,7 @@ export class NetClient {
     this.room = new NetRoomConnection(
       this.user.id,
       {
-        send: (message: InputMessage | { type: 'game.loaded' | 'game.resync'; gameId: string }) => {
+        send: (message: RoomMessage) => {
           const sent = this.sendRaw(message);
           if (sent && message.type === 'input') this.inputRate.add(this.opts.now());
           return sent;
