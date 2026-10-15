@@ -115,6 +115,8 @@ export async function startSoloRun(
   db: Executor,
   userId: string,
   pokemon: RunPokemon,
+  /** The live-tuning config version the server issues the run (`config_versions`). */
+  configVersion = 0,
 ): Promise<{ runId: string; startedAt: Date }> {
   return db.transaction(async (tx) => {
     // Read under the save lock so the ownership check can't race a change to the save.
@@ -124,7 +126,7 @@ export async function startSoloRun(
     });
     const [run] = await tx
       .insert(runs)
-      .values({ mode: 'solo', status: 'started', teamKey: userId })
+      .values({ mode: 'solo', status: 'started', teamKey: userId, configVersion })
       .returning({ id: runs.id, startedAt: runs.startedAt });
     if (!run) throw new Error('insert returned no row');
     await tx.insert(runPlayers).values({
@@ -295,6 +297,8 @@ export interface CoopRunReport {
   startedAt: Date;
   endedAt: Date;
   durationS: number;
+  /** The live-tuning config version the game ran with (0: the defaults). */
+  configVersion?: number;
   /**
    * Each player's stats. `leftAfterS`: a player who left before the end played this long (it
    * counts for their best time and missions instead of the run's `durationS`).
@@ -331,6 +335,7 @@ export async function recordCoopRun(
         startedAt: report.startedAt,
         endedAt: report.endedAt,
         durationS: report.durationS,
+        configVersion: report.configVersion ?? 0,
       })
       .returning({ id: runs.id });
     if (!run) throw new Error('insert returned no row');

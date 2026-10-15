@@ -11,6 +11,8 @@ const RENEW_AFTER_MS = 24 * 60 * 60 * 1000;
 export interface SessionUser {
   id: string;
   username: string;
+  /** Can use the admin endpoints (`users.is_admin`). */
+  isAdmin: boolean;
 }
 
 export interface ResolvedSession {
@@ -47,13 +49,18 @@ export async function resolveSession(
   if (!token || token.length > 128) return null;
   const tokenHash = hashToken(token);
   const [row] = await db
-    .select({ id: users.id, username: users.username, expiresAt: sessions.expiresAt })
+    .select({
+      id: users.id,
+      username: users.username,
+      isAdmin: users.isAdmin,
+      expiresAt: sessions.expiresAt,
+    })
     .from(sessions)
     .innerJoin(users, eq(users.id, sessions.userId))
     .where(and(eq(sessions.tokenHash, tokenHash), gt(sessions.expiresAt, sql`now()`)));
   if (!row) return null;
 
-  const user = { id: row.id, username: row.username };
+  const user = { id: row.id, username: row.username, isAdmin: row.isAdmin };
   if (row.expiresAt.getTime() - Date.now() > SESSION_TTL_MS - RENEW_AFTER_MS)
     return { user, expiresAt: row.expiresAt, renewed: false };
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS);

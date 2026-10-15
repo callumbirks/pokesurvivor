@@ -6,6 +6,7 @@ import {
   index,
   integer,
   jsonb,
+  serial,
   pgEnum,
   pgTable,
   primaryKey,
@@ -62,10 +63,30 @@ export const users = pgTable(
     id: uuid('id').primaryKey().defaultRandom(),
     username: text('username').notNull(),
     passwordHash: text('password_hash').notNull(),
+    /** Can use the admin endpoints and `#/admin` (live tuning). Set by hand in SQL. */
+    isAdmin: boolean('is_admin').notNull().default(false),
     createdAt: createdAt(),
   },
   (t) => [uniqueIndex('users_username_lower_idx').on(sql`lower(${t.username})`)],
 );
+
+/**
+ * Live tuning: every published config, as overrides (a deep-merge patch per tunable file) on top
+ * of the built-in `tuning.json` and `levelup.json`. The newest row is the config new runs get.
+ * Rows are never changed or deleted: a revert publishes a new version. Version 0 (inserted by
+ * the migration) is the built-in defaults, no overrides.
+ */
+export const configVersions = pgTable('config_versions', {
+  id: serial('id').primaryKey(),
+  /** `{ tuning?: {…}, levelup?: {…} }` (`ConfigOverrides` in `@pokesurvivor/data`). */
+  overrides: jsonb('overrides').notNull(),
+  /** The admin who published it (null for version 0, or a deleted account). */
+  createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
+  note: text('note'),
+  /** Published by reverting to this version (0: to the defaults). */
+  revertedFrom: integer('reverted_from'),
+  createdAt: createdAt(),
+});
 
 /** Login sessions. The cookie holds a random token; only its SHA-256 is stored here. */
 export const sessions = pgTable(
@@ -155,6 +176,14 @@ export const runs = pgTable(
     checkpointAt: timestamp('checkpoint_at', { withTimezone: true }),
     /** Finished by the timeout sweep from the last checkpoint, not by a final report. */
     timedOut: boolean('timed_out').notNull().default(false),
+    /**
+     * The live-tuning config the run played with (`config_versions`): the server issues it at the
+     * start (solo) or builds the sim with it (coop). 0, the defaults, for runs before live tuning.
+     */
+    configVersion: integer('config_version')
+      .notNull()
+      .default(0)
+      .references(() => configVersions.id),
   },
   (t) => [
     index('runs_checkpoint_idx')
@@ -163,6 +192,7 @@ export const runs = pgTable(
     index('runs_leaderboard_idx')
       .on(t.mode, t.endedAt)
       .where(sql`${t.status} = 'finished'`),
+    index('runs_config_version_idx').on(t.configVersion),
   ],
 );
 

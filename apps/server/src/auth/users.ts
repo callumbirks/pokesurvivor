@@ -28,6 +28,7 @@ export interface UserRow {
   id: string;
   username: string;
   passwordHash: string;
+  isAdmin: boolean;
 }
 
 export async function findUserByUsername(
@@ -35,7 +36,12 @@ export async function findUserByUsername(
   username: string,
 ): Promise<UserRow | undefined> {
   const [row] = await db
-    .select({ id: users.id, username: users.username, passwordHash: users.passwordHash })
+    .select({
+      id: users.id,
+      username: users.username,
+      passwordHash: users.passwordHash,
+      isAdmin: users.isAdmin,
+    })
     .from(users)
     .where(sql`lower(${users.username}) = lower(${username})`);
   return row;
