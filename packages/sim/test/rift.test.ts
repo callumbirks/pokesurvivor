@@ -65,15 +65,26 @@ function killLegend(sim: Sim): void {
 }
 
 it('applies the configured time onset and large-team HP formula', () => {
-  const curve = R.hpCurve;
-  expect(legendHpMultiplier(curve.m0 - 1, curve)).toBe(1);
-  expect(legendHpMultiplier(curve.m0, curve)).toBe(1);
-  expect(legendHpMultiplier(curve.m0 + 1, curve)).toBeCloseTo((1 + curve.a) ** curve.p);
+  for (const curve of [R.hpCurve, R.coopHp.hpCurve]) {
+    expect(legendHpMultiplier(curve.m0 - 1, curve)).toBe(1);
+    expect(legendHpMultiplier(curve.m0, curve)).toBe(1);
+    expect(legendHpMultiplier(curve.m0 + 1, curve)).toBeCloseTo((1 + curve.a) ** curve.p);
+  }
   const coop = R.coopHp;
-  expect(legendCoopHpMultiplier(1, coop)).toBe(1);
-  expect(legendCoopHpMultiplier(2, coop)).toBe(1);
-  expect(legendCoopHpMultiplier(3, coop)).toBeCloseTo(1 + coop.perPlayerAfterDuo);
-  expect(legendCoopHpMultiplier(4, coop)).toBeCloseTo(1 + 2 * coop.perPlayerAfterDuo);
+  expect(legendCoopHpMultiplier(coop.rampFromMinute - 1, 4, coop)).toBe(1);
+  expect(legendCoopHpMultiplier(coop.rampFromMinute, 4, coop)).toBe(1);
+  expect(legendCoopHpMultiplier(coop.rampToMinute, 1, coop)).toBe(1);
+  expect(legendCoopHpMultiplier(coop.rampToMinute, 2, coop)).toBe(1);
+  expect(legendCoopHpMultiplier(coop.rampToMinute, 3, coop)).toBeCloseTo(
+    1 + coop.perPlayerAfterDuo,
+  );
+  expect(legendCoopHpMultiplier(coop.rampToMinute + 1, 4, coop)).toBeCloseTo(
+    1 + 2 * coop.perPlayerAfterDuo,
+  );
+  const midpoint = (coop.rampFromMinute + coop.rampToMinute) / 2;
+  expect(legendCoopHpMultiplier(midpoint, 4, coop)).toBeCloseTo(
+    1 + 2 * coop.perPlayerAfterDuo * 0.5 ** coop.rampPower,
+  );
 });
 
 describe('rift schedule', () => {

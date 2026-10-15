@@ -4,7 +4,9 @@
     "entries": {
       "new": [],
       "changed": [],
-      "fixed": [],
+      "fixed": [
+        "The first rift in 3–4 player co-op is beatable again: rift toughness now ramps up over the first few minutes."
+      ],
       "behindTheScenes": []
     }
   },

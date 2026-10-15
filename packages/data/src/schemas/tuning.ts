@@ -61,14 +61,37 @@ export const TuningFileSchema = z.strictObject({
       /** Positive exponent; independent of contact/shot damage and player prestige. */
       p: z.number().positive(),
     }),
-    /** Extra legend HP from the first rift for coordinated teams larger than two:
-     * multiply HP by 1 + perPlayerAfterDuo * max(0, players - 2).
+    /** Extra legend HP for coordinated teams larger than two:
+     * 1 + perPlayerAfterDuo * max(0, players - 2) * progress ** rampPower,
+     * progress = clamp((minute - rampFromMinute) / (rampToMinute - rampFromMinute), 0, 1).
      * Solo/duo HP and legend damage remain unchanged.
      */
-    coopHp: z.strictObject({
-      /** Extra multiplier per player beyond the first two, at every run time. */
-      perPlayerAfterDuo: z.number().nonnegative(),
-    }),
+    coopHp: z
+      .strictObject({
+        /** Extra multiplier per player beyond the first two after the ramp. */
+        perPlayerAfterDuo: z.number().nonnegative(),
+        /** Run minute when the additional co-op HP begins to ramp. */
+        rampFromMinute: z.number().nonnegative(),
+        /** Run minute when the full co-op uplift applies; greater than rampFromMinute. */
+        rampToMinute: z.number().positive(),
+        /** Eases the onset; values above one keep early uplift small. */
+        rampPower: z.number().positive(),
+        /** Replace rift.hpCurve for teams of three or more. Same uncapped formula;
+         * keeps the early large-team fit independent of untested solo/duo HP.
+         */
+        hpCurve: z.strictObject({
+          /** Run minute when large-team time growth begins. */
+          m0: z.number().nonnegative(),
+          /** Positive growth per minute after m0. */
+          a: z.number().positive(),
+          /** Positive exponent; affects HP only. */
+          p: z.number().positive(),
+        }),
+      })
+      .refine((c) => c.rampToMinute > c.rampFromMinute, {
+        message: 'co-op rampToMinute must exceed rampFromMinute',
+        path: ['rampToMinute'],
+      }),
     /** Distance from a player a rift opens at (before the placement fallbacks). */
     distance: RangeSchema,
     /** Chance the legendary is shiny (if it has shiny sprites). */

@@ -384,8 +384,10 @@ bisection, then rechecks the constraints after rounding. `--objective=log` retai
 symmetric fit. These constraints and measured balance numbers are manual-only, outside CI.
 
 Iteration 3 co-op HP tuning: `rift.coopHp` adds
-`1 + perPlayerAfterDuo * max(0, players - 2)` on top of the existing base/time/co-op HP,
-from the very first rift. Solo/duo HP, legend damage and prestige behavior stay unchanged.
+`1 + perPlayerAfterDuo * max(0, players - 2) * progress ** rampPower` on top of the existing
+base/time/co-op HP. `progress` clamps `(minute - rampFromMinute) / (rampToMinute - rampFromMinute)`
+to 0–1. Named endpoints and power preserve near-base early HP before reaching the full uplift.
+Solo/duo HP, legend damage and prestige behavior stay unchanged.
 Fit tools remove recorded time and co-op multipliers (including the superseded draft ramp)
 when deriving a reference base HP. The v9 playtest is the iteration-3 anchor: old first-choice
 half-meta fixtures underestimate that human group's output and are retained as diagnostics.
@@ -440,3 +442,7 @@ Only normal wild spawns and their ordinary summons/shots carry the source marker
 bosses, rift legends and telegraphed hazards are excluded; their damage coefficients are unchanged.
 Source markers are optional plain state fields and survive projectile serialization after the
 shooter disappears. Wild HP, damageK, spawn rates and player progression are unchanged.
+
+`rift.coopHp.hpCurve` uses the same uncapped time formula for teams of three or four,
+replacing `rift.hpCurve` only for those teams. It allows softening early co-op encounters
+without changing solo/duo HP. The ramp controls extra co-op HP separately from time growth.
