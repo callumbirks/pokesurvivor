@@ -99,7 +99,7 @@ describe('level-up offers', () => {
     expect(p.attackMul).toBeCloseTo(atk * attackEffect.value);
     for (let i = 0; i < 20; i++)
       applyCard(sim.ctx, p, { id: 'stat:defense', type: 'stat', statId: 'defense' });
-    expect(p.damageReduction).toBeCloseTo(
+    expect(p.defense).toBeCloseTo(
       Math.min(defenseEffect.cap ?? Infinity, 20 * defenseEffect.value),
     );
     expect(p.statsTaken).toMatchObject({ 'max-hp': 1, attack: 1, defense: 20 });

@@ -43,11 +43,11 @@
     "id": "defense",
     "icon": "shield",
     "name": "Armor",
-    "description": "+2% defense",
+    "description": "+3% defence",
     "maxLevel": 8,
     "baseCost": 80,
     "costGrowth": 1.4,
-    "perLevel": 0.02
+    "perLevel": 0.03
   },
   {
     "id": "regen",

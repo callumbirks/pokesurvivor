@@ -449,6 +449,11 @@ starts at minute zero, interpolates linearly and holds the final value; the exis
 minute 60 still applies. The fit targets six average neutral contact hits for half-meta natural
 builds over minutes 2–20. It does not inspect a player's meta or scale enemy damage to their build.
 
+**Defence** is toughness: a hit is divided by `1 + defence` (`defenseOf`), where defence sums the
+Armor upgrade, Armor cards, held items, prestige and Harden's stacks (1 = +100%, half damage), up
+to `tuning.defense.max` (+500%, a sixth). It never reaches zero damage. Older saves convert their
+damage reduction d to the defence taking the same damage, d / (1 − d).
+
 `spawner.hpCurve` multiplies regular wild HP the same way (minute/multiplier points from minute
 zero, interpolated, the last held), on top of the built-in `(1 + t/95)` growth and `hpK`. Through
 minute 8 it is slightly below 1, which offsets Momentum's lower cap for early players, and it

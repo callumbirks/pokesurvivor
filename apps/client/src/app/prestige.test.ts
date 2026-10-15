@@ -32,7 +32,7 @@ describe('prestige stars', () => {
   it('lists the gains of every stat from the tuning', () => {
     expect(prestigeGains(0)).toEqual([]);
     const two = prestigeGains(2).map((g) => g.id);
-    expect(two).toEqual(['hp', 'damage', 'speed', 'cooldown', 'damageTaken', 'crit']);
+    expect(two).toEqual(['hp', 'damage', 'speed', 'cooldown', 'defense', 'crit']);
     expect(prestigeBox(0)).toBeNull();
     expect(prestigeBox(1)?.querySelectorAll('.chip')).toHaveLength(3);
   });

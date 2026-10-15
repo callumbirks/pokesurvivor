@@ -225,6 +225,12 @@ export const TuningFileSchema = z.strictObject({
    * star adds `perStar.<stat>` to that stat's prestige factor (see `prestigeBonus`); enemies never
    * scale with it.
    */
+  /**
+   * Defence is toughness: damage taken = incoming ÷ (1 + defence), where defence sums the Armor
+   * upgrade, cards, items, prestige and Harden (1 = +100%, half damage). `max` is the most that
+   * counts (5 = +500%, a sixth of the damage).
+   */
+  defense: z.strictObject({ max: z.number().positive() }),
   prestige: z.strictObject({
     maxStars: z.number().int().positive().max(9),
     perStar: z.strictObject({
@@ -234,8 +240,8 @@ export const TuningFileSchema = z.strictObject({
       speed: z.number().nonnegative().max(1),
       /** Move cooldowns: × (1 − perStar × stars). */
       cooldown: z.number().nonnegative().max(0.3),
-      /** Damage reduction (0–1, like the Armor upgrade): + perStar × stars. */
-      damageTaken: z.number().nonnegative().max(0.3),
+      /** Defence (+% toughness, like the Armor upgrade): + perStar × stars. */
+      defense: z.number().nonnegative().max(1),
       /** Critical hit chance (0–1, like the Critical Hit upgrade): + perStar × stars. */
       crit: z.number().nonnegative().max(0.3),
     }),

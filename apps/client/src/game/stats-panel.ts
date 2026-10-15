@@ -27,6 +27,8 @@ export function statRows(s: SelfStats, momentum: number): StatCell[][] {
   const atkMul = atk / Math.max(1e-9, s.attackBase);
   const speMul = s.speed / Math.max(1e-9, s.speedBase);
   const hpMul = s.maxHp / Math.max(1e-9, s.hpBase);
+  // Defence (toughness); a server from before it sends only the reduction it's equivalent to.
+  const def = s.defense ?? s.damageReduction / Math.max(1e-9, 1 - s.damageReduction);
   const cell = (label: string, value: string, mult: string, on: boolean): StatCell => ({
     label,
     value,
@@ -42,12 +44,7 @@ export function statRows(s: SelfStats, momentum: number): StatCell[][] {
     ],
     [
       cell(t('hud.statCooldown'), '', x2(s.cooldown), changed(s.cooldown, 1)),
-      cell(
-        t('hud.statDefense'),
-        `${Math.round(s.damageReduction * 100)}%`,
-        '',
-        s.damageReduction >= 0.005,
-      ),
+      cell(t('hud.statDefense'), `+${Math.round(def * 100)}%`, '', def >= 0.005),
       cell(t('hud.statRegen'), `+${s.regen.toFixed(1)}/s`, '', s.regen >= 0.05),
     ],
     [

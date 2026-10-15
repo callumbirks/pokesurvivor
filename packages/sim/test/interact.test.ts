@@ -90,12 +90,19 @@ describe('interactables', () => {
     const e = spawnDummy(sim, trap.x + 30, trap.y - 8, {}, 10000);
     standAt(sim, p, trap.x, trap.y - 8);
     p.regen = 0;
+    // Only the trap: no move (a Harden cast would add defence this tick).
+    p.moves = [];
+    p.slots = [];
     const hp = p.hp;
     sim.drainEvents();
     sim.step();
     expect(sim.state.world.broken[trap.key]).toBe(1);
-    expect(sim.drainEvents().some((ev) => ev.type === 'trap')).toBe(true);
-    expect(hp - p.hp).toBeCloseTo(p.maxHp * W.traps[2]!.playerMaxHpDamage, 0);
+    const events = sim.drainEvents();
+    expect(events.some((ev) => ev.type === 'trap')).toBe(true);
+    // The trap's own hit (the dummy beside it may also touch for the minimum 1).
+    const trapHit = Math.round(p.maxHp * W.traps[2]!.playerMaxHpDamage);
+    expect(events.some((ev) => ev.type === 'player-hurt' && ev.amount === trapHit)).toBe(true);
+    expect(hp - p.hp).toBeGreaterThanOrEqual(trapHit - 0.5);
     const t = W.traps[2]!;
     expect(10000 - e.hp).toBe(t.enemyDamage + t.enemyDamagePerLevel * sim.state.team.level);
   });

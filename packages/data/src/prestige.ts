@@ -15,8 +15,8 @@ export interface PrestigeBonus {
   speedMul: number;
   /** Move cooldown multiplier (below 1). */
   cooldownMul: number;
-  /** Added to damage reduction (0–1), like the Armor upgrade. */
-  damageReduction: number;
+  /** Added to defence (+% toughness), like the Armor upgrade. */
+  defense: number;
   /** Added to critical hit chance (0–1), like the Critical Hit upgrade. */
   crit: number;
 }
@@ -29,8 +29,8 @@ export function clampStars(tuning: PrestigeTuning, stars: number | undefined): n
 
 /**
  * The bonus of `stars` stars. Each star adds `perStar` linearly: HP, damage and speed are
- * multiplied by `1 + perStar × stars`, cooldowns by `1 − perStar × stars`, and damage reduction
- * and crit chance gain `perStar × stars` points, the way their upgrades and cards add up.
+ * multiplied by `1 + perStar × stars`, cooldowns by `1 − perStar × stars`, and defence and crit
+ * chance gain `perStar × stars` points, the way their upgrades and cards add up.
  */
 export function prestigeBonus(tuning: PrestigeTuning, stars: number | undefined): PrestigeBonus {
   const n = clampStars(tuning, stars);
@@ -40,7 +40,7 @@ export function prestigeBonus(tuning: PrestigeTuning, stars: number | undefined)
     damageMul: 1 + perStar.damage * n,
     speedMul: 1 + perStar.speed * n,
     cooldownMul: 1 - perStar.cooldown * n,
-    damageReduction: perStar.damageTaken * n,
+    defense: perStar.defense * n,
     crit: perStar.crit * n,
   };
 }

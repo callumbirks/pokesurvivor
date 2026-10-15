@@ -105,7 +105,7 @@ export function describe(p: PlayerState) {
     attackMul: p.attackMul,
     cooldownMul: p.cooldownMul,
     maxHp: p.maxHp,
-    damageReduction: p.damageReduction,
+    defense: p.defense,
     riftWins: p.stats.progress.riftWins.length,
   };
 }
@@ -117,7 +117,7 @@ export function loadBuild(sim: Sim, p: PlayerState, source: PlayerState): void {
     'attackMul',
     'speedMul',
     'cooldownMul',
-    'damageReduction',
+    'defense',
     'regen',
     'magnet',
     'xpMul',
@@ -134,6 +134,10 @@ export function loadBuild(sim: Sim, p: PlayerState, source: PlayerState): void {
   ] as const;
   for (const key of keys) Object.assign(p, { [key]: structuredClone(source[key]) });
   p.cardMul ??= {}; // Checkpoints saved before card rarities.
+  // Checkpoints saved before defence was toughness: the same damage taken.
+  const old = source as PlayerState & { damageReduction?: number };
+  if (old.defense === undefined)
+    p.defense = (old.damageReduction ?? 0) / (1 - (old.damageReduction ?? 0));
   for (const m of p.moves) {
     m.t = 0;
     m.castTick = -1;

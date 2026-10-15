@@ -4,7 +4,7 @@ import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
 import { DT } from '../src/constants.js';
 import { activeGroup } from '../src/moves.js';
-import { hurtPlayer, reductionOf } from '../src/players.js';
+import { defenseOf, hurtPlayer } from '../src/players.js';
 import { bossScale, enemyScale, spawnOne } from '../src/spawner.js';
 import type { PlayerState } from '../src/state.js';
 import { resetChunks } from '../src/world.js';
@@ -31,7 +31,9 @@ export interface WildTrial extends Cell {
   profile: 'natural' | 'typical';
   builds: ReturnType<typeof describe>[];
   maxHp: number;
+  /** Damage reduction equivalent of the defence: 1 − 1 / (1 + defence). */
   reduction: number;
+  defense?: number;
   effectiveHp: number;
   contactPct: number;
   shotPct: number | null;
@@ -445,8 +447,9 @@ for (const meta of metas)
               profile,
               builds: sim.state.players.map(describe),
               maxHp: p.maxHp,
-              reduction: reductionOf(p),
-              effectiveHp: p.maxHp / (1 - reductionOf(p)),
+              defense: defenseOf(sim.ctx, p),
+              reduction: 1 - 1 / (1 + defenseOf(sim.ctx, p)),
+              effectiveHp: p.maxHp * (1 + defenseOf(sim.ctx, p)),
               meleeMultiplier: activeGroup(p).some((m) => m.kind === 'melee') ? 0.75 : 1,
               ...probe,
               teamDps: dps,

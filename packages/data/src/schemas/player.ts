@@ -9,7 +9,7 @@ export const PLAYER_STATS = [
   'xpMul',
   'coinMul',
   'magnet',
-  'damageReduction',
+  'defense',
   'regen',
 ] as const;
 export const PlayerStatSchema = z.enum(PLAYER_STATS);
@@ -62,7 +62,7 @@ export const ItemsFileSchema = z.array(ItemSchema).min(1);
 export const StatCardEffectSchema = z.discriminatedUnion('type', [
   /**
    * `cap` is the card's ceiling, and the card stops being offered once it's reached. `add`: a bound
-   * on the stat itself (Armor's damage reduction), or with `capOf: "cards"` on the amount the
+   * on the stat itself (Armor's defence), or with `capOf: "cards"` on the amount the
    * card's own picks have added (Synthesis). `mul`: a bound on the multiplier the card's own picks
    * have built up; for a multiplier below 1 (Reflexes' cooldown) it's a floor. Bounds on what the
    * cards built leave held items and permanent upgrades outside them. A pick that would pass the

@@ -409,6 +409,14 @@ export function restoreSim(state: SimState): Sim {
     p.relocationTokens ??= gameTuning.stragglers.burst;
     p.travelVx ??= 0;
     p.travelVy ??= 0;
+    // Saves from before defence was toughness: damage reduction d takes the same damage as
+    // defence d / (1 − d) (Harden's stacks restart under the new rule when they refresh).
+    const old = p as PlayerState & { damageReduction?: number };
+    if (old.defense === undefined) {
+      const d = Math.min(0.95, old.damageReduction ?? 0);
+      old.defense = d / (1 - d);
+      delete old.damageReduction;
+    }
     // Pre-rarity saves: what the picks taken would have built at today's common value.
     if (!p.cardMul) {
       p.cardMul = {};

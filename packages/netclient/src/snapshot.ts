@@ -218,7 +218,13 @@ export interface SelfStats {
   hpBase: number;
   maxHp: number;
   cooldown: number;
+  /**
+   * Damage reduction equivalent of the defence (1 − 1 / (1 + defence)): what clients before
+   * defence became toughness show. Newer clients use `defense`.
+   */
   damageReduction: number;
+  /** Defence in effect (+% toughness, 1 = +100%). Optional: added within protocol 7. */
+  defense?: number;
   regen: number;
   magnet: number;
   xp: number;
@@ -777,7 +783,8 @@ function selfStats(s: SimState, p: PlayerState): SelfStats {
     hpBase: x.hpBase,
     maxHp: Math.round(x.maxHp),
     cooldown: round(x.cooldown, 0.001),
-    damageReduction: round(x.damageReduction, 0.001),
+    damageReduction: round(1 - 1 / (1 + x.defense), 0.001),
+    defense: round(x.defense, 0.001),
     regen: round(x.regen, 0.01),
     magnet: round(x.magnet, 0.01),
     xp: round(x.xp, 0.01),

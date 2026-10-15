@@ -29,7 +29,7 @@ import { restoreSim, type PlayerState, type Sim } from '../src/index.js';
 import { BOND_MAX } from '../src/bonds.js';
 import { momentumMultiplier } from '../src/momentum.js';
 import { evolveMove, newMove } from '../src/moves.js';
-import { attackOf, reductionOf, regenOf } from '../src/players.js';
+import { attackOf, defenseOf, regenOf } from '../src/players.js';
 import { enemyScale } from '../src/spawner.js';
 import type { SimState } from '../src/state.js';
 import { resetChunks } from '../src/world.js';
@@ -264,7 +264,8 @@ function breakdown(sim: Sim, p: PlayerState, meta: Cell['meta'], momentumMean: n
     regenCards: p.regen - perks.regen - p.itemRegen,
     regenUpgrades: perks.regen,
     regenItem: p.itemRegen,
-    damageReduction: reductionOf(p),
+    defense: defenseOf(sim.ctx, p),
+    damageTakenMul: 1 / (1 + defenseOf(sim.ctx, p)),
     maxHp: p.maxHp,
     xpMul: p.xpMul,
     heldItem: p.item,
@@ -282,7 +283,7 @@ function wilds(sim: Sim, p: PlayerState) {
   const cap = tuning.spawner.regularHitCapFraction;
   const contact = Math.max(
     1,
-    Math.min(raw * (1 - reductionOf(p)) * close, cap > 0 ? p.maxHp * cap : Infinity),
+    Math.min((raw / (1 + defenseOf(sim.ctx, p))) * close, cap > 0 ? p.maxHp * cap : Infinity),
   );
   const scale = enemyScale(sim.ctx, sim.state.time);
   const crowd = sim.state.enemies.filter((e) => !e.dead && !e.boss && !e.legend);
@@ -367,7 +368,8 @@ function asFriend(sim: Sim, p: PlayerState) {
   p.cooldownMul = FRIEND.cooldown;
   p.regen = FRIEND.regen - p.buffs.regen.n * p.buffs.regen.amount;
   p.itemRegen = 0;
-  p.damageReduction = FRIEND.dr;
+  // The panel's 70% damage reduction, as the defence that takes the same damage.
+  p.defense = FRIEND.dr / (1 - FRIEND.dr);
   p.maxHp = p.hp = FRIEND.maxHp;
   p.xpMul = FRIEND.xp;
   p.magnet = 78 * FRIEND.magnet;
@@ -391,7 +393,7 @@ function stand(
     p.regen = 0;
     p.itemRegen = 0;
     p.buffs.regen.n = 0;
-    p.damageReduction = perks.damageReduction;
+    p.defense = perks.defense;
   }
   let hurt = 0;
   let contacts = 0;

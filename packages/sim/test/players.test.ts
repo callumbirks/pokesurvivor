@@ -5,13 +5,14 @@ import {
   attackOf,
   hurtPlayer,
   moveSpeedOf,
-  reductionOf,
+  defenseOf,
   regenOf,
   REVIVE_SECONDS,
 } from '../src/players.js';
 import { playerStats } from '../src/view.js';
 import { teamXpFactor } from '../src/team.js';
-import { createSim } from '../src/index.js';
+import { createSim, restoreSim } from '../src/index.js';
+import type { PlayerState, SimState } from '../src/state.js';
 import { player, quietSim, seconds, spawnDummy, steps } from './helpers.js';
 
 describe('players', () => {
@@ -32,7 +33,7 @@ describe('players', () => {
     expect(s.hpBase).toBe(mon.hp);
     expect(s.maxHp).toBe(p.maxHp);
     expect(s.cooldown).toBe(p.cooldownMul);
-    expect(s.damageReduction).toBeCloseTo(reductionOf(p));
+    expect(s.defense).toBeCloseTo(defenseOf(sim.ctx, p));
     expect(s.regen).toBeCloseTo(regenOf(p));
     expect(s.xp).toBe(p.xpMul);
     expect(s.crit).toBe(p.critChance);
@@ -86,7 +87,7 @@ describe('players', () => {
     expect(b!.attackMul).toBeCloseTo(a!.attackMul * (1 + 2 * perStar.damage));
     expect(b!.speedMul).toBeCloseTo(a!.speedMul * (1 + 2 * perStar.speed));
     expect(b!.cooldownMul).toBeCloseTo(a!.cooldownMul * (1 - 2 * perStar.cooldown));
-    expect(b!.damageReduction).toBeCloseTo(a!.damageReduction + 2 * perStar.damageTaken);
+    expect(b!.defense).toBeCloseTo(a!.defense + 2 * perStar.defense);
     expect(b!.critChance).toBeCloseTo(a!.critChance + 2 * perStar.crit);
     // Stars are capped at the maximum.
     expect(c!.attackMul).toBeCloseTo(a!.attackMul * (1 + maxStars * perStar.damage));
@@ -216,5 +217,44 @@ describe('players', () => {
     expect(p.active).toBe(1); // a one-shot request
     sim.submitIntent(p.id, { type: 'cycleSlot', dir: 1 });
     expect(p.active).toBe(0);
+  });
+});
+
+describe('defence', () => {
+  it('divides damage by 1 + defence, up to the configured maximum', () => {
+    const sim = quietSim();
+    const p = player(sim);
+    p.moves = [];
+    p.slots = [];
+    const { max } = sim.ctx.d.game.tuning.defense;
+    const hit = (defense: number) => {
+      p.defense = defense;
+      p.hp = p.maxHp = 1e6;
+      p.invuln = 0;
+      hurtPlayer(sim.ctx, p, 1000, null);
+      return 1e6 - p.hp;
+    };
+    expect(hit(0)).toBeCloseTo(1000);
+    expect(hit(1)).toBeCloseTo(500);
+    expect(hit(max)).toBeCloseTo(1000 / (1 + max));
+    // Past the maximum it counts as the maximum, Harden's stacks included.
+    expect(hit(max * 2)).toBeCloseTo(1000 / (1 + max));
+    p.defense = 0;
+    p.buffs.defense.n = 3;
+    p.buffs.defense.amount = 0.5;
+    expect(defenseOf(sim.ctx, p)).toBeCloseTo(Math.min(max, 1.5));
+  });
+
+  it('restores an older save: damage reduction d becomes the defence taking the same damage', () => {
+    const sim = quietSim();
+    const snap = JSON.parse(JSON.stringify(sim.state)) as SimState;
+    for (const q of snap.players) {
+      const old = q as Partial<PlayerState> & { damageReduction?: number };
+      delete old.defense;
+      old.damageReduction = 0.6;
+    }
+    const p = player(restoreSim(snap));
+    expect(1 / (1 + p.defense)).toBeCloseTo(1 - 0.6);
+    expect('damageReduction' in p).toBe(false);
   });
 });

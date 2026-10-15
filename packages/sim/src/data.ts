@@ -38,7 +38,7 @@ export interface Perks {
   attackMul: number;
   speedMul: number;
   cooldownMul: number;
-  damageReduction: number;
+  defense: number;
   regen: number;
   magnetMul: number;
   xpMul: number;
@@ -307,7 +307,7 @@ export function simData(): SimData {
         attackMul: 1 + L('attack') * per('attack'),
         speedMul: 1 + L('speed') * per('speed'),
         cooldownMul: 1 - L('cooldown') * per('cooldown'),
-        damageReduction: L('defense') * per('defense'),
+        defense: L('defense') * per('defense'),
         regen: L('regen') * per('regen'),
         magnetMul: 1 + L('magnet') * per('magnet'),
         xpMul: 1 + L('experience') * per('experience'),

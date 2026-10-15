@@ -19,7 +19,7 @@ describe('prestige', () => {
       damageMul: 1,
       speedMul: 1,
       cooldownMul: 1,
-      damageReduction: 0,
+      defense: 0,
       crit: 0,
     });
     const two = prestigeBonus(prestige, 2);
@@ -27,7 +27,7 @@ describe('prestige', () => {
     expect(two.damageMul).toBeCloseTo(1 + 2 * prestige.perStar.damage);
     expect(two.speedMul).toBeCloseTo(1 + 2 * prestige.perStar.speed);
     expect(two.cooldownMul).toBeCloseTo(1 - 2 * prestige.perStar.cooldown);
-    expect(two.damageReduction).toBeCloseTo(2 * prestige.perStar.damageTaken);
+    expect(two.defense).toBeCloseTo(2 * prestige.perStar.defense);
     expect(two.crit).toBeCloseTo(2 * prestige.perStar.crit);
   });
 

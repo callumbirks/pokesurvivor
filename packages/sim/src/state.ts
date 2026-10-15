@@ -191,7 +191,11 @@ export interface PlayerState {
   attackMul: number;
   speedMul: number;
   cooldownMul: number;
-  damageReduction: number;
+  /**
+   * Defence, as toughness: damage taken is ÷ (1 + defence), 1 = +100% (`defenseOf` adds Harden and
+   * applies `tuning.defense.max`). Upgrades, cards, items and prestige add to it.
+   */
+  defense: number;
   /** Flat HP regenerated per second (perks, cards, Leftovers). */
   regen: number;
   /** Pickup radius. */

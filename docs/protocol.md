@@ -287,7 +287,8 @@ for that client.
   1/50 steps) for the HUD, its speed before liquids (`moveSpeedOf`) for client-side
   prediction, and its Momentum stacks (kill streak, 1/10 steps; optional) for the HUD;
 - `stats`, the viewer's only: its stats panel (sim `playerStats`), with attack, speed and max HP
-  and their species base, and cooldown, damage reduction, regen, magnet, XP and crit. It's sent
+  and their species base, and cooldown, defence (`defense`, +% toughness; `damageReduction` is its
+  reduction equivalent, for older clients), regen, magnet, XP and crit. It's sent
   when it changes, at most every 15 ticks, and in every full frame; the client keeps the last;
 - `world`: changes to every keyed record of `state.world` (`broken`, `propHp`, `altarsUsed`,
   `springs`, `chests`, and any the sim adds);

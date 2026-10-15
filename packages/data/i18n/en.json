@@ -805,7 +805,7 @@
     "damage": "+{0}% damage",
     "speed": "+{0}% speed",
     "cooldown": "−{0}% cooldown",
-    "damageTaken": "−{0}% damage taken",
+    "defense": "+{0}% defence",
     "crit": "+{0}% crit chance"
   }
 }
