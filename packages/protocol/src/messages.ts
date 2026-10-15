@@ -49,7 +49,15 @@ export type PresenceStatus = 'offline' | 'online' | 'in_lobby' | 'in_game';
  */
 export type FriendActivity =
   | { kind: 'menu' }
-  | { kind: 'solo' | 'coop'; dex: number; shiny: boolean; elapsedS: number; paused?: true };
+  | {
+      kind: 'solo' | 'coop';
+      dex: number;
+      shiny: boolean;
+      elapsedS: number;
+      paused?: true;
+      /** The Pokémon's prestige stars; absent when it has none. */
+      prestige?: number;
+    };
 
 /** A solo run's clock, reported by its client (`activity` message); null: not in a solo run. */
 export interface SoloClock {
@@ -80,8 +88,11 @@ export interface RoomMember {
   inGame: boolean;
   /** Acked "loaded" (during `loading`). */
   loaded: boolean;
-  /** The partner from their save (what they'll play), or null if none is chosen. */
-  partner: { dex: number; shiny: boolean } | null;
+  /**
+   * The partner from their save (what they'll play), or null if none is chosen. `prestige`: its
+   * stars, absent when it has none.
+   */
+  partner: { dex: number; shiny: boolean; prestige?: number } | null;
 }
 
 export interface RoomView {
@@ -106,6 +117,8 @@ export interface PlayerLoadout {
   index: number;
   dex: number;
   shiny: boolean;
+  /** The Pokémon's prestige stars; absent when it has none. */
+  prestige?: number;
 }
 
 /** Sent once when a game starts loading, starts, or is resumed. */

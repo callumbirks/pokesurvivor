@@ -152,6 +152,7 @@ export class Game {
         index: s.index,
         dex: s.loadout.dex,
         shiny: this.sim.state.players[s.index]?.shiny ?? false,
+        ...(s.loadout.prestige ? { prestige: s.loadout.prestige } : {}),
       })),
     };
   }

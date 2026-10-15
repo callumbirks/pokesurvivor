@@ -113,14 +113,15 @@ game already started), `room_full`, `already_member`, `no_invite`, `user_not_fou
 | binary frame                                                                                       | a snapshot                                                                                                                                                         |
 
 `RoomView` is `{id, phase, ownerId, members, invited, maxMembers: 4, blockers, loadingDeadline}`.
-Each member is `{userId, username, status, connected, inGame, loaded, partner}`. `blockers`
+Each member is `{userId, username, status, connected, inGame, loaded, partner}`; `partner` is
+`{dex, shiny, prestige?}` (`prestige`: its stars, absent at 0) or null. `blockers`
 lists who keeps the owner from starting.
 
 `game` (`GameStatic`) holds what doesn't change during a run, and is sent once at start and
 again on resume: `roomId`, `gameId`, `seed` (the world), `tickHz`, `snapshotHz`,
 `choiceTimeoutS`, `roster` (the sim's `RosterState`: this run's wild Pokémon and bosses, for
-preloading sprites), and `players` (`{id, username, index, dex, shiny}` per player, in join
-order).
+preloading sprites), and `players` (`{id, username, index, dex, shiny, prestige?}` per player, in
+join order; `prestige` is the Pokémon's stars, absent at 0).
 
 ## Server lag
 
@@ -139,7 +140,7 @@ protocol 7 without a version bump, so older clients just ignore it):
 
 - `{kind: "menu"}`: anywhere outside a run. In a room's lobby the status is `in_lobby` and the
   client says "In a room" rather than "Main Menu" (it matters to whoever wants to invite them).
-- `{kind: "solo" | "coop", dex, shiny, elapsedS, paused?}`: in a run, with their Pokémon and the
+- `{kind: "solo" | "coop", dex, shiny, elapsedS, paused?, prestige?}`: in a run, with their Pokémon (and its stars) and the
   run time in seconds when the message was sent. The client ticks the clock on locally unless
   `paused` (paused, a pending choice, loading, or a coop game with nobody connected). Status is
   `in_game` for both.
@@ -173,9 +174,10 @@ lobby ──room.start (owner; everyone ready)──▶ loading ──everyone l
   started without them and still showed them as playing.
 - **Partners.** The lobby shows each member's partner from their save. It's read when they join
   and when they get ready, and when they change it (`PUT /api/save/partner`) while the room is in
-  the lobby; a change during a game shows after it.
+  the lobby (or prestige it); a change during a game shows after it.
 - **Loadouts** come from each member's server save, never from the client: their partner (dex,
-  shiny if owned), its upgrades, move bindings and bans, and the legendaries they've beaten.
+  shiny if owned), its upgrades and prestige stars, move bindings and bans, and the legendaries
+  they've beaten.
 - **Loading** waits for `game.loaded` from every member until `LOADING_TIMEOUT_S` (15 s). Members
   who haven't loaded by then are dropped from the game, but stay in the room with `inGame: false`
   and status `not-ready`. Everyone gets `notice dropped-at-loading`, and the run starts with the

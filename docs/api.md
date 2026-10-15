@@ -13,13 +13,13 @@ Every error has the same shape. `code` is stable and maps to a UI string in `en.
 { "error": { "code": "username_taken", "message": "Username is taken" } }
 ```
 
-| Status | Codes                                                                                                                                                                                                                                                                                                                                                |
-| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 400    | `invalid_request` (body/query validation, incl. unknown dex/item/move/type ids; has `issues`), `unknown_upgrade`, `unknown_title`, `not_a_starter`, `invalid_answers`, `invalid_move`, `duplicate_move`, `unknown_banner`, `invalid_pull_count`, `invalid_payment`, `cannot_friend_self`, `duplicate_favourite`                                      |
-| 401    | `unauthenticated`, `invalid_credentials`                                                                                                                                                                                                                                                                                                             |
-| 404    | `run_not_found`, `user_not_found`, `request_not_found`, `friend_not_found`, `mission_not_found`                                                                                                                                                                                                                                                      |
-| 409    | `username_taken`, `pokemon_not_owned`, `insufficient_funds`, `upgrade_maxed`, `title_locked`, `starter_already_chosen`, `too_many_bans`, `run_already_finished`, `run_credited_by_timeout`, `in_room`, `mission_not_done`, `mission_already_claimed`, `mission_reroll_used`, `mission_reroll_unavailable`, `already_friends`, `request_already_sent` |
-| 429    | `rate_limited`                                                                                                                                                                                                                                                                                                                                       |
+| Status | Codes                                                                                                                                                                                                                                                                                                                                                                                        |
+| ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 400    | `invalid_request` (body/query validation, incl. unknown dex/item/move/type ids; has `issues`), `unknown_upgrade`, `unknown_title`, `not_a_starter`, `invalid_answers`, `invalid_move`, `duplicate_move`, `unknown_banner`, `invalid_pull_count`, `invalid_payment`, `cannot_friend_self`, `duplicate_favourite`                                                                              |
+| 401    | `unauthenticated`, `invalid_credentials`                                                                                                                                                                                                                                                                                                                                                     |
+| 404    | `run_not_found`, `user_not_found`, `request_not_found`, `friend_not_found`, `mission_not_found`                                                                                                                                                                                                                                                                                              |
+| 409    | `username_taken`, `pokemon_not_owned`, `insufficient_funds`, `upgrade_maxed`, `title_locked`, `starter_already_chosen`, `too_many_bans`, `prestige_not_ready`, `prestige_maxed`, `run_already_finished`, `run_credited_by_timeout`, `in_room`, `mission_not_done`, `mission_already_claimed`, `mission_reroll_used`, `mission_reroll_unavailable`, `already_friends`, `request_already_sent` |
+| 429    | `rate_limited`                                                                                                                                                                                                                                                                                                                                                                               |
 
 Dex numbers, held items, moves, types, upgrade ids, titles, banners and missions are all checked
 against `@pokesurvivor/data`.
@@ -53,6 +53,7 @@ missions and achievements).
 | `POST /api/save/starter`   | `{ dex, answers? }`       | The first Pokémon (below). `{ achievements, save }`                                        |
 | `PUT /api/save/moves/:dex` | `{ bindings?, bans? }`    | Move slots and bans for an owned Pokémon (below)                                           |
 | `POST /api/save/upgrades`  | `{ dex, upgradeId }`      | Buys the next level for an owned Pokémon with coins                                        |
+| `POST /api/save/prestige`  | `{ dex }`                 | Prestiges an owned Pokémon whose upgrades are all maxed (below)                            |
 | `GET /api/upgrades`        | –                         | `{ upgrades: { [id]: { maxLevel, baseCost, growth } } }`                                   |
 
 Every mutating save endpoint returns the updated save (the starter wraps it in `{ save }`).
@@ -78,9 +79,29 @@ plus its types'), each once. `bans` lists moves that never show up in its level-
 its `ban` upgrade level (max 3), not its starting move. Either can be sent alone; an empty list
 clears it.
 
+**Prestige.** Once every upgrade of an owned Pokémon is at its max level, `POST
+/api/save/prestige` gives it a star (`prestige[dex]`, up to `tuning.json` `prestige.maxStars`, 3)
+and resets **all** its upgrades, Repertoire and Ban included, and its banned moves. It is free.
+Move slot bindings stay: every move they can name (the starting move and the move pool) is
+allowed without any upgrade. Refused with `409 prestige_not_ready` while an upgrade has a level
+left to buy, and `409 prestige_maxed` at the max stars (checked first); both change nothing. The
+save is locked for the check and the reset, so two requests at once prestige once. Each prestige
+is stored in `pokemon_prestiges` (the stars reached and the levels and bans it reset) and written
+to the ledger as a zero-coin entry (`reason: "prestige"`, `refId: "dex:prestige:stars"`): the
+coins spent on a Pokémon since its last prestige are its `upgrade_purchase` entries (`refId`
+`dex:…`) after that entry.
+
+Each star adds `tuning.json` `prestige.perStar.*` (5% each) to its stats in every run, solo and
+co-op: max HP, damage and speed × `1 + perStar × stars`, move cooldowns × `1 − perStar × stars`,
+and damage reduction and crit chance + `perStar × stars` points, as their upgrades add up. Enemies
+don't scale with it. Co-op loadouts read the stars from the save; solo runs are simulated by the
+client from the save it fetched (like upgrades), and their reports are capped the same way
+whatever the stars. Stars are also in the room's member `partner`, the game's `players`, friends'
+`partner` and run activity (`prestige`, absent at 0; see [protocol.md](protocol.md)).
+
 ```jsonc
 {
-  "version": 2,
+  "version": 3,
   "coins": 500,
   "tickets": { "x1": 0, "x10": 0 },
   "partner": { "dex": 25, "shiny": false }, // dex null until one is chosen
@@ -89,6 +110,7 @@ clears it.
   "starter": null, // the starter's dex once chosen
   "personality": null, // { trait, scores } if the test was taken
   "upgrades": { "25": { "max-hp": 2 } }, // dex -> upgrade id -> level
+  "prestige": { "25": 1 }, // dex -> prestige stars (absent: none)
   "moveBindings": { "25": ["thunder-shock", null, "tackle", null] },
   "moveBans": { "25": ["growl"] },
   "pity": { "kanto": 12 }, // banner id -> pulls since the last 5★

@@ -54,6 +54,7 @@ describe('presenceDiffers', () => {
         runId: 'r',
         dex: 25,
         shiny: true,
+        prestige: 0,
         startedAt: 0,
         elapsedS: 500,
         paused: false,
