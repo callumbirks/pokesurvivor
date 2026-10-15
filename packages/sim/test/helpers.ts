@@ -89,3 +89,25 @@ export function postponeAmbientSystems(sim: Sim, duration: number): void {
   sim.state.events.nextT = duration + 1;
   sim.state.events.thiefT = duration + 1;
 }
+
+/**
+ * Patch levelup.json for one sim. `statCards` is the offer pool; cards left out of it can still be
+ * looked up, and patched ones are looked up as patched.
+ */
+export function patchLevelUp(sim: Sim, patch: Partial<Sim['ctx']['d']['game']['levelUp']>): void {
+  const d = sim.ctx.d;
+  const levelUp = { ...d.game.levelUp, ...patch };
+  const statCardById = new Map([
+    ...d.game.statCardById,
+    ...levelUp.statCards.map((c) => [c.id, c] as const),
+  ]);
+  sim.ctx.d = {
+    ...d,
+    game: { ...d.game, levelUp, statCardById },
+    statCard: (id) => {
+      const c = statCardById.get(id);
+      if (!c) throw new Error(`unknown stat card ${id}`);
+      return c;
+    },
+  };
+}

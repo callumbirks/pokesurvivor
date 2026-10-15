@@ -2,11 +2,13 @@
 //   new        learn a move (only while there are free slots)
 //   upgrade    level up a move you have
 //   evolution  a max-level move whose required stat card you've taken (always offered when ready)
-//   stat       a permanent stat card for the run (capped per card)
+//   stat       a permanent stat card for the run, with a rolled rarity (rarity.ts); a card with a
+//              ceiling (`cap`) isn't offered once it's reached
 import { openChoice } from './choices.js';
 import { presentPlayers, type Ctx } from './ctx.js';
 import { addMove, canLevelUp, evolutionInfo, evolveMove, levelUpMove, moveById } from './moves.js';
 import { addMaxHp, hasMove, healPlayer } from './players.js';
+import { rarityTier, rollRarity, scaledCardEffect } from './rarity.js';
 import type { CardOption, MoveState, PlayerState } from './state.js';
 
 interface Candidate {
@@ -14,11 +16,15 @@ interface Candidate {
   card: CardOption;
 }
 
-/** Is there room for one more pick of this stat card? */
-const statRoom = (ctx: Ctx, p: PlayerState, id: string): boolean => {
-  const c = ctx.d.statCard(id);
-  return !c.maxPicks || (p.statsTaken[c.id] ?? 0) < c.maxPicks;
-};
+/** Has this stat card reached its ceiling for the player (then it isn't offered)? */
+export function atCeiling(ctx: Ctx, p: PlayerState, id: string): boolean {
+  const e = ctx.d.statCard(id).effect;
+  if (e.type !== 'stat' || e.cap === undefined) return false;
+  if (e.op === 'add') return p[e.stat] >= e.cap;
+  const built = p.cardMul[id] ?? 1;
+  // A multiplier below 1 (cooldown) has its ceiling below 1 too: a floor.
+  return e.value < 1 ? built <= e.cap : built >= e.cap;
+}
 
 function candidates(ctx: Ctx, p: PlayerState): Candidate[] {
   const { d, rand } = ctx;
@@ -66,10 +72,10 @@ function candidates(ctx: Ctx, p: PlayerState): Candidate[] {
     });
   }
 
-  // --- stats: capped per card; the ones that unlock an evolution are always in ---
+  // --- stats: not at their ceiling; the ones that unlock an evolution are always in ---
   const stats = rand
     .pickN(
-      cfg.statCards.filter((c) => !waiting.has(c.id) && statRoom(ctx, p, c.id)),
+      cfg.statCards.filter((c) => !waiting.has(c.id) && !atCeiling(ctx, p, c.id)),
       cfg.statCandidates,
     )
     .concat(cfg.statCards.filter((c) => waiting.has(c.id)));
@@ -95,7 +101,8 @@ function candidates(ctx: Ctx, p: PlayerState): Candidate[] {
 /**
  * Up to `cardsOffered` distinct cards, picked by weight; a ready evolution is always one. From
  * `lateGrowth.offers.fromMinute`, the next slots go to offensive stat cards (Power / Reflexes)
- * that aren't capped: one at random each, keeping a ready evolution's slot if configured.
+ * not at a ceiling: one at random each, keeping a ready evolution's slot if configured. Then every
+ * stat card that has rarities rolls one.
  */
 export function offerCards(ctx: Ctx, p: PlayerState): CardOption[] {
   const n = ctx.d.game.levelUp.cardsOffered;
@@ -114,7 +121,7 @@ export function offerCards(ctx: Ctx, p: PlayerState): CardOption[] {
     if (c && picked.length < n) take(c);
   };
   if (late.preserveReadyEvolution) takeEvolution();
-  let offense = late.statIds.filter((id) => statRoom(ctx, p, id));
+  let offense = late.statIds.filter((id) => !atCeiling(ctx, p, id));
   const guaranteedIds: string[] = [];
   for (let i = 0; i < guaranteed && picked.length < n && offense.length; i++) {
     const id = ctx.rand.pick(offense);
@@ -148,7 +155,12 @@ export function offerCards(ctx: Ctx, p: PlayerState): CardOption[] {
     const [card] = picked.splice(from, 1);
     if (card) picked.splice(first + Math.floor(ctx.rand() * (picked.length - first + 1)), 0, card);
   }
-  return picked;
+  const rarity = ctx.d.game.levelUp.rarity;
+  return picked.map((c) =>
+    c.type === 'stat' && c.statId && ctx.d.statCard(c.statId).rarity !== false
+      ? { ...c, rarity: rollRarity(rarity, ctx.s.time / 60, ctx.rand) }
+      : c,
+  );
 }
 
 export function applyCard(ctx: Ctx, p: PlayerState, card: CardOption): void {
@@ -166,14 +178,23 @@ export function applyCard(ctx: Ctx, p: PlayerState, card: CardOption): void {
     case 'stat': {
       if (!card.statId) return;
       const c = ctx.d.statCard(card.statId);
-      const e = c.effect;
+      const tier = rarityTier(ctx.d.game.levelUp.rarity, card.rarity);
+      const e = scaledCardEffect(c.effect, tier?.multiplier ?? 1);
       if (e.type === 'maxHp') addMaxHp(p, e.value);
       else if (e.type === 'heal') healPlayer(ctx, p, p.maxHp * e.maxHpFraction);
-      else {
-        let v = e.op === 'mul' ? p[e.stat] * e.value : p[e.stat] + e.value;
-        if (e.cap !== undefined) v = Math.min(e.cap, v);
-        p[e.stat] = v;
+      else if (e.op === 'add') {
+        const v = p[e.stat] + e.value;
+        p[e.stat] = e.cap === undefined ? v : Math.min(e.cap, v);
+      } else {
+        // The ceiling bounds what this card's picks have built up; the stat moves by the same step.
+        const had = p.cardMul[c.id] ?? 1;
+        let built = had * e.value;
+        if (e.cap !== undefined)
+          built = e.value < 1 ? Math.max(e.cap, built) : Math.min(e.cap, built);
+        p.cardMul[c.id] = built;
+        p[e.stat] *= built / had;
       }
+      // Once per pick whatever the rarity: evolutions only need the card taken.
       p.statsTaken[c.id] = (p.statsTaken[c.id] ?? 0) + 1;
     }
   }

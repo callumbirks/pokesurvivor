@@ -3,13 +3,14 @@
 import { describe, expect, it } from 'vitest';
 import { simData } from '../src/data.js';
 import { applyStatus, hurtEnemy } from '../src/enemies.js';
-import { offerCards } from '../src/levelup.js';
+import { applyCard, atCeiling, offerCards } from '../src/levelup.js';
 import { momentumCap } from '../src/momentum.js';
 import { attackOf } from '../src/players.js';
 import type { Sim } from '../src/sim.js';
 import {
   damageTo,
   giveMove,
+  patchLevelUp,
   patchTuning,
   player,
   quietSim,
@@ -43,13 +44,23 @@ describe('guaranteed offensive level-up card', () => {
     expect(without.length).toBeGreaterThan(0);
   });
 
-  it('offers whichever card is not capped, and nothing extra once all are', () => {
+  it('offers whichever card is not at its ceiling, and nothing extra once all are', () => {
     const sim = quietSim();
     const p = player(sim);
     atMinute(sim, late.fromMinute + 5);
+    // Give every offensive card a ceiling (the data may leave some uncapped), then reach it.
+    patchLevelUp(sim, {
+      statCards: d.game.levelUp.statCards.map((c) =>
+        late.statIds.includes(c.id) && c.effect.type === 'stat'
+          ? { ...c, effect: { ...c.effect, cap: c.effect.cap ?? c.effect.value } }
+          : c,
+      ),
+    });
     const [first, ...rest] = late.statIds;
     const cap = (id: string) => {
-      p.statsTaken[id] = d.statCard(id).maxPicks ?? Number.MAX_SAFE_INTEGER;
+      for (let i = 0; i < 10_000 && !atCeiling(sim.ctx, p, id); i++)
+        applyCard(sim.ctx, p, { id: `stat:${id}`, type: 'stat', statId: id });
+      expect(atCeiling(sim.ctx, p, id)).toBe(true);
     };
     cap(first!);
     if (rest.length) {
@@ -64,6 +75,21 @@ describe('guaranteed offensive level-up card', () => {
       const cards = offerCards(sim.ctx, p);
       expect(cards.some((c) => offensive.has(c.id))).toBe(false);
       expect(cards.length).toBe(d.game.levelUp.cardsOffered);
+    }
+  });
+
+  it('rolls a rarity for the guaranteed card', () => {
+    const sim = quietSim();
+    const p = player(sim);
+    atMinute(sim, late.fromMinute);
+    // Only the guaranteed card can be a stat card: every other stat card is out of the pool.
+    patchLevelUp(sim, { statCards: late.statIds.map((id) => d.statCard(id)) });
+    p.maxSlots = p.slots.length;
+    for (let i = 0; i < TRIALS; i++) {
+      const offence = offerCards(sim.ctx, p).filter((c) => offensive.has(c.id));
+      expect(offence.length).toBeGreaterThanOrEqual(late.guaranteedOffenseSlots);
+      for (const c of offence)
+        expect(d.game.levelUp.rarity.tiers.map((t) => t.id)).toContain(c.rarity);
     }
   });
 

@@ -5,7 +5,7 @@ import { gunzipSync } from 'node:zlib';
 import { pathToFileURL } from 'node:url';
 import { DT, TILE } from '../src/constants.js';
 import { equip } from '../src/items.js';
-import { applyCard } from '../src/levelup.js';
+import { applyCard, atCeiling } from '../src/levelup.js';
 import { activeGroup, evolutionInfo, newMove } from '../src/moves.js';
 import { createSim, type PlayerState, type Sim } from '../src/index.js';
 import { isFree, resetChunks } from '../src/world.js';
@@ -98,6 +98,7 @@ export function describe(p: PlayerState) {
     active: p.active,
     item: p.item,
     statsTaken: p.statsTaken,
+    cardMul: p.cardMul,
     attackMul: p.attackMul,
     cooldownMul: p.cooldownMul,
     maxHp: p.maxHp,
@@ -124,10 +125,12 @@ export function loadBuild(sim: Sim, p: PlayerState, source: PlayerState): void {
     'active',
     'maxSlots',
     'statsTaken',
+    'cardMul',
     'item',
     'itemRegen',
   ] as const;
   for (const key of keys) Object.assign(p, { [key]: structuredClone(source[key]) });
+  p.cardMul ??= {}; // Checkpoints saved before card rarities.
   for (const m of p.moves) {
     m.t = 0;
     m.castTick = -1;
@@ -427,8 +430,7 @@ export function synthetic(
           statQueue[statIndex] ??
           (profile === 'strong' ? (statIndex % 2 ? 'attack' : 'cooldown') : 'max-hp');
         statIndex++;
-        const card = sim.ctx.d.statCard(id);
-        if (card.maxPicks && (p.statsTaken[id] ?? 0) >= card.maxPicks) id = 'max-hp';
+        if (atCeiling(sim.ctx, p, id)) id = 'max-hp';
         applyCard(sim.ctx, p, { id: `stat:${id}`, type: 'stat', statId: id });
       }
       spent++;

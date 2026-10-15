@@ -40,7 +40,7 @@ collision bodies, then validates both outputs against their schemas before writi
 | `enemies.json`      | Spawn tiers, boss slots, late-game scaling constants, fixed behaviours and summoner → minion pairs                          |
 | `upgrades.json`     | Permanent upgrades: cost curve, max level and per-level value                                                               |
 | `items.json`        | Held items: stat effects while held, plus params for the ones that react to events                                          |
-| `levelup.json`      | Level-up stat cards (effect, pick cap) and the card-offer weights                                                           |
+| `levelup.json`      | Level-up stat cards (effect, ceiling), their rarities and odds, and the card-offer weights                                  |
 | `missions.json`     | Daily and weekly mission templates (event, filter, value, goals, reward, text with `{count}`/`{type}`)                      |
 | `achievements.json` | Categories and achievements (metric, goal, reward, title), including one per legendary                                      |
 | `music.json`        | Synth scores for the menu, the three biomes, bosses and rifts                                                               |

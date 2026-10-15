@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { simData } from '../src/data.js';
 import { applyCard, offerCards } from '../src/levelup.js';
 import { addMove } from '../src/moves.js';
-import { giveMove, player, quietSim } from './helpers.js';
+import { giveMove, patchLevelUp, player, quietSim } from './helpers.js';
 
 const d = simData();
 const cfg = d.game.levelUp;
@@ -61,30 +61,32 @@ describe('level-up offers', () => {
     }
   });
 
-  it("respects stat card caps and keeps a waiting evolution's required card eligible", () => {
+  it("keeps a waiting evolution's required card eligible", () => {
     const sim = quietSim();
     const p = player(sim);
-    for (const c of cfg.statCards) if (c.maxPicks) p.statsTaken[c.id] = c.maxPicks;
-    const capped = new Set(cfg.statCards.filter((c) => c.maxPicks).map((c) => c.id));
-    for (let i = 0; i < 50; i++) {
-      for (const c of offerCards(sim.ctx, p))
-        if (c.type === 'stat') expect(capped.has(c.statId!)).toBe(false);
-    }
-    // A max-level move waiting for the (capped) attack card: that card shows up again.
+    // A max-level move waiting for the attack card: that card is always a candidate.
     giveMove(sim, p, 'ember', d.maxMoveLevel('ember'));
-    p.statsTaken.attack = 0;
-    delete p.statsTaken.attack;
     // Isolate eligibility from offer weights by leaving only the required card in the pool.
     p.maxSlots = p.slots.length;
-    sim.ctx.d = {
-      ...sim.ctx.d,
-      game: { ...sim.ctx.d.game, levelUp: { ...cfg, statCards: [d.statCard('attack')] } },
-    };
+    patchLevelUp(sim, { statCards: [d.statCard('attack')] });
     const offers = offerCards(sim.ctx, p).map((c) => c.id);
     expect(offers).toContain('stat:attack');
   });
 
-  it('applies stat cards (with caps) and counts them', () => {
+  it('has no pick limits: a card without a ceiling is offered however often it was taken', () => {
+    for (const c of cfg.statCards.filter((c) => c.effect.type !== 'stat' || !c.effect.cap)) {
+      const sim = quietSim();
+      const p = player(sim);
+      p.maxSlots = p.slots.length;
+      patchLevelUp(sim, { statCards: [c] });
+      for (let i = 0; i < 200; i++)
+        applyCard(sim.ctx, p, { id: `stat:${c.id}`, type: 'stat', statId: c.id });
+      expect(p.statsTaken[c.id]).toBe(200);
+      expect(offerCards(sim.ctx, p).map((o) => o.id)).toContain(`stat:${c.id}`);
+    }
+  });
+
+  it('applies stat cards and counts them', () => {
     const sim = quietSim();
     const p = player(sim);
     const hp = p.maxHp;

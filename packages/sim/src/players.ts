@@ -102,6 +102,7 @@ export function createPlayer(
     rerollsUsed: 0,
     rerollBonus: perks.rerolls,
     statsTaken: {},
+    cardMul: {},
     item: null,
     itemRegen: 0,
     sashAt: null,

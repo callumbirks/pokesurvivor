@@ -174,6 +174,12 @@ export function loadGameData(): GameData {
   const achievements = parse('achievements');
   const { bodies } = parse('bodies');
   const tuning = parse('tuning');
+  const gacha = parse('gacha');
+  for (const tier of levelUp.rarity.tiers) {
+    if (!gacha.rarities.some((r) => r.rarity === tier.gachaRarity)) {
+      throw new Error(`levelup.rarity.tiers.${tier.id}: no gacha rarity ${tier.gachaRarity}`);
+    }
+  }
   for (const id of tuning.lateGrowth.offers.statIds) {
     if (!levelUp.statCards.some((c) => c.id === id)) {
       throw new Error(`tuning.lateGrowth.offers.statIds: no level-up stat card "${id}"`);
@@ -199,7 +205,7 @@ export function loadGameData(): GameData {
     missions,
     achievements,
     music: parse('music'),
-    gacha: parse('gacha'),
+    gacha,
     biomes: parse('biomes'),
     bodies,
     world: parse('world'),
