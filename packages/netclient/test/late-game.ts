@@ -27,13 +27,17 @@ export function botStep(sim: Sim): void {
   sim.step();
 }
 
-/** A sim `minutes` into a 4-player run (invulnerable bots, so it gets there). */
-export function lateGame(minutes: number, seed = 2026): Sim {
+/**
+ * A sim `minutes` into a 4-player run (invulnerable bots, so it gets there). `rifts: false` keeps
+ * it on the map with its crowd (no rift opens, so it can't be in an arena).
+ */
+export function lateGame(minutes: number, seed = 2026, opts: { rifts?: boolean } = {}): Sim {
   const sim = createSim({
     seed,
     players: [25, 4, 7, 1].map((dex, i) => ({ id: `p${i}`, dex })),
     debug: { invulnerable: true },
   });
+  if (opts.rifts === false) sim.state.rift.checkT = 1e9;
   while (sim.state.time < minutes * 60) {
     botStep(sim);
     sim.drainEvents();

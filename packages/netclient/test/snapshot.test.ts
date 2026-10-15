@@ -219,7 +219,7 @@ describe('snapshots', () => {
   });
 
   it('centre the interest area on the spectated player, keeping the viewer’s own state', () => {
-    const local = lateGame(3, 5);
+    const local = lateGame(3, 5, { rifts: false });
     const s = local.state;
     const [p0, me] = [s.players[0]!, s.players[1]!];
     // The viewer is down far from the crowd around everyone else.
