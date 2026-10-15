@@ -17,6 +17,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import type { SaveData } from '../saves/schema.js';
 import type { SavedRoom } from '../game/room.js';
+import type { SavedGame } from '../game/saved.js';
 
 /** Shared reservations fence ownership while two containers overlap during a deploy. */
 export const gameRooms = pgTable('game_rooms', {
@@ -32,6 +33,24 @@ export const gameRoomMembers = pgTable('game_room_members', {
   roomId: text('room_id')
     .notNull()
     .references(() => gameRooms.id, { onDelete: 'cascade' }),
+});
+
+/**
+ * Coop games saved when the server stops for a deploy, restored (paused, waiting for their
+ * players) by the next one. A row is deleted when a server claims it.
+ */
+export const gameSaves = pgTable('game_saves', {
+  gameId: uuid('game_id').primaryKey(),
+  roomId: text('room_id').notNull(),
+  /** Layout of `game` (`SAVED_GAME_VERSION`); a newer one isn't restored, only credited. */
+  version: smallint('version').notNull(),
+  /** Room, players and slots, the run's static info, and each player's result as of the save. */
+  game: jsonb('game').$type<SavedGame>().notNull(),
+  /** `JSON.stringify(sim.state)`. Text, not jsonb: jsonb reorders keys, and a restore must be exact. */
+  sim: text('sim').notNull(),
+  /** The build that saved it (null in development). */
+  build: text('build'),
+  savedAt: timestamp('saved_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
 const createdAt = () => timestamp('created_at', { withTimezone: true }).notNull().defaultNow();

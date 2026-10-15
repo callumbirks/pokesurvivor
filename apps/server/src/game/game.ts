@@ -5,8 +5,9 @@ import { randomInt, randomUUID } from 'node:crypto';
 import { SnapshotEncoder } from '@pokesurvivor/netclient';
 import type { Game as GameStatic, ResultSummary } from '@pokesurvivor/netclient';
 import { decodeAim, type InputMessage, type WireIntent } from '@pokesurvivor/protocol';
-import { TICK_HZ, createSim } from '@pokesurvivor/sim';
-import type { ChoiceResult, Intent, PlayerConfig, Sim, SimEvent } from '@pokesurvivor/sim';
+import { TICK_HZ, createSim, restoreSim } from '@pokesurvivor/sim';
+import type { ChoiceResult, Intent, PlayerConfig, Sim, SimEvent, SimState } from '@pokesurvivor/sim';
+import type { SavedGame } from './saved.js';
 import type { Session } from './session.js';
 
 export interface GamePlayerInfo {
@@ -66,13 +67,29 @@ interface Slot extends GamePlayerInfo {
 
 export type GamePhase = 'loading' | 'running' | 'ended';
 
+/** A game read back from `game_saves` (see `Game.restore`). */
+interface Restored {
+  gameId: string;
+  saved: SavedGame;
+  sim: Sim;
+}
+
 export class Game {
-  readonly id = randomUUID();
-  readonly seed = randomInt(1, 2 ** 31 - 1);
+  readonly id: string;
+  readonly seed: number;
   phase: GamePhase = 'loading';
   sim: Sim;
   info: GameStatic;
   startedAt = new Date();
+  /**
+   * Restored after a server update and waiting for its players: the sim stands still, snapshots
+   * say paused (clients don't predict or send movement), until `resume()`.
+   */
+  held = false;
+  /** Being saved for a server update: nothing changes any more. */
+  frozen = false;
+  /** Players a held game still waits for (set by the room on restore). */
+  waitingFor = new Set<string>();
   private slots = new Map<string, Slot>();
   private events: SimEvent[] = [];
   private snapAcc = 0;
@@ -82,13 +99,91 @@ export class Game {
 
   constructor(
     readonly roomId: string,
-    players: readonly GamePlayerInfo[],
+    from: readonly GamePlayerInfo[] | Restored,
     private readonly settings: GameSettings,
     private readonly sessionOf: (userId: string) => Session | null,
     private readonly onEnd: (game: Game, outcome: GameOutcome) => void,
   ) {
-    this.sim = this.createSim(players);
-    this.info = this.describe();
+    if ('saved' in from) {
+      const { saved } = from;
+      this.id = from.gameId;
+      this.seed = saved.seed;
+      this.sim = from.sim;
+      this.info = saved.info;
+      this.phase = 'running';
+      this.held = true;
+      this.startedAt = new Date(saved.startedAt);
+      this.slots = new Map(
+        saved.slots.map((s) => [
+          s.userId,
+          {
+            ...this.newSlot({ ...s, owned: new Set(s.owned) }, s.index),
+            // Nobody is connected until they reconnect to this server.
+            connected: false,
+            left: s.left,
+            frozen: s.frozen ?? null,
+          },
+        ]),
+      );
+    } else {
+      this.id = randomUUID();
+      this.seed = randomInt(1, 2 ** 31 - 1);
+      this.sim = this.createSim(from);
+      this.info = this.describe();
+    }
+  }
+
+  /**
+   * Rebuilds a saved game, held until its players are back. Throws if the saved state doesn't
+   * fit this server's sim (the caller then credits the saved results instead).
+   */
+  static restore(
+    gameId: string,
+    saved: SavedGame,
+    simJson: string,
+    settings: GameSettings,
+    sessionOf: (userId: string) => Session | null,
+    onEnd: (game: Game, outcome: GameOutcome) => void,
+  ): Game {
+    const sim = restoreSim(JSON.parse(simJson) as SimState);
+    const game = new Game(saved.room.id, { gameId, saved, sim }, settings, sessionOf, onEnd);
+    // Every slot must be its player in the sim, and the summaries (what gets credited) must work.
+    for (const slot of game.slots.values()) {
+      if (sim.state.players[slot.index]?.id !== slot.userId)
+        throw new Error(`saved slot ${slot.index} is not ${slot.userId} in the sim`);
+      game.summaryOf(slot);
+    }
+    sim.hash();
+    return game;
+  }
+
+  /** Everything needed to restore this game on another server (see `SavedGame`). */
+  save(room: SavedGame['room']): { saved: SavedGame; sim: string } {
+    const slots = [...this.slots.values()];
+    return {
+      saved: {
+        room,
+        info: this.info,
+        seed: this.seed,
+        startedAt: this.startedAt.toISOString(),
+        slots: slots.map((s) => ({
+          userId: s.userId,
+          username: s.username,
+          index: s.index,
+          loadout: s.loadout,
+          owned: [...s.owned],
+          left: s.left,
+          frozen: s.frozen,
+        })),
+        // Still waiting for some after a restore: they count as present until they're back.
+        present: slots
+          .filter((s) => !s.left && (s.connected || this.waitingFor.has(s.userId)))
+          .map((s) => s.userId),
+        outcome: this.outcomes(),
+        timeS: this.sim.state.time,
+      },
+      sim: JSON.stringify(this.sim.state),
+    };
   }
 
   /** The run time, and whether it's standing still (loading, a pending choice, nobody connected). */
@@ -96,7 +191,7 @@ export class Game {
     if (this.phase !== 'running')
       return { elapsedS: this.phase === 'ended' ? this.sim.state.time : 0, paused: true };
     const anyone = [...this.slots.values()].some((s) => s.connected && !s.left);
-    return { elapsedS: this.sim.state.time, paused: !anyone || this.sim.paused };
+    return { elapsedS: this.sim.state.time, paused: !anyone || this.held || this.sim.paused };
   }
 
   /** Players in the game (not including those who left). */
@@ -116,28 +211,30 @@ export class Game {
       choiceTimeoutSeconds: this.settings.choiceTimeoutS,
       debug: this.settings.simDebug,
     });
-    this.slots = new Map(
-      players.map((p, index) => [
-        p.userId,
-        {
-          ...p,
-          index,
-          encoder: new SnapshotEncoder({ viewerId: p.userId }),
-          moveX: 0,
-          moveY: 0,
-          slot: null,
-          aim: null,
-          fire: false,
-          spectate: null,
-          lastSeq: 0,
-          ackSeq: 0,
-          connected: true,
-          left: false,
-          frozen: null,
-        },
-      ]),
-    );
+    this.slots = new Map(players.map((p, index) => [p.userId, this.newSlot(p, index)]));
     return sim;
+  }
+
+  private newSlot(p: GamePlayerInfo, index: number): Slot {
+    return {
+      userId: p.userId,
+      username: p.username,
+      loadout: p.loadout,
+      owned: p.owned,
+      index,
+      encoder: new SnapshotEncoder({ viewerId: p.userId }),
+      moveX: 0,
+      moveY: 0,
+      slot: null,
+      aim: null,
+      fire: false,
+      spectate: null,
+      lastSeq: 0,
+      ackSeq: 0,
+      connected: true,
+      left: false,
+      frozen: null,
+    };
   }
 
   private describe(): GameStatic {
@@ -189,13 +286,45 @@ export class Game {
     // The full snapshot goes out now, so a resumed client doesn't wait for the next one.
     if (session.writable)
       session.sendBinary(
-        slot.encoder.encode(this.sim.state, [], ++this.seq, slot.ackSeq) as Uint8Array,
+        slot.encoder.encode(this.sim.state, [], ++this.seq, slot.ackSeq, {
+          paused: this.held,
+        }) as Uint8Array,
       );
+  }
+
+  /**
+   * The restored game goes on: everyone connected starts again from a full snapshot, with no
+   * movement held and input seqs from 1 (as after a reconnect), so nothing sent while it was
+   * held, or before the update, is applied.
+   */
+  resume(): void {
+    if (!this.held || this.phase !== 'running') return;
+    this.held = false;
+    this.waitingFor.clear();
+    for (const slot of this.slots.values()) {
+      if (slot.left || !slot.connected) continue;
+      slot.moveX = slot.moveY = 0;
+      slot.slot = null;
+      slot.aim = null;
+      slot.fire = false;
+      slot.lastSeq = slot.ackSeq = 0;
+      const session = this.sessionOf(slot.userId);
+      if (session) this.sendStart(slot, session, true);
+    }
+    this.snapshotDirty = true;
   }
 
   /** One tick (only while running). */
   tick(): void {
-    if (this.phase !== 'running') return;
+    if (this.phase !== 'running' || this.frozen) return;
+    // Held: the sim stands still; changes (a reconnect, a choice picked) still go out.
+    if (this.held) {
+      if (this.snapshotDirty) {
+        this.snapshotDirty = false;
+        this.sendSnapshots();
+      }
+      return;
+    }
     const slots = [...this.slots.values()];
     // Nobody connected: the run is frozen until someone comes back or their grace runs out.
     if (!slots.some((s) => s.connected && !s.left)) return;
@@ -246,7 +375,9 @@ export class Game {
       // next one is still a correct delta); its events since then are lost (cosmetic).
       if (!session?.writable) continue;
       session.sendBinary(
-        slot.encoder.encode(this.sim.state, this.events, this.seq, slot.ackSeq) as Uint8Array,
+        slot.encoder.encode(this.sim.state, this.events, this.seq, slot.ackSeq, {
+          paused: this.held,
+        }) as Uint8Array,
       );
     }
     this.events = [];
@@ -259,7 +390,8 @@ export class Game {
    */
   input(userId: string, m: InputMessage): void {
     const slot = this.slots.get(userId);
-    if (this.phase !== 'running' || m.gameId !== this.id) return;
+    // Held or being saved: movement sent now would be stale when it goes on.
+    if (this.phase !== 'running' || this.held || this.frozen || m.gameId !== this.id) return;
     if (!slot || slot.left || m.seq <= slot.lastSeq) return;
     slot.lastSeq = m.seq;
     slot.moveX = m.moveX;
@@ -293,7 +425,8 @@ export class Game {
   }
 
   intent(userId: string, intent: WireIntent): ChoiceResult {
-    if (this.phase !== 'running' || !this.has(userId)) return { ok: false, error: 'not playing' };
+    if (this.phase !== 'running' || this.frozen || !this.has(userId))
+      return { ok: false, error: 'not playing' };
     // The sim validates the fields of each intent type and rejects unknown ones.
     const result = this.sim.submitIntent(userId, intent as unknown as Intent) as
       ChoiceResult | undefined;
@@ -363,17 +496,22 @@ export class Game {
     };
   }
 
-  private finish(reason: string): void {
-    if (this.phase === 'ended') return;
-    this.phase = 'ended';
-    const endedAt = new Date();
-    const players = [...this.slots.values()].map((slot) => ({
+  /** Every player's result now (those who left: as of then). */
+  private outcomes(): PlayerOutcome[] {
+    return [...this.slots.values()].map((slot) => ({
       userId: slot.userId,
       username: slot.username,
       loadout: slot.loadout,
       left: slot.left,
       summary: slot.frozen ?? this.summaryOf(slot),
     }));
+  }
+
+  private finish(reason: string): void {
+    if (this.phase === 'ended') return;
+    this.phase = 'ended';
+    const endedAt = new Date();
+    const players = this.outcomes();
     this.onEnd(this, {
       gameId: this.id,
       reason,

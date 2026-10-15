@@ -24,7 +24,7 @@ async function replacement(t: GameTestServer) {
   );
 }
 
-describe('start-first room handoffs', () => {
+describe('room handoffs across a restart', () => {
   it('snapshots at SIGTERM, after the replacement is up and prior lobby requests settle', async () => {
     const old = await createGameTestServer({ heartbeatMs: 200 });
     const next = await replacement(old);
@@ -41,7 +41,7 @@ describe('start-first room handoffs', () => {
       for (const b of bots) b.routeTo(next.url);
       const states: string[] = [];
       bots[0]!.client.on('state', (s) => states.push(s));
-      await old.game.drain(2000);
+      await old.game.shutdown(2000);
       await waitFor(
         () => next.game.roomOfUser(bots[0]!.userId)?.id === id,
         'adoption on already-running replacement',
@@ -86,7 +86,7 @@ describe('start-first room handoffs', () => {
         await gate;
         await publish(...args);
       });
-      const drained = old.game.drain(1000);
+      const drained = old.game.shutdown(1000);
       expect(room.transferring).toBe(true);
       const status = bots[0]!.client.setStatus('busy');
       const left = bots[0]!.client.leaveRoom();
@@ -115,7 +115,7 @@ describe('start-first room handoffs', () => {
         b.wander();
       }
       const before = await getSave(old.database.db.db, bots[0]!.userId);
-      const drained = old.game.drain(5000);
+      const drained = old.game.shutdown(5000);
       const tick = bots[0]!.latest!.tick;
       await bots[0]!.until((s) => s.tick > tick + 15 && s.ackSeq > 5);
       expect(game.phase).toBe('running');
@@ -167,7 +167,7 @@ describe('start-first room handoffs', () => {
       await startGame(bots);
       const game = old.game.liveRooms.get(id)!.game!;
       bots.forEach((b) => b.routeTo(next.url));
-      const drained = old.game.drain(5000);
+      const drained = old.game.shutdown(5000);
       const pending = bots[1]!.client.next('notice', (n) => n.code === 'room-handoff-pending');
       bots[1]!.client.dropConnection();
       await withTimeout(pending, 3000, 'waiting notice');
@@ -269,7 +269,7 @@ describe('start-first room handoffs', () => {
       const id = await lobby(bots);
       bots[0]!.routeTo(next.url);
       bots[0]!.net.offline = true;
-      await old.game.drain(1000);
+      await old.game.shutdown(1000);
       await waitFor(
         async () => (await next.game.registry.room(id)) === null,
         'expired handoff cannot be claimed before periodic cleanup',
@@ -323,7 +323,7 @@ describe('start-first room handoffs', () => {
       const bots = await old.party(1);
       const id = await lobby(bots);
       bots[0]!.net.offline = true;
-      await old.game.drain(1000);
+      await old.game.shutdown(1000);
       const claimed = await Promise.all([
         next.game.registry.adopt(id),
         contender.game.registry.adopt(id),
@@ -365,7 +365,7 @@ describe('start-first room handoffs', () => {
       const joining = bots[1]!.client.join(id);
       await withTimeout(started, 5000, 'in-flight join enters registry');
       bots.forEach((b) => b.routeTo(next.url));
-      const drained = old.game.drain(1000);
+      const drained = old.game.shutdown(1000);
       release();
       await withTimeout(joining, 5000, 'in-flight join reply');
       await withTimeout(drained, 5000, 'handoff after in-flight join');
@@ -388,7 +388,7 @@ describe('start-first room handoffs', () => {
       await startGame(bots);
       const game = old.game.liveRooms.get(id)!.game!;
       bots.forEach((b) => b.routeTo(next.url));
-      const drained = old.game.drain(3000);
+      const drained = old.game.shutdown(3000);
       const expired = bots[1]!.client.next('notice', (n) => n.code === 'room-handoff-expired');
       bots[1]!.client.dropConnection();
       await withTimeout(expired, 3000, 'normal old grace expiry');
@@ -433,7 +433,7 @@ describe('start-first room handoffs', () => {
       const id = await lobby(bots);
       bots.forEach((b) => b.routeTo(next.url));
       bots[0]!.net.offline = true;
-      await withTimeout(old.game.drain(1000), 5000, 'old lobby handoff');
+      await withTimeout(old.game.shutdown(1000), 5000, 'old lobby handoff');
       await waitFor(
         () =>
           next.game.liveRooms.get(id)?.members.size === 2 &&
@@ -526,7 +526,7 @@ describe('start-first room handoffs', () => {
       const id = await lobby(bots);
       await startGame(bots);
       const game = old.game.liveRooms.get(id)!.game!;
-      const drained = old.game.drain(5000);
+      const drained = old.game.shutdown(5000);
       next = await replacement(old);
       bots[0]!.routeTo(next.url);
       const renew = vi.spyOn(old.game.registry, 'renew');
@@ -633,7 +633,7 @@ describe('start-first room handoffs', () => {
       await startGame(players);
       const game = old.game.liveRooms.get(id)!.game!;
       players.forEach((b) => b.routeTo(next.url));
-      const drained = old.game.drain(5000);
+      const drained = old.game.shutdown(5000);
       const waiting = players[1]!.client.next('notice', (n) => n.code === 'room-handoff-pending');
       players[1]!.client.dropConnection();
       await withTimeout(waiting, 3000, 'waiting player on replacement');
