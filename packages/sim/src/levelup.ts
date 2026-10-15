@@ -115,6 +115,7 @@ export function offerCards(ctx: Ctx, p: PlayerState): CardOption[] {
   };
   if (late.preserveReadyEvolution) takeEvolution();
   let offense = late.statIds.filter((id) => statRoom(ctx, p, id));
+  const guaranteedIds: string[] = [];
   for (let i = 0; i < guaranteed && picked.length < n && offense.length; i++) {
     const id = ctx.rand.pick(offense);
     offense = offense.filter((o) => o !== id);
@@ -122,6 +123,7 @@ export function offerCards(ctx: Ctx, p: PlayerState): CardOption[] {
     const at = pool.findIndex((c) => c.card.id === `stat:${id}`);
     const [c] = at >= 0 ? pool.splice(at, 1) : [];
     take(c ?? { w: 0, card: { id: `stat:${id}`, type: 'stat', statId: id } });
+    guaranteedIds.push(`stat:${id}`);
   }
   if (!late.preserveReadyEvolution) takeEvolution();
   while (picked.length < n && pool.length) {
@@ -138,6 +140,13 @@ export function offerCards(ctx: Ctx, p: PlayerState): CardOption[] {
     const [c] = pool.splice(idx, 1);
     if (!c || used.has(c.card.id)) continue;
     take(c);
+  }
+  // Not always in the same place: each guaranteed card moves to a random slot after the evolution.
+  const first = picked[0]?.type === 'evolution' ? 1 : 0;
+  for (const id of guaranteedIds) {
+    const from = picked.findIndex((c) => c.id === id);
+    const [card] = picked.splice(from, 1);
+    if (card) picked.splice(first + Math.floor(ctx.rand() * (picked.length - first + 1)), 0, card);
   }
   return picked;
 }
