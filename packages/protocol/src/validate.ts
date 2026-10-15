@@ -125,6 +125,12 @@ export function decodeClientMessage(raw: string): Decoded<ClientMessage> {
       return isStr(m.gameId, 64) && onlyKeys(m, ['gameId'])
         ? { ok: true, message: { type: m.type, gameId: m.gameId } }
         : fail(`bad ${m.type}`);
+    case 'game.spectate':
+      return isStr(m.gameId, 64) &&
+        (m.target === null || isStr(m.target, 64)) &&
+        onlyKeys(m, ['gameId', 'target'])
+        ? { ok: true, message: { type: m.type, gameId: m.gameId, target: m.target } }
+        : fail('bad game.spectate');
     case 'activity': {
       const solo = m.solo;
       if (!onlyKeys(m, ['solo'])) return fail('bad activity');

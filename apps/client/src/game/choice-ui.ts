@@ -204,7 +204,8 @@ export class ChoiceOverlay {
       if (this.inputReady()) this.pick(Number(digit[1]) - 1);
       return true;
     }
-    if (code === 'KeyR') {
+    // R, or the pad's Back (`PadBack`, which spectates outside a choice).
+    if (code === 'KeyR' || code === 'PadBack') {
       if (this.inputReady() && this.state.reroll()) audio.sfx('select');
       return true;
     }

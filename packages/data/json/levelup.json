@@ -39,7 +39,7 @@
       "icon": "fist",
       "name": "Power",
       "description": "+{percent}% damage with every move.",
-      "effect": { "type": "stat", "stat": "attackMul", "op": "mul", "value": 1.08 }
+      "effect": { "type": "stat", "stat": "attackMul", "op": "mul", "value": 1.08, "cap": 20 }
     },
     {
       "id": "speed",
@@ -73,7 +73,14 @@
       "icon": "sprout",
       "name": "Synthesis",
       "description": "+{value} HP regenerated per second.",
-      "effect": { "type": "stat", "stat": "regen", "op": "add", "value": 0.7 }
+      "effect": {
+        "type": "stat",
+        "stat": "regen",
+        "op": "add",
+        "value": 0.7,
+        "cap": 10,
+        "capOf": "cards"
+      }
     },
     {
       "id": "magnet",
