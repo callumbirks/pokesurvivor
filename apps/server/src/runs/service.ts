@@ -1,7 +1,9 @@
+import type { BalanceRecord } from '@pokesurvivor/protocol';
 import { and, eq, lt, sql } from 'drizzle-orm';
+import type { FastifyBaseLogger } from 'fastify';
 import { pokemonOf } from '../data.js';
 import type { Executor } from '../db/index.js';
-import { runPlayers, runs } from '../db/schema.js';
+import { runBalance, runPlayers, runs } from '../db/schema.js';
 import type { RunCaps } from '../economy/config.js';
 import { ApiError } from '../http/errors.js';
 import { checkAchievements } from '../progress/achievements.js';
@@ -9,6 +11,7 @@ import type { UnlockedAchievement } from '../progress/achievements.js';
 import { advanceMissions, ensureMissions, periodsAt } from '../progress/missions.js';
 import { ownsPokemon, withLockedSave } from '../saves/service.js';
 import type { LockedSave } from '../saves/service.js';
+import { balanceFlags, type BalanceContext } from './balance.js';
 import { capRunStats } from './caps.js';
 import type { RunStats } from './caps.js';
 
@@ -95,6 +98,39 @@ function applyRunToSave(
     pokemonTypes: pokemonOf(run.pokemon.dex).types,
   });
   return checkAchievements(save, now);
+}
+
+/** A solo run's balance record from the client (already validated by the route), if any. */
+export interface SoloBalance {
+  record?: BalanceRecord | null;
+  log?: Pick<FastifyBaseLogger, 'warn'>;
+}
+
+/**
+ * Stores (or replaces) a player's balance record for a run, with its implausibility flags. In a
+ * savepoint, so a failure is logged and never undoes the run's credit.
+ */
+async function storeBalance(
+  tx: Executor,
+  row: { runId: string; userId: string; source: 'server' | 'client'; record: BalanceRecord },
+  run: BalanceContext,
+  log?: Pick<FastifyBaseLogger, 'warn'>,
+): Promise<void> {
+  try {
+    const flags = balanceFlags(row.record, run);
+    const values = { version: row.record.v, source: row.source, record: row.record, flags };
+    await tx.transaction(async (sp) => {
+      await sp
+        .insert(runBalance)
+        .values({ runId: row.runId, userId: row.userId, ...values })
+        .onConflictDoUpdate({
+          target: [runBalance.runId, runBalance.userId],
+          set: { ...values, updatedAt: sql`now()` },
+        });
+    });
+  } catch (err) {
+    log?.warn({ err, runId: row.runId, userId: row.userId }, 'storing a balance record failed');
+  }
 }
 
 function playerColumns(stats: Omit<RunStats, 'durationS'>) {
@@ -184,10 +220,18 @@ export async function checkpointSoloRun(
   runId: string,
   claim: RunStats,
   caps: RunCaps,
+  balance: SoloBalance = {},
 ): Promise<RunCheckpoint> {
   return db.transaction(async (tx) => {
     const run = await lockOpenSoloRun(tx, userId, runId);
     const { stats, capped } = capRunStats(claim, caps, run.elapsedS);
+    if (balance.record)
+      await storeBalance(
+        tx,
+        { runId, userId, source: 'client', record: balance.record },
+        { ...claim, dex: run.pokemonDex, capped },
+        balance.log,
+      );
     await tx
       .update(runs)
       .set({ checkpointAt: sql`now()` })
@@ -212,6 +256,7 @@ export async function finishSoloRun(
   claim: RunStats,
   caps: RunCaps,
   opts: ProgressOptions,
+  balance: SoloBalance = {},
 ): Promise<RunResult> {
   return db.transaction(async (tx) => {
     const run = await lockOpenSoloRun(tx, userId, runId);
@@ -225,9 +270,24 @@ export async function finishSoloRun(
       .set({ ...playerColumns(stats), claimed: capped ? claim : null })
       .where(and(eq(runPlayers.runId, runId), eq(runPlayers.userId, userId)));
     const pokemon = { dex: run.pokemonDex, shiny: run.pokemonShiny };
-    const achievements = await withLockedSave(tx, userId, (save) =>
-      applyRunToSave(save, { runId, mode: 'solo', stats, pokemon, endedAt: new Date() }, opts),
-    );
+    let setup: BalanceContext['save'];
+    const achievements = await withLockedSave(tx, userId, (save) => {
+      // What the save allows this Pokémon, to check the record's setup against.
+      const key = String(pokemon.dex);
+      setup = { prestige: save.data.prestige[key] ?? 0, upgrades: save.data.upgrades[key] ?? {} };
+      return applyRunToSave(
+        save,
+        { runId, mode: 'solo', stats, pokemon, endedAt: new Date() },
+        opts,
+      );
+    });
+    if (balance.record)
+      await storeBalance(
+        tx,
+        { runId, userId, source: 'client', record: balance.record },
+        { ...claim, dex: run.pokemonDex, capped, save: setup },
+        balance.log,
+      );
     return { runId, stats, capped, achievements };
   });
 }
@@ -317,6 +377,7 @@ export async function recordCoopRun(
   db: Executor,
   report: CoopRunReport,
   opts: ProgressOptions,
+  log?: Pick<FastifyBaseLogger, 'warn'>,
 ): Promise<{ runId: string; achievements: Map<string, UnlockedAchievement[]> }> {
   if (report.players.length === 0) throw new Error('A coop run needs at least one player');
   // Lock saves in a stable order so concurrent reports can't deadlock.
@@ -343,6 +404,16 @@ export async function recordCoopRun(
         ...playerColumns(p),
       })),
     );
+    for (const p of players) {
+      if (!p.balance) continue;
+      const durationS = p.leftAfterS ?? report.durationS;
+      await storeBalance(
+        tx,
+        { runId: run.id, userId: p.userId, source: 'server', record: p.balance },
+        { durationS, level: p.level, kills: p.kills, dex: p.pokemon.dex },
+        log,
+      );
+    }
     const achievements = new Map<string, UnlockedAchievement[]>();
     for (const player of players) {
       const { userId, pokemon, leftAfterS, ...rest } = player;

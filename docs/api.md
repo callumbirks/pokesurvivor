@@ -204,6 +204,12 @@ Solo runs are simulated in the browser, so their results are claims the server c
    - `rescued`: lost Pokémon brought home whose 20% "joins you" roll succeeded. They join the
      collection (`from: "rescue"`) if not owned; the 150-coin consolation is part of `coins`.
 
+   It may also carry `balance`, the player's balance record (`BalanceRecord`; see
+   [run-export.md](run-export.md)). It is analytics only and **never affects what is credited**:
+   the server checks its shape and size (at most 160 000 JSON characters) on its own, drops one
+   that fails (logged, `dropped an invalid balance record`), and otherwise stores it in
+   `run_balance` with the implausible values it found (`flags`). `stats` never includes it.
+
    The response is `{ runId, stats, capped, achievements, save }`, where `stats` is what was
    credited and `achievements` the ones it unlocked (`[{ id, reward, title }]`).
 
@@ -226,7 +232,8 @@ sends the run so far while it plays:
 3. `POST /api/runs/checkpoint` with the same body as `POST /api/runs` (the `RunSummary` so far
    and the `runId`) → `200 { runId, stats, capped }`, where `stats` is the checkpoint as stored.
    It is validated and capped exactly like a final report for the time since `start`, and
-   replaces the run's previous checkpoint. **Nothing is credited.** Rate-limited per IP
+   replaces the run's previous checkpoint (and its `balance` record, if one comes with it, so a
+   run credited by the timeout has the last one). **Nothing is credited.** Rate-limited per IP
    (`ACTION_RATE_LIMIT_MAX`). The client sends one about every minute of run time, at least
    every 3 minutes of wall-clock time while the run is open (paused, or waiting on a choice), and
    when the page is hidden or closed (`fetch` with `keepalive`; a hidden solo run also pauses).
@@ -258,7 +265,8 @@ Coop runs are not reported over HTTP: the game server records them from its own 
 `recordCoopRun()` in `apps/server/src/runs/service.ts`, with the same `RunSummary` per player
 (uncapped), which counts towards missions and achievements the same way. A player who left
 before the end is credited with what they had when they left (`leftAfterS` is their play time).
-Results reach the players as a `game.results` message ([protocol.md](protocol.md)).
+Each player's `RunSummary` carries their balance record, from the server's sim; it is stored in
+`run_balance` (`source: "server"`) and left out of what players are sent. Results reach the players as a `game.results` message ([protocol.md](protocol.md)).
 
 ## Gacha
 

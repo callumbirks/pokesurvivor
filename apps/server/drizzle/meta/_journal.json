@@ -50,6 +50,13 @@
       "when": 1792102522511,
       "tag": "0006_game_saves",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792108113800,
+      "tag": "0007_run_balance",
+      "breakpoints": true
     }
   ]
 }

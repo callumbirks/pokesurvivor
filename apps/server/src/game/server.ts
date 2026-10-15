@@ -1,6 +1,6 @@
 // The WebSocket game server: authenticated sessions (one per user), presence for friends, rooms
 // and the authoritative game loop. Mounted on `/ws` by `buildApp`.
-import type { Results } from '@pokesurvivor/netclient';
+import type { ResultSummary, Results } from '@pokesurvivor/netclient';
 import {
   CloseCode,
   MAX_CLIENT_MESSAGE_BYTES,
@@ -70,6 +70,14 @@ const MAX_INVALID = 20;
 const HELLO_TIMEOUT_MS = 5000;
 /** `server.lag` goes out at most this often (the lag in between is added up). */
 const LAG_NOTICE_MS = 1000;
+
+/** A result as players see it: without the balance records (analytics, stored with the run). */
+function withoutBalance({ run, player }: ResultSummary): ResultSummary {
+  const out = { run: { ...run }, player: player && { ...player } };
+  delete out.run.balance;
+  if (out.player) delete out.player.balance;
+  return out;
+}
 
 interface Connection {
   socket: WebSocket;
@@ -894,6 +902,7 @@ export class GameServer implements PresenceSource, FriendNotifier {
               players,
             },
             { timeZone: this.opts.timeZone },
+            this.log,
           );
         } catch (err) {
           this.log.error({ err, roomId, gameId: outcome.gameId }, 'recording a coop run failed');
@@ -912,7 +921,7 @@ export class GameServer implements PresenceSource, FriendNotifier {
           userId: p.userId,
           username: p.username,
           left: p.left,
-          summary: p.summary,
+          summary: withoutBalance(p.summary),
           ...(achievements ? { achievements } : {}),
         };
       }),

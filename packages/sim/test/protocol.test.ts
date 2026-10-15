@@ -1,7 +1,7 @@
 // The sim produces the protocol's run result (`packages/protocol` RunSummary) that the server
 // credits: check a finished bot run against the same rules as `POST /api/runs`.
 import { POKEMON_TYPES } from '@pokesurvivor/data';
-import type { RunSummary } from '@pokesurvivor/protocol';
+import type { BalanceRecord, RunSummary } from '@pokesurvivor/protocol';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { simData } from '../src/data.js';
@@ -36,7 +36,7 @@ const RunSummarySchema = z.strictObject({
     rescued: z.array(dex),
   }),
   // Validated on its own by the server (`apps/server/src/runs/balance.ts`): never fails a report.
-  balance: z.unknown().optional(),
+  balance: z.custom<BalanceRecord>().optional(),
 }) satisfies z.ZodType<RunSummary>;
 
 describe('protocol run summaries', () => {
