@@ -412,8 +412,8 @@ their own earned builds. Effective HP excludes the melee discount, while hits-to
 
 Crowd fixtures keep the checkpoint time and loadout fixed: 15 seconds of invulnerable warmup,
 then 30 seconds of real stationary or simple-kiting pressure. A health reserve prevents deaths in
-the DPS probes while retaining hit invulnerability windows; a separate ordinary stationary trial
-records first focal-player down, censored at 30 seconds. No rifts, bosses, events or weather enter
+the DPS probes while retaining hit invulnerability windows; separate ordinary stationary and kiting trials
+record first focal-player down, censored at 30 seconds. No rifts, bosses, events or weather enter
 these crowd probes. Potential team DPS uses 30 seconds of neutral close-range attacks against a
 regular-sized dummy with the mean wild's reference max HP. HP/DPS is a potential TTK estimate.
 
@@ -423,3 +423,20 @@ Filter with `--meta`, `--players`, `--archetypes`, `--seeds` and `--minutes`; us
 `pnpm --filter @pokesurvivor/sim --silent wilds:summary /tmp/wilds.jsonl` emits per-cell CSV medians,
 ranges, one-shot counts and survival censor counts. It accepts multiple JSONL or gzip files and
 rejects duplicate trials. These tools never run in CI and do not assert balance values.
+
+For paired measurements, `--legacy` restores the old linear wild damage and disables the cap for
+that fixture only. Output records `phase: before/after` and the configured spawner tuning; the
+summarizer accepts both phases together. Fan-shot probes include the real per-projectile coefficient.
+
+`spawner.damageCurve` replaces the old time multiplier with ordered minute/multiplier points. It
+starts at minute zero, interpolates linearly and holds the final value; the existing multiplier after
+minute 60 still applies. The fit targets six average neutral contact hits for half-meta natural
+builds over minutes 2–20. It does not inspect a player's meta or scale enemy damage to their build.
+
+`spawner.regularHitCapFraction` limits ordinary wild contact and ranged-shot damage after type,
+defence and melee protection, before weather. Zero disables the cap. The default clear-weather
+ceiling leaves room for the maximum weather boost; armour still reduces hits below that ceiling.
+Only normal wild spawns and their ordinary summons/shots carry the source marker. Cap elites,
+bosses, rift legends and telegraphed hazards are excluded; their damage coefficients are unchanged.
+Source markers are optional plain state fields and survive projectile serialization after the
+shooter disappears. Wild HP, damageK, spawn rates and player progression are unchanged.

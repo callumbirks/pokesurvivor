@@ -16,6 +16,7 @@ PRs: [#59](https://github.com/callumbirks/pokesurvivor/pull/59), [#61](https://g
 
 - Legendaries are rarer in the gacha: base chance 0.15%, with pity starting at pull 180 and guaranteed by 220. Collect the rest of a region first!
 - Rifts hit harder in 3–4 player co-op from the very first one, and poison no longer melts rift legends and bosses.
+- Wild Pokémon no longer one-shot you in the late game: their regular hits now grow in step with your Pokémon, and upgrading still makes you tougher.
 
 ### Fixed
 
