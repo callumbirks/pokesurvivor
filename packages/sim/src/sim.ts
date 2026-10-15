@@ -18,6 +18,7 @@ import type { SimEvent } from './events.js';
 import { updateHazards } from './hazards.js';
 import { updateInteract } from './interact.js';
 import { maybeLevelUp } from './levelup.js';
+import { momentumCap } from './momentum.js';
 import { cycleSlot, setActive } from './moves.js';
 import { updatePaths, type PathField } from './pathing.js';
 import { updatePickups } from './pickups.js';
@@ -252,7 +253,7 @@ export class Sim {
   debugMaxMomentum(playerId: PlayerId): void {
     const p = this.state.players.find((q) => q.id === playerId);
     if (!p) return;
-    p.momentum = this.ctx.d.game.tuning.momentum.maxStacks;
+    p.momentum = momentumCap(this.ctx.d.game.tuning.momentum, this.state.time);
     p.momentumIdle = 0;
   }
 

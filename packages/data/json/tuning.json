@@ -62,7 +62,14 @@
       "preserveReadyEvolution": true
     }
   },
-  "momentum": { "perStack": 0.02, "maxStacks": 30, "graceSeconds": 3, "decayPerSecond": 5 },
+  "momentum": {
+    "perStack": 0.02,
+    "maxStacksStart": 10,
+    "maxStacksFullMinute": 10,
+    "maxStacks": 30,
+    "graceSeconds": 3,
+    "decayPerSecond": 5
+  },
   "poison": { "bossFactor": 0.035 },
   "enemyShields": {
     "maxHpFraction": 0.3,

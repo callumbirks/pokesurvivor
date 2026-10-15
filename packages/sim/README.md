@@ -140,7 +140,9 @@ already own" are the server's job.
   (Power or Reflexes, whichever isn't capped) at a random slot; a ready evolution keeps its own.
 - Momentum (`momentum.ts`, `tuning.momentum`): each kill credited to a player (last hit, or their
   burn/poison tick: `burnBy` / `poisonBy`) adds a stack, ×(1 + perStack · stacks) on their move
-  damage; after `graceSeconds` without a kill the stacks drain at `decayPerSecond`.
+  damage, up to `momentumCap` (linear from `maxStacksStart` to `maxStacks` at
+  `maxStacksFullMinute`; it only grows); after `graceSeconds` without a kill the stacks drain at
+  `decayPerSecond`.
 - Enemies spawn around a random living player, out of everyone's view; rate ×(1 + 0.75·(n − 1)),
   HP ×(1 + 0.3·(n − 1)); bosses get another ×1.4 in a group.
 - A downed player is revived by a teammate standing within 56 units for 3 s (progress decays at

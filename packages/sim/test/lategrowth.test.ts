@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { simData } from '../src/data.js';
 import { applyStatus, hurtEnemy } from '../src/enemies.js';
 import { offerCards } from '../src/levelup.js';
+import { momentumCap } from '../src/momentum.js';
 import { attackOf } from '../src/players.js';
 import type { Sim } from '../src/sim.js';
 import {
@@ -111,9 +112,33 @@ describe('momentum', () => {
     expect(p.momentum).toBe(0);
     killNext(sim, 3);
     expect(p.momentum).toBeCloseTo(3);
+    // Late in the run, the full cap.
+    sim.state.time = momentum.maxStacksFullMinute * 60 + 60;
     p.momentum = momentum.maxStacks - 1;
     killNext(sim, 2);
     expect(p.momentum).toBe(momentum.maxStacks);
+  });
+
+  it('starts with a smaller cap that grows to the full one, keeping stacks as it grows', () => {
+    expect(momentumCap(momentum, 0)).toBe(momentum.maxStacksStart);
+    expect(momentumCap(momentum, momentum.maxStacksFullMinute * 60)).toBe(momentum.maxStacks);
+    expect(momentumCap(momentum, momentum.maxStacksFullMinute * 120)).toBe(momentum.maxStacks);
+    const sim = quietSim();
+    const p = player(sim);
+    giveMove(sim, p, 'tackle');
+    p.momentum = momentum.maxStacksStart - 1;
+    killNext(sim, 3);
+    const early = momentumCap(momentum, sim.state.time);
+    expect(early).toBeLessThan(momentum.maxStacksStart + 1);
+    expect(p.momentum).toBeCloseTo(early);
+    // Later the cap has grown: the stacks stay, and more kills go past the old cap.
+    p.momentumIdle = -1000; // no decay while time jumps
+    sim.state.time = momentum.maxStacksFullMinute * 60;
+    steps(sim, 1);
+    expect(p.momentum).toBeCloseTo(early);
+    p.momentumIdle = 0;
+    killNext(sim, 2);
+    expect(p.momentum).toBeCloseTo(early + 2);
   });
 
   it('holds through the grace, then decays steadily', () => {
@@ -136,6 +161,7 @@ describe('momentum', () => {
     const p = player(sim);
     giveMove(sim, p, 'tackle');
     const base = attackOf(sim.ctx, p);
+    sim.state.time = momentum.maxStacksFullMinute * 60;
     p.momentum = momentum.maxStacks;
     p.momentumIdle = -1000; // no decay during the hit
     expect(attackOf(sim.ctx, p)).toBeCloseTo(base * (1 + momentum.perStack * momentum.maxStacks));

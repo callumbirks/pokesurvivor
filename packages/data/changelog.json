@@ -1,9 +1,11 @@
 {
   "unreleased": {
-    "prs": [],
+    "prs": [78],
     "entries": {
       "new": [],
-      "changed": [],
+      "changed": [
+        "Momentum's limit now grows during a run: up to +20% at the start, reaching +60% by minute 10."
+      ],
       "fixed": [],
       "behindTheScenes": []
     }
