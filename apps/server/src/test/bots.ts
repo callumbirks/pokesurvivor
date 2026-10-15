@@ -344,7 +344,7 @@ export async function createGameTestServer(
       return list;
     },
     async restart(downtimeMs = 0) {
-      await app.game!.drain(0);
+      await app.game!.shutdown(0);
       await app.close();
       if (downtimeMs) await sleep(downtimeMs);
       app = await buildApp({ config, db: database.db, simDebug: options.simDebug });

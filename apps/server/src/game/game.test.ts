@@ -1,8 +1,8 @@
 // Bot scenarios over real WebSockets: the legacy multiplayer bugs must be impossible (stuck
 // level-ups, the gacha-start ghost, permanent disconnects), plus loading, reconnects, owners
-// leaving, results and deploys. Bots have injected latency and jitter.
+// leaving and results. Deploys (save and restore) are in update.test.ts. Bots have injected latency and jitter.
 import type { Results } from '@pokesurvivor/netclient';
-import { CloseCode, quantizeAim } from '@pokesurvivor/protocol';
+import { quantizeAim } from '@pokesurvivor/protocol';
 import { eq, inArray } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { runPlayers, runs } from '../db/schema.js';
@@ -420,61 +420,6 @@ describe('loading', () => {
       await bots[0]!.client.start();
       await withTimeout(cancelled, 5000, 'cancel');
       expect(t.game.roomOfUser(bots[0]!.userId)?.phase).toBe('lobby');
-    } finally {
-      await t.close();
-    }
-  });
-});
-
-describe('deploys', () => {
-  it('drains on SIGTERM: no new rooms, games finish, then the rest end credited', async () => {
-    const t = await createGameTestServer();
-    try {
-      const players = await t.party(2);
-      await lobby(players);
-      await startGame(players);
-      const idle = await t.bot();
-      await idle.connect();
-      const notice = players[0]!.client.next('notice', (n) => n.code === 'server-draining');
-      const results = players.map((b) => withTimeout(b.client.next('results'), 10_000, 'results'));
-      const idleClosed = idle.client.next('state', (s) => s === 'reconnecting');
-      const drained = t.game.drain(1500);
-      expect((await withTimeout(notice, 5000, 'drain notice')).deadline).toBeGreaterThan(
-        Date.now(),
-      );
-      // Clients outside a game are sent away (to reconnect to the new instance)…
-      await withTimeout(idleClosed, 5000, 'idle client closed');
-      // …and a reconnecting one can't start anything here.
-      await waitFor(() => idle.client.state === 'open', 'idle back');
-      expect(idle.client.draining).toBe(true);
-      await expect(idle.client.createRoom()).rejects.toMatchObject({ code: 'server_draining' });
-      // The running game is still going…
-      const tick = players[0]!.latest!.tick;
-      await players[0]!.until((s) => s.tick > tick + 15);
-      // …until the drain timeout ends it, crediting both.
-      const [r] = await Promise.all(results);
-      expect(r).toMatchObject({ reason: 'server-shutdown', credited: true });
-      await withTimeout(drained, 5000, 'drain');
-      await waitFor(() => players[0]!.client.state !== 'open', 'sockets closed');
-      expect(players[0]!.client.state).toBe('reconnecting');
-      void CloseCode;
-    } finally {
-      await t.close();
-    }
-  });
-
-  it('a drain finishes early once the last game ends', async () => {
-    const t = await createGameTestServer();
-    try {
-      const players = await t.party(1);
-      await lobby(players);
-      await startGame(players);
-      const drained = t.game.drain(20_000);
-      await sleep(300);
-      wipe(serverGame(t, players[0]!));
-      const started = Date.now();
-      await withTimeout(drained, 10_000, 'drain');
-      expect(Date.now() - started).toBeLessThan(8000);
     } finally {
       await t.close();
     }

@@ -43,6 +43,13 @@
       "when": 1792095114951,
       "tag": "0005_pokemon_prestiges",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792102522511,
+      "tag": "0006_game_saves",
+      "breakpoints": true
     }
   ]
 }

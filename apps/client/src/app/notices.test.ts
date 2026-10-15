@@ -15,6 +15,9 @@ const ALL: NoticeCode[] = [
   'server-draining',
   'room-handoff-pending',
   'room-handoff-expired',
+  'server-update',
+  'game-waiting',
+  'game-resuming',
 ];
 
 describe('room notices: shell or game', () => {
@@ -26,6 +29,7 @@ describe('room notices: shell or game', () => {
     for (const code of ALL) expect(shellShowsNotice(code, true)).toBe(!GAME_NOTICES.has(code));
     expect(shellShowsNotice('owner-changed', true)).toBe(false);
     expect(shellShowsNotice('server-draining', true)).toBe(false);
+    expect(shellShowsNotice('server-update', true)).toBe(false);
   });
 
   it('only hides notices the game really shows', () => {

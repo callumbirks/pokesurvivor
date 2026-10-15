@@ -106,7 +106,7 @@ export async function buildApp({
   // too, not only when its WebSocket reconnects.
   if (build)
     app.addHook('onSend', async (req, reply) => {
-      // Not while draining: that's the old instance, finishing games during a deploy.
+      // Not while stopping for an update: this build is the old one.
       if (req.url.startsWith('/api/') && !app.game?.draining) {
         reply.header(BUILD_HEADER, build.id);
         reply.header(VERSION_HEADER, build.version);
@@ -136,6 +136,8 @@ export async function buildApp({
   app.decorate('runSweeper', runSweeper);
   app.addHook('onReady', async () => {
     await game?.registry.cleanup();
+    // Games the previous server saved on its way down, before any player can connect.
+    await game?.restoreGames();
     runSweeper?.start();
   });
   app.addHook('preClose', async () => runSweeper?.stop());

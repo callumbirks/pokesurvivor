@@ -14,8 +14,10 @@ table width changes from 13 to 14, so this is breaking: deploy client and server
 Version 6 added the manual aim, `aim`, to `input`. Version 7 added fire held, `fire`, to
 `input`. Within version 7, `self` gained an optional `momentum` (additive: older clients ignore
 it, and clients read a missing one as 0), and the JSON part an optional `stats` (the viewer's
-stats panel; older clients ignore it, and clients without one show no panel), and the client message
-`game.spectate` (spectating while down; a new message type, so nothing older sends it).
+stats panel; older clients ignore it, and clients without one show no panel), the client message
+`game.spectate` (spectating while down; a new message type, so nothing older sends it), and the
+notices `server-update`, `game-waiting` and `game-resuming` (stop-first deploys, see
+[Deploys](#deploys); older clients ignore notice codes they don't know).
 
 ## Connection
 
@@ -94,25 +96,25 @@ game already started), `room_full`, `already_member`, `no_invite`, `user_not_fou
 
 ### Server → client
 
-| Message                                                                                            | When                                                                                                                                                               |
-| -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `welcome {userId, username, serverTime, heartbeatMs, draining, protocolVersion, build?, version?}` | after hello                                                                                                                                                        |
-| `pong {id, sentAt, serverTime}`                                                                    | each ping                                                                                                                                                          |
-| `reply {rid, ok, data? \| error}`                                                                  | each request                                                                                                                                                       |
-| `error {error}`                                                                                    | before the server closes the socket (unauthenticated, superseded, version mismatch)                                                                                |
-| `room {room: RoomView \| null}`                                                                    | your room after **every** change (it's state: the latest one wins)                                                                                                 |
-| `invite {roomId, from, expiresAt}`                                                                 | you were invited (expires in 2 min)                                                                                                                                |
-| `invite.revoked {roomId}`                                                                          | the invite expired, or the room started or closed                                                                                                                  |
-| `invite.declined {roomId, username}`                                                               | to the owner                                                                                                                                                       |
-| `presence {friends: [{username, status, activity?}]}`                                              | on connect                                                                                                                                                         |
-| `presence.update {username, status, activity?}`                                                    | a friend's presence or activity changed (see [Friend activity](#friend-activity))                                                                                  |
-| `friend {event, username}`                                                                         | `request_received`, `request_accepted`, `friend_removed` (from the HTTP friend routes)                                                                             |
-| `notice {code, usernames?, deadline?}`                                                             | `dropped-at-loading`, `player-disconnected`, `player-reconnected`, `player-left`, `player-removed`, `owner-changed`, `kicked`, `game-cancelled`, `server-draining` |
-| `game.loading {game, deadline}`                                                                    | a game is loading: load what it needs, then send `game.loaded`                                                                                                     |
-| `game.start {game, resumed}`                                                                       | the game runs (or you resumed it); a full snapshot follows straight away                                                                                           |
-| `game.results {results}`                                                                           | the run is over and recorded                                                                                                                                       |
-| `server.lag {late, skipped, worstMs}`                                                              | the game loop fell behind (in a running game, at most 1/s; see [Server lag](#server-lag))                                                                          |
-| binary frame                                                                                       | a snapshot                                                                                                                                                         |
+| Message                                                                                            | When                                                                                                                                                                                                                                                                                     |
+| -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `welcome {userId, username, serverTime, heartbeatMs, draining, protocolVersion, build?, version?}` | after hello                                                                                                                                                                                                                                                                              |
+| `pong {id, sentAt, serverTime}`                                                                    | each ping                                                                                                                                                                                                                                                                                |
+| `reply {rid, ok, data? \| error}`                                                                  | each request                                                                                                                                                                                                                                                                             |
+| `error {error}`                                                                                    | before the server closes the socket (unauthenticated, superseded, version mismatch)                                                                                                                                                                                                      |
+| `room {room: RoomView \| null}`                                                                    | your room after **every** change (it's state: the latest one wins)                                                                                                                                                                                                                       |
+| `invite {roomId, from, expiresAt}`                                                                 | you were invited (expires in 2 min)                                                                                                                                                                                                                                                      |
+| `invite.revoked {roomId}`                                                                          | the invite expired, or the room started or closed                                                                                                                                                                                                                                        |
+| `invite.declined {roomId, username}`                                                               | to the owner                                                                                                                                                                                                                                                                             |
+| `presence {friends: [{username, status, activity?}]}`                                              | on connect                                                                                                                                                                                                                                                                               |
+| `presence.update {username, status, activity?}`                                                    | a friend's presence or activity changed (see [Friend activity](#friend-activity))                                                                                                                                                                                                        |
+| `friend {event, username}`                                                                         | `request_received`, `request_accepted`, `friend_removed` (from the HTTP friend routes)                                                                                                                                                                                                   |
+| `notice {code, usernames?, deadline?}`                                                             | `dropped-at-loading`, `player-disconnected`, `player-reconnected`, `player-left`, `player-removed`, `owner-changed`, `kicked`, `game-cancelled`, `server-update`, `game-waiting`, `game-resuming`, `room-handoff-pending`, `room-handoff-expired` (`server-draining` from older servers) |
+| `game.loading {game, deadline}`                                                                    | a game is loading: load what it needs, then send `game.loaded`                                                                                                                                                                                                                           |
+| `game.start {game, resumed}`                                                                       | the game runs (or you resumed it); a full snapshot follows straight away                                                                                                                                                                                                                 |
+| `game.results {results}`                                                                           | the run is over and recorded                                                                                                                                                                                                                                                             |
+| `server.lag {late, skipped, worstMs}`                                                              | the game loop fell behind (in a running game, at most 1/s; see [Server lag](#server-lag))                                                                                                                                                                                                |
+| binary frame                                                                                       | a snapshot                                                                                                                                                                                                                                                                               |
 
 `RoomView` is `{id, phase, ownerId, members, invited, maxMembers: 4, blockers, loadingDeadline}`.
 Each member is `{userId, username, status, connected, inGame, loaded, partner}`; `partner` is
@@ -364,31 +366,49 @@ run's own coins and tickets. It was added without a version bump: older clients 
 
 ## Deploys
 
-On SIGTERM the server retains the existing drain: `notice server-draining {deadline}` stops
-new room/game starts while running games continue on the old instance for `DRAIN_TIMEOUT_S`
-(default 900 s). At the deadline, remaining games end with `server-shutdown` and are credited.
-SIGINT in development uses a zero-second drain. Inputs, choices, leaves and normal disconnect
-grace remain active during the drain.
+Deploys are stop-first (see [deploy.md](deploy.md#deploys-while-people-are-playing)). On SIGTERM:
 
-Lobby/loading rooms are handed to the replacement: freeze new lobby mutations, wait for
-in-flight requests, cancel loading, persist the latest lobby, then close those sockets with 1012.
-A game that finishes during the drain first records results, then hands off its current lobby.
-The already-running replacement adopts a persisted room on a member's connect or via heartbeat
-polling. Shared reservations prevent duplicate codes/memberships; each payload is consumed once.
+1. Every client gets `notice server-update {deadline}`: the server stops at `deadline`
+   (`UPDATE_WARNING_S`, 30 s, later). Clients show a live countdown. `welcome` says `draining:
+true` and is followed by the same notice for anyone connecting meanwhile. Room creation,
+   joins, lobby changes and starts fail with `server_draining`; a loading game is cancelled
+   (`game-cancelled`). Running coop games, their inputs, choices, leaves and disconnect grace go
+   on as usual.
+2. At `deadline` running games are frozen and saved (`game_saves`), and their players' sockets
+   closed with 1012. Lobbies are handed over (`game_rooms`) and their sockets closed with 1012,
+   then everyone else's.
+3. The next server restores the saved games before it accepts connections. A player who
+   reconnects gets `room`, `game.start {resumed: true}` and a full snapshot of the paused game:
+   the snapshot's paused flag is set (no choice needs to be pending), so clients stop predicting
+   and send neutral input, as during a choice pause; the server ignores movement until it resumes.
+   Every player of the game connected gets `notice game-waiting {usernames, deadline}`: who isn't
+   back yet, and when it goes on without them (`RESTORE_GRACE_S`, 60 s after the server started).
+   Teammates get `player-reconnected` as usual.
+4. When everyone who was in the game is back, or at that deadline: `notice game-resuming
+{deadline}` (3 s). At `deadline` the server sends each connected player `game.start {resumed:
+true}` and a full snapshot, exactly as after a reconnect, and the game runs: input seqs count
+   from 1 again, no movement is held, so nothing sent before or during the wait is applied.
+   Players not back get the usual disconnect treatment (`player-disconnected`, their choices
+   resolve, `RECONNECT_GRACE_S` to come back).
+5. A saved game the new server can't restore is credited as saved (reason `server-shutdown`); its
+   players get `game.results` when they reconnect, then their lobby (`room`).
 
-A reconnect to the replacement while a game is still on the old server receives
-`notice room-handoff-pending`. Joining that code, creating another room or inviting a reserved
-member fails with `room_pending`, explained in the UI. The game slot cannot transfer; ordinary
-old-instance disconnect grace still applies. If that membership expires, the replacement sends
-`notice room-handoff-expired`; otherwise its lobby is adopted when the game ends.
+`notice` deadlines are the server's clock (ms since the epoch); `NetClient` converts them to the
+client's clock with the `serverTime` of `welcome` before emitting them. The three notices were
+added within protocol 7: older clients ignore unknown notice codes. Older servers sent
+`notice server-draining {deadline}` and drained running games for up to 15 minutes instead;
+clients still understand it.
+
+A member reconnecting while their room is still owned by another live instance (a crash lease, or
+an overlapping deploy) receives `notice room-handoff-pending`. Joining that code, creating another
+room or inviting a reserved member fails with `room_pending`, explained in the UI. If that
+membership expires, the server sends `notice room-handoff-expired`; otherwise its lobby is adopted
+(or its saved game restored) as soon as it is published.
 
 `RESTART_RECONNECT_GRACE_S` (180 s) controls unclaimed-handoff expiry and absent-member grace
 after adoption. Expired rows are not restored. The existing login cookie identifies returning
-members; there is no new token. Invites are transient. These notices are additive, with no
-protocol bump (v7). A mismatch after deploy stops retries and offers Reload, including in-game.
-
-Use one replica, `start-first` updates and stop grace exceeding the drain (16 min by default);
-see [deploy.md](deploy.md). No sim snapshot/restore was added.
+members; there is no new token. Invites are transient. A version mismatch after a deploy stops
+retries and offers Reload, including in-game.
 
 ## Client library (`packages/netclient`)
 
@@ -448,6 +468,10 @@ order), forced drops and offline periods. Scenarios:
 - the run ending and crediting everyone, including a player who left;
 - grace expiry, and everyone gone;
 - an unresponsive loader dropped at loading, and a game cancelled when nobody loads;
-- the existing drain (deadline and early finish), plus two-instance lobby/run-end handoff;
+- server updates (`update.test.ts`): the warning and its timer, refusing new rooms and games,
+  saving a game and restoring it on a new server instance (same sim hash, pending choices kept,
+  waiting for everyone, 3-2-1, play goes on), a missing player's grace, a restore failure credited
+  as saved, and a restore on an already-running server;
+- lobby handoff across instances, and the lobby of a game that ends during the warning;
 - snapshotting in-flight membership changes and rejecting lobby mutations after SIGTERM;
 - pending members, duplicate reservations, loading cancellation and expiry without resurrection.

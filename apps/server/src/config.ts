@@ -48,8 +48,15 @@ export interface GameConfig {
   inviteTtlMs: number;
   /** Clients ping this often; sockets silent for 5 of these are dropped. */
   heartbeatMs: number;
-  /** Running games may finish for this long during SIGTERM drain. */
-  drainTimeoutMs: number;
+  /**
+   * SIGTERM (a deploy): players are warned this long before the server stops; coop games keep
+   * running meanwhile, then are saved to the database and continue on the next server.
+   */
+  updateWarningMs: number;
+  /** A restored game waits this long for its players before it goes on without the missing. */
+  restoreGraceMs: number;
+  /** The countdown before a restored game resumes. */
+  resumeCountdownMs: number;
   /** The deployed build (sent in `welcome`), or null in development. */
   build: BuildInfo | null;
 }
@@ -98,6 +105,10 @@ function positiveInt(name: string, value: string | undefined, fallback: number):
   return n;
 }
 
+function nonNegativeInt(name: string, value: string | undefined, fallback: number): number {
+  return value === '0' ? 0 : positiveInt(name, value, fallback);
+}
+
 function timeZone(value: string | undefined): string {
   const zone = value || 'Europe/Madrid';
   try {
@@ -139,7 +150,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       loadingTimeoutMs: positiveInt('LOADING_TIMEOUT_S', env.LOADING_TIMEOUT_S, 15) * 1000,
       inviteTtlMs: 120_000,
       heartbeatMs: 2000,
-      drainTimeoutMs: positiveInt('DRAIN_TIMEOUT_S', env.DRAIN_TIMEOUT_S, 900) * 1000,
+      updateWarningMs: nonNegativeInt('UPDATE_WARNING_S', env.UPDATE_WARNING_S, 30) * 1000,
+      restoreGraceMs: positiveInt('RESTORE_GRACE_S', env.RESTORE_GRACE_S, 60) * 1000,
+      resumeCountdownMs: 3000,
       build: readBuild(clientDir),
     },
     soloRuns: {

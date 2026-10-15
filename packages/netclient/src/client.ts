@@ -85,6 +85,7 @@ export interface ClientEvents extends Record<string, unknown> {
   'invite.declined': { roomId: string; username: string };
   presence: ReadonlyMap<string, PresenceStatus>;
   friend: { event: FriendEventName; username: string };
+  /** `deadline`: in `Date.now()` time (converted from the server's clock). */
   notice: { code: NoticeCode; usernames?: string[]; deadline?: number };
   /** A game is loading; load what `game` needs, then call `room.loaded()`. */
   loading: { room: NetRoomConnection; game: Game; deadline: number };
@@ -139,7 +140,12 @@ export class NetClient {
   failure: { code: number; reason: string } | null = null;
   user: { id: string; username: string } | null = null;
   rttMs: number | null = null;
+  /** The server is stopping (an update): no new rooms or games. */
   draining = false;
+  /** When it stops (`Date.now()` time), from its `server-update` notice; null: not stopping. */
+  updateAt: number | null = null;
+  /** The server's clock minus ours (from `welcome`): notice deadlines are converted with it. */
+  private serverSkewMs = 0;
   roomView: RoomView | null = null;
   /** The running (or loading) game, if any. */
   room: NetRoomConnection | null = null;
@@ -428,6 +434,8 @@ export class NetClient {
         this.failure = null;
         this.user = { id: m.userId, username: m.username };
         this.draining = m.draining;
+        if (!m.draining) this.updateAt = null;
+        this.serverSkewMs = m.serverTime - Date.now();
         this.heartbeatMs = m.heartbeatMs;
         timers.clearInterval(this.pingTimer);
         this.pingTimer = timers.setInterval(() => this.heartbeat(), this.heartbeatMs);
@@ -492,10 +500,14 @@ export class NetClient {
       case 'friend':
         this.emitter.emit('friend', { event: m.event, username: m.username });
         return;
-      case 'notice':
-        if (m.code === 'server-draining') this.draining = true;
-        this.emitter.emit('notice', { code: m.code, usernames: m.usernames, deadline: m.deadline });
+      case 'notice': {
+        // Deadlines are the server's clock: ours from here on.
+        const deadline = m.deadline === undefined ? undefined : m.deadline - this.serverSkewMs;
+        if (m.code === 'server-draining' || m.code === 'server-update') this.draining = true;
+        if (m.code === 'server-update' && deadline !== undefined) this.updateAt = deadline;
+        this.emitter.emit('notice', { code: m.code, usernames: m.usernames, deadline });
         return;
+      }
       case 'game.loading': {
         const room = this.roomFor(m.game);
         room.handleLoading(m.game);
