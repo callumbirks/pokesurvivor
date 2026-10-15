@@ -67,6 +67,8 @@ if (
 )
   throw new Error('invalid matrix');
 const out = args.get('out');
+if (out && out === args.get('calibration'))
+  throw new Error('output must not overwrite calibration');
 if (out) writeFileSync(out, '');
 const emit = (row: unknown) => {
   const line = JSON.stringify(row) + '\n';
@@ -166,12 +168,18 @@ if (mode === 'calibrate') {
   const path = args.get('calibration');
   if (!path) throw new Error('--calibration required');
   const bytes = readFileSync(path);
-  const cached = (path.endsWith('.gz') ? gunzipSync(bytes) : bytes)
+  const rows = (path.endsWith('.gz') ? gunzipSync(bytes) : bytes)
     .toString('utf8')
     .trim()
     .split('\n')
-    .map((s) => JSON.parse(s) as Snapshot)
-    .filter((r) => r.kind === 'snapshot' && r.protected);
+    .map((s) => JSON.parse(s) as { kind: string; tuning?: unknown; protected?: boolean });
+  const metadata = rows.filter((r) => r.kind === 'metadata');
+  if (
+    !metadata.length ||
+    metadata.some((r) => JSON.stringify(r.tuning) !== JSON.stringify(reference.ctx.d.game.tuning))
+  )
+    throw new Error('calibration tuning differs from current tuning; earn fresh checkpoints');
+  const cached = rows.filter((r): r is Snapshot => r.kind === 'snapshot' && r.protected === true);
   for (const meta of metas)
     for (const n of players)
       for (const archetype of archetypes)
@@ -230,7 +238,7 @@ if (mode === 'calibrate') {
                   s.players === n &&
                   s.archetype === archetype &&
                   s.seed === seed &&
-                  s.minute === 15,
+                  s.minute <= 15,
               );
               if (!early)
                 throw new Error('minute 15 calibration is required for growth attribution');
@@ -253,7 +261,7 @@ if (mode === 'calibrate') {
                               s.meta === meta &&
                               s.players === n &&
                               s.archetype === archetype &&
-                              s.minute === 15 &&
+                              s.minute <= 15 &&
                               seeds.includes(s.seed),
                           )
                           .map((s) => s.level),
@@ -265,7 +273,7 @@ if (mode === 'calibrate') {
                         s.meta === meta &&
                         s.players === n &&
                         s.archetype === archetype &&
-                        s.minute === 15 &&
+                        s.minute <= 15 &&
                         seeds.includes(s.seed),
                     ),
                   );
@@ -290,7 +298,7 @@ if (mode === 'calibrate') {
                 return potential(test, hp, 1);
               };
               const attribution =
-                minute === 15
+                minute <= 15
                   ? null
                   : {
                       frozen15Dps: potential(earlyBuild, hp, 1),
