@@ -1,8 +1,9 @@
 // Display text for what the sim sends as ids: level-up cards, moves, items and types.
 // The client turns these into titles and descriptions from the data.
-import { formatText, loadGameData, t, type StatCard, type UiStringKey } from '@pokesurvivor/data';
+import { formatText, t, type StatCard, type UiStringKey } from '@pokesurvivor/data';
 import { rarityTier, scaledCardEffect, type CardOption } from '@pokesurvivor/sim';
 import { typeColor } from '../icons.js';
+import { gameData } from '../live-config.js';
 
 export interface CardText {
   title: string;
@@ -18,7 +19,8 @@ export interface CardText {
   rarity?: { name: string; color: string };
 }
 
-const data = () => loadGameData();
+/** The run's config: card rarities and values come from its `levelup.json`. */
+const data = gameData;
 
 export function moveName(id: string): string {
   return data().moveById.get(id)?.name ?? id;

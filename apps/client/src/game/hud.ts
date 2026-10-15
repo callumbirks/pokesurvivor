@@ -2,7 +2,8 @@
 // HUD half of systems/events.js and the co-op panel): XP bar, HP and level, the clock, weather,
 // the boss bar, off-screen arrows (rift, shinies, teammates, the lost Pokémon, thieves), event
 // timers, the banner, move slots with cooldowns, the held item, the aim switch, and touch buttons.
-import { loadGameData, t } from '@pokesurvivor/data';
+import { t } from '@pokesurvivor/data';
+import { gameData } from '../live-config.js';
 import { REVIVE_SECONDS, momentumCap } from '@pokesurvivor/sim';
 import type { AimMode } from '../settings.js';
 import { drawGlyph, drawGlyphText, glyphDrawSize, type PadButton } from '../glyphs.js';
@@ -165,8 +166,9 @@ export class Hud {
   private riftSeenAt: number | null = null;
   /** Local time each move was last cast (bonded slots flash their moves). */
   private castAt = new Map<string, number>();
-  private readonly arenaTime = loadGameData().tuning.rift.arenaTime;
-  private readonly momentum = loadGameData().tuning.momentum;
+  // The run's config (the HUD is built as the run starts).
+  private readonly arenaTime = gameData().tuning.rift.arenaTime;
+  private readonly momentum = gameData().tuning.momentum;
   /** The previous frame's Momentum stacks, and when they last went down (draining). */
   private lastMomentum = 0;
   private momentumDrainAt = -9;
@@ -820,7 +822,7 @@ export class Hud {
     const detail = frame.selfDetail;
     const me = frame.self;
     if (!detail || !me) return;
-    const data = loadGameData();
+    const data = gameData();
     const cds = frame.snap.self?.cooldowns ?? [];
     const cdOf = (id: string) => {
       const i = detail.moves.findIndex((m) => m.id === id);

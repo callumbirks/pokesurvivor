@@ -1,7 +1,8 @@
 // Sim events → what you see and hear: effects, damage numbers, sounds, screen shake, animations
 // and banners (what legacy did inline in combat.js, enemy.js, game.js `onCollect`, …). Events are
 // cosmetic; the state in the snapshots is the truth.
-import { loadGameData, t, type UiStringKey } from '@pokesurvivor/data';
+import { t, type UiStringKey } from '@pokesurvivor/data';
+import { gameData } from '../live-config.js';
 import type { SimEvent } from '@pokesurvivor/sim';
 import { moveStatsAt } from '@pokesurvivor/sim';
 import { audio, type SfxName } from '../audio.js';
@@ -206,7 +207,7 @@ export class EventEffects {
           fx.ring(en.x, en.y, en.r, en.r * 5, '#ff4a4a', 0.6, 5);
           this.sfx('boss');
         } else if (e.action === 'heal') {
-          fx.ring(en.x, en.y, 8, loadGameData().tuning.enemyHeals.radius, '#5fe08a', 0.5, 3);
+          fx.ring(en.x, en.y, 8, gameData().tuning.enemyHeals.radius, '#5fe08a', 0.5, 3);
           if (this.near(frame, en.x, en.y, 0)) this.sfx('heal');
         } else if (e.action === 'shield') fx.ring(en.x, en.y, 8, 160, '#7fc8ff', 0.5, 3);
         else if (e.action === 'summon') fx.ring(en.x, en.y, 8, 50, '#c47bff', 0.4, 3);

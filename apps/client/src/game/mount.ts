@@ -3,7 +3,7 @@
 // loop, input, the HUD and the overlays (choices, pause, toasts, results); the connection owns the
 // game. Contract with the app shell (4b):
 //   mountGame(el, conn, { onExit(results?), onLeave?, client?, save?, openSettings? }) → { dispose() }
-import { loadGameData, t } from '@pokesurvivor/data';
+import { t } from '@pokesurvivor/data';
 import type { Game, NetClient, Results, RoomConnection, Snapshot } from '@pokesurvivor/netclient';
 import type { SimEvent } from '@pokesurvivor/sim';
 import { audio, biomeMusic } from '../audio.js';
@@ -26,6 +26,7 @@ import { ChoiceOverlay } from './choice-ui.js';
 import { ChoiceState } from './choices.js';
 import { clockText, everyTick, secondsLeft } from './countdown.js';
 import { clear, el, icon } from './dom.js';
+import { clearRunConfig, gameData, setRunConfig } from '../live-config.js';
 import { EventEffects } from './events.js';
 import { MateAlerts, MateBanner } from './mate-alerts.js';
 import { buildFrame, type Frame, type SelfView } from './frame.js';
@@ -316,6 +317,8 @@ class GameScreen {
       return;
     }
     this.run?.dispose();
+    // The run's config, for everything built from here on (the HUD, card texts, prediction).
+    setRunConfig(game.config);
     this.run = new Run(this, game, this.conn, this.canvas, this.layer, this.toasts, this.save);
     if (resumed) this.run.resumed();
   }
@@ -420,6 +423,7 @@ class GameScreen {
     cancelAnimationFrame(this.raf);
     for (const off of this.offs) off();
     this.run?.dispose();
+    clearRunConfig();
     (this.conn as { close?: () => void }).close?.();
     this.root.remove();
     audio.music(null);
@@ -502,7 +506,7 @@ class Run {
     private readonly toasts: Toasts,
     save: AchievementSave | null,
   ) {
-    this.world = new WorldRenderer(game.seed);
+    this.world = new WorldRenderer(game.seed, gameData());
     this.entities = new EntityLayer(this.fx, this.camera);
     this.effects = new EventEffects({
       fx: this.fx,
@@ -525,7 +529,7 @@ class Run {
     });
     // Our Pokémon's collision radius and types, as the sim derives them (bodies.json, pokedex).
     const dex = game.players.find((p) => p.id === conn.selfId)?.dex ?? 25;
-    const data = loadGameData();
+    const data = gameData();
     this.predictor = new Predictor(
       this.world.view,
       data.bodyByDex.get(dex)?.radius ?? 12,
