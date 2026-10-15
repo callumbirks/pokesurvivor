@@ -19,7 +19,7 @@ describe('held items', () => {
       'xpMul',
       'coinMul',
       'magnet',
-      'damageReduction',
+      'defense',
       'regen',
     ] as const;
     const before = Object.fromEntries(stats.map((k) => [k, p[k]]));
@@ -233,9 +233,9 @@ describe('held items', () => {
     const sim = quietSim();
     const p = player(sim);
     equip(sim.ctx, p, 'assault-vest');
-    expect(p.damageReduction).toBeCloseTo(d.item('assault-vest').effects[0]!.value);
+    expect(p.defense).toBeCloseTo(d.item('assault-vest').effects[0]!.value);
     equip(sim.ctx, p, 'choice-scarf');
-    expect(p.damageReduction).toBeCloseTo(0);
+    expect(p.defense).toBeCloseTo(0);
     expect(p.speedMul).toBeCloseTo(d.item('choice-scarf').effects[0]!.value);
   });
 });

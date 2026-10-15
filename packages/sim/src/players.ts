@@ -88,7 +88,7 @@ export function createPlayer(
     attackMul: perks.attackMul * star.damageMul,
     speedMul: perks.speedMul * star.speedMul,
     cooldownMul: perks.cooldownMul * star.cooldownMul,
-    damageReduction: perks.damageReduction + star.damageReduction,
+    defense: perks.defense + star.defense,
     regen: perks.regen,
     magnet: BASE_MAGNET * perks.magnetMul,
     xpMul: perks.xpMul,
@@ -213,8 +213,9 @@ export function moveBody(ctx: Ctx, p: MovingBody, moveX: number, moveY: number, 
   p.inLiquid = isLiquid(ctx, p.x, p.y);
 }
 
-export const reductionOf = (p: PlayerState): number =>
-  Math.min(0.8, p.damageReduction + p.buffs.defense.n * p.buffs.defense.amount);
+/** Defence in effect (with Harden's stacks), up to `tuning.defense.max`: damage is ÷ (1 + it). */
+export const defenseOf = (ctx: Pick<Ctx, 'd'>, p: PlayerState): number =>
+  Math.min(ctx.d.game.tuning.defense.max, p.defense + p.buffs.defense.n * p.buffs.defense.amount);
 
 export const regenOf = (p: PlayerState): number => p.regen + p.buffs.regen.n * p.buffs.regen.amount;
 
@@ -235,8 +236,8 @@ export interface PlayerStats {
   maxHp: number;
   /** Cooldown multiplier. */
   cooldown: number;
-  /** Damage reduction in effect (`reductionOf`), 0–1. */
-  damageReduction: number;
+  /** Defence in effect (`defenseOf`): +% toughness, 1 = +100% (half damage). */
+  defense: number;
   /** HP per second (`regenOf`). */
   regen: number;
   /** Pickup radius multiplier. */
@@ -257,7 +258,7 @@ export function statsOf(ctx: Ctx, p: PlayerState): PlayerStats {
     hpBase: mon?.hp ?? p.maxHp,
     maxHp: p.maxHp,
     cooldown: p.cooldownMul,
-    damageReduction: reductionOf(p),
+    defense: defenseOf(ctx, p),
     regen: regenOf(p),
     magnet: p.magnet / BASE_MAGNET,
     xp: p.xpMul,
@@ -298,7 +299,7 @@ export function hurtPlayer(
   }
   // With a melee move active you take 25% less: you have to stand in the crowd to hit.
   const close = activeGroup(p).some((m) => m.kind === 'melee') ? 0.75 : 1;
-  const defended = amount * (1 - reductionOf(p)) * close;
+  const defended = (amount / (1 + defenseOf(ctx, p))) * close;
   const capped = regular
     ? capRegularHit(defended, p.maxHp, ctx.d.game.tuning.spawner.regularHitCapFraction)
     : defended;

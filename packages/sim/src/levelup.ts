@@ -19,6 +19,7 @@ interface Candidate {
 /** Has this stat card reached its ceiling for the player (then it isn't offered)? */
 export function atCeiling(ctx: Ctx, p: PlayerState, id: string): boolean {
   const e = ctx.d.statCard(id).effect;
+  if (e.type === 'maxHp') return e.cap !== undefined && (p.cardAdd[id] ?? 0) >= e.cap;
   if (e.type !== 'stat' || e.cap === undefined) return false;
   if (e.op === 'add') return (e.capOf === 'cards' ? (p.cardAdd[id] ?? 0) : p[e.stat]) >= e.cap;
   const built = p.cardMul[id] ?? 1;
@@ -180,8 +181,13 @@ export function applyCard(ctx: Ctx, p: PlayerState, card: CardOption): void {
       const c = ctx.d.statCard(card.statId);
       const tier = rarityTier(ctx.d.game.levelUp.rarity, card.rarity);
       const e = scaledCardEffect(c.effect, tier?.multiplier ?? 1);
-      if (e.type === 'maxHp') addMaxHp(p, e.value);
-      else if (e.type === 'heal') healPlayer(ctx, p, p.maxHp * e.maxHpFraction);
+      if (e.type === 'maxHp') {
+        // Up to the ceiling on what this card's picks added; the heal is what was added.
+        const had = p.cardAdd[c.id] ?? 0;
+        const add = e.cap === undefined ? e.value : Math.max(0, Math.min(e.value, e.cap - had));
+        p.cardAdd[c.id] = had + add;
+        if (add > 0) addMaxHp(p, add);
+      } else if (e.type === 'heal') healPlayer(ctx, p, p.maxHp * e.maxHpFraction);
       else if (e.op === 'add') {
         // The ceiling bounds the stat itself, or with `capOf: "cards"` what this card's picks added.
         const had = p.cardAdd[c.id] ?? 0;

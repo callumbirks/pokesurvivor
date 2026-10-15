@@ -4,6 +4,22 @@ import { RangeSchema } from './common.js';
 const Seconds = z.number().positive();
 const Chance = z.number().positive().max(1);
 
+/** A multiplier versus run minute: from minute zero, strictly increasing minutes. */
+const MinuteCurve = z
+  .array(
+    z.strictObject({
+      minute: z.number().nonnegative(),
+      multiplier: z.number().positive(),
+    }),
+  )
+  .min(2)
+  .refine(
+    (points) =>
+      points[0]?.minute === 0 &&
+      points.every((p, i) => i === 0 || p.minute > points[i - 1]!.minute),
+    'Start at minute zero and use strictly increasing minutes',
+  );
+
 /** Named tuning constants from the legacy systems. Times are in seconds. */
 export const TuningFileSchema = z.strictObject({
   spawner: z.strictObject({
@@ -15,20 +31,12 @@ export const TuningFileSchema = z.strictObject({
     density: z.number().positive(),
     damageK: z.number().positive(),
     /** Regular wild damage versus run minute; interpolate, then hold the last value. */
-    damageCurve: z
-      .array(
-        z.strictObject({
-          minute: z.number().nonnegative(),
-          multiplier: z.number().positive(),
-        }),
-      )
-      .min(2)
-      .refine(
-        (points) =>
-          points[0]?.minute === 0 &&
-          points.every((p, i) => i === 0 || p.minute > points[i - 1]!.minute),
-        'Start at minute zero and use strictly increasing minutes',
-      ),
+    damageCurve: MinuteCurve,
+    /**
+     * Regular wild HP versus run minute, on top of the built-in time scaling (`enemyScale`):
+     * interpolate, then hold the last value.
+     */
+    hpCurve: MinuteCurve,
     /** Max regular contact/shot damage as a fraction of target HP, before weather; 0 disables. */
     regularHitCapFraction: z.number().nonnegative().max(1),
     directionBias: z.strictObject({
@@ -217,6 +225,12 @@ export const TuningFileSchema = z.strictObject({
    * star adds `perStar.<stat>` to that stat's prestige factor (see `prestigeBonus`); enemies never
    * scale with it.
    */
+  /**
+   * Defence is toughness: damage taken = incoming ÷ (1 + defence), where defence sums the Armor
+   * upgrade, cards, items, prestige and Harden (1 = +100%, half damage). `max` is the most that
+   * counts (5 = +500%, a sixth of the damage).
+   */
+  defense: z.strictObject({ max: z.number().positive() }),
   prestige: z.strictObject({
     maxStars: z.number().int().positive().max(9),
     perStar: z.strictObject({
@@ -226,8 +240,8 @@ export const TuningFileSchema = z.strictObject({
       speed: z.number().nonnegative().max(1),
       /** Move cooldowns: × (1 − perStar × stars). */
       cooldown: z.number().nonnegative().max(0.3),
-      /** Damage reduction (0–1, like the Armor upgrade): + perStar × stars. */
-      damageTaken: z.number().nonnegative().max(0.3),
+      /** Defence (+% toughness, like the Armor upgrade): + perStar × stars. */
+      defense: z.number().nonnegative().max(1),
       /** Critical hit chance (0–1, like the Critical Hit upgrade): + perStar × stars. */
       crit: z.number().nonnegative().max(0.3),
     }),

@@ -74,7 +74,9 @@ describe('level-up offers', () => {
   });
 
   it('has no pick limits: a card without a ceiling is offered however often it was taken', () => {
-    for (const c of cfg.statCards.filter((c) => c.effect.type !== 'stat' || !c.effect.cap)) {
+    for (const c of cfg.statCards.filter(
+      (c) => !('cap' in c.effect && c.effect.cap !== undefined),
+    )) {
       const sim = quietSim();
       const p = player(sim);
       p.maxSlots = p.slots.length;
@@ -97,7 +99,7 @@ describe('level-up offers', () => {
     expect(p.attackMul).toBeCloseTo(atk * attackEffect.value);
     for (let i = 0; i < 20; i++)
       applyCard(sim.ctx, p, { id: 'stat:defense', type: 'stat', statId: 'defense' });
-    expect(p.damageReduction).toBeCloseTo(
+    expect(p.defense).toBeCloseTo(
       Math.min(defenseEffect.cap ?? Infinity, 20 * defenseEffect.value),
     );
     expect(p.statsTaken).toMatchObject({ 'max-hp': 1, attack: 1, defense: 20 });

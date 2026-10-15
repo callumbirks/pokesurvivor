@@ -11,8 +11,17 @@
       { "minute": 2, "multiplier": 0.735 },
       { "minute": 4, "multiplier": 0.75 },
       { "minute": 8, "multiplier": 0.98 },
-      { "minute": 10, "multiplier": 0.72 },
-      { "minute": 15, "multiplier": 1.08 }
+      { "minute": 10, "multiplier": 0.78 },
+      { "minute": 15, "multiplier": 1.2 },
+      { "minute": 20, "multiplier": 1.35 }
+    ],
+    "hpCurve": [
+      { "minute": 0, "multiplier": 0.95 },
+      { "minute": 8, "multiplier": 0.95 },
+      { "minute": 12, "multiplier": 1.3 },
+      { "minute": 16, "multiplier": 1.6 },
+      { "minute": 20, "multiplier": 1.85 },
+      { "minute": 30, "multiplier": 2.2 }
     ],
     "regularHitCapFraction": 0.6,
     "directionBias": { "smoothingSeconds": 1.5, "aheadShare": 0.2, "minSpeed": 35 }
@@ -74,9 +83,9 @@
     "perStack": 0.02,
     "maxStacksStart": 10,
     "maxStacksFullMinute": 10,
-    "maxStacks": 30,
-    "graceSeconds": 3,
-    "decayPerSecond": 5
+    "maxStacks": 10,
+    "graceSeconds": 2.5,
+    "decayPerSecond": 6
   },
   "poison": { "bossFactor": 0.035 },
   "enemyShields": {
@@ -106,6 +115,7 @@
     "bossTicket10Chance": 0.1,
     "legendaryTicket10Chance": 0.2
   },
+  "defense": { "max": 5 },
   "prestige": {
     "maxStars": 3,
     "perStar": {
@@ -113,7 +123,7 @@
       "damage": 0.05,
       "speed": 0.05,
       "cooldown": 0.05,
-      "damageTaken": 0.05,
+      "defense": 0.06,
       "crit": 0.05
     }
   }

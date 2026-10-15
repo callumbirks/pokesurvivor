@@ -13,7 +13,9 @@ const d = simData();
 const cfg = d.game.levelUp;
 const { tiers, odds } = cfg.rarity;
 const rolled = cfg.statCards.filter((c) => c.rarity !== false);
-const capped = cfg.statCards.filter((c) => c.effect.type === 'stat' && c.effect.cap !== undefined);
+const capped = cfg.statCards.filter(
+  (c) => (c.effect.type === 'stat' || c.effect.type === 'maxHp') && c.effect.cap !== undefined,
+);
 const top = tiers.at(-1)!;
 
 const statCard = (id: string, rarity?: string): CardOption => ({
@@ -148,6 +150,31 @@ describe('stat card ceilings', () => {
     expect(capped.length).toBeGreaterThan(0);
     for (const c of capped) {
       const e = c.effect;
+      if (e.type === 'maxHp' && e.cap !== undefined) {
+        const sim = quietSim();
+        const p = player(sim);
+        onlyCards(sim, p, [c.id]);
+        expect(offerCards(sim.ctx, p).map((o) => o.id)).toContain(`stat:${c.id}`);
+        const start = p.maxHp;
+        let picks = 0;
+        while (!atCeiling(sim.ctx, p, c.id) && picks < 10_000) {
+          // Hurt first: the last pick's heal is only what it actually added.
+          p.hp = 1;
+          const before = p.maxHp;
+          applyCard(sim.ctx, p, statCard(c.id, top.id));
+          expect(p.hp).toBeCloseTo(1 + (p.maxHp - before));
+          picks++;
+        }
+        expect(picks).toBeLessThan(10_000);
+        expect(p.cardAdd[c.id]).toBe(e.cap);
+        expect(p.maxHp - start).toBeCloseTo(e.cap);
+        const at = p.maxHp;
+        applyCard(sim.ctx, p, statCard(c.id, top.id));
+        expect(p.maxHp).toBe(at);
+        for (let i = 0; i < 50; i++)
+          expect(offerCards(sim.ctx, p).map((o) => o.id)).not.toContain(`stat:${c.id}`);
+        continue;
+      }
       if (e.type !== 'stat' || e.cap === undefined) continue;
       const sim = quietSim();
       const p = player(sim);
@@ -211,12 +238,12 @@ describe('stat card ceilings', () => {
 });
 
 describe('prestige and capped cards', () => {
-  it("counts prestige's damage reduction points towards a stat-wide ceiling, and stops there", () => {
+  it("counts prestige's defence towards a stat-wide ceiling, and stops there", () => {
     const c = capped.find(
       (c) =>
         c.effect.type === 'stat' &&
         c.effect.op === 'add' &&
-        c.effect.stat === 'damageReduction' &&
+        c.effect.stat === 'defense' &&
         c.effect.capOf !== 'cards',
     );
     if (!c || c.effect.type !== 'stat' || c.effect.cap === undefined) return;
@@ -224,11 +251,11 @@ describe('prestige and capped cards', () => {
     const { maxStars, perStar } = d.game.tuning.prestige;
     const sim = quietSim([{ id: 'a', dex: 4, prestige: maxStars }]);
     const p = player(sim);
-    expect(p.damageReduction).toBeCloseTo(maxStars * perStar.damageTaken);
+    expect(p.defense).toBeCloseTo(maxStars * perStar.defense);
     for (let i = 0; i < 100 && !atCeiling(sim.ctx, p, c.id); i++)
       applyCard(sim.ctx, p, statCard(c.id, top.id));
     // The stat, prestige included, ends exactly at the ceiling: fewer picks reach it.
-    expect(p.damageReduction).toBeCloseTo(cap);
-    expect(p.cardAdd[c.id]).toBeCloseTo(cap - maxStars * perStar.damageTaken);
+    expect(p.defense).toBeCloseTo(cap);
+    expect(p.cardAdd[c.id]).toBeCloseTo(cap - maxStars * perStar.defense);
   });
 });

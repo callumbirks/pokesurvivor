@@ -9,7 +9,7 @@ export const PLAYER_STATS = [
   'xpMul',
   'coinMul',
   'magnet',
-  'damageReduction',
+  'defense',
   'regen',
 ] as const;
 export const PlayerStatSchema = z.enum(PLAYER_STATS);
@@ -62,7 +62,7 @@ export const ItemsFileSchema = z.array(ItemSchema).min(1);
 export const StatCardEffectSchema = z.discriminatedUnion('type', [
   /**
    * `cap` is the card's ceiling, and the card stops being offered once it's reached. `add`: a bound
-   * on the stat itself (Armor's damage reduction), or with `capOf: "cards"` on the amount the
+   * on the stat itself (Armor's defence), or with `capOf: "cards"` on the amount the
    * card's own picks have added (Synthesis). `mul`: a bound on the multiplier the card's own picks
    * have built up; for a multiplier below 1 (Reflexes' cooldown) it's a floor. Bounds on what the
    * cards built leave held items and permanent upgrades outside them. A pick that would pass the
@@ -74,8 +74,17 @@ export const StatCardEffectSchema = z.discriminatedUnion('type', [
     /** What an `add` card's `cap` bounds: the stat (default) or what the card's picks added. */
     capOf: z.enum(['stat', 'cards']).optional(),
   }),
-  /** Raise max HP and heal the same amount. */
-  z.strictObject({ type: z.literal('maxHp'), value: z.number().positive() }),
+  /**
+   * Raise max HP and heal the same amount. `cap` (with `capOf: "cards"`, the only kind) bounds the
+   * max HP the card's own picks have added; upgrades, items and prestige stay on top. A pick that
+   * would pass it adds (and heals) only up to it, and the card stops being offered there.
+   */
+  z.strictObject({
+    type: z.literal('maxHp'),
+    value: z.number().positive(),
+    cap: z.number().positive().optional(),
+    capOf: z.literal('cards').optional(),
+  }),
   z.strictObject({ type: z.literal('heal'), maxHpFraction: z.number().positive() }),
 ]);
 

@@ -23,6 +23,8 @@ export type Profile = 'natural' | 'weak' | 'typical' | 'strong';
 export interface Cell {
   /** Optional species override for manual playtest reproduction. */
   dex?: number;
+  /** Optional prestige stars (0–3) for every player. */
+  prestige?: number;
   archetype: Archetype;
   meta: Meta;
   players: number;
@@ -85,6 +87,7 @@ export function makeSim(cell: Cell, seed: number, noSpawns: boolean, invulnerabl
       id: `p${i}`,
       dex: cell.dex ?? archetypes[cell.archetype].dex,
       upgrades,
+      ...(cell.prestige ? { prestige: cell.prestige } : {}),
     })),
     debug: { noSpawns, invulnerable },
   });
@@ -102,19 +105,22 @@ export function describe(p: PlayerState) {
     attackMul: p.attackMul,
     cooldownMul: p.cooldownMul,
     maxHp: p.maxHp,
-    damageReduction: p.damageReduction,
+    defense: p.defense,
     riftWins: p.stats.progress.riftWins.length,
   };
 }
 
 /** Reuse earned loadouts, but start each isolated encounter healed, without temporary powers. */
+/** The Armor card's damage reduction per pick before defence was toughness (v15). */
+const V15_ARMOR_CARD = 0.05;
+
 export function loadBuild(sim: Sim, p: PlayerState, source: PlayerState): void {
   const keys = [
     'maxHp',
     'attackMul',
     'speedMul',
     'cooldownMul',
-    'damageReduction',
+    'defense',
     'regen',
     'magnet',
     'xpMul',
@@ -129,8 +135,22 @@ export function loadBuild(sim: Sim, p: PlayerState, source: PlayerState): void {
     'item',
     'itemRegen',
   ] as const;
+  const ownDefense = p.defense; // Upgrades and prestige of this sim, at today's values.
   for (const key of keys) Object.assign(p, { [key]: structuredClone(source[key]) });
   p.cardMul ??= {}; // Checkpoints saved before card rarities.
+  // Checkpoints earned before defence was toughness: the same pieces at today's values (the Armor
+  // cards' added damage reduction scaled to today's card, the held item's defence).
+  if ((source as Partial<PlayerState>).defense === undefined) {
+    const armor = sim.ctx.d.statCard('defense').effect;
+    const perCard = armor.type === 'stat' ? armor.value / V15_ARMOR_CARD : 1;
+    const item = p.item
+      ? sim.ctx.d
+          .item(p.item)
+          .effects.filter((e) => e.stat === 'defense' && e.op === 'add')
+          .reduce((a, e) => a + e.value, 0)
+      : 0;
+    p.defense = ownDefense + item + (source.cardAdd?.defense ?? 0) * perCard;
+  }
   for (const m of p.moves) {
     m.t = 0;
     m.castTick = -1;

@@ -135,7 +135,7 @@ fn)` (spinner on the button, toast on error), loads through `loadInto(el, load, 
   teammates leaving and coming back, server notices (with `client`) and achievements.
 - **Stats panel** (`stats-panel.ts`, drawn by the HUD under the HP bar): your own Pokémon's
   attack (×100), speed and max HP with everything applied and the multiplier over the species
-  base, then cooldown, damage reduction, regen, magnet, XP and crit. The sim computes them
+  base, then cooldown, defence (+% toughness), regen, magnet, XP and crit. The sim computes them
   (`playerStats`); the snapshot's `stats` carries them to this client only. Settings → Display →
   "Show stats" (per device, on by default).
 - **HUD size** (`hudscale.ts`): the HUD is laid out in CSS px at the original sizes (made for

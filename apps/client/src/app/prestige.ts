@@ -39,14 +39,14 @@ export function prestigeGains(n: number): { id: string; text: string }[] {
     { id: 'damage', text: t('prestige.damage', { 0: pct(b.damageMul - 1) }) },
     { id: 'speed', text: t('prestige.speed', { 0: pct(b.speedMul - 1) }) },
     { id: 'cooldown', text: t('prestige.cooldown', { 0: pct(1 - b.cooldownMul) }) },
-    { id: 'damageTaken', text: t('prestige.damageTaken', { 0: pct(b.damageReduction) }) },
+    { id: 'defense', text: t('prestige.defense', { 0: pct(b.defense) }) },
     { id: 'crit', text: t('prestige.crit', { 0: pct(b.crit) }) },
   ].filter((g) => !/[+−]0%/.test(g.text));
 }
 
 /**
  * The "Prestige ★★" box of the detail panels: chips for the stats that are the same for every
- * Pokémon (cooldown, damage taken, crit); HP, attack and speed show on their bars. Null at 0.
+ * Pokémon (cooldown, defence, crit); HP, attack and speed show on their bars. Null at 0.
  */
 export function prestigeBox(n: number): HTMLElement | null {
   const star = stars(n);

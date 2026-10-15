@@ -229,7 +229,7 @@
       "type": "normal",
       "kind": "buff",
       "description": "Deals no damage: builds DEFENSE while active.",
-      "stats": { "cooldown": 0.85, "amount": 0.07, "duration": 7, "stacks": 5 },
+      "stats": { "cooldown": 0.85, "amount": 0.2, "duration": 7, "stacks": 5 },
       "buffStat": "defense"
     },
     {

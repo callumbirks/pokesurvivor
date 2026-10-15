@@ -1,11 +1,16 @@
 {
   "unreleased": {
-    "prs": [92, 93],
+    "prs": [92, 93, 94],
     "entries": {
       "new": [
         "Server updates no longer end co-op runs: you get a short warning, and your run continues right after the update."
       ],
-      "changed": [],
+      "changed": [
+        "Wild Pokémon get tougher faster after the first few minutes, and hit a little harder later on.",
+        "Rare, Epic and Legendary upgrade cards are rarer, especially after minute 8.",
+        "Momentum now tops out at ×1.2 and drains a little faster.",
+        "Defence now works as toughness (+100% defence halves damage), up to +500%, instead of stopping at 70% damage reduction. Armor, Assault Vest, Harden and prestige give defence."
+      ],
       "fixed": [
         "After an update the game no longer gets stuck on a black or white screen until you hard-refresh."
       ],

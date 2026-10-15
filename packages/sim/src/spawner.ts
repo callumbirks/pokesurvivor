@@ -38,7 +38,7 @@ export const spawnCap = (ctx: Ctx): number => ctx.d.game.tuning.spawner.cap;
 export function enemyScale(ctx: Ctx, t: number): EnemyScale {
   const k = ctx.d.late(t);
   return {
-    hp: (1 + t / 95) * k,
+    hp: (1 + t / 95) * k * wildDamageMultiplier(ctx.d.game.tuning.spawner.hpCurve, t / 60),
     damage: wildDamageMultiplier(ctx.d.game.tuning.spawner.damageCurve, t / 60) * Math.pow(k, 0.7),
     speed: 1 + Math.min(0.35, t / 1400),
   };

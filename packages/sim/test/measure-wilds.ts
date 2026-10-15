@@ -4,12 +4,13 @@ import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
 import { DT } from '../src/constants.js';
 import { activeGroup } from '../src/moves.js';
-import { hurtPlayer, reductionOf } from '../src/players.js';
+import { defenseOf, hurtPlayer } from '../src/players.js';
 import { bossScale, enemyScale, spawnOne } from '../src/spawner.js';
 import type { PlayerState } from '../src/state.js';
 import { resetChunks } from '../src/world.js';
 import type { Sim } from '../src/index.js';
 import { botInputs } from './bots.js';
+import { applyV15 } from './variants.js';
 import { patchTuning, postponeAmbientSystems, spawnDummy } from './helpers.js';
 import {
   describe,
@@ -30,7 +31,9 @@ export interface WildTrial extends Cell {
   profile: 'natural' | 'typical';
   builds: ReturnType<typeof describe>[];
   maxHp: number;
+  /** Damage reduction equivalent of the defence: 1 − 1 / (1 + defence). */
   reduction: number;
+  defense?: number;
   effectiveHp: number;
   contactPct: number;
   shotPct: number | null;
@@ -74,6 +77,7 @@ for (const key of args.keys())
       'crowd-seconds',
       'legacy',
       'refresh-pressure',
+      'v15',
     ].includes(key)
   )
     throw new Error(`unknown argument --${key}`);
@@ -137,6 +141,9 @@ const previous = refreshPath
       return map;
     })()
   : undefined;
+
+// --v15: v15's rarity odds, Momentum and wild curves (`variants.ts`), for before/after.
+if (args.has('v15')) applyV15();
 
 function configure(sim: Sim) {
   if (args.has('legacy'))
@@ -440,8 +447,9 @@ for (const meta of metas)
               profile,
               builds: sim.state.players.map(describe),
               maxHp: p.maxHp,
-              reduction: reductionOf(p),
-              effectiveHp: p.maxHp / (1 - reductionOf(p)),
+              defense: defenseOf(sim.ctx, p),
+              reduction: 1 - 1 / (1 + defenseOf(sim.ctx, p)),
+              effectiveHp: p.maxHp * (1 + defenseOf(sim.ctx, p)),
               meleeMultiplier: activeGroup(p).some((m) => m.kind === 'melee') ? 0.75 : 1,
               ...probe,
               teamDps: dps,

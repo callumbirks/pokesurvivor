@@ -1,6 +1,9 @@
 import type { TuningFile } from '@pokesurvivor/data';
 
-/** Data-validated points start at zero. Clamp before/after the measured interval. */
+/**
+ * A tuning curve (`spawner.damageCurve`, `spawner.hpCurve`) at a minute. Data-validated points start
+ * at zero. Clamp before/after the measured interval.
+ */
 export function wildDamageMultiplier(
   points: TuningFile['spawner']['damageCurve'],
   minute: number,

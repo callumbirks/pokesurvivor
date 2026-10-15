@@ -436,6 +436,14 @@ export function settingsScreen(
 function momentumHelp(): string {
   const m = loadGameData().tuning.momentum;
   const pct = (v: number) => String(Math.round(v * 1000) / 10);
+  // A limit that doesn't grow during the run reads as one number.
+  if (m.maxStacksStart >= m.maxStacks)
+    return t('settings.momentumHelpFlat', {
+      0: pct(m.perStack),
+      1: pct(m.perStack * m.maxStacks),
+      2: m.maxStacks,
+      3: m.graceSeconds,
+    });
   return t('settings.momentumHelp', {
     0: pct(m.perStack),
     1: pct(m.perStack * m.maxStacksStart),

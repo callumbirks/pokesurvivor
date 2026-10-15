@@ -13,6 +13,7 @@ const base: SelfStats = {
   maxHp: 88,
   cooldown: 1,
   damageReduction: 0,
+  defense: 0,
   regen: 0,
   magnet: 1,
   xp: 1,
@@ -45,16 +46,23 @@ describe('stats panel', () => {
     const c = cells({
       ...base,
       cooldown: 0.78,
-      damageReduction: 0.16,
+      damageReduction: 0.5,
+      defense: 1,
       regen: 1.8,
       magnet: 1.44,
       xp: 1.17,
     });
     expect(c[t('hud.statCooldown')]).toMatchObject({ value: '', mult: '×0.78', changed: true });
-    expect(c[t('hud.statDefense')]).toMatchObject({ value: '16%', changed: true });
+    expect(c[t('hud.statDefense')]).toMatchObject({ value: '+100%', changed: true });
     expect(c[t('hud.statRegen')]).toMatchObject({ value: '+1.8/s', changed: true });
     expect(c[t('hud.statMagnet')]).toMatchObject({ mult: '×1.44' });
     expect(c[t('hud.statXp')]).toMatchObject({ mult: '×1.17' });
+  });
+
+  it("reads an older server's damage reduction as the defence it's equivalent to", () => {
+    const old: SelfStats = { ...base, damageReduction: 0.5 };
+    delete old.defense;
+    expect(cells(old)[t('hud.statDefense')]).toMatchObject({ value: '+100%' });
   });
 
   it('marks nothing as changed at the base, and hides crit until there is some', () => {

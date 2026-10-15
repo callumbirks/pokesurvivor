@@ -99,9 +99,9 @@ to the ledger as a zero-coin entry (`reason: "prestige"`, `refId: "dex:prestige:
 coins spent on a Pokémon since its last prestige are its `upgrade_purchase` entries (`refId`
 `dex:…`) after that entry.
 
-Each star adds `tuning.json` `prestige.perStar.*` (5% each) to its stats in every run, solo and
-co-op: max HP, damage and speed × `1 + perStar × stars`, move cooldowns × `1 − perStar × stars`,
-and damage reduction and crit chance + `perStar × stars` points, as their upgrades add up. Enemies
+Each star adds `tuning.json` `prestige.perStar.*` to its stats in every run, solo and co-op: max
+HP, damage and speed × `1 + perStar × stars`, move cooldowns × `1 − perStar × stars`, and defence
+(+% toughness) and crit chance + `perStar × stars` points, as their upgrades add up. Enemies
 don't scale with it. Co-op loadouts read the stars from the save; solo runs are simulated by the
 client from the save it fetched (like upgrades), and their reports are capped the same way
 whatever the stars. Stars are also in the room's member `partner`, the game's `players`, friends'

@@ -537,6 +537,7 @@
     "onGamepad": "With a gamepad",
     "inARun": "In a run",
     "momentumHelp": "Momentum: every Pokémon you defeat (your burns and poison count too) adds a stack of +{0}% damage. The limit grows during a run: +{1}% at the start, rising to +{2}% by minute {3}. {4} s after your last defeat it drains, a few stacks a second, so turn and fight the crowd chasing you to keep it up. It shows under your HP.",
+    "momentumHelpFlat": "Momentum: every Pokémon you defeat (your burns and poison count too) adds a stack of +{0}% damage, up to +{1}% ({2} defeats in a row). {3} s after your last defeat it drains, several stacks a second, so turn and fight the crowd chasing you to keep it up. It shows under your HP.",
     "gamepadHelp": "Buttons show as the controller's while you play with it, and as keys again as soon as you use the keyboard or the mouse. In menus the d-pad or the left stick moves, A presses and B goes back.",
     "joystickSize": "Joystick size",
     "howFarYouNeedTo": "How far you need to drag your finger.",
@@ -810,7 +811,7 @@
     "damage": "+{0}% damage",
     "speed": "+{0}% speed",
     "cooldown": "−{0}% cooldown",
-    "damageTaken": "−{0}% damage taken",
+    "defense": "+{0}% defence",
     "crit": "+{0}% crit chance"
   }
 }

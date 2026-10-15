@@ -1,7 +1,7 @@
 // Manual R8 step 3 check of Momentum and the guaranteed offence card. Never runs in CI.
 //   pnpm --filter @pokesurvivor/sim momentum --variant=after --out=after.jsonl
 //   pnpm --filter @pokesurvivor/sim momentum --variant=before --out=before.jsonl
-//   (--max-stacks-start=30: Momentum with v12's flat cap)
+//   (--max-stacks-start=30: Momentum with v12's flat cap; --v15: v15's Momentum, odds and curves)
 // `before` turns both mechanics off (momentum.perStack 0, no guaranteed slots) for the whole
 // run, so its builds are earned without them. Per cell, a protected natural run (first-choice
 // bots) is checkpointed at each minute; each checkpoint's build then fights a real 60 s wild
@@ -14,6 +14,7 @@ import { momentumCap } from '../src/momentum.js';
 import type { PlayerState, Sim } from '../src/index.js';
 import { botInputs } from './bots.js';
 import { patchTuning, postponeAmbientSystems } from './helpers.js';
+import { applyV15 } from './variants.js';
 import {
   encounter,
   loadBuild,
@@ -45,6 +46,8 @@ const emit = (row: unknown) => {
   else process.stdout.write(line);
 };
 
+// --v15: v15's rarity odds, Momentum and wild curves (`variants.ts`), for before/after.
+if (args.has('v15')) applyV15();
 // Every sim shares the loaded data: switch the mechanics off at the source for `before`.
 const tuning = simData().game.tuning;
 if (variant === 'before') {

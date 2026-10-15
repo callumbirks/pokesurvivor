@@ -109,7 +109,7 @@ for (const policy of policies)
           const seen = new Set<number>();
           const hp: Record<number, number> = {};
           const observe = (sim: Sim) => {
-            baseDr ??= sim.state.players.map((p) => p.damageReduction);
+            baseDr ??= sim.state.players.map((p) => p.defense);
             for (const c of sim.state.pendingChoices)
               if (c.kind === 'level-up' && !seen.has(c.id)) {
                 seen.add(c.id);
@@ -129,7 +129,7 @@ for (const policy of policies)
             p.item
               ? simData()
                   .item(p.item)
-                  .effects.filter((e) => e.stat === 'damageReduction' && e.op === 'add')
+                  .effects.filter((e) => e.stat === 'defense' && e.op === 'add')
                   .reduce((a, e) => a + e.value, 0)
               : 0;
           for (const snap of snaps)
@@ -145,8 +145,9 @@ for (const policy of policies)
               builds: snap.builds.map((p, i) => ({
                 power: p.cardMul.attack ?? 1,
                 cooldown: p.cardMul.cooldown ?? 1,
-                armorDr: Math.max(0, p.damageReduction - (baseDr?.[i] ?? 0) - itemDr(p)),
-                damageReduction: p.damageReduction,
+                // Defence the Armor cards added, and the damage taken multiplier of the whole.
+                armorDefense: Math.max(0, p.defense - (baseDr?.[i] ?? 0) - itemDr(p)),
+                damageTakenMul: 1 / (1 + p.defense),
                 picks: {
                   attack: p.statsTaken.attack ?? 0,
                   cooldown: p.statsTaken.cooldown ?? 0,
