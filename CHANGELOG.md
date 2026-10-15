@@ -6,6 +6,12 @@ What changed for players in each release, newest first. Generated from
 
 ## Unreleased
 
+PRs: [#73](https://github.com/callumbirks/pokesurvivor/pull/73)
+
+### Changed
+
+- Rifts in 3–4 player co-op reach full strength sooner, and wild Pokémon hit twice as hard as in v11.
+
 ## v11 - 2026-10-15
 
 PRs: [#69](https://github.com/callumbirks/pokesurvivor/pull/69), [#70](https://github.com/callumbirks/pokesurvivor/pull/70), [#71](https://github.com/callumbirks/pokesurvivor/pull/71)
