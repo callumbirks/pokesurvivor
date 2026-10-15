@@ -82,7 +82,7 @@
     "stopSpectating": "Back to you",
     "spectating": "Spectating {0}'s {1}",
     "spectatingYourself": "Spectating your {0}",
-    "spectateSwitchKeys": "← → switch",
+    "spectateSwitch": "switch",
     "needsHelpM": "{0} needs help! · {1} m",
     "down": "DOWN",
     "stayByTheirSide": "Stay by their side",

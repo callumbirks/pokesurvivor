@@ -702,13 +702,34 @@ export class Hud {
       ctx.fill();
       touch.addButton(bx, cy - S / 2, S, S, () => v.cycle(dir), 6);
     }
-    // How to switch, under the label: the d-pad glyph, or the arrow keys.
+    // How to switch, under the label: the d-pad glyph or the arrow keys, then "switch".
     const hintY = cy + S / 2 + 4;
-    if (k.pad) drawGlyph(ctx, 'dpadH', w / 2 - 10, hintY - 2, 20, k.pad);
-    else if (keys) {
+    if (k.pad || keys) {
       ctx.font = F(600, 10);
+      const word = t('hud.spectateSwitch');
+      const iconW = k.pad ? 20 : 35;
+      let x = w / 2 - (iconW + 5 + ctx.measureText(word).width) / 2;
+      if (k.pad) drawGlyph(ctx, 'dpadH', x, hintY - 1, 20, k.pad);
+      else
+        for (const dir of [-1, 1]) {
+          // Key chips with arrows (the pixel font has no arrow characters).
+          roundRect(ctx, x + (dir < 0 ? 0 : 19), hintY + 2, 16, 14, 4);
+          ctx.fillStyle = 'rgba(255,255,255,.12)';
+          ctx.fill();
+          const mx = x + (dir < 0 ? 8 : 27);
+          const my = hintY + 9;
+          ctx.fillStyle = 'rgba(234,242,255,.8)';
+          ctx.beginPath();
+          ctx.moveTo(mx + 3.5 * dir, my);
+          ctx.lineTo(mx - 2.5 * dir, my - 4);
+          ctx.lineTo(mx - 2.5 * dir, my + 4);
+          ctx.closePath();
+          ctx.fill();
+        }
+      x += iconW + 5;
+      ctx.textAlign = 'left';
       ctx.fillStyle = 'rgba(200,214,238,.75)';
-      ctx.fillText(t('hud.spectateSwitchKeys'), w / 2, hintY + 10);
+      ctx.fillText(word, x, hintY + 13);
     }
     const b = button(
       w / 2,

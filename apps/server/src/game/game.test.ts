@@ -148,7 +148,7 @@ describe('coop games over the network', () => {
     const coin = (s: { pickups: { id: number }[] }) => s.pickups.some((k) => k.id === 99_999);
     await a.until((s) => !!s.players[0]?.dead);
     expect(coin(a.latest!)).toBe(false);
-    a.client.room!.spectate!(b.userId);
+    a.client.room!.spectate(b.userId);
     await a.until(coin);
     // Our own Pokémon is still in every snapshot, with our own state.
     expect(a.latest!.players.map((p) => p.id)).toEqual([a.userId, b.userId]);
@@ -159,7 +159,7 @@ describe('coop games over the network', () => {
     pa!.hp = pa!.maxHp;
     await a.until((s) => !coin(s));
     // Up: refused.
-    a.client.room!.spectate!(b.userId);
+    a.client.room!.spectate(b.userId);
     await sleep(200);
     expect(coin(a.latest!)).toBe(false);
     for (const bot of bots) await bot.client.leaveRoom();
