@@ -1,5 +1,6 @@
 // What a run leaves behind, per player: for coin rewards, records, missions and achievements.
-import type { RunSummary as ProtocolRunSummary } from '@pokesurvivor/protocol';
+import type { BalanceRecord, RunSummary as ProtocolRunSummary } from '@pokesurvivor/protocol';
+import { balanceRecord } from './balance.js';
 import type { Ctx } from './ctx.js';
 import type { PlayerState, ProgressTotals, RunEnd, TeamState } from './state.js';
 
@@ -44,6 +45,8 @@ export interface PlayerSummary {
   timesDown: number;
   revivesGiven: number;
   progress: ProgressTotals;
+  /** The balance record (analytics for the admin run export; see `balance.ts`). */
+  balance?: BalanceRecord;
 }
 
 export interface RunSummary {
@@ -107,6 +110,7 @@ export function runSummary(ctx: Ctx, owns?: OwnsPokemon): RunSummary {
       timesDown: p.stats.timesDown,
       revivesGiven: p.stats.revivesGiven,
       progress: clone(p.stats.progress),
+      balance: balanceRecord(ctx, p),
     })),
   };
 }
@@ -137,5 +141,6 @@ export function playerRunSummary(summary: RunSummary, playerId: string): Protoco
       legendariesDefeated: [...pr.legendariesDefeated],
       rescued: [...pr.rescued],
     },
+    ...(p.balance ? { balance: p.balance } : {}),
   };
 }

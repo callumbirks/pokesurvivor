@@ -1,5 +1,6 @@
 // The simulation: createSim() builds a run for 1–4 players; step() advances it one fixed tick.
 // The same code runs on the server (co-op rooms) and in a Web Worker (solo).
+import { newBalance, tickBalance } from './balance.js';
 import { offerBonds } from './bonds.js';
 import { BIOME_SECONDS, DT, TICK_HZ } from './constants.js';
 import {
@@ -308,6 +309,7 @@ export class Sim {
     updateWeather(ctx);
     maybeLevelUp(ctx);
     offerBonds(ctx);
+    tickBalance(ctx);
     this.checkAllDown();
   }
 
@@ -406,6 +408,11 @@ export function restoreSim(state: SimState): Sim {
   const gameTuning = simData().game.tuning;
   const tuning = gameTuning.enemyShields;
   for (const p of state.players) {
+    // Saves from before balance records: one from now on (the setup it can't know is left empty).
+    p.balance ??= newBalance(
+      { prestige: 0, upgrades: {}, players: state.players.length, atkUpgrade: 1, atkPrestige: 1 },
+      state.time,
+    );
     p.relocationTokens ??= gameTuning.stragglers.burst;
     p.travelVx ??= 0;
     p.travelVy ??= 0;

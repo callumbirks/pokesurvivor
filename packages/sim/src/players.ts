@@ -2,6 +2,8 @@
 // liquids, auto-aim (or the player's manual aim), damage, healing, going down and being revived.
 import { prestigeBonus } from '@pokesurvivor/data';
 import { emptyRunProgress } from '@pokesurvivor/protocol';
+import type { HitSource } from '@pokesurvivor/protocol';
+import { newBalance, noteDamageTaken, noteDown, noteRevive } from './balance.js';
 import { DT, TILE } from './constants.js';
 import { activePlayers, emit, type Ctx } from './ctx.js';
 import { clamp, damp, dist, dist2 } from './math.js';
@@ -125,6 +127,13 @@ export function createPlayer(
     reviveT: 0,
     orbCastT: 0,
     lastPatchId: null,
+    balance: newBalance({
+      prestige: cfg.prestige ?? 0,
+      upgrades: Object.fromEntries(Object.entries(cfg.upgrades ?? {}).filter(([, l]) => l > 0)),
+      players: count,
+      atkUpgrade: perks.attackMul,
+      atkPrestige: star.damageMul,
+    }),
     stats: {
       damageDealt: 0,
       lastHits: 0,
@@ -145,6 +154,7 @@ export function createPlayer(
     if (pool.length) addMove(ctx, p, ctx.rand.pick(pool), true);
     setActive(ctx, p, 0, true);
   }
+  p.balance.startMoves = p.moves.map((m) => m.id);
   return p;
 }
 
@@ -279,13 +289,17 @@ export function typeLabel(k: number): HitLabel {
   return k > 1.05 ? 'super' : k < 0.95 ? 'weak' : null;
 }
 
-/** Damage to a player; `type` applies the type chart and weather (none: raw damage). */
+/**
+ * Damage to a player; `type` applies the type chart and weather (none: raw damage). `by`: what
+ * hit them, for the balance record.
+ */
 export function hurtPlayer(
   ctx: Ctx,
   p: PlayerState,
   amount: number,
   type: EnemyState['attackType'] | null,
   regular = false,
+  by: HitSource | null = null,
 ) {
   // Disconnected players are idle and invulnerable until they come back.
   if (p.invuln > 0 || p.dead || !p.connected || p.left || ctx.s.config.invulnerable) return;
@@ -305,6 +319,7 @@ export function hurtPlayer(
     : defended;
   const d = Math.max(1, capped * weather);
   p.hp -= d;
+  noteDamageTaken(ctx, p, d, by);
   p.invuln = 0.45;
   emit(ctx, { type: 'player-hurt', playerId: p.id, amount: Math.round(d), label });
   // Focus Sash: survive a fatal hit with 1 HP (once a minute).
@@ -325,6 +340,7 @@ function knockOut(ctx: Ctx, p: PlayerState) {
   p.dead = true;
   p.reviveT = 0;
   p.stats.timesDown++;
+  noteDown(ctx, p);
   clearOrbs(ctx, p.id);
   emit(ctx, { type: 'player-down', playerId: p.id });
   if (ctx.s.players.filter((o) => !o.left).length > 1) {
@@ -350,6 +366,7 @@ export function revivePlayer(ctx: Ctx, p: PlayerState, frac: number, by: PlayerS
   p.invuln = 2;
   p.reviveT = 0;
   if (by) by.stats.revivesGiven++;
+  noteRevive(ctx, p);
   emit(ctx, { type: 'player-revived', playerId: p.id, by: by?.id ?? null });
 }
 
@@ -411,7 +428,9 @@ export function updatePlayer(ctx: Ctx, p: PlayerState): void {
       if (p.lavaTick <= 0) {
         p.lavaTick = le.every ?? 0.5;
         p.invuln = 0;
-        hurtPlayer(ctx, p, Math.max(le.flat ?? 0, p.maxHp * le.damage * 0.5), null);
+        hurtPlayer(ctx, p, Math.max(le.flat ?? 0, p.maxHp * le.damage * 0.5), null, false, {
+          kind: 'liquid',
+        });
       }
     }
   }

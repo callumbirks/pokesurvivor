@@ -207,7 +207,8 @@ function trapGoesOff(ctx: Ctx, p: Prop): void {
   for (const pl of activePlayers(s)) {
     if (pl.dead || dist2(x, y, pl.x, pl.y) >= (R * 0.7) ** 2) continue;
     pl.invuln = 0;
-    if (t.playerMaxHpDamage) hurtPlayer(ctx, pl, pl.maxHp * t.playerMaxHpDamage, null);
+    if (t.playerMaxHpDamage)
+      hurtPlayer(ctx, pl, pl.maxHp * t.playerMaxHpDamage, null, false, { kind: 'trap' });
     if (t.playerSlowSeconds) {
       pl.slowT = t.playerSlowSeconds;
       emit(ctx, { type: 'say', key: 'hud.sticky', seconds: 1.5, playerId: pl.id });

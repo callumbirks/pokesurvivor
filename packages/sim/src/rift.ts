@@ -18,6 +18,7 @@
 //     died would keep the bug wherever bosses live long.
 //   - placement can't fail: the legacy ring, then a wider ring, then the free tile closest to the
 //     ring, then the player's own spot; `misses` resets only once the rift is open.
+import { noteRiftEnd, noteRiftStart } from './balance.js';
 import { bondOptions } from './bonds.js';
 import { DT, TILE } from './constants.js';
 import { activePlayers, emit, presentPlayers, type Ctx } from './ctx.js';
@@ -240,6 +241,7 @@ export function startArena(ctx: Ctx, type?: PokemonType): void {
     seconds: R.arenaTime,
   });
   emit(ctx, { type: 'say', key: 'hud.youEnteredTheRift', seconds: 2.4 });
+  noteRiftStart(ctx);
   spawnLegend(ctx);
 }
 
@@ -355,6 +357,7 @@ function won(ctx: Ctx): void {
   const { s, d } = ctx;
   const a = s.arena;
   if (!a || a.phase !== 'fight') return;
+  noteRiftEnd(ctx, 'won');
   a.phase = 'won';
   a.endT = d.game.tuning.rift.returnAfterWin;
   for (const p of presentPlayers(s)) {
@@ -376,6 +379,7 @@ function won(ctx: Ctx): void {
 function lost(ctx: Ctx): void {
   const a = ctx.s.arena;
   if (!a || a.phase !== 'fight') return;
+  noteRiftEnd(ctx, 'lost');
   a.phase = 'lost';
   a.endT = ctx.d.game.tuning.rift.returnAfterLoss;
   emit(ctx, { type: 'arena-ended', result: 'lost', dex: a.dex });

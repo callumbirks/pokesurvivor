@@ -35,6 +35,8 @@ const RunSummarySchema = z.strictObject({
     legendariesDefeated: z.array(dex),
     rescued: z.array(dex),
   }),
+  // Validated on its own by the server (`apps/server/src/runs/balance.ts`): never fails a report.
+  balance: z.unknown().optional(),
 }) satisfies z.ZodType<RunSummary>;
 
 describe('protocol run summaries', () => {
