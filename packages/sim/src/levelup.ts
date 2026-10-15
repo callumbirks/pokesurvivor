@@ -20,7 +20,7 @@ interface Candidate {
 export function atCeiling(ctx: Ctx, p: PlayerState, id: string): boolean {
   const e = ctx.d.statCard(id).effect;
   if (e.type !== 'stat' || e.cap === undefined) return false;
-  if (e.op === 'add') return p[e.stat] >= e.cap;
+  if (e.op === 'add') return (e.capOf === 'cards' ? (p.cardAdd[id] ?? 0) : p[e.stat]) >= e.cap;
   const built = p.cardMul[id] ?? 1;
   // A multiplier below 1 (cooldown) has its ceiling below 1 too: a floor.
   return e.value < 1 ? built <= e.cap : built >= e.cap;
@@ -183,8 +183,18 @@ export function applyCard(ctx: Ctx, p: PlayerState, card: CardOption): void {
       if (e.type === 'maxHp') addMaxHp(p, e.value);
       else if (e.type === 'heal') healPlayer(ctx, p, p.maxHp * e.maxHpFraction);
       else if (e.op === 'add') {
-        const v = p[e.stat] + e.value;
-        p[e.stat] = e.cap === undefined ? v : Math.min(e.cap, v);
+        // The ceiling bounds the stat itself, or with `capOf: "cards"` what this card's picks added.
+        const had = p.cardAdd[c.id] ?? 0;
+        if (e.cap !== undefined && e.capOf === 'cards') {
+          const built = Math.min(e.cap, had + e.value);
+          p.cardAdd[c.id] = Math.max(had, built);
+          p[e.stat] += Math.max(0, built - had);
+        } else {
+          const v = p[e.stat] + e.value;
+          const next = e.cap === undefined ? v : Math.max(p[e.stat], Math.min(e.cap, v));
+          p.cardAdd[c.id] = had + (next - p[e.stat]);
+          p[e.stat] = next;
+        }
       } else {
         // The ceiling bounds what this card's picks have built up; the stat moves by the same step.
         const had = p.cardMul[c.id] ?? 1;

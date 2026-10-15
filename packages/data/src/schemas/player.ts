@@ -62,11 +62,18 @@ export const ItemsFileSchema = z.array(ItemSchema).min(1);
 export const StatCardEffectSchema = z.discriminatedUnion('type', [
   /**
    * `cap` is the card's ceiling, and the card stops being offered once it's reached. `add`: a bound
-   * on the stat itself (Armor's damage reduction). `mul`: a bound on the multiplier the card's own
-   * picks have built up (held items and permanent upgrades stay outside it); for a multiplier below
-   * 1 (Reflexes' cooldown) it's a floor. A pick that would pass it is clamped to it.
+   * on the stat itself (Armor's damage reduction), or with `capOf: "cards"` on the amount the
+   * card's own picks have added (Synthesis). `mul`: a bound on the multiplier the card's own picks
+   * have built up; for a multiplier below 1 (Reflexes' cooldown) it's a floor. Bounds on what the
+   * cards built leave held items and permanent upgrades outside them. A pick that would pass the
+   * ceiling is clamped to it.
    */
-  z.strictObject({ type: z.literal('stat'), ...StatEffectSchema.shape }),
+  z.strictObject({
+    type: z.literal('stat'),
+    ...StatEffectSchema.shape,
+    /** What an `add` card's `cap` bounds: the stat (default) or what the card's picks added. */
+    capOf: z.enum(['stat', 'cards']).optional(),
+  }),
   /** Raise max HP and heal the same amount. */
   z.strictObject({ type: z.literal('maxHp'), value: z.number().positive() }),
   z.strictObject({ type: z.literal('heal'), maxHpFraction: z.number().positive() }),
