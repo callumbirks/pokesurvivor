@@ -211,6 +211,53 @@ export const reductionOf = (p: PlayerState): number =>
 
 export const regenOf = (p: PlayerState): number => p.regen + p.buffs.regen.n * p.buffs.regen.amount;
 
+/**
+ * What the HUD's stats panel shows of a player's own Pokémon: attack, speed and max HP with their
+ * species base (the current value over it is the whole multiplier), and the stats that have no
+ * base as they apply. Attack leaves out Momentum, which changes with every kill: the HUD shows
+ * it live and multiplies it in (`momentumMultiplier`).
+ */
+export interface PlayerStats {
+  attackBase: number;
+  /** `attackOf` without Momentum: upgrades, cards, item and attack buffs. */
+  attack: number;
+  speedBase: number;
+  /** `moveSpeedOf`: upgrades, cards, item, buffs, a trap's slow and the weather. */
+  speed: number;
+  hpBase: number;
+  maxHp: number;
+  /** Cooldown multiplier. */
+  cooldown: number;
+  /** Damage reduction in effect (`reductionOf`), 0–1. */
+  damageReduction: number;
+  /** HP per second (`regenOf`). */
+  regen: number;
+  /** Pickup radius multiplier. */
+  magnet: number;
+  /** XP multiplier. */
+  xp: number;
+  /** Critical hit chance, 0–1. */
+  crit: number;
+}
+
+export function statsOf(ctx: Ctx, p: PlayerState): PlayerStats {
+  const mon = ctx.d.game.pokemonByDex.get(p.dex);
+  return {
+    attackBase: p.baseAttack,
+    attack: attackOf(ctx, p) / momentumMultiplier(ctx, p.momentum),
+    speedBase: p.baseSpeed,
+    speed: moveSpeedOf(ctx, p),
+    hpBase: mon?.hp ?? p.maxHp,
+    maxHp: p.maxHp,
+    cooldown: p.cooldownMul,
+    damageReduction: reductionOf(p),
+    regen: regenOf(p),
+    magnet: p.magnet / BASE_MAGNET,
+    xp: p.xpMul,
+    crit: p.critChance,
+  };
+}
+
 export function addBuff(p: PlayerState, stat: BuffStat, amount: number, dur: number, max: number) {
   const b = p.buffs[stat];
   b.amount = amount;

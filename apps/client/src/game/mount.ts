@@ -998,6 +998,7 @@ class Run {
         aimMode: settings.get().aimMode,
         toggleAim: () => toggleAimMode(),
         pad: inputDevice.device === 'gamepad' ? inputDevice.layout : null,
+        showStats: settings.get().showStats,
       });
       this.touch.draw(ctx);
       this.screen.netStats.placeBelow(this.hud.topLeftBottom);

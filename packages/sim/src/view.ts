@@ -6,7 +6,14 @@ import { CHUNK_TILES as N } from './constants.js';
 import type { Ctx } from './ctx.js';
 import { simData } from './data.js';
 import { makeRand, seedRng } from './rng.js';
-import { liquidSpeedMult, moveBody, moveSpeedOf, type MovingBody } from './players.js';
+import {
+  liquidSpeedMult,
+  moveBody,
+  moveSpeedOf,
+  statsOf,
+  type MovingBody,
+  type PlayerStats,
+} from './players.js';
 import type { ArenaGeometry, PlayerState, SimState, WorldState } from './state.js';
 import {
   createChunkCache,
@@ -145,6 +152,11 @@ export class WorldView {
 export function playerMoveSpeed(state: SimState, p: PlayerState): number {
   // Speed reads only the player, the weather in the state and the static data.
   return moveSpeedOf({ s: state, d: simData() } as Ctx, p);
+}
+
+/** The stats panel of a player's own HUD (`statsOf`), from the state and the static data. */
+export function playerStats(state: SimState, p: PlayerState): PlayerStats {
+  return statsOf({ s: state, d: simData() } as Ctx, p);
 }
 
 /** A move's stats at a level (and evolved): what the client sizes cast visuals with. */

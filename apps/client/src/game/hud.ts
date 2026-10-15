@@ -14,6 +14,7 @@ import { PLAYER_COLORS, altarPower, pokemonName } from './scene/entities.js';
 import type { WeatherLayer } from './scene/weather.js';
 import { weatherKind } from './scene/weather.js';
 import type { TouchControls } from './touch.js';
+import { drawStatsPanel, visibleStatRows } from './stats-panel.js';
 import { itemName, mmss, moveName, typeName } from './text.js';
 
 /** HUD icons: snapped to whole screen pixels under the HUD's scale. */
@@ -136,6 +137,8 @@ export interface HudInput {
   toggleAim(): void;
   /** A gamepad is the input in use: its prompts, in its layout (null: keys, or touch). */
   pad: PadLayout | null;
+  /** The stats panel under the HP bar (Settings → "Show stats"). */
+  showStats: boolean;
 }
 
 /** The controls line shown early in a run (and in the pause menu). */
@@ -342,7 +345,10 @@ export class Hud {
       ctx.restore();
     }
 
-    const teamTop = py + (bx > px ? 56 : 40);
+    let teamTop = py + (bx > px ? 56 : 40);
+    const momentum = 1 + this.momentum.perStack * (frame.snap.self?.momentum ?? 0);
+    const statsRows = visibleStatRows(k.showStats && !!me, frame.snap.stats, momentum);
+    if (statsRows) teamTop += drawStatsPanel(ctx, statsRows, F, px, teamTop - 4) + 4;
     const mates = frame.players.filter((p) => p.id !== frame.selfId && !p.left).length;
     this.topLeftBottom = (teamTop + mates * 15) * s;
     if (frame.game.players.length > 1) this.drawTeam(ctx, k, px, teamTop);

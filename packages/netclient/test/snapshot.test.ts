@@ -2,6 +2,7 @@ import {
   createSim,
   isAttacking,
   playerMoveSpeed,
+  playerStats,
   type FieldState,
   type SimEvent,
 } from '@pokesurvivor/sim';
@@ -182,6 +183,39 @@ describe('snapshots', () => {
       expect(snap.self?.momentum).toBe(12.3);
     }
     me.momentum = saved;
+  });
+
+  it('send the viewer only its own stats panel, when it changes, at most twice a second', () => {
+    const me = sim.state.players[1]!;
+    const enc = new SnapshotEncoder({ viewerId: me.id, format: 'json' });
+    const dec = new SnapshotDecoder(ids);
+    const frame = (seq: number) => enc.encode(sim.state, [], seq, 0) as string;
+    const first = frame(1);
+    const snap = dec.decode(first);
+    const want = playerStats(sim.state, me);
+    expect(snap.stats?.attackBase).toBe(want.attackBase);
+    expect(snap.stats?.attack).toBeCloseTo(want.attack, 1);
+    expect(snap.stats?.maxHp).toBe(Math.round(want.maxHp));
+    expect(snap.stats?.cooldown).toBeCloseTo(want.cooldown, 3);
+    // One block, the viewer's: nothing about teammates.
+    expect(first.split('attackBase').length - 1).toBe(1);
+    // Unchanged: not resent, but the decoder keeps the last one.
+    const tick = sim.state.tick;
+    sim.state.tick += 100;
+    const again = frame(2);
+    expect(again).not.toContain('attackBase');
+    expect(dec.decode(again).stats).toEqual(snap.stats);
+    // A change goes out, but not again within the throttle.
+    const saved = me.attackMul;
+    me.attackMul *= 2;
+    const changed = frame(3);
+    expect(changed).toContain('attackBase');
+    expect(dec.decode(changed).stats?.attack).toBeCloseTo(playerStats(sim.state, me).attack, 1);
+    me.attackMul *= 2;
+    sim.state.tick += 1;
+    expect(frame(4)).not.toContain('attackBase');
+    me.attackMul = saved;
+    sim.state.tick = tick;
   });
 
   it('start over with a full snapshot after a reset (reconnect)', () => {

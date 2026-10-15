@@ -130,6 +130,11 @@ fn)` (spinner on the button, toast on error), loads through `loadInto(el, load, 
   cooldowns, held item, bonds, teammates (HP, down, choosing, offline), edge arrows (rift,
   teammates, shinies, the lost Pokémon, thieves), event timers, banners. Toasts (DOM) for
   teammates leaving and coming back, server notices (with `client`) and achievements.
+- **Stats panel** (`stats-panel.ts`, drawn by the HUD under the HP bar): your own Pokémon's
+  attack (×100), speed and max HP with everything applied and the multiplier over the species
+  base, then cooldown, damage reduction, regen, magnet, XP and crit. The sim computes them
+  (`playerStats`); the snapshot's `stats` carries them to this client only. Settings → Display →
+  "Show stats" (per device, on by default).
 - **HUD size** (`hudscale.ts`): the HUD is laid out in CSS px at the original sizes (made for
   windows up to ~1280 × 720) and drawn under one scale. The "HUD size" setting (Settings →
   Graphics, per device) is Auto by default: `min(w / 1280, h / 720)`, never below 1 (phones look
