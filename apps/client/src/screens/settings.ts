@@ -1,6 +1,6 @@
 // Settings: sound, graphics, controls, account and about (original implementation). Edits the
 // settings store, which saves locally and syncs the account's copy.
-import { loadChangelog, t, versionLabel } from '@pokesurvivor/data';
+import { loadChangelog, loadGameData, t, versionLabel } from '@pokesurvivor/data';
 import type { App, Screen } from '../app/app.js';
 import { h, replace } from '../app/dom.js';
 import { glyph, type PadButton } from '../glyphs.js';
@@ -363,6 +363,8 @@ export function settingsScreen(
           padKey(['rstick', 'rt'], t('app.keyAimStick')),
           padKey(['start'], t('pause.pause')),
         ),
+        h('h4', { class: 'set-h' }, t('settings.inARun')),
+        h('p', { class: 'small muted', dataset: { testid: 'momentum-help' } }, momentumHelp()),
       );
     } else if (tab === 'account') {
       const logout = h(
@@ -425,4 +427,15 @@ export function settingsScreen(
     if (changed.some((k) => !isSliderKey(k))) render();
   });
   return { el: box.el, destroy: off };
+}
+
+/** How Momentum works, with the numbers from the tuning. */
+function momentumHelp(): string {
+  const m = loadGameData().tuning.momentum;
+  const pct = (v: number) => String(Math.round(v * 1000) / 10);
+  return t('settings.momentumHelp', {
+    0: pct(m.perStack),
+    1: pct(m.perStack * m.maxStacks),
+    2: m.graceSeconds,
+  });
 }

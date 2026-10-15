@@ -12,7 +12,8 @@ client side is `packages/netclient`, which the browser and the bot tests share. 
 adds remaining shield HP as enemy column 14 (index 13), rounded up to whole points. The enemy
 table width changes from 13 to 14, so this is breaking: deploy client and server together.
 Version 6 added the manual aim, `aim`, to `input`. Version 7 added fire held, `fire`, to
-`input`.
+`input`. Within version 7, `self` gained an optional `momentum` (additive: older clients ignore
+it, and clients read a missing one as 0).
 
 ## Connection
 
@@ -264,8 +265,8 @@ for that client.
 - `details`: a player's moves, slots, item, bonds, rerolls left, magnet, altar power and buff
   stacks (attack, speed, defense, regen), sent when they change;
 - `self`, in every snapshot: the viewer's move cooldowns (0–1 of the full cooldown, per move, in
-  1/50 steps) for the HUD, and its speed before liquids (`moveSpeedOf`) for client-side
-  prediction;
+  1/50 steps) for the HUD, its speed before liquids (`moveSpeedOf`) for client-side
+  prediction, and its Momentum stacks (kill streak, 1/10 steps; optional) for the HUD;
 - `world`: changes to every keyed record of `state.world` (`broken`, `propHp`, `altarsUsed`,
   `springs`, `chests`, and any the sim adds);
 - `misc`: the rift on the map, the arena (geometry for `terrainRaw`), the weather, the run event

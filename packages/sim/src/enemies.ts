@@ -8,6 +8,7 @@ import { activePlayers, emit, nextId, presentPlayers, seenByAny, type Ctx } from
 import type { PokemonType } from '@pokesurvivor/data';
 import type { HitLabel } from './events.js';
 import { addHazard } from './hazards.js';
+import { addMomentum } from './momentum.js';
 import { TAU, clamp, dist, dist2, hash2, norm } from './math.js';
 import { pathDir } from './pathing.js';
 import { dropPickup, dropXp } from './pickups.js';
@@ -127,6 +128,8 @@ export function createEnemy(
     los: false,
     ai: null,
     lastHitBy: null,
+    burnBy: null,
+    poisonBy: null,
   };
 }
 
@@ -299,15 +302,18 @@ export function hurtEnemy(ctx: Ctx, e: EnemyState, amount: number, o: HurtOption
   if (e.hp <= 0) killEnemy(ctx, e);
 }
 
-export function applyStatus(e: EnemyState, s: StatusPayload): void {
+/** `by`: the player whose attack applied it (its ticks, and a kill by them, are credited to them). */
+export function applyStatus(e: EnemyState, s: StatusPayload, by: PlayerId | null = null): void {
   if (e.dead) return;
   if (s.burn) {
     e.burn = Math.min(8, e.burn + s.burn);
     e.burnT = 3;
+    e.burnBy = by;
   }
   if (s.poison) {
     e.poison = Math.min(8, e.poison + s.poison);
     e.poisonT = 4;
+    e.poisonBy = by;
   }
   if (s.slow) {
     e.slow = Math.max(e.slow, s.slow);
@@ -478,7 +484,10 @@ function countKill(ctx: Ctx, e: EnemyState): void {
   s.team.kills++;
   if (e.boss) s.team.bosses++;
   const killer = e.lastHitBy ? s.players.find((p) => p.id === e.lastHitBy) : undefined;
-  if (killer) killer.stats.lastHits++;
+  if (killer) {
+    killer.stats.lastHits++;
+    addMomentum(ctx, killer);
+  }
   // Everyone in the run gets the defeat for their missions (as legacy co-op did).
   for (const p of presentPlayers(s)) {
     const pr = p.stats.progress;
@@ -523,7 +532,10 @@ function updateEnemy(ctx: Ctx, e: EnemyState, pl: PlayerState): void {
     e.burnTick -= dt;
     if (e.burnTick <= 0) {
       e.burnTick = 0.5;
-      hurtEnemy(ctx, e, 1.6 * e.burn * (1 + ctx.s.team.level * 0.06), { type: 'fire' });
+      hurtEnemy(ctx, e, 1.6 * e.burn * (1 + ctx.s.team.level * 0.06), {
+        type: 'fire',
+        ...(e.burnBy ? { by: e.burnBy } : {}),
+      });
     }
     if (e.burnT <= 0) e.burn = 0;
   }
@@ -533,7 +545,10 @@ function updateEnemy(ctx: Ctx, e: EnemyState, pl: PlayerState): void {
     if (e.poisonTick <= 0) {
       e.poisonTick = 0.6;
       const factor = e.boss || e.legend ? ctx.d.game.tuning.poison.bossFactor : 1;
-      hurtEnemy(ctx, e, e.maxHp * 0.012 * e.poison * factor + 1, { type: 'poison' });
+      hurtEnemy(ctx, e, e.maxHp * 0.012 * e.poison * factor + 1, {
+        type: 'poison',
+        ...(e.poisonBy ? { by: e.poisonBy } : {}),
+      });
     }
     if (e.poisonT <= 0) e.poison = 0;
   }

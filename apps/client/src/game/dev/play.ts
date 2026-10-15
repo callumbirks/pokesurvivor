@@ -147,7 +147,8 @@ async function playSolo(): Promise<void> {
       api: skipMinutes || invulnerable || devMoves ? offline : devApi,
     });
     // Dev triggers, as in /?debug-sim: F rift · V arena · H horde · J golden hour · K lost Pokémon
-    // · G thief · B weather (runs with triggers aren't reported either; T is the aim switch).
+    // · G thief · B weather · N max Momentum (runs with triggers aren't reported either; T is the
+    // aim switch).
     const keys: Record<string, Parameters<typeof conn.devTrigger>[0]> = {
       KeyF: 'rift',
       KeyV: 'arena',
@@ -156,6 +157,7 @@ async function playSolo(): Promise<void> {
       KeyK: 'lost',
       KeyG: 'thief',
       KeyB: 'weather',
+      KeyN: 'momentum',
     };
     devKeys =
       skipMinutes || invulnerable ? (code) => keys[code] && conn.devTrigger(keys[code]) : null;

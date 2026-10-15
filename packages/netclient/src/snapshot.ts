@@ -199,6 +199,11 @@ export interface SelfState {
   cooldowns: number[];
   /** Speed before liquids (`moveSpeedOf`): client-side prediction moves at this. */
   speed: number;
+  /**
+   * Momentum stacks (kill streak; tuning `momentum`), in 1/10 steps. Optional: added within
+   * protocol 7, so older servers don't send it (read as 0).
+   */
+  momentum?: number;
 }
 
 /** Who a pending choice waits for (every choice, anyone's). */
@@ -696,7 +701,7 @@ function playerDetail(p: PlayerState): PlayerDetail {
   };
 }
 
-/** Cooldowns in 1/50 steps (enough for the HUD's fill), speed in 1/10 units. */
+/** Cooldowns in 1/50 steps (enough for the HUD's fill), speed and momentum in 1/10 units. */
 function selfState(s: SimState, p: PlayerState): SelfState {
   const speed = playerMoveSpeed(s, p);
   return {
@@ -705,6 +710,7 @@ function selfState(s: SimState, p: PlayerState): SelfState {
       return m.kind === 'orbit' || full <= 0 ? 0 : Math.round(Math.min(1, m.t / full) * 50) / 50;
     }),
     speed: Math.round(speed * 10) / 10,
+    momentum: Math.round(p.momentum * 10) / 10,
   };
 }
 

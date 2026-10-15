@@ -49,7 +49,16 @@ export type ToWorker =
   /** Dev page only: trigger a rift, the arena, an event or weather (like /?debug-sim). */
   | { type: 'debug'; action: DevAction };
 
-export type DevAction = 'rift' | 'arena' | 'horde' | 'gold' | 'lost' | 'thief' | 'weather';
+export type DevAction =
+  | 'rift'
+  | 'arena'
+  | 'horde'
+  | 'gold'
+  | 'lost'
+  | 'thief'
+  | 'weather'
+  /** Momentum stacks up to the cap (then drains after the grace, as usual). */
+  | 'momentum';
 
 export type FromWorker =
   /** The run is built (its static info, roster included): load its assets. */
