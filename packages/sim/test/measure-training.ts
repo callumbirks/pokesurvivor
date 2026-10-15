@@ -1,4 +1,4 @@
-// Manual v12/v13 early-damage and horde-training diagnostics; never run in CI.
+// Manual wild-damage and horde-training diagnostics; never run in CI.
 import { execFileSync } from 'node:child_process';
 import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
 import { DT, OUTER_RADIUS } from '../src/constants.js';
@@ -17,15 +17,30 @@ const args = new Map(
   }),
 );
 for (const k of args.keys())
-  if (!['out', 'calibration', 'phase', 'seeds', 'minutes', 'species', 'seconds'].includes(k))
+  if (
+    ![
+      'out',
+      'calibration',
+      'phase',
+      'seeds',
+      'minutes',
+      'species',
+      'seconds',
+      'meta',
+      'contacts-only',
+    ].includes(k)
+  )
     throw new Error(`unknown --${k}`);
 const phase = args.get('phase') ?? 'before';
+const meta = (args.get('meta') ?? 'half') as Cell['meta'];
+const contactsOnly = args.has('contacts-only');
 const seeds = (args.get('seeds') ?? '7,99,2026').split(',').map(Number);
 const minutes = (args.get('minutes') ?? '2,4,6,8,10').split(',').map(Number);
 const species = (args.get('species') ?? '4,1,25,887').split(',').map(Number);
 const seconds = Number(args.get('seconds') ?? 60);
 if (
   !['before', 'after'].includes(phase) ||
+  !['none', 'half', 'max'].includes(meta) ||
   [...seeds, ...species].some((n) => !Number.isSafeInteger(n) || n <= 0) ||
   minutes.some((n) => !Number.isFinite(n) || n <= 0) ||
   !Number.isFinite(seconds) ||
@@ -49,10 +64,12 @@ const emit = (r: unknown) => {
   if (out) appendFileSync(out, line);
   else process.stdout.write(line);
 };
-const ref = makeSim({ meta: 'half', players: 1, archetype: 'projectile' }, 7, true);
+const ref = makeSim({ meta, players: 1, archetype: 'projectile' }, 7, true);
 emit({
   kind: 'metadata',
   phase,
+  meta,
+  contactsOnly,
   revision: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
   minutes,
   seeds,
@@ -60,18 +77,19 @@ emit({
   seconds,
   tuning: ref.ctx.d.game.tuning,
   calibration: path,
-  method:
-    'paired protected earned loadouts; real terrain, no incoming death; straight/turn train, no attacks',
+  method: contactsOnly
+    ? 'paired protected earned loadouts; neutral regular contact after defence, melee protection and cap'
+    : 'paired protected earned loadouts; real terrain, no incoming death; straight/turn train, no attacks',
 });
 for (const dex of species) {
   const cell: Cell = {
-    meta: 'half',
+    meta,
     players: 1,
     archetype: dex === 1 ? 'melee' : dex === 25 ? 'area' : 'projectile',
     dex,
   };
   const snaps =
-    cached?.filter((r) => r.dex === dex) ??
+    cached?.filter((r) => r.dex === dex && r.meta === meta) ??
     seeds.flatMap((seed) => naturalRun(cell, seed, minutes, true, emit));
   for (const seed of seeds)
     for (const minute of minutes) {
@@ -84,10 +102,15 @@ for (const dex of species) {
       sim.state.time = minute * 60;
       loadBuild(sim, sim.state.players[0]!, source.builds[0]!);
       const contact = contactProbe(sim);
+      if (contactsOnly) {
+        emit({ kind: 'contact', phase, meta, dex, seed, minute, level: source.level, contact });
+        continue;
+      }
       for (const turning of [false, true])
         emit({
           kind: 'training',
           phase,
+          meta,
           dex,
           seed,
           minute,

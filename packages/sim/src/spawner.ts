@@ -337,25 +337,29 @@ export function arrivalAngle(ctx: Ctx, pl: PlayerState): number {
   return heading + (ahead ? -Math.PI / 2 : Math.PI / 2) + ctx.rand() * Math.PI;
 }
 
-/** A straggler rejoins outside everyone's view, from the rear arc of recent travel.
- * Placement retries must obey that arc too, including the ring's elliptical geometry.
+/** A straggler rejoins outside everyone's view, usually rearward with a small forward share.
+ * Placement retries obey the selected forward half or rear arc, including the elliptical ring.
  * On failure the manager keeps the enemy walking and retries; it is never discarded.
  */
-export function rejoinBehindPlayer(ctx: Ctx, e: EnemyState, pl: PlayerState): boolean {
+export function rejoinPlayer(ctx: Ctx, e: EnemyState, pl: PlayerState): boolean {
   const heading = travelHeading(ctx, pl);
-  const halfArc = (ctx.d.game.tuning.stragglers.rearArcDegrees * Math.PI) / 360;
+  const tuning = ctx.d.game.tuning.stragglers;
+  const halfArc = (tuning.rearArcDegrees * Math.PI) / 360;
+  const ahead = heading !== null && ctx.rand() < tuning.aheadShare;
   const angle =
-    heading === null ? ctx.rand() * TAU : heading + Math.PI + ctx.rand.range(-halfArc, halfArc);
+    heading === null
+      ? ctx.rand() * TAU
+      : ahead
+        ? heading + ctx.rand.range(-Math.PI / 2, Math.PI / 2)
+        : heading + Math.PI + ctx.rand.range(-halfArc, halfArc);
   const allowed =
     heading === null
       ? undefined
       : (x: number, y: number) => {
           const dx = x - pl.x,
             dy = y - pl.y;
-          return (
-            dx * Math.cos(heading) + dy * Math.sin(heading) <=
-            -Math.cos(halfArc) * Math.hypot(dx, dy) + 1e-9
-          );
+          const dot = dx * Math.cos(heading) + dy * Math.sin(heading);
+          return ahead ? dot >= 0 : dot <= -Math.cos(halfArc) * Math.hypot(dx, dy) + 1e-9;
         };
   const pt = freePoint(ctx, pl, angle, e.flying, allowed);
   if (!pt) return false;

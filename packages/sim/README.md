@@ -510,8 +510,9 @@ in the sampled half. Surges/event bursts choose their group's side with the same
 history, then scatter as before; bosses retain their ordinary independent placement.
 
 Unseen stragglers now wait `stragglers.unseenSeconds`, even beyond the old immediate distance trigger.
-Visibility to any living connected teammate resets that grace. Rejoins stay in `rearArcDegrees`
-(at most 180°) of recent travel, including terrain retries and the elliptical spawn ring. A failed
+Visibility to any living connected teammate resets that grace. `stragglers.aheadShare` selects
+the forward half for a small share of catch-up; other rejoins use `rearArcDegrees` (at most 180°).
+Retries stay in the selected half/arc, including the elliptical spawn ring. A failed
 placement leaves the enemy walking for a later retry. Transfers from downed/disconnected/left
 players retain the existing per-survivor token bucket; waiting and failed placement consume no tokens.
 A stationary survivor receives uniform catch-up arrivals.
@@ -537,3 +538,9 @@ reading whichever smoothing the measured revision uses. Ahead arrivals/relocatio
 half-plane; path occupancy uses a 350-pixel forward corridor with 60 pixels plus enemy radius on
 either side. Contact rate counts actual touch-cooldown resets, not merely enemies seen nearby.
 These fixtures stress a deliberate train; they do not estimate ordinary attacking-player survival.
+
+For a contact-only damage comparison, add `--contacts-only`; it skips the crowd replays and emits one
+`contact` row per earned checkpoint. `--meta=none|half|max` selects the permanent-upgrade profile
+(default half). Reuse the before file with `--calibration` to keep the exact same natural builds after
+a damage change. For example, `--species=894 --meta=max --minutes=5 --contacts-only` measures a
+max-meta solo Regieleki at minute five without reconstructing the user's exact upgrade choices.

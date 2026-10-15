@@ -6,6 +6,13 @@ What changed for players in each release, newest first. Generated from
 
 ## Unreleased
 
+PRs: [#80](https://github.com/callumbirks/pokesurvivor/pull/80)
+
+### Changed
+
+- Wild Pokémon hit about 10% less hard.
+- A few wild Pokémon now appear and catch up ahead of you again, so running isn't completely safe.
+
 ## v13 - 2026-10-15
 
 PRs: [#77](https://github.com/callumbirks/pokesurvivor/pull/77), [#78](https://github.com/callumbirks/pokesurvivor/pull/78)
