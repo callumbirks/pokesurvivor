@@ -6,6 +6,8 @@ What changed for players in each release, newest first. Generated from
 
 ## Unreleased
 
+## v11 - 2026-10-15
+
 PRs: [#69](https://github.com/callumbirks/pokesurvivor/pull/69), [#70](https://github.com/callumbirks/pokesurvivor/pull/70), [#71](https://github.com/callumbirks/pokesurvivor/pull/71)
 
 ### Fixed
