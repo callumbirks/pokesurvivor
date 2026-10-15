@@ -28,7 +28,8 @@ import { simData } from '../src/data.js';
 import { restoreSim, type PlayerState, type Sim } from '../src/index.js';
 import { BOND_MAX } from '../src/bonds.js';
 import { momentumMultiplier } from '../src/momentum.js';
-import { evolveMove, newMove } from '../src/moves.js';
+import { canLevelUp, evolutionInfo, evolveMove, newMove } from '../src/moves.js';
+import { atCeiling } from '../src/levelup.js';
 import { attackOf, defenseOf, regenOf } from '../src/players.js';
 import { enemyScale } from '../src/spawner.js';
 import type { SimState } from '../src/state.js';
@@ -476,6 +477,17 @@ for (const meta of metas)
           const picks = log.get(p.id) ?? [];
           const power = picks.filter((k) => k.statId === 'attack');
           const w = wilds(sim, p);
+          // What could still be offered: stat cards not at a ceiling, moves that can level up,
+          // ready evolutions and (with a free slot) new moves.
+          const offerable = {
+            stats: levelUp.statCards.filter((c) => !atCeiling(sim.ctx, p, c.id)).length,
+            upgrades: p.moves.filter((m) => canLevelUp(sim.ctx, m)).length,
+            evolutions: p.moves.filter((m) => evolutionInfo(sim.ctx, p, m)?.ready).length,
+            newMoves: p.slots.length < p.maxSlots ? 1 : 0,
+            atCeiling: levelUp.statCards
+              .filter((c) => atCeiling(sim.ctx, p, c.id))
+              .map((c) => c.id),
+          };
           const refHp = w.hp > 0 ? w.hp : w.crowdHp;
           const dps = probes && refHp > 0 ? dummyDps(sim, cell, seed, refHp) : null;
           emit({
@@ -499,6 +511,7 @@ for (const meta of metas)
             ),
             ...breakdown(sim, p, meta, mean(momentumSamples)),
             wild: w,
+            offerable,
             dps,
             ttk: dps ? refHp / dps : null,
             eliteTtk: dps ? w.crowdHp / dps : null,

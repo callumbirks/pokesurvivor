@@ -111,6 +111,9 @@ export function describe(p: PlayerState) {
 }
 
 /** Reuse earned loadouts, but start each isolated encounter healed, without temporary powers. */
+/** The Armor card's damage reduction per pick before defence was toughness (v15). */
+const V15_ARMOR_CARD = 0.05;
+
 export function loadBuild(sim: Sim, p: PlayerState, source: PlayerState): void {
   const keys = [
     'maxHp',
@@ -132,12 +135,22 @@ export function loadBuild(sim: Sim, p: PlayerState, source: PlayerState): void {
     'item',
     'itemRegen',
   ] as const;
+  const ownDefense = p.defense; // Upgrades and prestige of this sim, at today's values.
   for (const key of keys) Object.assign(p, { [key]: structuredClone(source[key]) });
   p.cardMul ??= {}; // Checkpoints saved before card rarities.
-  // Checkpoints saved before defence was toughness: the same damage taken.
-  const old = source as PlayerState & { damageReduction?: number };
-  if (old.defense === undefined)
-    p.defense = (old.damageReduction ?? 0) / (1 - (old.damageReduction ?? 0));
+  // Checkpoints earned before defence was toughness: the same pieces at today's values (the Armor
+  // cards' added damage reduction scaled to today's card, the held item's defence).
+  if ((source as Partial<PlayerState>).defense === undefined) {
+    const armor = sim.ctx.d.statCard('defense').effect;
+    const perCard = armor.type === 'stat' ? armor.value / V15_ARMOR_CARD : 1;
+    const item = p.item
+      ? sim.ctx.d
+          .item(p.item)
+          .effects.filter((e) => e.stat === 'defense' && e.op === 'add')
+          .reduce((a, e) => a + e.value, 0)
+      : 0;
+    p.defense = ownDefense + item + (source.cardAdd?.defense ?? 0) * perCard;
+  }
   for (const m of p.moves) {
     m.t = 0;
     m.castTick = -1;
