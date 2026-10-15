@@ -6,6 +6,12 @@ What changed for players in each release, newest first. Generated from
 
 ## Unreleased
 
+PRs: [#78](https://github.com/callumbirks/pokesurvivor/pull/78)
+
+### Changed
+
+- Momentum's limit now grows during a run: up to +20% at the start, reaching +60% by minute 10.
+
 ## v12 - 2026-10-15
 
 PRs: [#73](https://github.com/callumbirks/pokesurvivor/pull/73), [#75](https://github.com/callumbirks/pokesurvivor/pull/75)
