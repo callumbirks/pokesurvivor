@@ -105,5 +105,16 @@
     "ticketDropRate": 0.0025,
     "bossTicket10Chance": 0.1,
     "legendaryTicket10Chance": 0.2
+  },
+  "prestige": {
+    "maxStars": 3,
+    "perStar": {
+      "hp": 0.05,
+      "damage": 0.05,
+      "speed": 0.05,
+      "cooldown": 0.05,
+      "damageTaken": 0.05,
+      "crit": 0.05
+    }
   }
 }

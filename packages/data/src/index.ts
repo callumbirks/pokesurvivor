@@ -67,6 +67,7 @@ import type { z } from 'zod';
 export * from './changelog.js';
 export * from './i18n.js';
 export * from './personality.js';
+export * from './prestige.js';
 export { indexBy, parseDataFile } from './util.js';
 export * from './schemas/index.js';
 
