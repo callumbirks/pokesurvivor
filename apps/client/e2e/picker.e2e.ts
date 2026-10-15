@@ -9,6 +9,31 @@ const shots = process.env.E2E_SHOTS;
 const suffix = randomUUID().slice(0, 8);
 const DESKTOP = { width: 1280, height: 720 };
 const PHONE = { width: 844, height: 390 };
+const PORTRAIT = { width: 390, height: 844 };
+
+/** How many rows of cells the picker's grid has room for. */
+const gridRows = (page: Page, id: string) =>
+  page.getByTestId(`${id}-grid`).evaluate((g) => {
+    const cell = g.querySelector('.cell');
+    return cell ? g.clientHeight / cell.getBoundingClientRect().height : 0;
+  });
+
+/** On a phone in portrait the filters fold behind their button, leaving the grid two rows or more
+ * (squeezed by them, it had a fifth of one). */
+async function checkPortrait(page: Page, id: string, confirm: string): Promise<void> {
+  await page.setViewportSize(PORTRAIT);
+  await expect(page.getByTestId('region-1')).toBeHidden();
+  await expect(page.getByTestId(confirm)).toBeInViewport();
+  expect(await gridRows(page, id)).toBeGreaterThanOrEqual(2);
+  await shot(page, `${id}-portrait`);
+  await page.getByTestId(`${id}-filters`).click();
+  await expect(page.getByTestId('region-1')).toBeVisible();
+  await expect(page.getByTestId(`${id}-type-fire`)).toBeVisible();
+  await shot(page, `${id}-portrait-filters`);
+  await page.getByTestId(`${id}-filters`).click();
+  await expect(page.getByTestId('region-1')).toBeHidden();
+  expect(await gridRows(page, id)).toBeGreaterThanOrEqual(2);
+}
 
 const shot = async (page: Page, name: string) => {
   if (!shots) return;
@@ -148,6 +173,7 @@ test('solo: search, filter, sort and play with the picked Pokémon', async ({ br
   await expect(page.getByTestId('solo-start')).toBeInViewport();
   await shot(page, 'solo-phone-filters');
   await page.getByTestId('solo-filters').click();
+  await checkPortrait(page, 'solo', 'solo-start');
 
   // The keyboard: Enter in the search picks the first result and goes to it, Enter there goes
   // on to Play, and Esc leaves the field rather than the screen.
@@ -218,7 +244,7 @@ test('the keys: from the grid to Play and back, and Play uses the selected Poké
   // rest of the row, however many cells the screen fits in it).
   const start = page.getByTestId('solo-start');
   const onStart = () => start.evaluate((e) => e === document.activeElement);
-  for (const size of [PHONE, { width: 390, height: 844 }]) {
+  for (const size of [PHONE, PORTRAIT]) {
     await page.setViewportSize(size);
     await page.getByTestId('solo-pick-25').focus();
     for (let i = 0; i < 6 && !(await onStart()); i++) await page.keyboard.press('ArrowRight');
@@ -282,6 +308,7 @@ test('room: change the Pokémon by search, and the other member sees it', async 
   await pb.setViewportSize(PHONE);
   await expect(pb.getByTestId('room-confirm')).toBeInViewport();
   await shot(pb, 'room-phone');
+  await checkPortrait(pb, 'room', 'room-confirm');
   await pb.setViewportSize(DESKTOP);
   // With the keys: the focus passes over Pikachu on the way to the confirm button, which still
   // chooses Squirtle.

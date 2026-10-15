@@ -2629,20 +2629,26 @@ canvas.backdrop {
   line-height: 14px;
   padding: 0 3px;
 }
-/* Phones in portrait: the details under the grid. */
+/* Phones in portrait: the details under the grid, sharing the height with it; the bar's
+   controls narrow to fit beside the search. */
 @media (max-width: 760px) {
   .picker-split {
     grid-template-rows: minmax(0, 1fr) auto;
   }
   .picker-detail {
-    max-height: 42vh;
+    max-height: 34vh;
+  }
+  .picker-search {
+    min-width: 0;
+    flex-basis: 0;
+  }
+  .picker-sort {
+    min-width: 0;
   }
 }
-/* Phones in landscape: the filters fold behind a button, and their rows scroll sideways. */
-@media (max-height: 520px) {
-  .picker {
-    gap: 6px;
-  }
+/* Phones (in landscape and in portrait): the filters fold behind a button, and their rows
+   scroll sideways, leaving the room to the grid. */
+@media (max-height: 520px), (max-width: 760px) {
   .picker-filters-btn {
     display: inline-block;
   }
@@ -2664,6 +2670,12 @@ canvas.backdrop {
   }
   .picker-count {
     display: none;
+  }
+}
+/* Phones in landscape: tighter. */
+@media (max-height: 520px) {
+  .picker {
+    gap: 6px;
   }
   .picker-detail {
     padding: 6px 8px;
