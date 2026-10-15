@@ -136,6 +136,11 @@ already own" are the server's job.
 - Every level-up gives every player (connected or not; disconnected ones are auto-picked) their
   own server-generated cards; the game is paused until all are resolved. Item swaps (picking up a
   second held item) pause it too. Level-ups wait for pending swaps.
+- From `tuning.lateGrowth.offers.fromMinute`, every level-up offer holds an offensive stat card
+  (Power or Reflexes, whichever isn't capped) at a random slot; a ready evolution keeps its own.
+- Momentum (`momentum.ts`, `tuning.momentum`): each kill credited to a player (last hit, or their
+  burn/poison tick: `burnBy` / `poisonBy`) adds a stack, ×(1 + perStack · stacks) on their move
+  damage; after `graceSeconds` without a kill the stacks drain at `decayPerSecond`.
 - Enemies spawn around a random living player, out of everyone's view; rate ×(1 + 0.75·(n − 1)),
   HP ×(1 + 0.3·(n − 1)); bosses get another ×1.4 in a group.
 - A downed player is revived by a teammate standing within 56 units for 3 s (progress decays at
