@@ -1,8 +1,10 @@
 {
   "unreleased": {
-    "prs": [92],
+    "prs": [92, 93],
     "entries": {
-      "new": [],
+      "new": [
+        "Server updates no longer end co-op runs: you get a short warning, and your run continues right after the update."
+      ],
       "changed": [],
       "fixed": [
         "After an update the game no longer gets stuck on a black or white screen until you hard-refresh."

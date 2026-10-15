@@ -6,7 +6,11 @@ What changed for players in each release, newest first. Generated from
 
 ## Unreleased
 
-PRs: [#92](https://github.com/callumbirks/pokesurvivor/pull/92)
+PRs: [#92](https://github.com/callumbirks/pokesurvivor/pull/92), [#93](https://github.com/callumbirks/pokesurvivor/pull/93)
+
+### New
+
+- Server updates no longer end co-op runs: you get a short warning, and your run continues right after the update.
 
 ### Fixed
 
