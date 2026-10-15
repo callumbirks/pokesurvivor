@@ -125,6 +125,46 @@ describe('coop games over the network', () => {
     for (const x of bots) await x.client.leaveRoom();
   });
 
+  it('a downed player spectates a teammate: their snapshots follow the target until revived', async () => {
+    const bots = await playing(t, 2);
+    const [a, b] = bots as [Bot, Bot];
+    for (const bot of bots) bot.stop();
+    const game = serverGame(t, a);
+    const [pa, pb] = game.sim.state.players;
+    pa!.dead = true;
+    pa!.hp = 0;
+    pb!.x = pa!.x + 3000;
+    game.sim.state.pickups.push({
+      id: 99_999,
+      kind: 'coin',
+      x: pb!.x + 400,
+      y: pb!.y,
+      vx: 0,
+      vy: 0,
+      value: 1,
+      itemId: null,
+      pulled: false,
+    });
+    const coin = (s: { pickups: { id: number }[] }) => s.pickups.some((k) => k.id === 99_999);
+    await a.until((s) => !!s.players[0]?.dead);
+    expect(coin(a.latest!)).toBe(false);
+    a.client.room!.spectate!(b.userId);
+    await a.until(coin);
+    // Our own Pokémon is still in every snapshot, with our own state.
+    expect(a.latest!.players.map((p) => p.id)).toEqual([a.userId, b.userId]);
+    expect(a.latest!.self).not.toBeNull();
+    expect(coin(b.latest!)).toBe(true);
+    // Revived (as by a teammate or the rift): the server clears it by itself.
+    pa!.dead = false;
+    pa!.hp = pa!.maxHp;
+    await a.until((s) => !coin(s));
+    // Up: refused.
+    a.client.room!.spectate!(b.userId);
+    await sleep(200);
+    expect(coin(a.latest!)).toBe(false);
+    for (const bot of bots) await bot.client.leaveRoom();
+  });
+
   it('level-up with one of 4 disconnected: no stall, their choice resolves by itself', async () => {
     const bots = await playing(t, 4);
     const [a, b, c, d] = bots;

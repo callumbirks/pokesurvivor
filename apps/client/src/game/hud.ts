@@ -139,6 +139,17 @@ export interface HudInput {
   pad: PadLayout | null;
   /** The stats panel under the HP bar (Settings → "Show stats"). */
   showStats: boolean;
+  /** Spectating while down (co-op; null when it isn't offered: up, solo, nobody else left). */
+  spectate: SpectateView | null;
+}
+
+/** The spectate controls under "You're down" (state in `spectate.ts`). */
+export interface SpectateView {
+  active: boolean;
+  /** "Spectating bork's Pikachu" (only read while active). */
+  label: string;
+  toggle(): void;
+  cycle(dir: -1 | 1): void;
 }
 
 /** The controls line shown early in a run (and in the pause menu). */
@@ -540,6 +551,7 @@ export class Hud {
       const f = me.reviveT / REVIVE_SECONDS;
       if (f > 0) bar(ctx, w / 2 - 110, h * 0.62 + 12, 220, 10, f, '#5fe08a');
       ctx.restore();
+      if (k.spectate) this.drawSpectate(ctx, k, k.spectate, h * 0.62 + 30);
     }
 
     if (k.fps !== null) {
@@ -613,6 +625,100 @@ export class Hud {
     }
     ctx.restore();
     touch.addButton(x, top, bw, bh, () => k.toggleAim(), 6);
+  }
+
+  // ---------------------------------------------------------------- spectating
+
+  /**
+   * Under "You're down": a "Spectate" button, or while spectating "◀ Spectating bork's Pikachu ▶"
+   * with a "Back to you" button under it. Each shows its key (C, ← →) or pad glyph (Back, d-pad).
+   */
+  private drawSpectate(ctx: CanvasRenderingContext2D, k: HudInput, v: SpectateView, top: number) {
+    const { w, touch } = k;
+    const keys = !k.pad && !touch.active;
+    ctx.save();
+    // A HUD button in the aim switch's look, centred on `cx`; returns its width.
+    const button = (cx: number, y: number, label: string, key: string, glyph: PadButton) => {
+      ctx.font = F(800, 11);
+      const keyW = k.pad ? 26 : keys ? ctx.measureText(key).width + 10 : 0;
+      const bw = Math.ceil(ctx.measureText(label).width) + 20 + (keyW ? keyW + 4 : 0);
+      const bh = 26;
+      const x = cx - bw / 2;
+      roundRect(ctx, x, y, bw, bh, 9);
+      ctx.fillStyle = 'rgba(10,16,28,.78)';
+      ctx.fill();
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = 'rgba(244,248,255,.6)';
+      ctx.stroke();
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#eaf2ff';
+      ctx.fillText(label, x + 10, y + bh / 2 + 4);
+      if (k.pad) drawGlyph(ctx, glyph, x + bw - keyW - 2, y + bh / 2 - 12, 24, k.pad);
+      else if (keys) {
+        const kx = x + bw - keyW - 6;
+        roundRect(ctx, kx, y + bh / 2 - 8, keyW, 16, 4);
+        ctx.fillStyle = 'rgba(255,255,255,.12)';
+        ctx.fill();
+        ctx.font = F(800, 9);
+        ctx.textAlign = 'center';
+        ctx.fillStyle = 'rgba(234,242,255,.8)';
+        ctx.fillText(key, kx + keyW / 2, y + bh / 2 + 3);
+      }
+      return { x, y, bw, bh };
+    };
+    if (!v.active) {
+      const b = button(w / 2, top, t('hud.spectate'), 'C', 'select');
+      touch.addButton(b.x, b.y, b.bw, b.bh, () => v.toggle(), 6);
+      ctx.restore();
+      return;
+    }
+    // The label between the arrows.
+    ctx.font = F(800, 14);
+    ctx.textAlign = 'center';
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = 'rgba(0,0,0,.75)';
+    const cy = top + 14;
+    ctx.strokeText(v.label, w / 2, cy + 5);
+    ctx.fillStyle = '#fff3c4';
+    ctx.fillText(v.label, w / 2, cy + 5);
+    const half = Math.ceil(ctx.measureText(v.label).width / 2);
+    const S = 28;
+    for (const dir of [-1, 1] as const) {
+      const bx = dir < 0 ? w / 2 - half - 12 - S : w / 2 + half + 12;
+      roundRect(ctx, bx, cy - S / 2, S, S, 8);
+      ctx.fillStyle = 'rgba(10,16,28,.78)';
+      ctx.fill();
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = 'rgba(244,248,255,.6)';
+      ctx.stroke();
+      // A triangle pointing left or right.
+      const mx = bx + S / 2;
+      ctx.fillStyle = '#eaf2ff';
+      ctx.beginPath();
+      ctx.moveTo(mx + 6 * dir, cy);
+      ctx.lineTo(mx - 4 * dir, cy - 7);
+      ctx.lineTo(mx - 4 * dir, cy + 7);
+      ctx.closePath();
+      ctx.fill();
+      touch.addButton(bx, cy - S / 2, S, S, () => v.cycle(dir), 6);
+    }
+    // How to switch, under the label: the d-pad glyph, or the arrow keys.
+    const hintY = cy + S / 2 + 4;
+    if (k.pad) drawGlyph(ctx, 'dpadH', w / 2 - 10, hintY - 2, 20, k.pad);
+    else if (keys) {
+      ctx.font = F(600, 10);
+      ctx.fillStyle = 'rgba(200,214,238,.75)';
+      ctx.fillText(t('hud.spectateSwitchKeys'), w / 2, hintY + 10);
+    }
+    const b = button(
+      w / 2,
+      hintY + (k.pad || keys ? 20 : 4),
+      t('hud.stopSpectating'),
+      'C',
+      'select',
+    );
+    touch.addButton(b.x, b.y, b.bw, b.bh, () => v.toggle(), 6);
+    ctx.restore();
   }
 
   // ---------------------------------------------------------------- momentum

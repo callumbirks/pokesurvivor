@@ -175,6 +175,14 @@ fn)` (spinner on the button, toast on error), loads through `loadInto(el, load, 
   Holding the left button over the game (not on a HUD button), or a gamepad's right trigger, is
   fire held (`fire` in the input): aimed moves fire on cooldown even with nothing in reach. The sim decides what it does (see "Aiming"
   in the sim README).
+- **Spectating** (`spectate.ts`, drawn by the HUD under "You're down"): in co-op, while we're
+  down and someone else is still in the game, C, the pad's Back or the HUD's Spectate button
+  follows a teammate with the camera (the first one who is up, in the room's order); ← → (A / D,
+  the d-pad, the HUD's ◀ ▶) cycle through everyone present, ourselves included, skipping players
+  who left or are offline. The HUD stays ours, with "Spectating bork's Pikachu" and the switch
+  hints. `RoomConnection.spectate` (`game.spectate`) has the server send the target's
+  surroundings; it's coop only, so solo never offers it. Revived, it ends and the camera snaps
+  back to us; a target who leaves moves it on to the next player.
 - **Results** (`results.ts`): what was credited (solo: the `RunReport`; co-op: `game.results`),
   the reward breakdown, moves, tickets, shinies, and who left early.
 - **Solo** (`solo/`): the sim runs in a Web Worker and sends the same binary snapshots as the
