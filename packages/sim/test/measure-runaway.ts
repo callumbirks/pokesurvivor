@@ -3,6 +3,7 @@
 //   pnpm --filter @pokesurvivor/sim runaway --variant=v14 --out=v14.jsonl
 //   pnpm --filter @pokesurvivor/sim runaway --variant=v13 --out=v13.jsonl
 //   pnpm --filter @pokesurvivor/sim runaway --variant=v14 --fix=power-cap-10 --out=fix.jsonl
+//   (--friend-atk= / --friend-regen=: the minute-14 reconstruction with another ATK × or regen)
 // `v13` puts back what v14 changed in the shared data: v13's stat cards (old values, the pick
 // limits as ceilings, no rarities) and wild damage (damageK 4.8, forward arrivals 0.15, no forward
 // catch-up). `--fix` applies one candidate fix on top (see FIXES).
@@ -322,9 +323,9 @@ function dummyDps(sim: Sim, cell: Cell, seed: number, hp: number): number {
 
 /** The v14 playtest's stats panel at minute 14 (solo, fully upgraded, species unknown). */
 const FRIEND = {
-  atk: 128.13,
+  atk: Number(args.get('friend-atk') ?? 128.13),
   cooldown: 0.3,
-  regen: 22.7,
+  regen: Number(args.get('friend-regen') ?? 22.7),
   dr: 0.7,
   maxHp: 506,
   xp: 3.5,
