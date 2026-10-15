@@ -51,8 +51,9 @@ describe('server updates (stop-first)', () => {
       const before = Date.now();
       const stopped = t.game.shutdown(2000);
       for (const n of await Promise.all(notices)) {
-        expect(n.deadline).toBeGreaterThanOrEqual(before + 2000);
-        expect(n.deadline).toBeLessThanOrEqual(Date.now() + 2000);
+        // Converted to the client's clock (`welcome.serverTime`): a few ms either way.
+        expect(n.deadline).toBeGreaterThanOrEqual(before + 2000 - 50);
+        expect(n.deadline).toBeLessThanOrEqual(Date.now() + 2000 + 50);
       }
       // No new rooms or games…
       await expect(idle.client.createRoom()).rejects.toMatchObject({ code: 'server_draining' });
@@ -64,9 +65,12 @@ describe('server updates (stop-first)', () => {
       const lateNotice = late.client.next('notice', (n) => n.code === 'server-update');
       await late.connect();
       expect(late.client.draining).toBe(true);
-      expect((await withTimeout(lateNotice, 2000, 'late notice')).deadline).toBe(
-        (await notices[0])!.deadline,
-      );
+      expect(
+        Math.abs(
+          (await withTimeout(lateNotice, 2000, 'late notice')).deadline! -
+            (await notices[0])!.deadline!,
+        ),
+      ).toBeLessThan(100);
       // …while the coop run plays on.
       const tick = players[0]!.latest!.tick;
       await players[0]!.until((s) => s.tick > tick + 15 && !s.paused);
