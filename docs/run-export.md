@@ -57,7 +57,8 @@ All times are run seconds (they stop while a choice is pending). Numbers keep 3 
   run ended in it) and `dur` (seconds in the fight).
 
 About 8 KB of JSON per player for a 10-minute run and 25 KB for 30 minutes (most of it the
-picks and the timeline); Postgres compresses it on disk.
+picks and the timeline); Postgres compresses it to about a third on disk (~3 KB for 10
+minutes).
 
 ## Implausibility flags
 
