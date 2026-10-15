@@ -171,9 +171,12 @@ export interface PlayerState {
   /** Velocity actually applied last tick (ice slides keep it). */
   vx: number;
   vy: number;
-  /** Smoothed velocity, used by enemies that cut you off and by straggler respawns. */
+  /** Short-smoothed velocity used by enemies that lead their target. */
   smoothVx: number;
   smoothVy: number;
+  /** Recent average actual movement for arrivals; separate from runner targeting. */
+  travelVx: number;
+  travelVy: number;
   prevX: number;
   prevY: number;
   walking: boolean;
@@ -432,7 +435,7 @@ export interface EnemyState {
   skillCd: number;
   minions: EntityId[];
   jump: JumpState | null;
-  /** Seconds lagging behind out of everyone's view. */
+  /** Continuous seconds outside everyone's view before rear/side catch-up. */
   lagT: number;
   /** Most recent movement target; initialized at spawn so a death next tick is covered. */
   targetId: PlayerId | null;

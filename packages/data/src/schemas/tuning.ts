@@ -31,6 +31,11 @@ export const TuningFileSchema = z.strictObject({
       ),
     /** Max regular contact/shot damage as a fraction of target HP, before weather; 0 disables. */
     regularHitCapFraction: z.number().nonnegative().max(1),
+    directionBias: z.strictObject({
+      smoothingSeconds: Seconds,
+      aheadShare: z.number().min(0).max(1),
+      minSpeed: z.number().nonnegative(),
+    }),
     xpK: z.number().positive(),
     shinyRate: Chance,
   }),
@@ -39,6 +44,10 @@ export const TuningFileSchema = z.strictObject({
     relocationsPerSecond: z.number().positive(),
     /** Maximum saved relocations; ordinary catch-up remains unrestricted. */
     burst: z.number().int().positive(),
+    /** Continuous seconds outside every living player’s view before catch-up. */
+    unseenSeconds: Seconds,
+    /** Rear-centred placement arc; at most 180 degrees, so catch-up never arrives ahead. */
+    rearArcDegrees: z.number().positive().max(180),
   }),
   rift: z.strictObject({
     /** Every `checkEvery` s after `startAfter` s, a rift opens with `chance` (rising per miss). */

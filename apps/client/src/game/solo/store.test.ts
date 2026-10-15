@@ -39,7 +39,13 @@ describe.each([
 ])('%s run store', (_name, makeStore) => {
   it('saves and restores a run that continues exactly like the original', async () => {
     const store = makeStore();
-    const sim = createSim({ seed: 42, players: [loadout], choiceTimeoutSeconds: null });
+    // Persistence needs a live run; survival balance is measured separately.
+    const sim = createSim({
+      seed: 42,
+      players: [loadout],
+      choiceTimeoutSeconds: null,
+      debug: { invulnerable: true },
+    });
     play(sim, 900);
     await store.put(saved(sim));
 

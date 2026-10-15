@@ -13,7 +13,7 @@ import { TAU, clamp, dist, dist2, hash2, norm } from './math.js';
 import { pathDir } from './pathing.js';
 import { dropPickup, dropXp } from './pickups.js';
 import { spawnProjectile } from './projectiles.js';
-import { aheadOfPlayer, spawnCap } from './spawner.js';
+import { rejoinBehindPlayer, spawnCap } from './spawner.js';
 import { weatherSpeedMult } from './weather.js';
 import { collide, isLiquid, liquidKind, rollItem } from './world.js';
 import type {
@@ -29,7 +29,6 @@ import type {
 
 const CELL = 52;
 /** Seconds a straggler must spend behind you out of view before it comes back ahead. */
-const LAG_T = 2.5;
 
 export function pokemonName(ctx: Ctx, dex: number): string {
   return ctx.d.game.pokemonByDex.get(dex)?.name ?? `#${dex}`;
@@ -445,29 +444,21 @@ export function updateEnemies(ctx: Ctx): void {
       continue;
     }
     if (e.boss || e.shiny || e.legend) continue;
-    // Stragglers: ones left behind while you run that have been OUT OF EVERYONE'S VIEW for a while
-    // come back ahead of you. You can't just outrun them, and one you can see never vanishes.
+    // An unseen train keeps walking for the configured grace, including very distant enemies.
+    // Seeing any teammate resets the timer; distance alone never bypasses the grace.
     const d2 = dist2(e.x, e.y, near.x, near.y);
     const R = OUTER_RADIUS + 40;
-    const unseen = d2 > R * R && !seenByAny(s, e.x, e.y, 60);
-    // Walking into the nearest survivor's surroundings also completes a transfer.
+    const unseen = d2 > R * R && !seenByAny(s, e.x, e.y, 60, true);
     if (d2 <= R * R) e.transferFromId = null;
-    const sp = Math.hypot(near.smoothVx, near.smoothVy);
-    const behind =
-      sp > 40 &&
-      (e.x - near.x) * near.smoothVx + (e.y - near.y) * near.smoothVy < -0.2 * Math.sqrt(d2) * sp;
-    if (unseen && behind) e.lagT += DT;
-    else if (!unseen) e.lagT = 0;
-    if ((unseen && e.lagT > LAG_T) || d2 > 1400 * 1400) {
-      if (e.transferFromId !== null) {
-        // Keep walking and retry next tick without spending RNG or resetting the lag timer.
-        if (near.relocationTokens < 1 - 1e-9) continue;
-        near.relocationTokens = Math.max(0, near.relocationTokens - 1);
-      }
+    if (unseen) e.lagT += DT;
+    else e.lagT = 0;
+    if (unseen && e.lagT > tuning.unseenSeconds) {
+      if (e.transferFromId !== null && near.relocationTokens < 1 - 1e-9) continue;
+      if (!rejoinBehindPlayer(ctx, e, near)) continue;
+      if (e.transferFromId !== null) near.relocationTokens = Math.max(0, near.relocationTokens - 1);
       e.transferFromId = null;
       e.targetId = near.id;
       e.lagT = 0;
-      if (!aheadOfPlayer(ctx, e, near)) removeEnemy(ctx, i);
     }
   }
 }
