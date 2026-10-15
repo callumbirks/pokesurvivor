@@ -21,7 +21,7 @@
     ],
     "odds": [
       { "minute": 0, "weights": [70, 22, 7, 1] },
-      { "minute": 8, "weights": [54, 29, 14, 3] },
+      { "minute": 8, "weights": [60, 30, 8, 2] },
       { "minute": 15, "weights": [55, 29, 13, 3] },
       { "minute": 30, "weights": [45, 32, 17, 6] }
     ]
