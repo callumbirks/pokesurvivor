@@ -28,6 +28,7 @@ export interface WildTrial extends Cell {
   minute: number;
   seed: number;
   profile: 'natural' | 'typical';
+  builds: ReturnType<typeof describe>[];
   maxHp: number;
   reduction: number;
   effectiveHp: number;
@@ -72,6 +73,7 @@ for (const key of args.keys())
       'minutes',
       'crowd-seconds',
       'legacy',
+      'refresh-pressure',
     ].includes(key)
   )
     throw new Error(`unknown argument --${key}`);
@@ -115,6 +117,26 @@ const archetypes = select<Cell['archetype']>('archetypes', ['projectile', 'melee
 const crowdSeconds = Number(args.get('crowd-seconds') ?? 30);
 if (!Number.isFinite(crowdSeconds) || crowdSeconds < 0 || crowdSeconds > 120)
   throw new Error('crowd seconds must be 0–120');
+const trialKey = (
+  row: Pick<WildTrial, 'meta' | 'players' | 'archetype' | 'minute' | 'seed' | 'profile'>,
+) => [row.meta, row.players, row.archetype, row.minute, row.seed, row.profile].join('/');
+const refreshPath = args.get('refresh-pressure');
+const previous = refreshPath
+  ? (() => {
+      const bytes = readFileSync(refreshPath);
+      const rows = (refreshPath.endsWith('.gz') ? gunzipSync(bytes) : bytes)
+        .toString('utf8')
+        .trim()
+        .split('\n')
+        .map((line) => JSON.parse(line) as WildTrial)
+        .filter((r) => r.kind === 'wild');
+      const expectedPhase = args.has('legacy') ? 'before' : 'after';
+      if (rows.some((r) => r.phase !== expectedPhase)) throw new Error('refresh phase mismatch');
+      const map = new Map(rows.map((r) => [trialKey(r), r]));
+      if (map.size !== rows.length) throw new Error('duplicate refresh trial');
+      return map;
+    })()
+  : undefined;
 
 function configure(sim: Sim) {
   if (args.has('legacy'))
@@ -278,6 +300,19 @@ function crowd(source: Sim, cell: Cell, seed: number, kite: boolean, pressure: b
   sim.state.time = source.state.time;
   sim.state.players.forEach((p, i) => loadBuild(sim, p, source.state.players[i]!));
   const focal = sim.state.players[0]!;
+  if (pressure)
+    for (const p of sim.state.players) {
+      // Healing/regen clamps ordinary HP to maxHp. A fixture-only accessor keeps the reserve
+      // through those writes without changing maxHp (which the hit cap and statuses need).
+      Object.defineProperty(p, 'hp', {
+        get: () => 1e9,
+        set: () => {
+          /* Discard health writes in this pressure-only fixture. */
+        },
+        enumerable: true,
+        configurable: true,
+      });
+    }
   let taken = 0;
   let firstDown: number | null = null;
   let enemies = 0;
@@ -296,6 +331,8 @@ function crowd(source: Sim, cell: Cell, seed: number, kite: boolean, pressure: b
         p.hp = 1e9;
       });
     sim.step();
+    if (pressure && sim.state.players.some((p) => p.dead))
+      throw new Error('pressure reserve failed');
     if (tick >= 0) {
       enemies += sim.state.enemies.length;
       for (const event of sim.drainEvents())
@@ -331,6 +368,7 @@ emit({
   archetypes,
   crowdSeconds,
   protectedCalibration: true,
+  refreshPath,
   legacy: args.has('legacy'),
   spawnerTuning: (() => {
     const sim = makeSim({ meta: 'none', players: 1, archetype: 'area' }, 1, true);
@@ -376,14 +414,21 @@ for (const meta of metas)
                 calibration,
               );
             const p = sim.state.players[0]!;
+            const prior = previous?.get(trialKey({ ...cell, minute, seed, profile }));
+            if (previous && !prior) throw new Error('missing refresh trial');
             const probe = rosterProbe(sim);
-            const dps = wildDps(sim, cell, seed, probe.regularHp);
+            if (
+              prior &&
+              JSON.stringify(prior.builds) !== JSON.stringify(sim.state.players.map(describe))
+            )
+              throw new Error('refresh build mismatch');
+            const dps = prior?.teamDps ?? wildDps(sim, cell, seed, probe.regularHp);
             const crowds = crowdSeconds
               ? {
                   stationary: crowd(sim, cell, seed, false, true),
                   kite: crowd(sim, cell, seed, true, true),
-                  survival: crowd(sim, cell, seed, false, false),
-                  survivalKite: crowd(sim, cell, seed, true, false),
+                  survival: prior?.crowds?.survival ?? crowd(sim, cell, seed, false, false),
+                  survivalKite: prior?.crowds?.survivalKite ?? crowd(sim, cell, seed, true, false),
                 }
               : null;
             const result = {
