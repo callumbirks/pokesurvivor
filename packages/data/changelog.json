@@ -1,10 +1,12 @@
 {
   "unreleased": {
-    "prs": [],
+    "prs": [92],
     "entries": {
       "new": [],
       "changed": [],
-      "fixed": [],
+      "fixed": [
+        "After an update the game no longer gets stuck on a black or white screen until you hard-refresh."
+      ],
       "behindTheScenes": []
     }
   },

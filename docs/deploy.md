@@ -217,6 +217,38 @@ The first deploy from the old version cannot preserve its lobbies, because that 
 publish handoffs. Subsequent graceful deploys do. Host crashes and SIGKILL are outside this scope;
 run recording retains its existing database retries and failure limitations.
 
+### Caching behind Cloudflare
+
+The site can sit behind Cloudflare (production does). What the server sends:
+
+| Response                                                   | `Cache-Control`                       |
+| ---------------------------------------------------------- | ------------------------------------- |
+| `index.html`, `build.json`, fonts and other unhashed files | `no-cache` (revalidated every time)   |
+| Vite's fingerprinted files under `/assets/`                | `public, max-age=31536000, immutable` |
+| Sprite sheets under `/sprites/` (busted by a query string) | `public, max-age=31536000, immutable` |
+| **Any error** (status ≥ 400): a missing asset, API errors  | `no-store`                            |
+
+The last row matters for deploys. During the `start-first` overlap (and the drain) Traefik sends
+requests to either container, so a browser that got the **new** `index.html` can have its
+`/assets/index-<new hash>.js` answered by the **old** container with a 404. Cloudflare gives a
+response without `Cache-Control` its Browser Cache TTL (`max-age=14400`), and caches 404s at the
+edge for a few minutes by default, so that 404 used to stick: a black or white page that F5
+didn't fix, only a hard refresh (v15). Cloudflare leaves `no-store` alone, so errors are no
+longer cached anywhere. Check it with
+`curl -sI https://<domain>/assets/does-not-exist.js`: `cache-control: no-store`, and
+`cf-cache-status` not `HIT`.
+
+The client also recovers by itself (`apps/client/src/load-recovery.ts`, run inline in
+`index.html`): when the main bundle, a lazy chunk or the solo worker fails to load (a tab left
+open across a deploy asks for chunks that are gone), it refetches the failed file past the browser
+cache and reloads, once per two minutes per tab; a second failure shows "Couldn't load the game.
+Please hard-refresh the page" instead of a blank page.
+
+**Optional:** purge Cloudflare's cache after a deploy (Caching → Configuration → Purge
+Everything, or the API) to drop anything cached at the edge before this fix. Hashed assets are
+cheap to refetch, so purging costs little. Old hashed files are not kept across deploys, so a tab
+from before the deploy that lazy-loads one reloads into the new version (above).
+
 ## 5. Verify
 
 ```sh

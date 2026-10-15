@@ -18,6 +18,7 @@ import {
 import type { RunSummary, SoloClock } from '@pokesurvivor/protocol';
 import type { Intent, PlayerConfig } from '@pokesurvivor/sim';
 import type { RunReport } from '../../app/api.js';
+import { loadFailed } from '../../load-recovery.js';
 import type { DevAction, FromWorker, ToWorker } from './messages.js';
 import type { SavedSoloRun, SoloRunStore } from './store.js';
 
@@ -131,6 +132,8 @@ export function createSoloConnection(opts: SoloOptions): SoloConnection {
   const worker =
     opts.createWorker?.() ??
     new Worker(new URL('./worker.ts', import.meta.url), { type: 'module', name: 'solo-sim' });
+  /** The worker has said something: it loaded. */
+  let heard = false;
   const post = (m: ToWorker) => worker.postMessage(m);
   const now = () => performance.now();
   const pending = new Map<number, (r: IntentResult) => void>();
@@ -210,6 +213,7 @@ export function createSoloConnection(opts: SoloOptions): SoloConnection {
   );
 
   worker.onmessage = (ev: MessageEvent<FromWorker>) => {
+    heard = true;
     const m = ev.data;
     switch (m.type) {
       case 'ready':
@@ -240,7 +244,12 @@ export function createSoloConnection(opts: SoloOptions): SoloConnection {
         return;
     }
   };
-  worker.onerror = (ev) => console.error('[solo] worker failed:', ev.message);
+  worker.onerror = (ev: ErrorEvent | Event) => {
+    // A script that failed to load (e.g. a tab from before a deploy asking for its old worker)
+    // gets a plain error event; an exception inside the worker comes with a message.
+    if (!heard && !(ev as Partial<ErrorEvent>).message && !opts.createWorker) loadFailed();
+    else console.error('[solo] worker failed:', (ev as Partial<ErrorEvent>).message);
+  };
 
   async function checkpoint(
     summary: RunSummary,

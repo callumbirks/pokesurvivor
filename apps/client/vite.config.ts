@@ -1,4 +1,6 @@
 import { defineConfig, type Plugin } from 'vite';
+import en from '../../packages/data/i18n/en.json' with { type: 'json' };
+import { installLoadRecovery, RECOVERY_OPTIONS } from './src/load-recovery.js';
 
 const server = process.env.SERVER_URL ?? 'http://localhost:3000';
 
@@ -17,12 +19,34 @@ function buildFile(id: string): Plugin {
   };
 }
 
+/**
+ * Runs `installLoadRecovery` (src/load-recovery.ts) inline, first thing in every page, so a
+ * bundle that fails to load (e.g. a 404 during a deploy) reloads once or says so instead of
+ * leaving a blank page. It has to be inline: the bundle may be what failed.
+ */
+function loadRecovery(): Plugin {
+  // `<` escaped in the strings, so none can close the script element.
+  const options = JSON.stringify({ ...RECOVERY_OPTIONS, message: en.app.loadFailed }).replace(
+    /</g,
+    '\\u003c',
+  );
+  const code = `(${installLoadRecovery.toString()})(window, ${options});`;
+  if (/<\/script/i.test(code)) throw new Error('load recovery: the script would close early');
+  return {
+    name: 'pokesurvivor-load-recovery',
+    // Where index.html marks it: after `<meta charset>`, which must come first, and before the
+    // bundle's script and stylesheet, so their errors are seen.
+    transformIndexHtml: (html) =>
+      html.replace('<!-- load-recovery -->', `<script>${code}</script>`),
+  };
+}
+
 export default defineConfig(({ command }) => {
   // Unique per production build (`BUILD_ID` overrides it, e.g. with a commit); none in dev.
   const id = command === 'build' ? process.env.BUILD_ID || `${Date.now().toString(36)}` : '';
   return {
     define: { __BUILD_ID__: JSON.stringify(id) },
-    plugins: id ? [buildFile(id)] : [],
+    plugins: [loadRecovery(), ...(id ? [buildFile(id)] : [])],
     server: {
       port: 5173,
       proxy: {

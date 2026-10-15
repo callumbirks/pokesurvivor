@@ -25,6 +25,9 @@ describe('server', () => {
     const clientDir = join(assetsDir, 'client');
     mkdirSync(clientDir);
     writeFileSync(join(clientDir, 'build.json'), JSON.stringify({ id: 'build-42' }));
+    writeFileSync(join(clientDir, 'index.html'), '<!doctype html>');
+    mkdirSync(join(clientDir, 'assets'));
+    writeFileSync(join(clientDir, 'assets', 'index-abc123.js'), 'export {};');
     const config = loadConfig({
       PORT: '0',
       HOST: '127.0.0.1',
@@ -54,6 +57,33 @@ describe('server', () => {
     expect(res.body).toBe('png');
     expect(res.headers['cache-control']).toBe('public, max-age=31536000, immutable');
     expect((await app.inject({ url: '/sprites/25/Missing.png' })).statusCode).toBe(404);
+  });
+
+  it('serves hashed assets as immutable and the HTML as no-cache', async () => {
+    const asset = await app.inject({ url: '/assets/index-abc123.js' });
+    expect(asset.statusCode).toBe(200);
+    expect(asset.headers['cache-control']).toBe('public, max-age=31536000, immutable');
+    const html = await app.inject({ url: '/' });
+    expect(html.statusCode).toBe(200);
+    expect(html.headers['cache-control']).toBe('no-cache');
+  });
+
+  it('never lets errors be cached', async () => {
+    // A 404 for a hashed asset must not stick (Cloudflare would add max-age to it otherwise).
+    for (const url of [
+      '/assets/index-missing.js',
+      '/sprites/25/Missing.png',
+      '/build-missing.json',
+      '/nowhere',
+      '/api/nowhere',
+    ]) {
+      const res = await app.inject({ url });
+      expect(res.statusCode, url).toBe(404);
+      expect(res.headers['cache-control'], url).toBe('no-store');
+    }
+    const api = await app.inject({ url: '/api/auth/me' });
+    expect(api.statusCode).toBe(401);
+    expect(api.headers['cache-control']).toBe('no-store');
   });
 
   it('reports the protocol version and the build', async () => {

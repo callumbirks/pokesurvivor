@@ -627,6 +627,7 @@
     "reconnecting": "Connection lost: reconnecting…",
     "superseded": "The game was opened in another tab or device.",
     "newVersion": "A new version of the game is out: reload to update.",
+    "loadFailed": "Couldn't load the game. Please hard-refresh the page (Ctrl+Shift+R, or Cmd+Shift+R on a Mac).",
     "updateAvailable": "Version {0} is available. Reload to update.",
     "connectionFailed": "Couldn't connect to the game server.",
     "coins": "PokéCoins",
