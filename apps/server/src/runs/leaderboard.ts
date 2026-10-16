@@ -23,6 +23,12 @@ export interface LeaderboardEntry {
   rank: number;
   durationS: number;
   endedAt: string;
+  /**
+   * The run's level and Pokémon defeated: team values, the same for every player who stayed
+   * to the end. A player who left early keeps what the team had then, so this is the highest.
+   */
+  level: number;
+  kills: number;
   players: {
     username: string;
     pokemon: { dex: number; shiny: boolean };
@@ -41,6 +47,8 @@ interface Row extends Record<string, unknown> {
   rank: number;
   duration_s: number;
   ended_at: Date | string;
+  level: number;
+  kills: number;
   players: LeaderboardEntry['players'];
   mine: boolean;
 }
@@ -103,9 +111,14 @@ export async function getLeaderboard(db: Executor, q: LeaderboardQuery): Promise
       select best.*, rank() over (order by duration_s desc)::int as rank from best
     )
     select ranked.rank, ranked.duration_s, ranked.ended_at,
+           stats.level, stats.kills,
            ${playersJson(sql`ranked.id`)} as players,
            ${viewerInRun} as mine
     from ranked
+    cross join lateral (
+      select max(sp.level)::int as level, max(sp.kills)::int as kills
+      from run_players sp where sp.run_id = ranked.id
+    ) stats
     where ranked.rank <= ${q.limit} or ${viewerInRun}
     order by ranked.rank, ranked.ended_at
   `);
@@ -114,6 +127,8 @@ export async function getLeaderboard(db: Executor, q: LeaderboardQuery): Promise
     rank: r.rank,
     durationS: r.duration_s,
     endedAt: new Date(r.ended_at).toISOString(),
+    level: r.level,
+    kills: r.kills,
     players: r.players,
   });
   const entries = rows

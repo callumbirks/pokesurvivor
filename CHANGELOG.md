@@ -6,11 +6,15 @@ What changed for players in each release, newest first. Generated from
 
 ## Unreleased
 
-PRs: [#98](https://github.com/callumbirks/pokesurvivor/pull/98)
+PRs: [#98](https://github.com/callumbirks/pokesurvivor/pull/98), [#99](https://github.com/callumbirks/pokesurvivor/pull/99)
 
 ### New
 
 - Repertoire now lets you choose your second starting move (or keep it random) on the Upgrades screen.
+
+### Fixed
+
+- Group leaderboard entries show the level and Pokémon defeated once instead of once per player.
 
 ## v16 - 2026-10-16
 
