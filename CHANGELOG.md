@@ -6,7 +6,7 @@ What changed for players in each release, newest first. Generated from
 
 ## Unreleased
 
-PRs: [#92](https://github.com/callumbirks/pokesurvivor/pull/92), [#93](https://github.com/callumbirks/pokesurvivor/pull/93), [#94](https://github.com/callumbirks/pokesurvivor/pull/94)
+PRs: [#92](https://github.com/callumbirks/pokesurvivor/pull/92), [#93](https://github.com/callumbirks/pokesurvivor/pull/93), [#94](https://github.com/callumbirks/pokesurvivor/pull/94), [#96](https://github.com/callumbirks/pokesurvivor/pull/96)
 
 ### New
 
@@ -22,6 +22,11 @@ PRs: [#92](https://github.com/callumbirks/pokesurvivor/pull/92), [#93](https://g
 ### Fixed
 
 - After an update the game no longer gets stuck on a black or white screen until you hard-refresh.
+
+### Behind the scenes
+
+- Balance can now be tuned live by admins, without an update: new runs use the latest settings and runs already going keep theirs.
+- Every run records which balance settings it was played with.
 
 ## v15 - 2026-10-15
 
