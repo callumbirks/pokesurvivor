@@ -16,13 +16,13 @@ Every error has the same shape. `code` is stable and maps to a UI string in `en.
 Every response with a status of 400 or more, API or not, has `Cache-Control: no-store`
 ([deploy.md](deploy.md#caching-behind-cloudflare)).
 
-| Status | Codes                                                                                                                                                                                                                                                                                                                                                                                                          |
-| ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 400    | `invalid_request` (body/query validation, incl. unknown dex/item/move/type ids; has `issues`), `invalid_config` (has `issues`), `config_unchanged`, `unknown_upgrade`, `unknown_title`, `not_a_starter`, `invalid_answers`, `invalid_move`, `duplicate_move`, `unknown_banner`, `invalid_pull_count`, `invalid_payment`, `cannot_friend_self`, `duplicate_favourite`, `username_not_allowed`                   |
-| 401    | `unauthenticated`, `invalid_credentials`                                                                                                                                                                                                                                                                                                                                                                       |
-| 404    | `not_found` (admin endpoints, for non-admins), `run_not_found`, `user_not_found`, `request_not_found`, `friend_not_found`, `mission_not_found`, `config_version_not_found`                                                                                                                                                                                                                                     |
-| 409    | `username_taken`, `pokemon_not_owned`, `insufficient_funds`, `upgrade_maxed`, `title_locked`, `starter_already_chosen`, `too_many_bans`, `prestige_not_ready`, `prestige_maxed`, `run_already_finished`, `run_credited_by_timeout`, `in_room`, `mission_not_done`, `mission_already_claimed`, `mission_reroll_used`, `mission_reroll_unavailable`, `already_friends`, `request_already_sent`, `config_changed` |
-| 429    | `rate_limited`                                                                                                                                                                                                                                                                                                                                                                                                 |
+| Status | Codes                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 400    | `invalid_request` (body/query validation, incl. unknown dex/item/move/type ids; has `issues`), `invalid_config` (has `issues`), `config_unchanged`, `unknown_upgrade`, `unknown_title`, `not_a_starter`, `invalid_answers`, `invalid_move`, `duplicate_move`, `unknown_banner`, `invalid_pull_count`, `invalid_payment`, `cannot_friend_self`, `duplicate_favourite`, `username_not_allowed`                                                           |
+| 401    | `unauthenticated`, `invalid_credentials`                                                                                                                                                                                                                                                                                                                                                                                                               |
+| 404    | `not_found` (admin endpoints, for non-admins), `run_not_found`, `user_not_found`, `request_not_found`, `friend_not_found`, `mission_not_found`, `config_version_not_found`                                                                                                                                                                                                                                                                             |
+| 409    | `username_taken`, `pokemon_not_owned`, `insufficient_funds`, `upgrade_maxed`, `title_locked`, `starter_already_chosen`, `too_many_bans`, `repertoire_not_bought`, `move_banned`, `prestige_not_ready`, `prestige_maxed`, `run_already_finished`, `run_credited_by_timeout`, `in_room`, `mission_not_done`, `mission_already_claimed`, `mission_reroll_used`, `mission_reroll_unavailable`, `already_friends`, `request_already_sent`, `config_changed` |
+| 429    | `rate_limited`                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 
 Dex numbers, held items, moves, types, upgrade ids, titles, banners and missions are all checked
 against `@pokesurvivor/data`.
@@ -54,17 +54,17 @@ The server owns the save. Coins, tickets, the collection, pity and stats are nev
 the client; they change only through server logic (the starter, run results, upgrades, the gacha,
 missions and achievements).
 
-| Method & path              | Body                      | Notes                                                                                      |
-| -------------------------- | ------------------------- | ------------------------------------------------------------------------------------------ |
-| `GET /api/save`            | –                         | The save (below)                                                                           |
-| `PUT /api/save/partner`    | `{ dex, shiny? }`         | Must own it (and its shiny if `shiny`); a room in its lobby shows it to the members        |
-| `PATCH /api/save/profile`  | `{ favourites?, title? }` | `favourites`: up to 3 owned `{ dex, shiny }`. `title`: an unlocked achievement id, or null |
-| `PATCH /api/save/settings` | any subset of `settings`  | Merged into the current settings                                                           |
-| `POST /api/save/starter`   | `{ dex, answers? }`       | The first Pokémon (below). `{ achievements, save }`                                        |
-| `PUT /api/save/moves/:dex` | `{ bindings?, bans? }`    | Move slots and bans for an owned Pokémon (below)                                           |
-| `POST /api/save/upgrades`  | `{ dex, upgradeId }`      | Buys the next level for an owned Pokémon with coins                                        |
-| `POST /api/save/prestige`  | `{ dex }`                 | Prestiges an owned Pokémon whose upgrades are all maxed (below)                            |
-| `GET /api/upgrades`        | –                         | `{ upgrades: { [id]: { maxLevel, baseCost, growth } } }`                                   |
+| Method & path              | Body                                | Notes                                                                                      |
+| -------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------ |
+| `GET /api/save`            | –                                   | The save (below)                                                                           |
+| `PUT /api/save/partner`    | `{ dex, shiny? }`                   | Must own it (and its shiny if `shiny`); a room in its lobby shows it to the members        |
+| `PATCH /api/save/profile`  | `{ favourites?, title? }`           | `favourites`: up to 3 owned `{ dex, shiny }`. `title`: an unlocked achievement id, or null |
+| `PATCH /api/save/settings` | any subset of `settings`            | Merged into the current settings                                                           |
+| `POST /api/save/starter`   | `{ dex, answers? }`                 | The first Pokémon (below). `{ achievements, save }`                                        |
+| `PUT /api/save/moves/:dex` | `{ bindings?, bans?, repertoire? }` | Move slots, bans and the Repertoire move for an owned Pokémon (below)                      |
+| `POST /api/save/upgrades`  | `{ dex, upgradeId }`                | Buys the next level for an owned Pokémon with coins                                        |
+| `POST /api/save/prestige`  | `{ dex }`                           | Prestiges an owned Pokémon whose upgrades are all maxed (below)                            |
+| `GET /api/upgrades`        | –                                   | `{ upgrades: { [id]: { maxLevel, baseCost, growth } } }`                                   |
 
 Every mutating save endpoint returns the updated save (the starter wraps it in `{ save }`).
 Upgrades are the ones in `upgrades.json` (ids `max-hp`, `attack`, `speed`, `cooldown`, `defense`,
@@ -86,17 +86,25 @@ tickets.
 **Moves** (original `pbind`/`pban`). `bindings` is 4 slots, each a move id or null: that move
 always goes in that slot. Allowed: the Pokémon's starting move and its move pool (normal moves
 plus its types'), each once. `bans` lists moves that never show up in its level-up cards: up to
-its `ban` upgrade level (max 3), not its starting move. Either can be sent alone; an empty list
-clears it.
+its `ban` upgrade level (max 3), not its starting move. `repertoire` is the second move its runs
+start with once it has the `extra-move` upgrade ("Repertoire"; else `409 repertoire_not_bought`):
+an attacking (non-buff) move of its pool other than its starting move (else `400 invalid_move`),
+and not banned (else `409 move_banned`); null goes back to a random one, the default. It is
+stored in `repertoireMoves[dex]`. Banning the chosen move clears it back to random; when one
+request sends both, `bans` applies first. Any of them can be sent alone; an empty list clears it.
+Co-op loadouts pass the choice to the sim as `secondMove` (solo runs from the client's save, the
+same way); a choice that is no longer valid there falls back to the random move.
 
 **Prestige.** Once every upgrade of an owned Pokémon is at its max level, `POST
 /api/save/prestige` gives it a star (`prestige[dex]`, up to `tuning.json` `prestige.maxStars`, 3)
-and resets **all** its upgrades, Repertoire and Ban included, and its banned moves. It is free.
+and resets **all** its upgrades, Repertoire and Ban included, its banned moves and its chosen
+Repertoire move. It is free.
 Move slot bindings stay: every move they can name (the starting move and the move pool) is
 allowed without any upgrade. Refused with `409 prestige_not_ready` while an upgrade has a level
 left to buy, and `409 prestige_maxed` at the max stars (checked first); both change nothing. The
 save is locked for the check and the reset, so two requests at once prestige once. Each prestige
-is stored in `pokemon_prestiges` (the stars reached and the levels and bans it reset) and written
+is stored in `pokemon_prestiges` (the stars reached and the levels, bans and Repertoire move it
+reset) and written
 to the ledger as a zero-coin entry (`reason: "prestige"`, `refId: "dex:prestige:stars"`): the
 coins spent on a Pokémon since its last prestige are its `upgrade_purchase` entries (`refId`
 `dex:…`) after that entry.
@@ -111,7 +119,7 @@ whatever the stars. Stars are also in the room's member `partner`, the game's `p
 
 ```jsonc
 {
-  "version": 3,
+  "version": 4,
   "coins": 500,
   "tickets": { "x1": 0, "x10": 0 },
   "partner": { "dex": 25, "shiny": false }, // dex null until one is chosen
@@ -123,6 +131,7 @@ whatever the stars. Stars are also in the room's member `partner`, the game's `p
   "prestige": { "25": 1 }, // dex -> prestige stars (absent: none)
   "moveBindings": { "25": ["thunder-shock", null, "tackle", null] },
   "moveBans": { "25": ["growl"] },
+  "repertoireMoves": { "25": "thunderbolt" }, // dex -> chosen second starting move (absent: random)
   "pity": { "kanto": 12 }, // banner id -> pulls since the last 5★
   "stats": {
     "runs": 0,

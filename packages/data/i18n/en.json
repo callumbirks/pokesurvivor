@@ -712,6 +712,8 @@
     "title_locked": "Unlock that title first.",
     "starter_already_chosen": "You already chose your starter.",
     "too_many_bans": "You can't ban more moves: buy more levels of the upgrade.",
+    "repertoire_not_bought": "Buy Repertoire for that Pokémon first.",
+    "move_banned": "That move is banned: unban it first.",
     "invalid_move": "That Pokémon can't learn that move.",
     "duplicate_move": "Each move can only go in one slot.",
     "mission_not_done": "That mission isn't complete yet.",

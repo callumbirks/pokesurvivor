@@ -194,13 +194,14 @@ describe('starter and moves', () => {
       })
       .where(eq(saves.userId, c.userId));
     expect((await c.get('/api/save')).json()).toMatchObject({
-      version: 3,
+      version: 4,
       upgrades: { 25: { 'max-hp': 1 } },
       prestige: {},
+      repertoireMoves: {},
     });
-    // Writing it back stores version 3.
+    // Writing it back stores version 4.
     await c.patch('/api/save/settings', { muted: true });
     const [row] = await t.db.db.select().from(saves).where(eq(saves.userId, c.userId));
-    expect(row?.dataVersion).toBe(3);
+    expect(row?.dataVersion).toBe(4);
   });
 });

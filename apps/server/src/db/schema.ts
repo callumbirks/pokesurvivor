@@ -329,7 +329,7 @@ export const pokemonPrestiges = pgTable(
     dex: integer('dex').notNull(),
     /** Stars after this prestige. */
     stars: smallint('stars').notNull(),
-    /** What it reset: `{ upgrades: { id: level }, moveBans: [moveId] }`. */
+    /** What it reset: `{ upgrades: { id: level }, moveBans: [moveId], repertoireMove? }`. */
     reset: jsonb('reset').notNull(),
     createdAt: createdAt(),
   },

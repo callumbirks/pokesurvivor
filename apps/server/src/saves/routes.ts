@@ -50,11 +50,15 @@ const movesBody = z
   .object({
     bindings: z.array(moveId.nullable()).length(MOVE_SLOTS),
     bans: z.array(moveId).max(MAX_MOVE_BANS),
+    /** The Repertoire's second starting move; null goes back to a random one. */
+    repertoire: moveId.nullable(),
   })
   .partial();
 
 /** Upgrade id whose level is how many moves a Pokémon may ban. */
 const BAN_UPGRADE = 'ban';
+/** Upgrade id that starts runs with a second move ("Repertoire"), which the player may choose. */
+const REPERTOIRE_UPGRADE = 'extra-move';
 
 function notOwned(dex: number, shiny: boolean): ApiError {
   return new ApiError(
@@ -160,6 +164,9 @@ export function saveRoutes(app: FastifyInstance, opts: SaveRoutesOptions): void 
   /**
    * A Pokémon's move slot bindings (which move always goes in slot 1–4) and banned moves (never
    * offered in level-up cards; as many as its `ban` upgrade level). Legacy `pbind` / `pban`.
+   * With Repertoire bought, also the second move its runs start with (`repertoire`): one of its
+   * pool's attacking moves other than its starting move, and not banned. Banning the chosen move
+   * clears the choice (back to random); bans apply first when a request sets both.
    */
   app.put('/api/save/moves/:dex', { preHandler: requireUser }, async (request) => {
     const { dex } = parseBody(movesParams, request.params);
@@ -191,6 +198,21 @@ export function saveRoutes(app: FastifyInstance, opts: SaveRoutesOptions): void 
           throw new ApiError(409, 'too_many_bans', `Can ban ${allowed} moves`);
         if (body.bans.length > 0) save.data.moveBans[key] = body.bans;
         else delete save.data.moveBans[key];
+        const chosen = save.data.repertoireMoves[key];
+        if (chosen && body.bans.includes(chosen)) delete save.data.repertoireMoves[key];
+      }
+      if (body.repertoire !== undefined) {
+        const id = body.repertoire;
+        if ((save.data.upgrades[key]?.[REPERTOIRE_UPGRADE] ?? 0) < 1)
+          throw new ApiError(409, 'repertoire_not_bought', `${pokemon.id} has no Repertoire`);
+        if (id === null) delete save.data.repertoireMoves[key];
+        else {
+          if (id === startingMove || !pool.has(id) || data.moveById.get(id)?.kind === 'buff')
+            throw new ApiError(400, 'invalid_move', `${pokemon.id} can't start with ${id}`);
+          if (save.data.moveBans[key]?.includes(id))
+            throw new ApiError(409, 'move_banned', `${id} is banned for ${pokemon.id}`);
+          save.data.repertoireMoves[key] = id;
+        }
       }
     });
     return getSave(db, userId);
@@ -221,7 +243,8 @@ export function saveRoutes(app: FastifyInstance, opts: SaveRoutesOptions): void 
 
   /**
    * Prestige: once every upgrade of an owned Pokémon is maxed, reset its upgrades (Repertoire and
-   * Ban too) and banned moves for a star, up to `tuning.prestige.maxStars`. Free. Move slot
+   * Ban too), banned moves and the chosen Repertoire move for a star, up to
+   * `tuning.prestige.maxStars`. Free. Move slot
    * bindings stay: they don't depend on any upgrade.
    */
   app.post('/api/save/prestige', { preHandler: requireUser }, async (request) => {
@@ -243,13 +266,18 @@ export function saveRoutes(app: FastifyInstance, opts: SaveRoutesOptions): void 
       if (!allUpgradesMaxed(maxLevels, levels))
         throw new ApiError(409, 'prestige_not_ready', `Pokémon ${dex} has upgrades left to buy`);
       const moveBans = save.data.moveBans[key] ?? [];
+      const repertoireMove = save.data.repertoireMoves[key];
       delete save.data.upgrades[key];
       delete save.data.moveBans[key];
+      delete save.data.repertoireMoves[key];
       save.data.prestige[key] = stars + 1;
       save.wallet.mark('coins', 'prestige', `${dex}:prestige:${stars + 1}`);
-      await tx
-        .insert(pokemonPrestiges)
-        .values({ userId, dex, stars: stars + 1, reset: { upgrades: levels, moveBans } });
+      await tx.insert(pokemonPrestiges).values({
+        userId,
+        dex,
+        stars: stars + 1,
+        reset: { upgrades: levels, moveBans, ...(repertoireMove ? { repertoireMove } : {}) },
+      });
     });
     // A room's lobby shows the partner's stars.
     opts.onPartnerChanged?.(userId);

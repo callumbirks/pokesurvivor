@@ -4,7 +4,7 @@ import { z } from 'zod';
  * The JSONB part of a save (`saves.data`). Balances and the partner live in typed columns. Bump
  * `SAVE_DATA_VERSION` and add a step to `migrateSaveData` when the layout changes.
  */
-export const SAVE_DATA_VERSION = 3;
+export const SAVE_DATA_VERSION = 4;
 
 /**
  * National dex number. Stored saves only check the range, so a Pokémon removed from the data
@@ -119,6 +119,11 @@ export const saveDataSchema = z.object({
   moveBindings: z.record(dexKey, z.array(z.string().max(32).nullable()).length(MOVE_SLOTS)),
   /** dex -> moves that never show up in level-up cards (original `pban`, `ban` upgrade). */
   moveBans: z.record(dexKey, z.array(z.string().max(32)).max(MAX_MOVE_BANS)),
+  /**
+   * dex -> the second move a run starts with ("Repertoire" upgrade); absent means a random one.
+   * Cleared when the move is banned and on prestige.
+   */
+  repertoireMoves: z.record(dexKey, z.string().max(32)),
   /** Gacha banner id -> pulls since the last 5★. */
   pity: z.record(z.string().max(32), z.number().int().nonnegative()),
   stats: statsSchema,
@@ -155,6 +160,7 @@ export function newSaveData(): SaveData {
     prestige: {},
     moveBindings: {},
     moveBans: {},
+    repertoireMoves: {},
     pity: {},
     stats: {
       runs: 0,
@@ -224,6 +230,11 @@ function migrateV2(data: Record<string, unknown>): Record<string, unknown> {
   return { ...data, prestige: {} };
 }
 
+/** Version 3 -> 4: the chosen Repertoire moves (none yet: every second move stays random). */
+function migrateV3(data: Record<string, unknown>): Record<string, unknown> {
+  return { ...data, repertoireMoves: {} };
+}
+
 /** Brings stored data of any known version up to `SAVE_DATA_VERSION` and validates it. */
 export function migrateSaveData(version: number, data: unknown): SaveData {
   if (version > SAVE_DATA_VERSION)
@@ -231,5 +242,6 @@ export function migrateSaveData(version: number, data: unknown): SaveData {
   let current = data as Record<string, unknown>;
   if (version < 2) current = migrateV1(current);
   if (version < 3) current = migrateV2(current);
+  if (version < 4) current = migrateV3(current);
   return saveDataSchema.parse(current);
 }

@@ -11,7 +11,7 @@ import {
 } from '../src/players.js';
 import { playerStats } from '../src/view.js';
 import { teamXpFactor } from '../src/team.js';
-import { createSim, restoreSim } from '../src/index.js';
+import { createSim, restoreSim, type PlayerConfig } from '../src/index.js';
 import type { PlayerState, SimState } from '../src/state.js';
 import { player, quietSim, seconds, spawnDummy, steps } from './helpers.js';
 
@@ -68,6 +68,49 @@ describe('players', () => {
       Math.min(b!.maxSlots, 1 + sim.ctx.d.game.upgradeById.get('extra-move')!.perLevel),
     ); // "Repertoire": a random second attacking move
     expect(b!.active).toBe(0);
+  });
+
+  describe('Repertoire with a chosen second move', () => {
+    const d = simData();
+    const upgrades = { 'extra-move': 1 };
+    // Charmander: an attacking move of its pool that isn't its starting move (ember).
+    const pool = d.movePool(['fire']).filter((id) => id !== 'ember' && d.move(id).kind !== 'buff');
+    const pick = pool.at(-1)!;
+    const buff = d.movePool(['fire']).find((id) => d.move(id).kind === 'buff')!;
+    const startMoves = (secondMove?: string, extra: Partial<PlayerConfig> = {}) =>
+      createSim({
+        seed: 7,
+        players: [{ id: 'a', dex: 4, upgrades, ...extra, ...(secondMove ? { secondMove } : {}) }],
+      }).state.players[0]!.moves.map((m) => m.id);
+
+    it('starts with the chosen move', () => {
+      for (const id of [pool[0]!, pick]) expect(startMoves(id)).toEqual(['ember', id]);
+    });
+
+    it('falls back to the random pick when the choice is no longer valid', () => {
+      const random = startMoves();
+      expect(random).toHaveLength(2);
+      // Not in the pool, the starting move, a buff: the same random move as without a choice.
+      for (const id of ['hydro-pump-nope', 'ember', buff]) expect(startMoves(id)).toEqual(random);
+      // Banned (with the Ban upgrade): random among the rest.
+      const banned = startMoves(pick, { upgrades: { ...upgrades, ban: 1 }, bannedMoves: [pick] });
+      expect(banned).toHaveLength(2);
+      expect(banned).not.toContain(pick);
+      // Without Repertoire, the choice does nothing.
+      expect(startMoves(pick, { upgrades: {} })).toEqual(['ember']);
+    });
+
+    it('is deterministic', () => {
+      const run = () => {
+        const sim = createSim({
+          seed: 3,
+          players: [{ id: 'a', dex: 4, upgrades, secondMove: pick }],
+        });
+        steps(sim, seconds(20));
+        return sim.hash();
+      };
+      expect(run()).toBe(run());
+    });
   });
 
   it('get their prestige bonus on top of their upgrades, from the per-star tuning', () => {
