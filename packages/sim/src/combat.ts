@@ -1,6 +1,7 @@
 // Casting moves and resolving hits (original implementation). Only the active slot fires, each
 // move on its own cooldown. Every attack also damages breakable props. Things a move leaves on
 // the map (mines, meteors, turrets, trail pools) are `fields`.
+import { enemyRef } from './balance.js';
 import { DT } from './constants.js';
 import { activePlayers, emit, nextId, playerById, type Ctx } from './ctx.js';
 import { applyStatus, hurtEnemy, queryEnemies } from './enemies.js';
@@ -743,7 +744,7 @@ export function resolveCollisions(ctx: Ctx): void {
       }
       for (const pl of targets) {
         if (dist2(p.x, p.y, pl.x, pl.y) < (p.r + pl.r) ** 2) {
-          hurtPlayer(ctx, pl, p.damage, p.type, p.regularHit);
+          hurtPlayer(ctx, pl, p.damage, p.type, p.regularHit, { kind: 'shot', ...p.by });
           list.splice(i, 1);
           break;
         }
@@ -838,7 +839,10 @@ export function resolveCollisions(ctx: Ctx): void {
       if (e.touchCd > 0 || e.behavior === 'thief') continue;
       e.touchCd = 0.55;
       emit(ctx, { type: 'enemy-action', id: e.id, action: 'strike' });
-      hurtPlayer(ctx, pl, e.damage, e.attackType, e.regularHit);
+      hurtPlayer(ctx, pl, e.damage, e.attackType, e.regularHit, {
+        kind: 'contact',
+        ...enemyRef(e),
+      });
       if (pl.item === 'rocky-helmet') {
         const prm = ctx.d.item('rocky-helmet').params ?? {};
         hurtEnemy(ctx, e, (prm.damageBase ?? 15) + s.team.level * (prm.damagePerLevel ?? 4), {

@@ -7,6 +7,7 @@
 //   fog   Ghost, Fairy, Psychic ×1.3
 // Each run biome has its likelier weathers; each rift arena forces its own. Effects fade in and
 // out over a few seconds.
+import { noteDamageTaken } from './balance.js';
 import { DT } from './constants.js';
 import { activePlayers, emit, type Ctx } from './ctx.js';
 import { hurtEnemy } from './enemies.js';
@@ -118,6 +119,7 @@ export function updateWeather(ctx: Ctx): void {
     const dmg = Math.max(1, p.maxHp * chip.playerMaxHp);
     if (p.hp <= dmg + 1) continue;
     p.hp -= dmg;
+    noteDamageTaken(ctx, p, dmg, { kind: 'weather' });
     emit(ctx, { type: 'player-hurt', playerId: p.id, amount: Math.round(dmg), label: null });
   }
   for (const e of s.enemies) {

@@ -12,7 +12,7 @@ import type { HazardState } from './state.js';
 const LINGER = 0.3;
 
 export type HazardInit = Pick<HazardState, 'kind' | 'x' | 'y' | 'delay' | 'damage' | 'type'> &
-  Partial<Pick<HazardState, 'r' | 'angle' | 'len' | 'w'>>;
+  Partial<Pick<HazardState, 'r' | 'angle' | 'len' | 'w' | 'by'>>;
 
 export function addHazard(ctx: Ctx, h: HazardInit): HazardState {
   const o: HazardState = {
@@ -52,7 +52,7 @@ export function updateHazards(ctx: Ctx): void {
       for (const p of activePlayers(ctx.s)) {
         if (p.dead || !insideHazard(h, p.x, p.y, p.r)) continue;
         p.invuln = 0;
-        hurtPlayer(ctx, p, h.damage, h.type);
+        hurtPlayer(ctx, p, h.damage, h.type, false, { kind: h.kind, ...h.by });
       }
     }
     if (h.hit && h.t >= h.delay + LINGER) list.splice(i, 1);

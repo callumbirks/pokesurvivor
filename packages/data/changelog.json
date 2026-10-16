@@ -1,6 +1,6 @@
 {
   "unreleased": {
-    "prs": [92, 93, 94, 96],
+    "prs": [92, 93, 94, 95, 96],
     "entries": {
       "new": [
         "Server updates no longer end co-op runs: you get a short warning, and your run continues right after the update."
@@ -16,7 +16,8 @@
       ],
       "behindTheScenes": [
         "Balance can now be tuned live by admins, without an update: new runs use the latest settings and runs already going keep theirs.",
-        "Every run records which balance settings it was played with."
+        "Every run records which balance settings it was played with.",
+        "Every run now keeps a balance record per player (cards picked, stats each minute, what knocked you out), and admins can export them to see what made runs easy or hard. It doesn't change rewards."
       ]
     }
   },

@@ -4,7 +4,7 @@
 import { stateHash, type SimState } from '@pokesurvivor/sim';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
-import { gameRooms, gameSaves, runPlayers, runs } from '../db/schema.js';
+import { gameRooms, gameSaves, runBalance, runPlayers, runs } from '../db/schema.js';
 import {
   createGameTestServer,
   lobby,
@@ -171,8 +171,20 @@ describe('server updates (stop-first)', () => {
       // It ends and is credited as usual (the run crediting is unchanged).
       const results = withTimeout(bots[0]!.client.next('results'), 10_000, 'results');
       game.forceEnd('all-down');
-      expect(await results).toMatchObject({ credited: true, reason: 'all-down' });
+      const credited = await results;
+      expect(credited).toMatchObject({ credited: true, reason: 'all-down' });
       expect(await next.database.db.db.select().from(runs)).toHaveLength(1);
+      // Players' results don't carry the balance records; the run's rows do, collected across
+      // the save and restore: one record from the start, with the card picked after the restore.
+      expect(credited.players[0]!.summary.run).not.toHaveProperty('balance');
+      const records = await next.database.db.db.select().from(runBalance);
+      expect(records).toHaveLength(3);
+      for (const r of records) {
+        expect(r.source).toBe('server');
+        expect(r.record.setup.from).toBe(0);
+        expect(r.record.picks.length).toBeGreaterThanOrEqual(1);
+        expect(r.record.end.t).toBeGreaterThan(time);
+      }
     } finally {
       await next?.close();
       await old.close();
@@ -241,6 +253,12 @@ describe('server updates (stop-first)', () => {
       expect(
         await next.database.db.db.select().from(runPlayers).where(eq(runPlayers.runId, run!.id)),
       ).toHaveLength(2);
+      // Their balance records as saved.
+      const records = await next.database.db.db
+        .select()
+        .from(runBalance)
+        .where(eq(runBalance.runId, run!.id));
+      expect(records.map((r) => Math.floor(r.record.end.t))).toEqual([time, time]);
       expect(await next.database.db.db.select().from(gameSaves)).toEqual([]);
       await waitFor(
         () =>

@@ -2,6 +2,7 @@
 // that misses a message sees them again in the next snapshot, so nothing can get stuck. While any
 // is pending the whole game is paused, as in legacy co-op. Each one auto-resolves to its first
 // option at its deadline, or straight away if its player disconnects or leaves.
+import { notePick } from './balance.js';
 import { defaultBond, fuse, validBond } from './bonds.js';
 import { emit, playerById, type Ctx } from './ctx.js';
 import { applyCard, offerCards } from './levelup.js';
@@ -62,7 +63,10 @@ export function resolveChoice(
     const card = c.options.find((o) => o.id === pick);
     if (!card && c.options.length) return { ok: false, error: 'not an offered card' };
     s.pendingChoices.splice(i, 1);
-    if (card && p) applyCard(ctx, p, card);
+    if (card && p) {
+      notePick(ctx, p, c, card, auto);
+      applyCard(ctx, p, card);
+    }
   } else {
     if (pick !== c.held && pick !== c.found) return { ok: false, error: 'not an offered item' };
     s.pendingChoices.splice(i, 1);

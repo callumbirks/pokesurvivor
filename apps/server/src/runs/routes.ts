@@ -1,5 +1,5 @@
 import { emptyRunProgress } from '@pokesurvivor/protocol';
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { createAuthHooks, currentUser } from '../auth/plugin.js';
 import { getServerData, knownDexSchema, pokemonTypeSchema } from '../data.js';
@@ -9,7 +9,8 @@ import { ApiError, parseBody } from '../http/errors.js';
 import { runConfigOf, type LiveConfig } from '../live-config/store.js';
 import { getSave } from '../saves/service.js';
 import { getLeaderboard } from './leaderboard.js';
-import { checkpointSoloRun, finishSoloRun, startSoloRun } from './service.js';
+import { parseBalance } from './balance.js';
+import { checkpointSoloRun, finishSoloRun, startSoloRun, type SoloBalance } from './service.js';
 
 export interface RunRoutesOptions {
   db: Database;
@@ -67,6 +68,8 @@ const finishBody = z.object({
   ticketsX10: count,
   shiniesCaught: z.array(knownDexSchema).max(100),
   progress: progressBody,
+  /** The balance record: checked on its own (`parseBalance`), never failing the request. */
+  balance: z.unknown().optional(),
 });
 const leaderboardQuery = z.object({
   mode: z.enum(['solo', 'group']).default('solo'),
@@ -75,6 +78,26 @@ const leaderboardQuery = z.object({
   pokemon: z.coerce.number().pipe(knownDexSchema).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50),
 });
+
+/**
+ * A solo report's balance record, if it validates. A bad one is dropped (and logged): it is
+ * analytics only, so the run is credited all the same.
+ */
+function soloBalance(
+  request: FastifyRequest,
+  runId: string,
+  raw: unknown,
+  liveConfig: LiveConfig | undefined,
+): SoloBalance {
+  const parsed = parseBalance(raw);
+  if (parsed && !parsed.ok)
+    request.log.warn({ runId, reason: parsed.reason }, 'dropped an invalid balance record');
+  return {
+    record: parsed?.ok ? parsed.record : null,
+    log: request.log,
+    dataFor: async (v) => (await liveConfig?.version(v))?.game ?? null,
+  };
+}
 
 export function runRoutes(app: FastifyInstance, opts: RunRoutesOptions): void {
   const { db, runCaps } = opts;
@@ -104,17 +127,26 @@ export function runRoutes(app: FastifyInstance, opts: RunRoutesOptions): void {
     '/api/runs/checkpoint',
     { preHandler: requireUser, config: { rateLimit } },
     async (request) => {
-      const { runId, ...claim } = parseBody(finishBody, request.body);
-      return checkpointSoloRun(db, currentUser(request).id, runId, claim, runCaps);
+      const { runId, balance, ...claim } = parseBody(finishBody, request.body);
+      const record = soloBalance(request, runId, balance, opts.liveConfig);
+      return checkpointSoloRun(db, currentUser(request).id, runId, claim, runCaps, record);
     },
   );
 
   app.post('/api/runs', { preHandler: requireUser }, async (request) => {
-    const { runId, ...claim } = parseBody(finishBody, request.body);
+    const { runId, balance, ...claim } = parseBody(finishBody, request.body);
     const userId = currentUser(request).id;
-    const result = await finishSoloRun(db, userId, runId, claim, runCaps, {
-      timeZone: opts.leaderboardTimeZone,
-    }).catch((err: unknown) => {
+    const record = soloBalance(request, runId, balance, opts.liveConfig);
+    const progressOpts = { timeZone: opts.leaderboardTimeZone };
+    const result = await finishSoloRun(
+      db,
+      userId,
+      runId,
+      claim,
+      runCaps,
+      progressOpts,
+      record,
+    ).catch((err: unknown) => {
       if (err instanceof ApiError && (err.statusCode === 404 || err.statusCode === 409))
         opts.runClosed?.(userId, runId);
       throw err;

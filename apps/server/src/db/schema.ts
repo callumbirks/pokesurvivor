@@ -3,6 +3,7 @@ import {
   bigserial,
   boolean,
   check,
+  foreignKey,
   index,
   integer,
   jsonb,
@@ -16,6 +17,7 @@ import {
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
+import type { BalanceRecord } from '@pokesurvivor/protocol';
 import type { SaveData } from '../saves/schema.js';
 import type { SavedRoom } from '../game/room.js';
 import type { SavedGame } from '../game/saved.js';
@@ -229,6 +231,35 @@ export const runPlayers = pgTable(
     primaryKey({ columns: [t.runId, t.userId] }),
     index('run_players_user_id_idx').on(t.userId),
     index('run_players_pokemon_dex_idx').on(t.pokemonDex),
+  ],
+);
+
+/**
+ * A player's balance record for a run (R11, `BalanceRecord`): analytics for the admin run export,
+ * kept indefinitely and never read for rewards. Co-op records come from the server's sim; solo
+ * ones from the client (`source`), untrusted: validated and flagged when implausible (`flags`).
+ * Solo checkpoints update it, so a run credited by the timeout sweep has its last one.
+ */
+export const runBalance = pgTable(
+  'run_balance',
+  {
+    runId: uuid('run_id').notNull(),
+    userId: uuid('user_id').notNull(),
+    /** `BalanceRecord.v`. */
+    version: smallint('version').notNull(),
+    /** `server` (co-op, the server's sim) or `client` (solo, reported by the browser). */
+    source: text('source').notNull(),
+    record: jsonb('record').$type<BalanceRecord>().notNull(),
+    /** Implausible values found in it (`balanceFlags`); empty if none. */
+    flags: text('flags').array().notNull().default([]),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.runId, t.userId] }),
+    foreignKey({
+      columns: [t.runId, t.userId],
+      foreignColumns: [runPlayers.runId, runPlayers.userId],
+    }).onDelete('cascade'),
   ],
 );
 

@@ -7,6 +7,7 @@ import { DT, OUTER_RADIUS } from './constants.js';
 import { activePlayers, emit, nextId, presentPlayers, seenByAny, type Ctx } from './ctx.js';
 import type { PokemonType } from '@pokesurvivor/data';
 import type { HitLabel } from './events.js';
+import { enemyRef } from './balance.js';
 import { addHazard } from './hazards.js';
 import { addMomentum } from './momentum.js';
 import { TAU, clamp, dist, dist2, hash2, norm } from './math.js';
@@ -728,6 +729,7 @@ function shoot(ctx: Ctx, e: EnemyState, ax: number, ay: number, spread = 0, n = 
     spawnProjectile(ctx, {
       friendly: false,
       regularHit: e.regularHit,
+      by: enemyRef(e),
       type: e.attackType,
       x: e.x,
       y: e.y,
@@ -753,6 +755,7 @@ function special(ctx: Ctx, e: EnemyState, pl: PlayerState, dx: number, dy: numbe
     case 'beamer':
       // Beam with a warning: the strip shows on the ground first.
       addHazard(ctx, {
+        by: enemyRef(e),
         kind: 'beam',
         x: e.x,
         y: e.y,
@@ -769,6 +772,7 @@ function special(ctx: Ctx, e: EnemyState, pl: PlayerState, dx: number, dy: numbe
       const n = rand.int(1, e.def.zones || 3);
       for (let i = 0; i < n; i++) {
         addHazard(ctx, {
+          by: enemyRef(e),
           kind: 'zone',
           x: pl.x + (i ? rand.range(-70, 70) : 0),
           y: pl.y + (i ? rand.range(-55, 55) : 0),
@@ -868,6 +872,7 @@ function startFuse(ctx: Ctx, e: EnemyState): void {
   e.phase = 'fuse';
   e.pt = 1.0;
   addHazard(ctx, {
+    by: enemyRef(e),
     kind: 'zone',
     x: e.x,
     y: e.y,
@@ -882,6 +887,7 @@ function startFuse(ctx: Ctx, e: EnemyState): void {
 function startJump(ctx: Ctx, e: EnemyState, pl: PlayerState): void {
   e.jump = { sx: e.x, sy: e.y, tx: pl.x, ty: pl.y, t: -0.45, dur: 0.6 };
   addHazard(ctx, {
+    by: enemyRef(e),
     kind: 'zone',
     x: pl.x,
     y: pl.y,
@@ -1024,6 +1030,7 @@ function bossStart(ctx: Ctx, e: EnemyState, ai: BossAi, id: BossSkill, pl: Playe
     case 'slam': // shockwave around it
       c.wind = 0.85 * f;
       addHazard(ctx, {
+        by: enemyRef(e),
         kind: 'zone',
         x: e.x,
         y: e.y,
@@ -1038,6 +1045,7 @@ function bossStart(ctx: Ctx, e: EnemyState, ai: BossAi, id: BossSkill, pl: Playe
       c.len = 330;
       c.dur = 0.32;
       addHazard(ctx, {
+        by: enemyRef(e),
         kind: 'beam',
         x: e.x,
         y: e.y,
@@ -1052,6 +1060,7 @@ function bossStart(ctx: Ctx, e: EnemyState, ai: BossAi, id: BossSkill, pl: Playe
     case 'leap': // jumps onto you
       e.jump = { sx: e.x, sy: e.y, tx: pl.x, ty: pl.y, t: -0.5 * f, dur: 0.65 };
       addHazard(ctx, {
+        by: enemyRef(e),
         kind: 'zone',
         x: pl.x,
         y: pl.y,
@@ -1070,6 +1079,7 @@ function bossStart(ctx: Ctx, e: EnemyState, ai: BossAi, id: BossSkill, pl: Playe
         const a = i ? rand() * TAU : 0;
         const dd = i ? rand.range(40, 120) : 0;
         addHazard(ctx, {
+          by: enemyRef(e),
           kind: 'zone',
           x: pl.x + Math.cos(a) * dd,
           y: pl.y + Math.sin(a) * dd * 0.8,
@@ -1088,6 +1098,7 @@ function bossStart(ctx: Ctx, e: EnemyState, ai: BossAi, id: BossSkill, pl: Playe
       const sp = ai.fury ? 0.42 : 0.5;
       for (let i = 0; i < n; i++) {
         addHazard(ctx, {
+          by: enemyRef(e),
           kind: 'beam',
           x: e.x,
           y: e.y,

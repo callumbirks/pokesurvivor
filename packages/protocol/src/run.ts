@@ -1,3 +1,5 @@
+import type { BalanceRecord } from './balance.js';
+
 /**
  * What one player achieved in a run. The browser produces it for solo runs (`POST /api/runs`,
  * where the server sanity-caps it) and the server's own sim produces it for coop runs
@@ -20,6 +22,11 @@ export interface RunSummary {
   /** Dex numbers of wild shinies caught (each also grants the normal form). */
   shiniesCaught: number[];
   progress: RunProgress;
+  /**
+   * The player's balance record (analytics for the admin run export; never credited). Optional:
+   * older clients don't send it, and the server drops one that doesn't validate.
+   */
+  balance?: BalanceRecord;
 }
 
 /**

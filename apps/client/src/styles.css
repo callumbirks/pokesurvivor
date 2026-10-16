@@ -2948,3 +2948,28 @@ canvas.backdrop {
 .admin-export {
   margin-top: 16px;
 }
+
+/* Admin: run export. */
+.admin-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px 14px;
+  margin: 10px 0 14px;
+}
+.admin-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.admin-check {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+.admin-input {
+  padding: 6px 8px;
+  background: var(--ink);
+  color: var(--text);
+  border: 2px solid var(--rule);
+  font: inherit;
+}

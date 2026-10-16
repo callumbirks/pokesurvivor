@@ -1,6 +1,7 @@
 // Held items (original implementation and game.js offerItem): one per player. Stat effects from
 // items.json apply while held; the reactive ones (Focus Sash, Shell Bell, Life Orb, Rocky Helmet,
 // Choice Band) are checked where they trigger.
+import { noteItem } from './balance.js';
 import { DT } from './constants.js';
 import { emit, type Ctx } from './ctx.js';
 import { openChoice } from './choices.js';
@@ -43,6 +44,7 @@ function takeItem(ctx: Ctx, p: PlayerState, id: string): void {
     playerId: p.id,
   });
   p.stats.progress.itemsEquipped.push(id);
+  noteItem(ctx, p, id);
   emit(ctx, { type: 'progress', event: 'item', playerId: p.id, data: { id } });
 }
 

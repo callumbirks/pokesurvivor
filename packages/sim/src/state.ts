@@ -8,7 +8,14 @@ import type {
   PokemonType,
   WeatherId,
 } from '@pokesurvivor/data';
-import type { RunProgress } from '@pokesurvivor/protocol';
+import type {
+  BalanceDown,
+  BalancePick,
+  BalanceRift,
+  BalanceSample,
+  HitSource,
+  RunProgress,
+} from '@pokesurvivor/protocol';
 import type { RngState } from './rng.js';
 
 export type PlayerId = string;
@@ -260,6 +267,38 @@ export interface PlayerState {
   lastPatchId: EntityId | null;
 
   stats: PlayerRunStats;
+  /** The balance record being collected (`balance.ts`; analytics only). */
+  balance: BalanceState;
+}
+
+/** A balance record in the making (see `balance.ts`); the protocol's `BalanceRecord` is built from it. */
+export interface BalanceState {
+  prestige: number;
+  upgrades: Record<string, number>;
+  players: number;
+  startMoves: string[];
+  /** Run time the record started at (later than 0 for a game saved before records existed). */
+  from: number;
+  /** The attack factors fixed at the start: permanent upgrades and prestige stars. */
+  atkUpgrade: number;
+  atkPrestige: number;
+  picks: BalancePick[];
+  items: { t: number; id: string }[];
+  timeline: BalanceSample[];
+  downs: BalanceDown[];
+  rifts: BalanceRift[];
+  /** Damage taken so far. */
+  taken: number;
+  /** Totals at the last sample (for the per-minute amounts). */
+  at: { dealt: number; taken: number; downs: number; revives: number };
+  /** Momentum summed over this minute's ticks, and the tick count. */
+  momSum: number;
+  momN: number;
+  /** Damage taken in each of the last 10 seconds (by whole second mod 10), and the newest second. */
+  recent: number[];
+  recentS: number;
+  /** What hit the player last. */
+  lastHit: HitSource | null;
 }
 
 export interface PlayerRunStats {
@@ -477,6 +516,8 @@ export interface StatusPayload {
 export interface ProjectileState extends StatusPayload {
   /** Persist the ordinary wild-shot source even after its shooter despawns. */
   regularHit?: boolean;
+  /** Enemy shots: who fired it (balance records). */
+  by?: EnemyRef;
   id: EntityId;
   /** Fired by a player (true) or an enemy (false). */
   friendly: boolean;
@@ -543,8 +584,13 @@ export interface FieldState extends StatusPayload {
   gone: boolean;
 }
 
+/** Which enemy an attack came from (balance records: what downed a player). */
+export type EnemyRef = Required<Pick<HitSource, 'dex' | 'tier'>>;
+
 export interface HazardState {
   id: EntityId;
+  /** The enemy that cast it (balance records). */
+  by?: EnemyRef;
   kind: 'zone' | 'beam';
   x: number;
   y: number;
