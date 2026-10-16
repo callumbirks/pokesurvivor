@@ -1,6 +1,7 @@
 import { and, eq, gt, inArray, like, max, sql } from 'drizzle-orm';
 import type { Executor, Transaction } from '../db/index.js';
 import { currencyLedger, saves } from '../db/schema.js';
+import { upgradeCost, type UpgradeDef } from '../economy/config.js';
 import { Wallet } from '../economy/ledger.js';
 import type { Balances } from '../economy/ledger.js';
 import { ApiError } from '../http/errors.js';
@@ -126,12 +127,33 @@ export function ownsPokemon(data: SaveData, dex: number, shiny = false): boolean
   return (shiny ? data.shiny : data.owned)[String(dex)] !== undefined;
 }
 
+/** What an upgrade reset of a Pokémon gives back (`refundFor`). */
+export interface UpgradeRefund {
+  /** Coins in all: `recorded + unrecorded`. */
+  refund: number;
+  /** From the ledger: its `upgrade_purchase` entries since its last prestige or reset. */
+  recorded: number;
+  /**
+   * Its levels with no purchase entry since then (bought before the ledger, e.g. saves imported
+   * from legacy), priced at today's costs.
+   */
+  unrecorded: number;
+}
+
 /**
  * Coins spent on `dex`'s upgrades since its last prestige or upgrade reset, whichever came last
- * (or ever): the sum of its `upgrade_purchase` ledger entries after the latest `prestige` marker
- * or `upgrade_refund`. What an upgrade reset gives back. Ledger ref ids start with `dex:`.
+ * (or ever): what an upgrade reset gives back. Each level the ledger has a purchase for (an
+ * `upgrade_purchase` entry `dex:upgrade:level` after the latest `prestige` marker or
+ * `upgrade_refund` of the Pokémon) refunds exactly what it cost; a level of `levels` without
+ * one is priced at today's cost (`upgrades`), so upgrades from before the ledger refund too.
  */
-export async function refundableCoins(db: Executor, userId: string, dex: number): Promise<number> {
+export async function refundFor(
+  db: Executor,
+  userId: string,
+  dex: number,
+  levels: Record<string, number>,
+  upgrades: Record<string, UpgradeDef>,
+): Promise<UpgradeRefund> {
   const ofDex = and(
     eq(currencyLedger.userId, userId),
     eq(currencyLedger.currency, 'coins'),
@@ -141,9 +163,18 @@ export async function refundableCoins(db: Executor, userId: string, dex: number)
     .select({ id: sql`coalesce(${max(currencyLedger.id)}, 0)` })
     .from(currencyLedger)
     .where(and(ofDex, inArray(currencyLedger.reason, ['prestige', 'upgrade_refund'])));
-  const [row] = await db
-    .select({ spent: sql<number>`coalesce(-sum(${currencyLedger.delta}), 0)::int` })
+  const bought = await db
+    .select({ refId: currencyLedger.refId, delta: currencyLedger.delta })
     .from(currencyLedger)
     .where(and(ofDex, eq(currencyLedger.reason, 'upgrade_purchase'), gt(currencyLedger.id, since)));
-  return row?.spent ?? 0;
+  const recorded = bought.reduce((sum, b) => sum - b.delta, 0);
+  const paid = new Set(bought.map((b) => b.refId));
+  let unrecorded = 0;
+  for (const [id, level] of Object.entries(levels)) {
+    const def = Object.hasOwn(upgrades, id) ? upgrades[id] : undefined;
+    if (!def) continue;
+    for (let n = 1; n <= level; n++)
+      if (!paid.has(`${dex}:${id}:${n}`)) unrecorded += upgradeCost(def, n - 1);
+  }
+  return { refund: recorded + unrecorded, recorded, unrecorded };
 }

@@ -47,14 +47,22 @@ function save(
   } as unknown as Save;
 }
 
-function fakeApp(s: Save, refund: number) {
+function fakeApp(s: Save, refund: number, unrecorded = 0) {
   let onSave = () => {};
   const app = {
     save: s,
     api: {
       request: vi.fn(() => Promise.resolve({ upgrades: rules })),
       prestige: vi.fn(() => Promise.resolve(save({}, (s.prestige?.['4'] ?? 0) + 1))),
-      resetQuote: vi.fn((dex: number) => Promise.resolve({ dex, refund, cost: resetCost })),
+      resetQuote: vi.fn((dex: number) =>
+        Promise.resolve({
+          dex,
+          refund,
+          recorded: refund - unrecorded,
+          unrecorded,
+          cost: resetCost,
+        }),
+      ),
       resetUpgrades: vi.fn(() =>
         Promise.resolve(save({}, s.prestige?.['4'], {}, (s.gems ?? 0) - resetCost)),
       ),
@@ -78,8 +86,8 @@ function fakeApp(s: Save, refund: number) {
   return app;
 }
 
-async function mount(s: Save, refund = 0) {
-  const app = fakeApp(s, refund);
+async function mount(s: Save, refund = 0, unrecorded = 0) {
+  const app = fakeApp(s, refund, unrecorded);
   const screen = shopScreen(app as unknown as App);
   document.body.append(screen.el);
   await vi.waitFor(() => expect(screen.el.querySelector('[data-testid="prestige"]')).toBeTruthy());
@@ -213,6 +221,7 @@ describe('upgrades screen: reset', () => {
     expect(dialog.querySelector('[data-testid="reset-refund"]')?.textContent).toContain(
       '+1,234 PokéCoins',
     );
+    expect(dialog.querySelector('[data-testid="reset-unrecorded"]')).toBeNull();
     expect(dialog.querySelector('[data-testid="reset-cost"]')?.textContent).toContain(
       `Costs ${resetCost} gems (you have 140)`,
     );
@@ -230,6 +239,27 @@ describe('upgrades screen: reset', () => {
     document.querySelector<HTMLButtonElement>('[data-testid="dialog-confirm"]')!.click();
     await vi.waitFor(() => expect(app.api.resetUpgrades).toHaveBeenCalledWith(4));
     expect(app.save.gems).toBe(140 - resetCost);
+  });
+});
+
+describe('upgrades screen: reset of upgrades bought before the ledger', () => {
+  it("says which part of the refund is at today's prices", async () => {
+    await mount(save({ attack: 3 }, undefined, {}, resetCost), 900, 600);
+    const button = await vi.waitFor(() => {
+      const b = document.querySelector<HTMLButtonElement>('[data-testid="reset-button"]');
+      expect(b?.dataset.refund).toBe('900');
+      return b!;
+    });
+    button.click();
+    const line = await vi.waitFor(() => {
+      const l = document.querySelector('[data-testid="reset-unrecorded"]');
+      expect(l).toBeTruthy();
+      return l!;
+    });
+    expect(line.textContent).toBe(
+      "Includes 600 PokéCoins at today's prices for upgrades bought before purchases were recorded.",
+    );
+    expect(document.querySelector('[data-testid="reset-refund"]')?.textContent).toContain('+900');
   });
 });
 

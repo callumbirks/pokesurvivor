@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { getServerData, pokemonOf } from '../data.js';
 import { currencyLedger } from '../db/schema.js';
 import { createTestApp, grantGems, grantPokemon } from '../test/harness.js';
+import { withLockedSave } from './service.js';
 import type { TestApp, TestClient } from '../test/harness.js';
 
 interface SaveBody {
@@ -51,7 +52,12 @@ describe('upgrade resets', () => {
   }
 
   const quote = async (c: TestClient, dex = 25) =>
-    (await c.get(`/api/save/upgrades/reset/${dex}`)).json<{ refund: number; cost: number }>();
+    (await c.get(`/api/save/upgrades/reset/${dex}`)).json<{
+      refund: number;
+      recorded: number;
+      unrecorded: number;
+      cost: number;
+    }>();
   const reset = (c: TestClient, dex = 25) => c.post('/api/save/upgrades/reset', { dex });
 
   it('refunds the coins spent, clears Repertoire and Ban, keeps bindings and stars', async () => {
@@ -66,7 +72,13 @@ describe('upgrade resets', () => {
       repertoire: chosen,
     });
     expect(moves.statusCode, moves.body).toBe(200);
-    expect(await quote(c)).toEqual({ dex: 25, refund: 90, cost: resetCost });
+    expect(await quote(c)).toEqual({
+      dex: 25,
+      refund: 90,
+      recorded: 90,
+      unrecorded: 0,
+      cost: resetCost,
+    });
 
     const res = await reset(c);
     expect(res.statusCode, res.body).toBe(200);
@@ -105,6 +117,29 @@ describe('upgrade resets', () => {
     expect(save.prestige).toEqual({ 25: 1 });
     expect(save.upgrades[25]).toBeUndefined();
     expect(save.gems).toBe(0);
+  });
+
+  it("prices levels with no purchase entry (from before the ledger) at today's costs", async () => {
+    const c = await owner();
+    // An imported save: hp 1 and Ban, never bought through the ledger (10 + 30 at today's costs).
+    await withLockedSave(t.db.db, c.userId, (s) => {
+      s.data.upgrades['25'] = { hp: 1, ban: 1, gone: 3 }; // an upgrade that no longer exists: 0
+    });
+    expect(await quote(c)).toMatchObject({ refund: 40, recorded: 0, unrecorded: 40 });
+    // Its second hp level is bought now: that one refunds what the ledger says.
+    const bought = await buy(c, ['hp']);
+    expect(await quote(c)).toMatchObject({ refund: 60, recorded: 20, unrecorded: 40 });
+
+    const save = (await reset(c)).json<SaveBody>();
+    expect(save.coins).toBe(bought.coins + 60);
+    expect(save.upgrades[25]).toBeUndefined();
+    const [refund] = await t.db.db
+      .select()
+      .from(currencyLedger)
+      .where(and(eq(currencyLedger.userId, c.userId), eq(currencyLedger.reason, 'upgrade_refund')));
+    expect(refund).toMatchObject({ delta: 60, refId: '25:reset' });
+    // Nothing left: everything was refunded.
+    expect(await quote(c)).toMatchObject({ refund: 0, recorded: 0, unrecorded: 0 });
   });
 
   it('refuses with nothing to refund, short of gems, or a Pokémon not owned', async () => {

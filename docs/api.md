@@ -54,19 +54,19 @@ The server owns the save. Coins, tickets, gems, the collection, pity and stats a
 by the client; they change only through server logic (the starter, run results, upgrades, resets,
 prestige, the gacha, missions and achievements).
 
-| Method & path                       | Body                                | Notes                                                                                         |
-| ----------------------------------- | ----------------------------------- | --------------------------------------------------------------------------------------------- |
-| `GET /api/save`                     | –                                   | The save (below)                                                                              |
-| `PUT /api/save/partner`             | `{ dex, shiny? }`                   | Must own it (and its shiny if `shiny`); a room in its lobby shows it to the members           |
-| `PATCH /api/save/profile`           | `{ favourites?, title? }`           | `favourites`: up to 3 owned `{ dex, shiny }`. `title`: an unlocked achievement id, or null    |
-| `PATCH /api/save/settings`          | any subset of `settings`            | Merged into the current settings                                                              |
-| `POST /api/save/starter`            | `{ dex, answers? }`                 | The first Pokémon (below). `{ achievements, save }`                                           |
-| `PUT /api/save/moves/:dex`          | `{ bindings?, bans?, repertoire? }` | Move slots, bans and the Repertoire move for an owned Pokémon (below)                         |
-| `POST /api/save/upgrades`           | `{ dex, upgradeId }`                | Buys the next level for an owned Pokémon with coins                                           |
-| `POST /api/save/prestige`           | `{ dex }`                           | Prestiges an owned Pokémon whose upgrades are all maxed, for gems (below)                     |
-| `GET /api/save/upgrades/reset/:dex` | –                                   | `{ dex, refund, cost }`: what resetting its upgrades would refund now (coins) and cost (gems) |
-| `POST /api/save/upgrades/reset`     | `{ dex }`                           | Resets an owned Pokémon's upgrades for gems and refunds their coins (below)                   |
-| `GET /api/upgrades`                 | –                                   | `{ upgrades: { [id]: { maxLevel, baseCost, growth } } }`                                      |
+| Method & path                       | Body                                | Notes                                                                                                               |
+| ----------------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/save`                     | –                                   | The save (below)                                                                                                    |
+| `PUT /api/save/partner`             | `{ dex, shiny? }`                   | Must own it (and its shiny if `shiny`); a room in its lobby shows it to the members                                 |
+| `PATCH /api/save/profile`           | `{ favourites?, title? }`           | `favourites`: up to 3 owned `{ dex, shiny }`. `title`: an unlocked achievement id, or null                          |
+| `PATCH /api/save/settings`          | any subset of `settings`            | Merged into the current settings                                                                                    |
+| `POST /api/save/starter`            | `{ dex, answers? }`                 | The first Pokémon (below). `{ achievements, save }`                                                                 |
+| `PUT /api/save/moves/:dex`          | `{ bindings?, bans?, repertoire? }` | Move slots, bans and the Repertoire move for an owned Pokémon (below)                                               |
+| `POST /api/save/upgrades`           | `{ dex, upgradeId }`                | Buys the next level for an owned Pokémon with coins                                                                 |
+| `POST /api/save/prestige`           | `{ dex }`                           | Prestiges an owned Pokémon whose upgrades are all maxed, for gems (below)                                           |
+| `GET /api/save/upgrades/reset/:dex` | –                                   | `{ dex, refund, recorded, unrecorded, cost }`: what resetting its upgrades would refund now (coins) and cost (gems) |
+| `POST /api/save/upgrades/reset`     | `{ dex }`                           | Resets an owned Pokémon's upgrades for gems and refunds their coins (below)                                         |
+| `GET /api/upgrades`                 | –                                   | `{ upgrades: { [id]: { maxLevel, baseCost, growth } } }`                                                            |
 
 Every mutating save endpoint returns the updated save (the starter wraps it in `{ save }`).
 Upgrades are the ones in `upgrades.json` (ids `max-hp`, `attack`, `speed`, `cooldown`, `defense`,
@@ -115,17 +115,20 @@ coins spent on a Pokémon since its last prestige are its `upgrade_purchase` ent
 
 **Upgrade resets** (R6). `POST /api/save/upgrades/reset` takes `{ dex }` of an owned Pokémon
 (else `409 pokemon_not_owned`), costs `tuning.json` `gems.resetCost` gems (100, whatever it
-bought) and gives back every coin spent on its upgrades since its last prestige or reset: the
-sum of its `upgrade_purchase` ledger entries after the latest `prestige` marker or
-`upgrade_refund` of that Pokémon, exactly as the ledger has them (no recomputation from the
-costs). Like prestige, it resets all its upgrades (Repertoire and Ban included), its banned moves
+bought) and gives back every coin spent on its upgrades since its last prestige or reset. A level
+the ledger has a purchase for (an `upgrade_purchase` entry, `refId` `dex:upgrade:level`, after
+the latest `prestige` marker or `upgrade_refund` of that Pokémon) refunds exactly what the ledger
+says it cost. A level with no such entry (bought before the ledger, e.g. saves imported from
+legacy) refunds today's price for it, `round(baseCost * growth^(level - 1) / 10) * 10`; upgrade
+ids no longer in `upgrades.json` refund nothing. Like prestige, it resets all its upgrades (Repertoire and Ban included), its banned moves
 and its chosen Repertoire move; move slot bindings and prestige stars stay. Refused with `409
-nothing_to_refund` when that sum is 0 (nothing bought since, e.g. right after a prestige) and
+nothing_to_refund` when the refund is 0 (nothing bought since, e.g. right after a prestige) and
 `409 insufficient_gems` when the gems are short; both change nothing. The ledger gets the gems
 spent (`upgrade_reset_cost`) and the coins refunded (`upgrade_refund`), both with `refId`
 `dex:reset`. It runs under the save lock, so of two requests at once one resets and the other
 finds nothing to refund. `GET /api/save/upgrades/reset/:dex` returns the quote `{ dex, refund,
-cost }` for the Upgrades screen's Reset button and its confirm dialog. Both costs are live-tunable
+recorded, unrecorded, cost }` (`refund` = `recorded`, from the ledger, + `unrecorded`, at today's
+prices) for the Upgrades screen's Reset button and its confirm dialog. Both costs are live-tunable
 (`gems` in `tuning.json`; the published config applies).
 
 Each star adds `tuning.json` `prestige.perStar.*` to its stats in every run, solo and co-op: max

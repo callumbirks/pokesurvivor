@@ -842,6 +842,7 @@
     "resetRepertoire": "Its chosen second move goes back to random.",
     "refund": "You get back",
     "refundCoins": "+{0} PokéCoins: everything spent on its upgrades since its last prestige.",
+    "refundUnrecorded": "Includes {0} PokéCoins at today's prices for upgrades bought before purchases were recorded.",
     "cost": "Costs {0} gems (you have {1}).",
     "keepsStars": "Its prestige stars stay ({0}), and so do its move shortcuts.",
     "confirm": "Reset for {0} gems",

@@ -373,6 +373,13 @@ export function shopScreen(app: App): Screen {
           ' ',
           t('reset.refundCoins', { 0: num(quote.refund) }),
         ),
+        quote.unrecorded > 0
+          ? h(
+              'p',
+              { class: 'sub', dataset: { testid: 'reset-unrecorded' } },
+              t('reset.refundUnrecorded', { 0: num(quote.unrecorded) }),
+            )
+          : null,
         h(
           'p',
           { class: 'dialog-cost', dataset: { testid: 'reset-cost' } },

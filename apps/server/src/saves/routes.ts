@@ -19,7 +19,8 @@ import {
   profileSchema,
   settingsSchema,
 } from './schema.js';
-import { getSave, ownsPokemon, refundableCoins, withLockedSave } from './service.js';
+import { getSave, ownsPokemon, refundFor, withLockedSave } from './service.js';
+import type { SaveData } from './schema.js';
 
 export interface SaveRoutesOptions {
   db: Database;
@@ -96,13 +97,11 @@ export function saveRoutes(app: FastifyInstance, opts: SaveRoutesOptions): void 
     opts.liveConfig ? (await opts.liveConfig.current()).config.tuning : getServerData().tuning;
 
   /** What resetting `dex`'s upgrades would give back now; refuses Pokémon that aren't owned. */
-  async function resetQuote(tx: Executor, userId: string, dex: number, owned: boolean) {
-    if (!owned) throw notOwned(dex, false);
-    return {
-      dex,
-      refund: await refundableCoins(tx, userId, dex),
-      cost: (await tuning()).gems.resetCost,
-    };
+  async function resetQuote(tx: Executor, userId: string, dex: number, save: SaveData) {
+    if (!ownsPokemon(save, dex)) throw notOwned(dex, false);
+    const levels = save.upgrades[String(dex)] ?? {};
+    const refund = await refundFor(tx, userId, dex, levels, economy.upgrades);
+    return { dex, ...refund, cost: (await tuning()).gems.resetCost };
   }
 
   app.get('/api/save', { preHandler: requireUser }, (request) =>
@@ -271,20 +270,22 @@ export function saveRoutes(app: FastifyInstance, opts: SaveRoutesOptions): void 
   });
 
   /**
-   * What resetting a Pokémon's upgrades would refund now (the coins spent on them since its last
-   * prestige or reset, from the ledger) and cost in gems, for the Upgrades screen's Reset button.
+   * What resetting a Pokémon's upgrades would refund now (`refundFor`: the coins spent on them
+   * since its last prestige or reset, plus today's price of levels with no purchase entry) and
+   * cost in gems, for the Upgrades screen's Reset button.
    */
   app.get('/api/save/upgrades/reset/:dex', { preHandler: requireUser }, async (request) => {
     const { dex } = parseBody(movesParams, request.params);
     const userId = currentUser(request).id;
     const save = await getSave(db, userId);
-    return resetQuote(db, userId, dex, ownsPokemon(save, dex));
+    return resetQuote(db, userId, dex, save);
   });
 
   /**
    * Resets an owned Pokémon's upgrades for `tuning.gems.resetCost` gems and gives back every coin
    * spent on them since its last prestige (or reset): the ledger's `upgrade_purchase` entries,
-   * not a recomputation from the costs. Repertoire and Ban go with them, as do the banned moves
+   * not a recomputation from the costs, and today's price for levels without an entry (bought
+   * before the ledger; `refundFor`). Repertoire and Ban go with them, as do the banned moves
    * and the chosen Repertoire move; move slot bindings and prestige stars stay. Refused with
    * `nothing_to_refund` when nothing was bought since. Under the save lock, so a second request
    * at the same time finds nothing left to refund.
@@ -293,7 +294,7 @@ export function saveRoutes(app: FastifyInstance, opts: SaveRoutesOptions): void 
     const { dex } = parseBody(prestigeBody, request.body);
     const userId = currentUser(request).id;
     await withLockedSave(db, userId, async (save, tx) => {
-      const { refund, cost } = await resetQuote(tx, userId, dex, ownsPokemon(save.data, dex));
+      const { refund, cost } = await resetQuote(tx, userId, dex, save.data);
       if (refund <= 0)
         throw new ApiError(
           409,

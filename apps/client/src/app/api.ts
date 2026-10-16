@@ -52,6 +52,10 @@ export interface ResetQuote {
   dex: number;
   /** PokéCoins a reset gives back (0: nothing bought since the last prestige or reset). */
   refund: number;
+  /** The part the ledger recorded as spent. */
+  recorded: number;
+  /** The part for levels bought before purchases were recorded, at today's prices. */
+  unrecorded: number;
   /** Gems it costs. */
   cost: number;
 }

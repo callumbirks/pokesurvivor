@@ -66,6 +66,24 @@ test('prestige a fully upgraded partner and see its stars', async ({ page }) => 
   await expect(page.locator('.prestige-stats .bar b')).toHaveCount(3);
   await shot(page, 'upgrades-ready');
 
+  // Its levels came from the fixture, not the ledger (like saves from before it): a reset would
+  // refund them at today's prices. Cancelled here.
+  const unrecorded = data.upgrades.reduce((sum, u) => {
+    for (let n = 0; n < u.maxLevel; n++)
+      sum += Math.round((u.baseCost * u.costGrowth ** n) / 10) * 10;
+    return sum;
+  }, 0);
+  const reset = page.getByTestId('reset-button');
+  await expect(reset).toHaveAttribute('data-refund', String(unrecorded));
+  await reset.click();
+  const resetDialog = page.getByTestId('reset-dialog');
+  await expect(resetDialog.getByTestId('reset-unrecorded')).toContainText(
+    `Includes ${unrecorded.toLocaleString('en')} PokéCoins at today's prices`,
+  );
+  await shot(page, 'reset-dialog-unrecorded');
+  await page.getByTestId('dialog-cancel').click();
+  await expect(resetDialog).toHaveCount(0);
+
   // The dialog says what resets and what it gains; cancel changes nothing.
   await button.click();
   const dialog = page.getByTestId('prestige-dialog');
