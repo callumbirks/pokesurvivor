@@ -16,25 +16,25 @@ Every error has the same shape. `code` is stable and maps to a UI string in `en.
 Every response with a status of 400 or more, API or not, has `Cache-Control: no-store`
 ([deploy.md](deploy.md#caching-behind-cloudflare)).
 
-| Status | Codes                                                                                                                                                                                                                                                                                                                                                                                        |
-| ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 400    | `invalid_request` (body/query validation, incl. unknown dex/item/move/type ids; has `issues`), `unknown_upgrade`, `unknown_title`, `not_a_starter`, `invalid_answers`, `invalid_move`, `duplicate_move`, `unknown_banner`, `invalid_pull_count`, `invalid_payment`, `cannot_friend_self`, `duplicate_favourite`, `username_not_allowed`                                                      |
-| 401    | `unauthenticated`, `invalid_credentials`                                                                                                                                                                                                                                                                                                                                                     |
-| 404    | `run_not_found`, `user_not_found`, `request_not_found`, `friend_not_found`, `mission_not_found`                                                                                                                                                                                                                                                                                              |
-| 409    | `username_taken`, `pokemon_not_owned`, `insufficient_funds`, `upgrade_maxed`, `title_locked`, `starter_already_chosen`, `too_many_bans`, `prestige_not_ready`, `prestige_maxed`, `run_already_finished`, `run_credited_by_timeout`, `in_room`, `mission_not_done`, `mission_already_claimed`, `mission_reroll_used`, `mission_reroll_unavailable`, `already_friends`, `request_already_sent` |
-| 429    | `rate_limited`                                                                                                                                                                                                                                                                                                                                                                               |
+| Status | Codes                                                                                                                                                                                                                                                                                                                                                                                                          |
+| ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 400    | `invalid_request` (body/query validation, incl. unknown dex/item/move/type ids; has `issues`), `invalid_config` (has `issues`), `config_unchanged`, `unknown_upgrade`, `unknown_title`, `not_a_starter`, `invalid_answers`, `invalid_move`, `duplicate_move`, `unknown_banner`, `invalid_pull_count`, `invalid_payment`, `cannot_friend_self`, `duplicate_favourite`, `username_not_allowed`                   |
+| 401    | `unauthenticated`, `invalid_credentials`                                                                                                                                                                                                                                                                                                                                                                       |
+| 404    | `not_found` (admin endpoints, for non-admins), `run_not_found`, `user_not_found`, `request_not_found`, `friend_not_found`, `mission_not_found`, `config_version_not_found`                                                                                                                                                                                                                                     |
+| 409    | `username_taken`, `pokemon_not_owned`, `insufficient_funds`, `upgrade_maxed`, `title_locked`, `starter_already_chosen`, `too_many_bans`, `prestige_not_ready`, `prestige_maxed`, `run_already_finished`, `run_credited_by_timeout`, `in_room`, `mission_not_done`, `mission_already_claimed`, `mission_reroll_used`, `mission_reroll_unavailable`, `already_friends`, `request_already_sent`, `config_changed` |
+| 429    | `rate_limited`                                                                                                                                                                                                                                                                                                                                                                                                 |
 
 Dex numbers, held items, moves, types, upgrade ids, titles, banners and missions are all checked
 against `@pokesurvivor/data`.
 
 ## Auth
 
-| Method & path             | Body                     | Response                             |
-| ------------------------- | ------------------------ | ------------------------------------ |
-| `POST /api/auth/register` | `{ username, password }` | `201 { user: { id, username } }`     |
-| `POST /api/auth/login`    | `{ username, password }` | `200 { user: { id, username } }`     |
-| `POST /api/auth/logout`   | –                        | `204`, deletes the session           |
-| `GET /api/auth/me`        | –                        | `{ user: { id, username } }`, or 401 |
+| Method & path             | Body                     | Response                                      |
+| ------------------------- | ------------------------ | --------------------------------------------- |
+| `POST /api/auth/register` | `{ username, password }` | `201 { user: { id, username, isAdmin } }`     |
+| `POST /api/auth/login`    | `{ username, password }` | `200 { user: { id, username, isAdmin } }`     |
+| `POST /api/auth/logout`   | –                        | `204`, deletes the session                    |
+| `GET /api/auth/me`        | –                        | `{ user: { id, username, isAdmin } }`, or 401 |
 
 - Usernames: 3–16 characters of `[A-Za-z0-9_]`, unique ignoring case, and also the public
   nickname. Login matches them ignoring case. Passwords: 8–128 characters, hashed with argon2id.
@@ -45,6 +45,8 @@ against `@pokesurvivor/data`.
   Scunthorpe, Dickson and Sharpedo. Register is the only endpoint that sets a username.
 - Register and login are each rate-limited per IP (`AUTH_RATE_LIMIT_MAX` per minute, default 10).
 - Sessions last 30 days and are extended to a full 30 days when used after their first day.
+- `isAdmin` (`users.is_admin`, set by hand in SQL; see [deploy.md](deploy.md#live-tuning)): the
+  client shows the hidden `#admin` page. The server checks it on every admin endpoint.
 
 ## Save
 
@@ -166,8 +168,11 @@ whatever the stars. Stars are also in the room's member `partner`, the game's `p
 
 Solo runs are simulated in the browser, so their results are claims the server caps:
 
-1. `POST /api/runs/start` `{ pokemon: { dex, shiny } }` → `201 { runId, startedAt }`. The Pokémon
-   must be owned. A player in a room (party) can't start one: `409 in_room` until they leave it.
+1. `POST /api/runs/start` `{ pokemon: { dex, shiny } }` → `201 { runId, startedAt, config }`. The
+   Pokémon must be owned. `config` is the live-tuning config the run plays with, `{ version,
+tuning, levelup }` (see [Live tuning](#live-tuning-admin)): the server issues it and records
+   `version` on the run (`runs.config_version`); the client builds its sim with it and keeps it
+   for a resume. The client never reports which config it used. A player in a room (party) can't start one: `409 in_room` until they leave it.
    Rate-limited per IP (`ACTION_RATE_LIMIT_MAX`).
 2. `POST /api/runs` with the summary when the run ends:
 
@@ -267,6 +272,55 @@ Coop runs are not reported over HTTP: the game server records them from its own 
 before the end is credited with what they had when they left (`leftAfterS` is their play time).
 Each player's `RunSummary` carries their balance record, from the server's sim; it is stored in
 `run_balance` (`source: "server"`) and left out of what players are sent. Results reach the players as a `game.results` message ([protocol.md](protocol.md)).
+
+## Live tuning (admin)
+
+`tuning.json` and `levelup.json` can be changed without a deploy. The server stores **overrides**
+on top of the built-in files: a deep-merge patch per file (`{ tuning?: {…}, levelup?: {…} }`;
+objects merge key by key, anything else, arrays included, replaces the default). Every publish
+is a new **config version** (`config_versions`: an id, who, when, an optional note and the full
+overrides), kept as history; version 0 is the built-in defaults. Economy, gacha and upgrade
+costs are not tunable here.
+
+- **New runs only.** Each run takes the newest version as it starts and keeps it to the end:
+  solo runs get it from `POST /api/runs/start`, coop games build their sim with it and send it in
+  `GameStatic.config` ([protocol.md](protocol.md)). A coop game saved for a deploy is restored
+  with the config it was saved with. Every run records its version (`runs.config_version`);
+  leaderboards ignore it.
+- **No drafts:** saving publishes. A save is validated with the files' zod schemas (unknown keys
+  are refused) and the cross-file checks; the stored overrides are only what differs from the
+  defaults.
+- **After a deploy** an override may name a setting that no longer exists, or a value the new
+  schema refuses. The server still starts: such settings are skipped (their defaults apply),
+  logged, and listed as `skipped` on the admin endpoints. Publishing again drops them.
+
+| Method & path                             | Body                                                  | Response                                                                                       |
+| ----------------------------------------- | ----------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `GET /api/config`                         | –                                                     | `{ version, tuning, levelup }`: the published config (no login needed)                         |
+| `GET /api/admin/config`                   | –                                                     | `{ current, defaults }`: the published version (below) and the defaults                        |
+| `GET /api/admin/config/versions`          | –                                                     | `{ versions: [{ version, createdAt, createdBy, note, revertedFrom, changes }] }`, newest first |
+| `GET /api/admin/config/versions/:version` | –                                                     | That version (below)                                                                           |
+| `PUT /api/admin/config`                   | `{ config: { tuning, levelup }, baseVersion, note? }` | Publishes the full effective files; the new version                                            |
+| `POST /api/admin/config/revert`           | `{ version, baseVersion, note? }`                     | Publishes that version's overrides again (0: the defaults); the new version                    |
+| `GET /api/admin/config/patch`             | –                                                     | "Export as patch": `{ format: "pokesurvivor-tuning-patch", version, exportedAt, overrides }`   |
+
+A version is `{ version, createdAt, createdBy, note, revertedFrom, overrides, skipped, config }`:
+`createdBy` is a username (null for version 0), `overrides` the ones in effect, `skipped` the
+stored ones this build can't apply (`[{ file, path, message }]`), and `config` the effective
+`{ tuning, levelup }`. `changes` counts the settings a version changes (each leaf; an array is
+one).
+
+- Every `/api/admin/` endpoint needs a login (401) and an admin (`users.is_admin`); anyone else
+  gets **404 `not_found`**, as if it didn't exist.
+- `baseVersion` is the version the edit started from: if another was published since, the
+  publish is refused with **409 `config_changed`** (`current` in the error body), so two admins
+  can't overwrite each other.
+- An invalid config gets **400 `invalid_config`** with `issues: [{ file, path, message }]`
+  (`path` like `spawner.cap`; an unknown key reads `No such setting`); publishing what is already
+  published gets **400 `config_unchanged`**.
+- The patch's `overrides` merge into the files with `pnpm --filter @pokesurvivor/tools
+apply-tuning-patch <file>` (only the changed values are rewritten); see
+  [deploy.md](deploy.md#live-tuning).
 
 ## Gacha
 

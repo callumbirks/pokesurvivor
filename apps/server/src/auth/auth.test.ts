@@ -146,6 +146,7 @@ describe('auth', () => {
     expect(await userFromCookieHeader(db, `other=1; ${user.cookie}`)).toEqual({
       id: user.userId,
       username: user.username,
+      isAdmin: false,
     });
     expect(await userFromCookieHeader(db, undefined)).toBeNull();
     expect(await userFromCookieHeader(db, 'ps_session=nope')).toBeNull();

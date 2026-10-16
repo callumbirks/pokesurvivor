@@ -17,7 +17,8 @@ it, and clients read a missing one as 0), and the JSON part an optional `stats` 
 stats panel; older clients ignore it, and clients without one show no panel), the client message
 `game.spectate` (spectating while down; a new message type, so nothing older sends it), and the
 notices `server-update`, `game-waiting` and `game-resuming` (stop-first deploys, see
-[Deploys](#deploys); older clients ignore notice codes they don't know).
+[Deploys](#deploys); older clients ignore notice codes they don't know), and `GameStatic.config`
+(the run's live-tuning config; optional, older clients use their built-in data).
 
 ## Connection
 
@@ -124,8 +125,14 @@ lists who keeps the owner from starting.
 `game` (`GameStatic`) holds what doesn't change during a run, and is sent once at start and
 again on resume: `roomId`, `gameId`, `seed` (the world), `tickHz`, `snapshotHz`,
 `choiceTimeoutS`, `roster` (the sim's `RosterState`: this run's wild Pokémon and bosses, for
-preloading sprites), and `players` (`{id, username, index, dex, shiny, prestige?}` per player, in
-join order; `prestige` is the Pokémon's stars, absent at 0).
+preloading sprites), `players` (`{id, username, index, dex, shiny, prestige?}` per player, in
+join order; `prestige` is the Pokémon's stars, absent at 0), and `config`: the live-tuning config
+the game plays with from start to end, `{version, tuning, levelup}` (the effective `tuning.json`
+and `levelup.json`; see [api.md](api.md#live-tuning-admin)). The server builds the game's sim
+with it, so a config published mid-game only applies to the next game; a game saved for a deploy
+keeps it. Clients predict and draw the HUD, the stats panel and card texts with it (a client
+from another build applies it over its own data, skipping what it doesn't know). Optional, added
+within version 7: without it, the client's built-in data.
 
 ## Server lag
 

@@ -1,7 +1,8 @@
 // Tiny DOM helpers for the menu screens: an element builder and a few shared widgets (Pokémon
 // sprites, rarity stars, type chips). No framework: screens build their DOM with `h()` and
 // rebuild the parts that change.
-import { loadGameData, t, type UiStringKey } from '@pokesurvivor/data';
+import { t, type UiStringKey } from '@pokesurvivor/data';
+import { gameData } from '../live-config.js';
 import type { SpriteData } from '@pokesurvivor/data/sprites';
 import { iconImg, iconUrl } from '../icons.js';
 import { fitScale, shadowRadii, spriteLayout, type SpriteBox } from '../sprites.js';
@@ -70,7 +71,8 @@ export function replace(el: Element, ...children: Child[]): void {
 
 // ---------------------------------------------------------------- game-data widgets
 
-export const gameData = () => loadGameData();
+/** The game data menus read (the published live-tuning config; see `live-config.ts`). */
+export { gameData };
 
 export function pokemonName(dex: number): string {
   return gameData().pokemonByDex.get(dex)?.name ?? `#${dex}`;

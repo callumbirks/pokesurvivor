@@ -1,9 +1,73 @@
 {
-  "id": "36495e31-306e-4113-b65d-75136d4742c0",
+  "id": "7e842c39-d7ba-4f58-819e-369763ba4392",
   "prevId": "3b381e86-5ca7-4b80-9015-48b2d55edcf0",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
+    "public.config_versions": {
+      "name": "config_versions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "overrides": {
+          "name": "overrides",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reverted_from": {
+          "name": "reverted_from",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "config_versions_created_by_users_id_fk": {
+          "name": "config_versions_created_by_users_id_fk",
+          "tableFrom": "config_versions",
+          "tableTo": "users",
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.currency_ledger": {
       "name": "currency_ledger",
       "schema": "",
@@ -559,87 +623,6 @@
       },
       "isRLSEnabled": false
     },
-    "public.run_balance": {
-      "name": "run_balance",
-      "schema": "",
-      "columns": {
-        "run_id": {
-          "name": "run_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "version": {
-          "name": "version",
-          "type": "smallint",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "source": {
-          "name": "source",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "record": {
-          "name": "record",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "flags": {
-          "name": "flags",
-          "type": "text[]",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'{}'"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "run_balance_run_id_user_id_run_players_run_id_user_id_fk": {
-          "name": "run_balance_run_id_user_id_run_players_run_id_user_id_fk",
-          "tableFrom": "run_balance",
-          "tableTo": "run_players",
-          "columnsFrom": [
-            "run_id",
-            "user_id"
-          ],
-          "columnsTo": [
-            "run_id",
-            "user_id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "run_balance_run_id_user_id_pk": {
-          "name": "run_balance_run_id_user_id_pk",
-          "columns": [
-            "run_id",
-            "user_id"
-          ]
-        }
-      },
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
     "public.run_players": {
       "name": "run_players",
       "schema": "",
@@ -873,6 +856,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": false
+        },
+        "config_version": {
+          "name": "config_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
         }
       },
       "indexes": {
@@ -913,9 +903,38 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "runs_config_version_idx": {
+          "name": "runs_config_version_idx",
+          "columns": [
+            {
+              "expression": "config_version",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
-      "foreignKeys": {},
+      "foreignKeys": {
+        "runs_config_version_config_versions_id_fk": {
+          "name": "runs_config_version_config_versions_id_fk",
+          "tableFrom": "runs",
+          "tableTo": "config_versions",
+          "columnsFrom": [
+            "config_version"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
@@ -1118,6 +1137,13 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "is_admin": {
+          "name": "is_admin",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         },
         "created_at": {
           "name": "created_at",

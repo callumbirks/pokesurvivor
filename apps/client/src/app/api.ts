@@ -1,11 +1,19 @@
 // The HTTP API (docs/api.md), typed for the client. The server owns every value here: the
 // client shows them and sends intents (pull, buy, claim), never computed results.
-import type { PresenceStatus, RunSummary, UnlockedAchievement } from '@pokesurvivor/protocol';
+import type { ConfigIssue, ConfigOverrides, TunableConfig } from '@pokesurvivor/data';
+import type {
+  PresenceStatus,
+  RunConfigWire,
+  RunSummary,
+  UnlockedAchievement,
+} from '@pokesurvivor/protocol';
 import type { SyncedSettings } from '../settings.js';
 
 export interface User {
   id: string;
   username: string;
+  /** Can open `#/admin` (live tuning). Absent from older servers. */
+  isAdmin?: boolean;
 }
 
 export interface Acquisition {
@@ -170,6 +178,47 @@ export interface RunCheckpoint {
   runId: string;
   stats: unknown;
   capped: boolean;
+}
+
+/** A solo run as the server starts it, with the config it issues the run (live tuning). */
+export interface StartedRun {
+  runId: string;
+  startedAt: string;
+  /** Absent from older servers: the built-in data. */
+  config?: RunConfigWire;
+}
+
+/** A published live-tuning config version (admin). */
+export interface ConfigVersionView {
+  version: number;
+  createdAt: string;
+  createdBy: string | null;
+  note: string | null;
+  revertedFrom: number | null;
+  /** The overrides in effect. */
+  overrides: ConfigOverrides;
+  /** Stored overrides this build skips (their defaults apply). */
+  skipped: ConfigIssue[];
+  /** The effective files. */
+  config: TunableConfig;
+}
+
+export interface ConfigVersionSummary {
+  version: number;
+  createdAt: string;
+  createdBy: string | null;
+  note: string | null;
+  revertedFrom: number | null;
+  /** Settings it changes from the defaults. */
+  changes: number;
+}
+
+/** "Export as patch" (`GET /api/admin/config/patch`). */
+export interface ConfigPatch {
+  format: 'pokesurvivor-tuning-patch';
+  version: number;
+  exportedAt: string;
+  overrides: ConfigOverrides;
 }
 
 /** An API error: `code` is stable and maps to a UI string (`errors.<code>` in en.json). */
@@ -346,9 +395,7 @@ export class Api {
   // ---------------------------------------------------------------- solo runs
 
   startRun(pokemon: PokemonRef) {
-    return this.request<{ runId: string; startedAt: string }>('POST', '/api/runs/start', {
-      pokemon,
-    });
+    return this.request<StartedRun>('POST', '/api/runs/start', { pokemon });
   }
   checkpointRun(runId: string, summary: RunSummary) {
     return this.request<RunCheckpoint>(
@@ -360,5 +407,43 @@ export class Api {
   }
   reportRun(runId: string, summary: RunSummary) {
     return this.request<RunReport>('POST', '/api/runs', { ...summary, runId });
+  }
+
+  // ---------------------------------------------------------------- live tuning
+
+  /** The published config (what new runs get). */
+  config() {
+    return this.request<RunConfigWire>('GET', '/api/config');
+  }
+
+  // Admin only (404 for everyone else).
+  adminConfig() {
+    return this.request<{ current: ConfigVersionView; defaults: TunableConfig }>(
+      'GET',
+      '/api/admin/config',
+    );
+  }
+  configVersions() {
+    return this.request<{ versions: ConfigVersionSummary[] }>('GET', '/api/admin/config/versions');
+  }
+  configVersion(version: number) {
+    return this.request<ConfigVersionView>('GET', `/api/admin/config/versions/${version}`);
+  }
+  publishConfig(config: unknown, baseVersion: number, note?: string) {
+    return this.request<ConfigVersionView>('PUT', '/api/admin/config', {
+      config,
+      baseVersion,
+      ...(note ? { note } : {}),
+    });
+  }
+  revertConfig(version: number, baseVersion: number, note?: string) {
+    return this.request<ConfigVersionView>('POST', '/api/admin/config/revert', {
+      version,
+      baseVersion,
+      ...(note ? { note } : {}),
+    });
+  }
+  configPatch() {
+    return this.request<ConfigPatch>('GET', '/api/admin/config/patch');
   }
 }

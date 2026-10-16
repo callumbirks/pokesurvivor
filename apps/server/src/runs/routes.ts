@@ -6,6 +6,7 @@ import { getServerData, knownDexSchema, pokemonTypeSchema } from '../data.js';
 import type { Database } from '../db/index.js';
 import type { RunCaps } from '../economy/config.js';
 import { ApiError, parseBody } from '../http/errors.js';
+import { runConfigOf, type LiveConfig } from '../live-config/store.js';
 import { getSave } from '../saves/service.js';
 import { getLeaderboard } from './leaderboard.js';
 import { parseBalance } from './balance.js';
@@ -27,6 +28,8 @@ export interface RunRoutesOptions {
    * presence). Absent without a game server.
    */
   runClosed?: (userId: string, runId: string) => void;
+  /** Live tuning: the config each new solo run is issued (the defaults, version 0, without). */
+  liveConfig?: LiveConfig;
 }
 
 const count = z.number().int().nonnegative().max(1_000_000);
@@ -80,11 +83,20 @@ const leaderboardQuery = z.object({
  * A solo report's balance record, if it validates. A bad one is dropped (and logged): it is
  * analytics only, so the run is credited all the same.
  */
-function soloBalance(request: FastifyRequest, runId: string, raw: unknown): SoloBalance {
+function soloBalance(
+  request: FastifyRequest,
+  runId: string,
+  raw: unknown,
+  liveConfig: LiveConfig | undefined,
+): SoloBalance {
   const parsed = parseBalance(raw);
   if (parsed && !parsed.ok)
     request.log.warn({ runId, reason: parsed.reason }, 'dropped an invalid balance record');
-  return { record: parsed?.ok ? parsed.record : null, log: request.log };
+  return {
+    record: parsed?.ok ? parsed.record : null,
+    log: request.log,
+    dataFor: async (v) => (await liveConfig?.version(v))?.game ?? null,
+  };
 }
 
 export function runRoutes(app: FastifyInstance, opts: RunRoutesOptions): void {
@@ -100,8 +112,14 @@ export function runRoutes(app: FastifyInstance, opts: RunRoutesOptions): void {
       const userId = currentUser(request).id;
       if (await opts.inRoom?.(userId))
         throw new ApiError(409, 'in_room', 'Leave your room to start a solo run');
-      const run = await startSoloRun(db, userId, pokemon);
-      return reply.status(201).send({ runId: run.runId, startedAt: run.startedAt.toISOString() });
+      // The server issues the config (and records its version): the client never says which.
+      const config = await opts.liveConfig?.current();
+      const run = await startSoloRun(db, userId, pokemon, config?.version ?? 0);
+      return reply.status(201).send({
+        runId: run.runId,
+        startedAt: run.startedAt.toISOString(),
+        ...(config ? { config: runConfigOf(config) } : {}),
+      });
     },
   );
 
@@ -110,7 +128,7 @@ export function runRoutes(app: FastifyInstance, opts: RunRoutesOptions): void {
     { preHandler: requireUser, config: { rateLimit } },
     async (request) => {
       const { runId, balance, ...claim } = parseBody(finishBody, request.body);
-      const record = soloBalance(request, runId, balance);
+      const record = soloBalance(request, runId, balance, opts.liveConfig);
       return checkpointSoloRun(db, currentUser(request).id, runId, claim, runCaps, record);
     },
   );
@@ -118,7 +136,7 @@ export function runRoutes(app: FastifyInstance, opts: RunRoutesOptions): void {
   app.post('/api/runs', { preHandler: requireUser }, async (request) => {
     const { runId, balance, ...claim } = parseBody(finishBody, request.body);
     const userId = currentUser(request).id;
-    const record = soloBalance(request, runId, balance);
+    const record = soloBalance(request, runId, balance, opts.liveConfig);
     const progressOpts = { timeZone: opts.leaderboardTimeZone };
     const result = await finishSoloRun(
       db,

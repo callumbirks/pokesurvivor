@@ -1,7 +1,7 @@
 import { firstOption, SnapshotDecoder, type Snapshot } from '@pokesurvivor/netclient';
 import { describe, expect, it } from 'vitest';
 import type { PlayerState } from '@pokesurvivor/sim';
-import { Game } from './game.js';
+import { Game, defaultGameTuning } from './game.js';
 import type { Session } from './session.js';
 
 function setup() {
@@ -14,12 +14,15 @@ function setup() {
   } as unknown as Session;
   const game = new Game(
     'room',
-    ['a', 'b'].map((id) => ({
-      userId: id,
-      username: id,
-      loadout: { id, dex: 25 },
-      owned: new Set<number>(),
-    })),
+    {
+      players: ['a', 'b'].map((id) => ({
+        userId: id,
+        username: id,
+        loadout: { id, dex: 25 },
+        owned: new Set<number>(),
+      })),
+      tuning: defaultGameTuning(),
+    },
     { snapshotHz: 20, choiceTimeoutS: 30, simDebug: { noSpawns: true, invulnerable: true } },
     (id) => (id === 'a' ? session : null),
     () => {},

@@ -14,7 +14,7 @@ import {
   type RoomPhase,
   type RoomView,
 } from '@pokesurvivor/protocol';
-import { Game, type GameOutcome, type GamePlayerInfo } from './game.js';
+import { Game, type GameOutcome, type GamePlayerInfo, type GameTuning } from './game.js';
 import { loadLoadout, partnerOf, type Partner } from './loadout.js';
 import { GameError, type GameServer } from './server.js';
 import { getSave } from '../saves/service.js';
@@ -474,7 +474,12 @@ export class Room {
 
     this.starting = true;
     let players: GamePlayerInfo[];
+    let tuning: GameTuning;
     try {
+      // The newest published config: the game keeps it to the end.
+      const nextTuning = this.server.newGameTuning();
+      // Settled either way, so a failed loadout doesn't leave it unhandled.
+      nextTuning.catch(() => {});
       // Loadouts come from the server saves, never from the clients.
       players = await Promise.all(
         [...this.members.values()].map(async (m) => {
@@ -488,6 +493,7 @@ export class Room {
           };
         }),
       );
+      tuning = await nextTuning;
     } finally {
       this.starting = false;
     }
@@ -503,7 +509,7 @@ export class Room {
     for (const userId of [...this.invites.keys()]) this.revokeInvite(userId);
     const game = new Game(
       this.id,
-      players,
+      { players, tuning },
       this.server.gameSettings,
       (id) => this.server.sessionOf(id),
       (g, outcome) => this.ended(g, outcome),

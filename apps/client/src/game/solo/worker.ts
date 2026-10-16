@@ -6,7 +6,7 @@
 // as the run starts and every `saveEveryS` of run time (saved only), every `checkpointEveryS`
 // (saved and reported), and on request.
 import { SnapshotEncoder, firstOption } from '@pokesurvivor/netclient';
-import { loadGameData } from '@pokesurvivor/data';
+import { loadGameData, type GameData } from '@pokesurvivor/data';
 import { decodeAim } from '@pokesurvivor/protocol';
 import {
   TICK_HZ,
@@ -17,6 +17,7 @@ import {
   restoreSim,
   type Sim,
 } from '@pokesurvivor/sim';
+import { gameDataOf } from '../../live-config.js';
 import type { FromWorker, ToWorker } from './messages.js';
 
 interface WorkerScope {
@@ -32,6 +33,8 @@ let weatherIdx = 0;
 const MAX_CATCH_UP_MS = 250;
 
 let sim: Sim | null = null;
+/** The run's game data (its live-tuning config). */
+let data: GameData = loadGameData();
 let encoder: SnapshotEncoder | null = null;
 let playerId = '';
 let owned = new Set<number>();
@@ -139,12 +142,11 @@ function loop(): void {
 /** Dev and perf tests: plays the first minutes for you (circling, invulnerable, first cards). */
 function setDevMoves(s: Sim, ids: string[], level: number): void {
   const p = s.state.players[0];
-  const data = loadGameData();
   const moves = ids.filter((id) => data.moveById.has(id)).slice(0, 4);
   if (!p || !moves.length) return;
   p.moves = moves.map((id) => {
     const def = data.moveById.get(id)!;
-    const stats = moveStatsAt(id, level, false);
+    const stats = moveStatsAt(id, level, false, data);
     return { id, kind: def.kind, type: def.type, level, evolved: false, stats, t: 0, castTick: -1 };
   });
   p.slots = moves.map((id) => [id]);
@@ -177,13 +179,15 @@ scope.onmessage = (ev) => {
       case 'init': {
         playerId = m.loadout.id;
         owned = new Set(m.owned);
+        data = gameDataOf(m.config);
         sim = m.restore
-          ? restoreSim(m.restore)
+          ? restoreSim(m.restore, data)
           : createSim({
               seed: m.seed,
               players: [m.loadout],
               choiceTimeoutSeconds: null,
               debug: m.invulnerable ? { invulnerable: true } : undefined,
+              data,
             });
         encoder = new SnapshotEncoder({ viewerId: playerId });
         if (m.skipMinutes && !m.restore) skipAhead(sim, m.skipMinutes * 60);
@@ -212,6 +216,7 @@ scope.onmessage = (ev) => {
                 ...(m.loadout.prestige ? { prestige: m.loadout.prestige } : {}),
               },
             ],
+            ...(m.config ? { config: m.config } : {}),
           },
         });
         return;

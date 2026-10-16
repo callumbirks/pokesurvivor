@@ -19,6 +19,8 @@ import { gachaRoutes } from './gacha/routes.js';
 import { GameServer } from './game/server.js';
 import type { GameServerOptions } from './game/server.js';
 import { registerErrorHandler } from './http/errors.js';
+import { liveConfigRoutes } from './live-config/routes.js';
+import { LiveConfig } from './live-config/store.js';
 import { missionRoutes } from './progress/routes.js';
 import { runRoutes } from './runs/routes.js';
 import { RunSweeper } from './runs/sweeper.js';
@@ -47,6 +49,8 @@ declare module 'fastify' {
     game: GameServer | null;
     /** Credits solo runs whose final report never came (null without a database). */
     runSweeper: RunSweeper | null;
+    /** Live tuning: the published config versions (null without a database). */
+    liveConfig: LiveConfig | null;
   }
 }
 
@@ -113,8 +117,12 @@ export async function buildApp({
       }
     });
 
+  const liveConfig = db ? new LiveConfig(db.db, app.log.child({ module: 'live-config' })) : null;
+  app.decorate('liveConfig', liveConfig);
+
   const game = db
     ? new GameServer({
+        liveConfig: liveConfig!,
         db: db.db,
         config: config.game,
         log: app.log.child({ module: 'game' }),
@@ -135,6 +143,13 @@ export async function buildApp({
     : null;
   app.decorate('runSweeper', runSweeper);
   app.addHook('onReady', async () => {
+    // Resolves the published config now, so overrides this build can't apply are logged at start
+    // (they're skipped, never fatal).
+    await liveConfig
+      ?.current()
+      .catch((err: unknown) =>
+        app.log.error({ err }, 'could not read the live config; new runs will retry'),
+      );
     await game?.registry.cleanup();
     // Games the previous server saved on its way down, before any player can connect.
     await game?.restoreGames();
@@ -158,6 +173,7 @@ export async function buildApp({
       ...common,
       economy,
       onPartnerChanged: (userId) => game?.partnerChanged(userId),
+      liveConfig: liveConfig ?? undefined,
     });
     runRoutes(app, {
       ...common,
@@ -167,7 +183,9 @@ export async function buildApp({
       inRoom: async (userId) =>
         game?.roomOfUser(userId) != null || !!(await game?.registry.membership(userId)),
       runClosed: (userId, runId) => game?.soloRunsClosed([runId], userId),
+      liveConfig: liveConfig ?? undefined,
     });
+    if (liveConfig) liveConfigRoutes(app, { ...common, liveConfig });
     gachaRoutes(app, { ...common, rateLimit: config.rateLimits.actions });
     missionRoutes(app, { ...common, timeZone: config.leaderboardTimeZone });
     friendRoutes(app, {

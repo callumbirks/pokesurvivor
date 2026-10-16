@@ -12,6 +12,7 @@ import {
   hash2,
 } from '@pokesurvivor/sim';
 import type { ArenaGeometry, Prop } from '@pokesurvivor/sim';
+import type { GameData } from '@pokesurvivor/data';
 import { PX, whiteOf } from '../../sprites.js';
 import type { Camera } from './camera.js';
 import type { FX } from './fx.js';
@@ -49,8 +50,11 @@ export class WorldRenderer {
   private flashes = new Map<string, number>();
   private arenaKey = '';
 
-  constructor(readonly seed: number) {
-    this.view = new WorldView(seed);
+  constructor(
+    readonly seed: number,
+    data?: GameData,
+  ) {
+    this.view = new WorldView(seed, data);
   }
 
   /** The palette in use: the run biome, or the arena's. */

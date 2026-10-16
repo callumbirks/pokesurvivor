@@ -3,6 +3,7 @@
 // untrusted, so it is checked for shape and size here and dropped if it fails, and it never
 // changes what a run is credited with.
 import { BALANCE_RECORD_VERSION, type BalanceRecord } from '@pokesurvivor/protocol';
+import type { GameData } from '@pokesurvivor/data';
 import { z } from 'zod';
 import { getServerData } from '../data.js';
 
@@ -155,6 +156,8 @@ export interface BalanceContext {
   dex: number;
   /** The server capped the claim. */
   capped?: boolean;
+  /** The game data of the run's config version (default: the server's built-in data). */
+  game?: GameData;
   /** For solo: the player's save as of now, to check the setup against. */
   save?: { prestige: number; upgrades: Readonly<Record<string, number>> };
 }
@@ -175,10 +178,10 @@ const EPS = 1e-3;
  *                            build (all at the top rarity), or a pick above that rarity's value
  *   defense-above-max        defence above `tuning.defense.max`
  *   crit-above-max           crit chance above 1
- * The checks use today's game data. (Once tuning is live, the run's config version applies.)
+ * The checks use the game data of the run's config version (live tuning).
  */
 export function balanceFlags(rec: BalanceRecord, run: BalanceContext): string[] {
-  const d = getServerData();
+  const d = run.game ?? getServerData();
   const flags = new Set<string>();
   const end = rec.end;
   if (run.capped) flags.add('claim-capped');
