@@ -1,6 +1,6 @@
 {
   "unreleased": {
-    "prs": [92, 93, 94],
+    "prs": [92, 93, 94, 95],
     "entries": {
       "new": [
         "Server updates no longer end co-op runs: you get a short warning, and your run continues right after the update."
@@ -14,7 +14,9 @@
       "fixed": [
         "After an update the game no longer gets stuck on a black or white screen until you hard-refresh."
       ],
-      "behindTheScenes": []
+      "behindTheScenes": [
+        "Every run now keeps a balance record per player (cards picked, stats each minute, what knocked you out) for tuning. It doesn't change rewards."
+      ]
     }
   },
   "versions": [
