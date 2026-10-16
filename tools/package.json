@@ -2,13 +2,14 @@
   "name": "@pokesurvivor/tools",
   "version": "0.0.0",
   "private": true,
-  "description": "Sprite manifest and collision-body generation, the changelog and the release step.",
+  "description": "Sprite manifest and collision-body generation, the changelog and the release step, and baking live-tuning patches into the data.",
   "type": "module",
   "scripts": {
     "generate-sprites": "tsx sprites/generate.ts",
     "changelog": "tsx changelog/cli.ts render",
     "changelog:check": "tsx changelog/cli.ts check",
     "release": "tsx changelog/cli.ts release",
+    "apply-tuning-patch": "tsx tuning/apply-patch.ts",
     "typecheck": "tsc"
   },
   "devDependencies": {
