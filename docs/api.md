@@ -322,6 +322,28 @@ one).
 apply-tuning-patch <file>` (only the changed values are rewritten); see
   [deploy.md](deploy.md#live-tuning).
 
+## Run export (admin)
+
+Balance records of finished runs, for tuning ([run-export.md](run-export.md)). Admin only, like
+the live-tuning endpoints (401 logged out, 404 for non-admins).
+
+- `GET /api/admin/runs/export?…` → a JSON file (`content-disposition: attachment`), streamed in
+  pages of 500 records, oldest run first:
+  `{ exportedAt, filters, entries: [{ run, player, source, flags, balance }], configVersions }`.
+  - `run`: `{ id, mode, players, startedAt, endedAt, durationS, timedOut, configVersion }`.
+  - `player`: `{ userId, username, dex, shiny, credited: { level, kills, bosses, coins,
+ticketsX1, ticketsX10 } }`.
+  - `source` (`server` for co-op, `client` for solo), `flags`, and `balance` (the
+    `BalanceRecord`).
+  - `configVersions`: `{ [id]: { createdAt, note, overrides } }` for every version in the file.
+- `GET /api/admin/runs/count?…` → `{ count, flagged }`: the records the filters match, and how
+  many flagged ones the same filters match (left out unless `includeFlagged`).
+
+Filters (query string, all optional): `from`, `to` (ISO dates/times, on when the run ended),
+`minDurationS`, `maxDurationS`, `mode` (`solo` | `coop`), `players` (1–4), `dex`, `username`
+(case-insensitive), `configVersion`, `outcome` (`all-down` | `everyone-left` | `none`), and
+`includeFlagged` (`true` | `false`, default `false`). A bad value is `400 invalid_request`.
+
 ## Gacha
 
 The gacha rolls on the server with `crypto` randomness; the client only animates the results.

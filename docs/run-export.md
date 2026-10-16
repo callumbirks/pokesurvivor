@@ -78,4 +78,21 @@ Solo records are what the browser says. The server keeps them but flags what can
 | `defense-above-max`    | defence above `tuning.defense.max`                                                  |
 | `crit-above-max`       | crit chance above 100%                                                              |
 
-The checks use the game data the server runs with.
+The checks use the game data of the run's config version (live tuning).
+
+## Exporting
+
+On the hidden admin page, `#admin`, open **Export runs**:
+
+1. Set the filters: when the runs ended, how long they lasted (e.g. at least 20 minutes for
+   runs that reached 20:00), solo or co-op and the number of players, the Pokémon, a player's
+   username (to find the run someone reported), the config version, and the outcome. Leave a
+   filter empty for "any".
+2. The count below updates as you go, with how many flagged records the filters leave out.
+   Tick **Include flagged records** to get them too (each entry lists its `flags`).
+3. **Download JSON** saves the file. Each entry is one player's record with its run (mode,
+   players, times, config version) and what they were credited; `configVersions` at the end has
+   the overrides of each version in the file, so it can be analysed on its own.
+
+The same export is `GET /api/admin/runs/export` ([api.md](api.md#run-export-admin)), e.g. with
+`curl -b 'ps_session=…'` for scripts.
