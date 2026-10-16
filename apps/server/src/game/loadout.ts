@@ -30,8 +30,8 @@ export interface Loadout {
 
 /**
  * What a player brings into a coop run, read from their server save (never from the client):
- * the partner, its permanent upgrades, prestige stars, move bindings and bans, and the
- * legendaries they have beaten (rifts favour the others).
+ * the partner, its permanent upgrades, prestige stars, move bindings and bans, its chosen
+ * Repertoire move, and the legendaries they have beaten (rifts favour the others).
  */
 export async function loadLoadout(db: Executor, userId: string): Promise<Loadout | null> {
   const save = await getSave(db, userId);
@@ -47,6 +47,7 @@ export async function loadLoadout(db: Executor, userId: string): Promise<Loadout
       prestige: save.prestige[key] ?? 0,
       bannedMoves: save.moveBans[key] ?? [],
       moveBindings: save.moveBindings[key] ?? [],
+      ...(save.repertoireMoves[key] ? { secondMove: save.repertoireMoves[key] } : {}),
       legendsBeaten: Object.keys(save.legendsBeaten).map(Number),
     },
     owned: new Set(Object.keys(save.owned).map(Number)),

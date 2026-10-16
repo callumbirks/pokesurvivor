@@ -26,6 +26,11 @@ export interface PlayerConfig {
   upgrades?: Readonly<Record<string, number>>;
   /** Moves never offered ("Ban" upgrade); only the first `ban` level's worth are used. */
   bannedMoves?: readonly string[];
+  /**
+   * The second starting move chosen for "Repertoire". Used only while it's still valid (an
+   * attacking move of the pool, not the starting move, not banned); otherwise a random one.
+   */
+  secondMove?: string;
   /** Preferred slot per move ("Shortcuts"): `moveBindings[slot] = moveId`. */
   moveBindings?: readonly (string | null)[];
   /** Dex numbers of the legendaries this player has beaten (unbeaten ones come up more in rifts). */
@@ -146,12 +151,15 @@ export function createPlayer(
     if (id) p.bind[id] = i;
   });
   addMove(ctx, p, d.startingMove(cfg.dex), true);
-  // "Repertoire" upgrade: a second, random attacking move.
+  // "Repertoire" upgrade: a second attacking move, the chosen one or else a random one (a valid
+  // choice draws nothing from the RNG).
   if (perks.startMoves >= 2) {
     const pool = d
       .movePool(p.types)
       .filter((id) => !hasMove(p, id) && !p.banned.includes(id) && d.move(id).kind !== 'buff');
-    if (pool.length) addMove(ctx, p, ctx.rand.pick(pool), true);
+    const chosen = pool.find((id) => id === cfg.secondMove);
+    if (chosen) addMove(ctx, p, chosen, true);
+    else if (pool.length) addMove(ctx, p, ctx.rand.pick(pool), true);
     setActive(ctx, p, 0, true);
   }
   p.balance.startMoves = p.moves.map((m) => m.id);

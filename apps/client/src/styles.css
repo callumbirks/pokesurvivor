@@ -1100,6 +1100,23 @@ html[data-input='touch'] .back-btn .input-hint {
 .upg-choose {
   margin-top: 6px;
 }
+/* Repertoire's second move: a row across the whole card, under its text and price. */
+.upg-repertoire {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+.upg-repertoire span {
+  white-space: nowrap;
+}
+.upg-repertoire select {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  padding: 5px 26px 5px 6px;
+}
 .pips {
   display: flex;
   flex-wrap: wrap;

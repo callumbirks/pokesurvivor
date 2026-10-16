@@ -47,7 +47,7 @@ describe('prestige', () => {
     const c = await t.newUser();
     await grantPokemon(t.db, c.userId, [{ dex: 25 }]);
     await c.put('/api/save/partner', { dex: 25 });
-    expect((await c.get('/api/save')).json()).toMatchObject({ version: 3, prestige: {} });
+    expect((await c.get('/api/save')).json()).toMatchObject({ version: 4, prestige: {} });
 
     // A version 2 save has no `prestige` at all.
     await t.db.db

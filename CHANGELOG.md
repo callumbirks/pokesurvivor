@@ -6,6 +6,12 @@ What changed for players in each release, newest first. Generated from
 
 ## Unreleased
 
+PRs: [#98](https://github.com/callumbirks/pokesurvivor/pull/98)
+
+### New
+
+- Repertoire now lets you choose your second starting move (or keep it random) on the Upgrades screen.
+
 ## v16 - 2026-10-16
 
 PRs: [#92](https://github.com/callumbirks/pokesurvivor/pull/92), [#93](https://github.com/callumbirks/pokesurvivor/pull/93), [#94](https://github.com/callumbirks/pokesurvivor/pull/94), [#95](https://github.com/callumbirks/pokesurvivor/pull/95), [#96](https://github.com/callumbirks/pokesurvivor/pull/96)

@@ -97,6 +97,7 @@ async function loadSoloLoadout(): Promise<{
     prestige?: Record<string, number>;
     moveBans: Record<string, string[]>;
     moveBindings: Record<string, (string | null)[]>;
+    repertoireMoves?: Record<string, string>;
     legendsBeaten: Record<string, unknown>;
   };
   const dex = save.partner.dex;
@@ -113,6 +114,7 @@ async function loadSoloLoadout(): Promise<{
       prestige: save.prestige?.[key] ?? 0,
       bannedMoves: save.moveBans[key] ?? [],
       moveBindings: save.moveBindings[key] ?? [],
+      ...(save.repertoireMoves?.[key] ? { secondMove: save.repertoireMoves[key] } : {}),
       legendsBeaten: Object.keys(save.legendsBeaten).map(Number),
     },
   };
