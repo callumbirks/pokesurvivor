@@ -22,6 +22,7 @@ import { registerErrorHandler } from './http/errors.js';
 import { liveConfigRoutes } from './live-config/routes.js';
 import { LiveConfig } from './live-config/store.js';
 import { missionRoutes } from './progress/routes.js';
+import { runExportRoutes } from './runs/export.js';
 import { runRoutes } from './runs/routes.js';
 import { RunSweeper } from './runs/sweeper.js';
 import { saveRoutes } from './saves/routes.js';
@@ -186,6 +187,7 @@ export async function buildApp({
       liveConfig: liveConfig ?? undefined,
     });
     if (liveConfig) liveConfigRoutes(app, { ...common, liveConfig });
+    runExportRoutes(app, common);
     gachaRoutes(app, { ...common, rateLimit: config.rateLimits.actions });
     missionRoutes(app, { ...common, timeZone: config.leaderboardTimeZone });
     friendRoutes(app, {
