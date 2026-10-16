@@ -1,12 +1,14 @@
 {
   "unreleased": {
-    "prs": [98],
+    "prs": [98, 99],
     "entries": {
       "new": [
         "Repertoire now lets you choose your second starting move (or keep it random) on the Upgrades screen."
       ],
       "changed": [],
-      "fixed": [],
+      "fixed": [
+        "Group leaderboard entries show the level and Pokémon defeated once instead of once per player."
+      ],
       "behindTheScenes": []
     }
   },
