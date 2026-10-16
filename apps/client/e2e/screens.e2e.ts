@@ -36,9 +36,10 @@ test('shop, moves, settings, solo and login again', async ({ page }) => {
   await expect(page.getByTestId('screen-menu')).toBeVisible();
   const partner = (await page.getByTestId('partner-name').textContent())?.trim() ?? '';
   expect(partner.length).toBeGreaterThan(0);
-  // The menu: a pixel-art icon per entry, the coins/tickets counters, the living world behind.
+  // The menu: a pixel-art icon per entry, the coins/tickets/gems counters, the living world behind.
   await expect(page.locator('.menu-item .mi-ico img.pix')).toHaveCount(9);
-  await expect(page.locator('.topbar img.pix')).toHaveCount(4);
+  await expect(page.locator('.topbar img.pix')).toHaveCount(5);
+  await expect(page.getByTestId('topbar-gems')).toHaveText('0');
   await expect(page.locator('canvas.backdrop')).toBeVisible();
 
   // What's new: a new device sees a dot while there's a release (it never opens by itself);

@@ -76,6 +76,7 @@ const PICKUP: Record<string, { color: string; glow: string; r: number }> = {
   coin: { color: '#ffd23f', glow: '#b8860b', r: 5.5 },
   ticket: { color: '#ffd23f', glow: '#c08a10', r: 7 },
   ticket10: { color: '#c47bff', glow: '#8a3fd0', r: 8 },
+  gem: { color: '#5fe3ff', glow: '#2a8fd0', r: 8 },
   item: { color: '#ffd23f', glow: '#c08a10', r: 9 },
 };
 const PICKUP_ICON: Record<string, string> = {
@@ -84,6 +85,7 @@ const PICKUP_ICON: Record<string, string> = {
   bomb: 'bomb',
   ticket: 'ticket',
   ticket10: 'ticket10',
+  gem: 'gem',
 };
 
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
@@ -466,7 +468,16 @@ export class EntityLayer {
         ellipse(ctx, p.x, y, r * sx * 0.5, r * 0.5);
         ctx.fill();
       } else {
-        const sz = p.kind === 'ticket10' || p.kind === 'item' ? 24 : 18;
+        const sz = p.kind === 'ticket10' || p.kind === 'item' || p.kind === 'gem' ? 24 : 18;
+        if (p.kind === 'gem') {
+          // A gem: a pulsing cyan glow, so a rare drop stands out in the crowd.
+          ctx.globalAlpha = 0.3 + Math.sin(t * 2) * 0.12;
+          ctx.fillStyle = '#5fe3ff';
+          ctx.beginPath();
+          ctx.arc(p.x, y, 15, 0, TAU);
+          ctx.fill();
+          ctx.globalAlpha = 1;
+        }
         if (p.kind === 'item') {
           // A held item: a pulsing golden glow, visible from afar.
           ctx.globalAlpha = 0.35 + Math.sin(t * 1.5) * 0.15;

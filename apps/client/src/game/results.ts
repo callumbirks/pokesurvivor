@@ -1,6 +1,6 @@
 // The end-of-run screen (original implementation `showOver`), from `game.results` (co-op, recorded by the
 // server from its own sim) or the solo report (`POST /api/runs`, capped by the server). It shows
-// what was credited, the reward breakdown, moves, tickets and shinies, the players who left early,
+// what was credited, the reward breakdown, moves, tickets, gems and shinies, the players who left early,
 // and the achievements the run unlocked with the rewards they paid (from the solo report, or the
 // player's entry in `game.results`), totalled apart from the run's own coins and tickets.
 import { loadGameData, t } from '@pokesurvivor/data';
@@ -155,6 +155,12 @@ export function renderResults(results: Results, o: ResultsOptions): HTMLElement 
           run.ticketsX1 ? [icon('ticket', 22), ` +${run.ticketsX1} `] : null,
           run.ticketsX10 ? [icon('ticket10', 22), ` +${run.ticketsX10} ×10`] : null,
         ),
+        true,
+      );
+    if (run.gems)
+      cell(
+        t('pause.gems'),
+        el('span', { data: { testid: 'results-gems' } }, icon('gem', 22), ` +${run.gems}`),
         true,
       );
     if (ps?.moves.length)

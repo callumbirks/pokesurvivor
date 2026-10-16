@@ -23,13 +23,19 @@ const rules = Object.fromEntries(
   ]),
 );
 
+const { prestigeCost, resetCost } = data.tuning.gems;
+let version = 0;
+
 function save(
   upgrades: Record<string, number>,
   prestige?: number,
   moves: { bans?: string[]; repertoire?: string } = {},
+  gems = prestigeCost,
 ): Save {
   return {
     coins: 0,
+    gems,
+    updatedAt: String(version++),
     partner: { dex: 4, shiny: false },
     owned: { 4: { at: 0, from: 'starter' } },
     shiny: {},
@@ -41,13 +47,17 @@ function save(
   } as unknown as Save;
 }
 
-function fakeApp(s: Save) {
+function fakeApp(s: Save, refund: number) {
   let onSave = () => {};
   const app = {
     save: s,
     api: {
       request: vi.fn(() => Promise.resolve({ upgrades: rules })),
       prestige: vi.fn(() => Promise.resolve(save({}, (s.prestige?.['4'] ?? 0) + 1))),
+      resetQuote: vi.fn((dex: number) => Promise.resolve({ dex, refund, cost: resetCost })),
+      resetUpgrades: vi.fn(() =>
+        Promise.resolve(save({}, s.prestige?.['4'], {}, (s.gems ?? 0) - resetCost)),
+      ),
       setMoves: vi.fn((_dex: number, body: { repertoire?: string | null }) =>
         Promise.resolve(
           save(app.save.upgrades['4'] ?? {}, undefined, {
@@ -68,8 +78,8 @@ function fakeApp(s: Save) {
   return app;
 }
 
-async function mount(s: Save) {
-  const app = fakeApp(s);
+async function mount(s: Save, refund = 0) {
+  const app = fakeApp(s, refund);
   const screen = shopScreen(app as unknown as App);
   document.body.append(screen.el);
   await vi.waitFor(() => expect(screen.el.querySelector('[data-testid="prestige"]')).toBeTruthy());
@@ -88,6 +98,15 @@ describe('upgrades screen: prestige', () => {
     expect((await mount(save(short))).button()?.disabled).toBe(true);
     document.body.replaceChildren();
     expect((await mount(save(maxed))).button()?.disabled).toBe(false);
+  });
+
+  it(`needs ${prestigeCost} gems, shown on the button and the status`, async () => {
+    const { button, screen } = await mount(save(maxed, undefined, {}, prestigeCost - 1));
+    expect(button()?.disabled).toBe(true);
+    expect(button()?.textContent).toContain(String(prestigeCost));
+    expect(screen.el.querySelector('[data-testid="prestige-status"]')?.textContent).toBe(
+      `Every upgrade is maxed: prestiging costs ${prestigeCost} gems, you have ${prestigeCost - 1}.`,
+    );
   });
 
   it('has no button at the highest prestige, and shows the stars', async () => {
@@ -113,6 +132,9 @@ describe('upgrades screen: prestige', () => {
     const b = prestigeBonus(data.tuning.prestige, 2);
     expect(gains).toContain(`+${Math.round((b.hpMul - 1) * 100)}% HP`);
     expect(gains).toHaveLength(6);
+    expect(dialog.querySelector('[data-testid="prestige-cost"]')?.textContent).toContain(
+      `Costs ${prestigeCost} gems (you have ${prestigeCost})`,
+    );
 
     // Cancel does nothing.
     dialog.querySelector<HTMLButtonElement>('[data-testid="dialog-cancel"]')!.click();
@@ -144,6 +166,70 @@ describe('upgrades screen: prestige', () => {
     const b = prestigeBonus(data.tuning.prestige, 2);
     expect(stats.textContent).toContain(String(Math.round(mon.hp * b.hpMul)));
     expect(stats.querySelectorAll('[data-testid="prestige-box"] .chip')).toHaveLength(3);
+  });
+});
+
+describe('upgrades screen: reset', () => {
+  const reset = () => document.querySelector<HTMLButtonElement>('[data-testid="reset-button"]');
+  /** The Reset button once the screen has the server's quote. */
+  const quoted = () =>
+    vi.waitFor(() => {
+      expect(reset()?.dataset.refund).not.toBe('');
+      return reset()!;
+    });
+
+  it('is disabled with nothing bought since the last prestige, or short of gems', async () => {
+    await mount(save({ attack: 2 }, undefined, {}, resetCost), 0);
+    expect((await quoted()).disabled).toBe(true);
+    expect(reset()!.title).toBe('Nothing bought since its last prestige: nothing to reset.');
+    document.body.replaceChildren();
+
+    await mount(save({ attack: 2 }, undefined, {}, resetCost - 1), 250);
+    expect((await quoted()).disabled).toBe(true);
+    expect(reset()!.title).toBe(`Resetting costs ${resetCost} gems, you have ${resetCost - 1}.`);
+    document.body.replaceChildren();
+
+    const { app } = await mount(save({ attack: 2 }, undefined, {}, resetCost), 250);
+    expect((await quoted()).disabled).toBe(false);
+    expect(reset()!.textContent).toContain(String(resetCost));
+    expect(app.api.resetQuote).toHaveBeenCalledWith(4);
+  });
+
+  it('warns what resets, the exact refund, the cost and that stars stay, then resets', async () => {
+    const moves = { bans: ['scratch'], repertoire: 'tackle' };
+    const s = save({ ban: 1, 'extra-move': 1 }, 2, moves, 140);
+    const { app } = await mount(s, 1234);
+    (await quoted()).click();
+    const dialog = await vi.waitFor(() => {
+      const d = document.querySelector<HTMLElement>('[data-testid="reset-dialog"]');
+      expect(d).toBeTruthy();
+      return d!;
+    });
+    const text = dialog.textContent ?? '';
+    expect(text).toContain("can't be undone");
+    expect(text).toContain('Repertoire and Ban included');
+    expect(text).toContain('banned moves are cleared');
+    expect(text).toContain('second move goes back to random');
+    expect(dialog.querySelector('[data-testid="reset-refund"]')?.textContent).toContain(
+      '+1,234 PokéCoins',
+    );
+    expect(dialog.querySelector('[data-testid="reset-cost"]')?.textContent).toContain(
+      `Costs ${resetCost} gems (you have 140)`,
+    );
+    expect(dialog.querySelector('[data-testid="reset-keeps"]')?.textContent).toContain(
+      'prestige stars stay (2)',
+    );
+    expect(dialog.querySelector('[data-testid="dialog-confirm"]')?.textContent).toBe(
+      `Reset for ${resetCost} gems`,
+    );
+
+    dialog.querySelector<HTMLButtonElement>('[data-testid="dialog-cancel"]')!.click();
+    expect(app.api.resetUpgrades).not.toHaveBeenCalled();
+
+    reset()!.click();
+    document.querySelector<HTMLButtonElement>('[data-testid="dialog-confirm"]')!.click();
+    await vi.waitFor(() => expect(app.api.resetUpgrades).toHaveBeenCalledWith(4));
+    expect(app.save.gems).toBe(140 - resetCost);
   });
 });
 

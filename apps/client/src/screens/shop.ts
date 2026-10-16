@@ -3,13 +3,15 @@
 // legacy, the "ban" upgrade opens the picker for the banned moves, and the move slots are below.
 // Once bought, "Repertoire" has a drop-down for the second move runs start with (or random).
 // Above the upgrades, the Pokémon's stats with its prestige and the Prestige button: once every
-// upgrade is maxed, the server resets them for a star (`POST /api/save/prestige`).
+// upgrade is maxed, the server resets them for a star and gems (`POST /api/save/prestige`). Next
+// to it, Reset: for gems, the server resets the upgrades and gives back the coins spent on them
+// since the last prestige (`POST /api/save/upgrades/reset`; the refund is its quote).
 import { canPrestige, t, type Move, type Pokemon } from '@pokesurvivor/data';
 import { audio } from '../audio.js';
 import type { App, Screen } from '../app/app.js';
 import { gameData, h, icon, num, pokemonName, replace, sprite } from '../app/dom.js';
 import { confirmDialog } from '../app/confirm-dialog.js';
-import type { MovesBody } from '../app/api.js';
+import type { MovesBody, ResetQuote, Save } from '../app/api.js';
 import { bindableMoves, movePoolOf, repertoireMoves, startingMoveOf } from '../app/moves.js';
 import { statBars } from '../app/pokemon-views.js';
 import { prestigeGains, prestigeOf, stars } from '../app/prestige.js';
@@ -41,6 +43,22 @@ export function shopScreen(app: App): Screen {
   const prestigeEl = h('div', { class: 'panel prestige-panel', dataset: { testid: 'prestige' } });
   const list = h('div', { class: 'upg', dataset: { testid: 'upgrades' } });
   let rules: UpgradeRules = {};
+  /** The server's reset quote per Pokémon and save version (it changes with every purchase). */
+  const quotes = new Map<string, ResetQuote | 'loading'>();
+  const quoteOf = (s: Save, dex: number): ResetQuote | null => {
+    const key = `${dex}@${s.updatedAt}`;
+    const q = quotes.get(key);
+    if (q) return q === 'loading' ? null : q;
+    quotes.set(key, 'loading');
+    app.api.resetQuote(dex).then(
+      (quote) => {
+        quotes.set(key, quote);
+        if (app.save === s && pick.dex === dex) render();
+      },
+      () => quotes.delete(key),
+    );
+    return null;
+  };
 
   const levelsOf = (dex: number) => app.save?.upgrades[String(dex)] ?? {};
   const totalLevels = (dex: number) => Object.values(levelsOf(dex)).reduce((a, b) => a + b, 0);
@@ -204,17 +222,50 @@ export function shopScreen(app: App): Screen {
     );
     const ready = canPrestige(tuning, maxLevels, levels, current);
     const atMax = current >= tuning.maxStars;
+    const gems = s.gems ?? 0;
+    const { prestigeCost } = data.tuning.gems;
+    const affordable = gems >= prestigeCost;
     const button = h(
       'button',
       {
-        class: ['btn', ready && 'primary'],
-        disabled: !ready,
+        class: ['btn', ready && affordable && 'primary'],
+        disabled: !ready || !affordable,
         dataset: { testid: 'prestige-button', sfx: 'none' },
       },
       '★ ',
       t('prestige.button'),
+      ' ',
+      h('span', { class: 'btn-cost' }, icon('gem', 16), ` ${num(prestigeCost)}`),
     );
     button.addEventListener('click', () => void prestige(mon, current, button));
+    const quote = quoteOf(s, mon.dex);
+    const refundable = !!quote && quote.refund > 0;
+    const canReset = refundable && gems >= quote.cost;
+    const reset = h(
+      'button',
+      {
+        class: 'btn',
+        disabled: !canReset,
+        title: !quote
+          ? ''
+          : !refundable
+            ? t('reset.nothing')
+            : canReset
+              ? t('reset.status', { 0: quote.cost, 1: num(quote.refund) })
+              : t('reset.needGems', { 0: quote.cost, 1: gems }),
+        dataset: { testid: 'reset-button', sfx: 'none', refund: String(quote?.refund ?? '') },
+      },
+      t('reset.button'),
+      ' ',
+      h(
+        'span',
+        { class: 'btn-cost' },
+        icon('gem', 16),
+        ` ${num(quote?.cost ?? data.tuning.gems.resetCost)}`,
+      ),
+    );
+    if (quote)
+      reset.addEventListener('click', () => void resetUpgrades(mon, current, quote, reset));
     replace(
       prestigeEl,
       h(
@@ -227,11 +278,13 @@ export function shopScreen(app: App): Screen {
           { class: 'sub', dataset: { testid: 'prestige-status' } },
           atMax
             ? t('prestige.maxed', { 0: current })
-            : ready
-              ? t('prestige.ready')
-              : t('prestige.notReady'),
+            : !ready
+              ? t('prestige.notReady')
+              : affordable
+                ? t('prestige.ready')
+                : t('prestige.needGems', { 0: prestigeCost, 1: gems }),
         ),
-        atMax ? null : button,
+        h('div', { class: 'prestige-btns' }, atMax ? null : button, reset),
       ),
       h('div', { class: 'prestige-stats' }, statBars(mon, current)),
     );
@@ -257,6 +310,13 @@ export function shopScreen(app: App): Screen {
             : null,
           h('li', { class: 'muted' }, t('prestige.keeps')),
         ),
+        h(
+          'p',
+          { class: 'dialog-cost', dataset: { testid: 'prestige-cost' } },
+          icon('gem', 18),
+          ' ',
+          t('prestige.cost', { 0: data.tuning.gems.prestigeCost, 1: s.gems ?? 0 }),
+        ),
         h('h4', null, t('prestige.gain'), ' ', stars(next)),
         h('p', { class: 'sub' }, t('prestige.gainStar', { 0: next })),
         h(
@@ -273,6 +333,62 @@ export function shopScreen(app: App): Screen {
       app.setSave(await app.api.prestige(mon.dex));
       audio.sfx('buy');
       toast(t('prestige.done', { 0: mon.name, 1: next }), 'good');
+    });
+  };
+
+  /** The confirm dialog of a reset: what goes, the exact refund, the gem cost, and that stars stay. */
+  const resetUpgrades = async (
+    mon: Pokemon,
+    current: number,
+    quote: ResetQuote,
+    button: HTMLButtonElement,
+  ) => {
+    const s = app.save;
+    if (!s) return;
+    const key = String(mon.dex);
+    const star = stars(current);
+    const ok = await confirmDialog({
+      testid: 'reset-dialog',
+      title: t('reset.confirmTitle', { 0: mon.name }),
+      body: [
+        h('p', { class: 'dialog-warning' }, t('reset.warning')),
+        h('h4', null, t('reset.resets')),
+        h(
+          'ul',
+          { class: 'dialog-list' },
+          h('li', null, t('reset.resetUpgrades')),
+          s.moveBans[key]?.length ? h('li', null, t('reset.resetBans')) : null,
+          s.repertoireMoves?.[key] ? h('li', null, t('reset.resetRepertoire')) : null,
+          h(
+            'li',
+            { class: 'muted', dataset: { testid: 'reset-keeps' } },
+            current ? [t('reset.keepsStars', { 0: current }), ' ', star] : t('prestige.keeps'),
+          ),
+        ),
+        h('h4', null, t('reset.refund')),
+        h(
+          'p',
+          { class: 'gold', dataset: { testid: 'reset-refund' } },
+          icon('coin', 18),
+          ' ',
+          t('reset.refundCoins', { 0: num(quote.refund) }),
+        ),
+        h(
+          'p',
+          { class: 'dialog-cost', dataset: { testid: 'reset-cost' } },
+          icon('gem', 18),
+          ' ',
+          t('reset.cost', { 0: quote.cost, 1: s.gems ?? 0 }),
+        ),
+      ],
+      confirmLabel: t('reset.confirm', { 0: quote.cost }),
+      cancelLabel: t('reset.cancel'),
+    });
+    if (!ok) return;
+    await app.act(button, async () => {
+      app.setSave(await app.api.resetUpgrades(mon.dex));
+      audio.sfx('buy');
+      toast(t('reset.done', { 0: mon.name, 1: num(quote.refund) }), 'good');
     });
   };
 

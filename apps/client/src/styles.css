@@ -2760,6 +2760,28 @@ canvas.backdrop {
 .prestige-panel .stat {
   grid-template-columns: 64px 1fr 88px;
 }
+.prestige-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.btn-cost {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  opacity: 0.9;
+}
+.dialog-box .dialog-warning {
+  margin: 4px 0 0;
+  color: var(--red);
+  font-weight: 700;
+}
+.dialog-box .dialog-cost {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 10px 0 0;
+}
 @media (max-width: 640px) {
   .prestige-panel {
     grid-template-columns: minmax(0, 1fr);

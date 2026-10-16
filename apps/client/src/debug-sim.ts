@@ -51,6 +51,7 @@ const PICKUP_COLORS: Record<string, string> = {
   bomb: '#ff7b3d',
   ticket: '#ffd23f',
   ticket10: '#c47bff',
+  gem: '#5fe3ff',
   item: '#ffffff',
 };
 const PROP_COLORS: Record<string, string> = {
@@ -326,7 +327,7 @@ export function startDebugSim(canvas: HTMLCanvasElement, ctx: CanvasRenderingCon
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const lines = [
       `t ${Math.floor(s.time / 60)}:${String(Math.floor(s.time % 60)).padStart(2, '0')}  tick ${s.tick}  ×${speed}  step ${stepMs.toFixed(2)} ms (budget ${TICK_MS.toFixed(1)})`,
-      `level ${s.team.level}  xp ${Math.floor(s.team.xp)}/${s.team.xpNext}  kills ${s.team.kills}  bosses ${s.team.bosses}  coins ${s.team.coins}  tickets ${s.team.tickets}/${s.team.tickets10}`,
+      `level ${s.team.level}  xp ${Math.floor(s.team.xp)}/${s.team.xpNext}  kills ${s.team.kills}  bosses ${s.team.bosses}  coins ${s.team.coins}  tickets ${s.team.tickets}/${s.team.tickets10}  gems ${s.team.gems}`,
       `enemies ${s.enemies.length}  projectiles ${s.projectiles.length}  pickups ${s.pickups.length}  fields ${s.fields.length}  hazards ${s.hazards.length}  biome ${s.world.biome}`,
       `HP ${Math.ceil(me.hp)}/${Math.round(me.maxHp)}  item ${me.item ?? '-'}  power ${me.power ? `${me.power.id} ${Math.ceil(me.power.t)}s` : '-'}  bonds ${me.bonds}  ${s.config.invulnerable ? 'GOD ' : ''}${s.config.noSpawns ? 'PEACEFUL' : ''}`,
       `rift ${s.rift.open ? `open ${Math.ceil(s.rift.open.ttl)}s` : `next roll ${Math.ceil(s.rift.checkT)}s (misses ${s.rift.misses})`}  opened ${s.rift.opened}` +

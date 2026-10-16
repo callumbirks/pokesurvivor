@@ -47,6 +47,15 @@ export interface MovesBody {
   repertoire?: string | null;
 }
 
+/** `GET /api/save/upgrades/reset/:dex`. */
+export interface ResetQuote {
+  dex: number;
+  /** PokéCoins a reset gives back (0: nothing bought since the last prestige or reset). */
+  refund: number;
+  /** Gems it costs. */
+  cost: number;
+}
+
 export interface PokemonRef {
   dex: number;
   shiny: boolean;
@@ -56,6 +65,8 @@ export interface Save {
   version: number;
   coins: number;
   tickets: { x1: number; x10: number };
+  /** Gems (R6). Optional: saves cached before gems lack it. */
+  gems?: number;
   partner: { dex: number | null; shiny: boolean };
   owned: Record<string, Acquisition>;
   shiny: Record<string, Acquisition>;
@@ -332,9 +343,17 @@ export class Api {
   buyUpgrade(dex: number, upgradeId: string) {
     return this.request<Save>('POST', '/api/save/upgrades', { dex, upgradeId });
   }
-  /** Resets a fully upgraded Pokémon's upgrades for a prestige star. */
+  /** Resets a fully upgraded Pokémon's upgrades for a prestige star (and gems). */
   prestige(dex: number) {
     return this.request<Save>('POST', '/api/save/prestige', { dex });
+  }
+  /** What resetting a Pokémon's upgrades would refund now, and its gem cost. */
+  resetQuote(dex: number) {
+    return this.request<ResetQuote>('GET', `/api/save/upgrades/reset/${dex}`);
+  }
+  /** Resets a Pokémon's upgrades for gems, refunding the coins spent since its last prestige. */
+  resetUpgrades(dex: number) {
+    return this.request<Save>('POST', '/api/save/upgrades/reset', { dex });
   }
 
   // ---------------------------------------------------------------- gacha

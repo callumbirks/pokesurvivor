@@ -33,6 +33,7 @@ const PICKUP_COLORS: Record<string, string> = {
   heal: '#5fe08a',
   ticket: '#ffd23f',
   ticket10: '#c47bff',
+  gem: '#5fe3ff',
 };
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);

@@ -35,6 +35,7 @@ const PICK_SFX: Record<string, SfxName> = {
   magnet: 'confirm',
   ticket: 'shiny',
   ticket10: 'legend',
+  gem: 'legend',
   item: 'legend',
 };
 const TRAP_COLORS: Record<string, string> = {
@@ -318,6 +319,9 @@ export class EventEffects {
             true,
           );
           fx.ring(p.x, p.y, 6, 50, one ? '#ffd23f' : '#c47bff', 0.4, 3);
+        } else if (e.kind === 'gem') {
+          fx.text(p.x, p.y - h - 8, t('hud.n1Gem'), '#5fe3ff', true);
+          fx.ring(p.x, p.y, 6, 50, '#5fe3ff', 0.4, 3);
         } else if (e.kind === 'heal') fx.ring(p.x, p.y, 6, 60, '#5fe08a', 0.4, 3);
         return;
       }
