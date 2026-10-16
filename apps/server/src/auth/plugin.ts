@@ -69,6 +69,11 @@ export interface AuthHooks {
   requireUser: preHandlerAsyncHookHandler;
   /** preHandler: sets `request.user` if logged in, null otherwise. */
   optionalUser: preHandlerAsyncHookHandler;
+  /**
+   * preHandler for every admin endpoint: 401 `unauthenticated` unless logged in, and 404
+   * `not_found` unless an admin (`users.is_admin`), so the admin API looks like it isn't there.
+   */
+  requireAdmin: preHandlerAsyncHookHandler;
 }
 
 export function createAuthHooks({ db, secureCookies }: AuthOptions): AuthHooks {
@@ -85,6 +90,11 @@ export function createAuthHooks({ db, secureCookies }: AuthOptions): AuthHooks {
     },
     async optionalUser(request, reply) {
       await load(request, reply);
+    },
+    async requireAdmin(request, reply) {
+      await load(request, reply);
+      if (!request.user) throw new ApiError(401, 'unauthenticated', 'Not logged in');
+      if (!request.user.isAdmin) throw new ApiError(404, 'not_found', 'Not found');
     },
   };
 }

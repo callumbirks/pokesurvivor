@@ -1,8 +1,8 @@
 // Settings: sound, graphics, controls, account and about (original implementation). Edits the
 // settings store, which saves locally and syncs the account's copy.
-import { loadChangelog, loadGameData, t, versionLabel } from '@pokesurvivor/data';
+import { loadChangelog, t, versionLabel } from '@pokesurvivor/data';
 import type { App, Screen } from '../app/app.js';
-import { h, replace } from '../app/dom.js';
+import { gameData, h, replace } from '../app/dom.js';
 import { glyph, type PadButton } from '../glyphs.js';
 import {
   CROSSHAIR_COLORS,
@@ -434,7 +434,7 @@ export function settingsScreen(
 
 /** How Momentum works, with the numbers from the tuning. */
 function momentumHelp(): string {
-  const m = loadGameData().tuning.momentum;
+  const m = gameData().tuning.momentum;
   const pct = (v: number) => String(Math.round(v * 1000) / 10);
   // A limit that doesn't grow during the run reads as one number.
   if (m.maxStacksStart >= m.maxStacks)

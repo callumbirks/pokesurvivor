@@ -2,6 +2,7 @@
 // delivered asynchronously like a Web Worker's), on fake timers: the checkpoint cadence, the
 // keep-alive, the local save and what happens to it when the run is reported, refused or offline.
 import type { Results } from '@pokesurvivor/netclient';
+import { loadGameData } from '@pokesurvivor/data';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SoloClock } from '@pokesurvivor/protocol';
 import {
@@ -212,6 +213,43 @@ describe('solo connection checkpoints', () => {
     expect(api.reportRun.mock.calls[0]?.[1].durationS).toBe(3);
     expect(await store.get('u1')).toBeNull();
     resumed.close();
+  });
+
+  it('plays with the config the server issues, and resumes with it', async () => {
+    const data = loadGameData();
+    const config = {
+      version: 7,
+      tuning: {
+        ...data.tuning,
+        spawner: { ...data.tuning.spawner, cap: data.tuning.spawner.cap + 1 },
+      },
+      levelup: data.levelUp,
+    };
+    const first = fakeApi({
+      startRun: () => Promise.resolve({ runId: 'run-1', startedAt: '', config }),
+    });
+    const store = memoryRunStore();
+    const conn = await connect(first, store);
+    // The game (and so the HUD and texts) gets the run's config; the local save keeps it.
+    expect(conn.game?.config).toEqual(config);
+    await vi.advanceTimersByTimeAsync(1300);
+    conn.close();
+    const saved = await store.get('u1');
+    expect(saved?.config).toEqual(config);
+
+    // A resume doesn't ask the server again: it plays on with the saved config.
+    const api = fakeApi();
+    const resumed = await connect(api, store, { resume: saved! });
+    expect(api.startRun).not.toHaveBeenCalled();
+    expect(resumed.game?.config).toEqual(config);
+    resumed.close();
+  });
+
+  it("plays with the built-in data when the server can't be reached", async () => {
+    const api = fakeApi({ startRun: () => Promise.reject(new Error('offline')) });
+    const conn = await connect(api, memoryRunStore());
+    expect(conn.game?.config).toBeUndefined();
+    conn.close();
   });
 
   it('checkpoints when the page is hidden or closed', async () => {

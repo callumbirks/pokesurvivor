@@ -1,6 +1,6 @@
 // Messages between the solo connection (main thread) and the sim's Web Worker.
 import type { Game, ResultSummary } from '@pokesurvivor/netclient';
-import type { RunSummary } from '@pokesurvivor/protocol';
+import type { RunConfigWire, RunSummary } from '@pokesurvivor/protocol';
 import type { Intent, PlayerConfig, SimState } from '@pokesurvivor/sim';
 import type { ChoiceResult } from '@pokesurvivor/sim';
 
@@ -20,6 +20,11 @@ export type ToWorker =
       devMoveLevel?: number;
       /** Resume a saved run: the sim at its last checkpoint (instead of a new run). */
       restore?: SimState;
+      /**
+       * The live-tuning config the server issued the run (kept in the local save for a resume):
+       * the sim plays with it to the end. Absent: the built-in data.
+       */
+      config?: RunConfigWire;
       /** Send a reported `checkpoint` every this many seconds of run time (none if unset). */
       checkpointEveryS?: number;
       /** Send a `checkpoint` to save locally as the run starts and every this many seconds. */

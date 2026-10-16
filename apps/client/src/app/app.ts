@@ -37,6 +37,7 @@ import {
 } from './dom.js';
 import { mountToasts, notice, toast, toastError } from './toast.js';
 import { UpdatePrompt } from './update-prompt.js';
+import { setPublishedConfig } from '../live-config.js';
 
 export interface Screen {
   el: HTMLElement;
@@ -55,6 +56,8 @@ export interface Route {
   noPartner?: boolean;
   /** Shows the top bar (coins, tickets, account). */
   topbar?: boolean;
+  /** Admins only (`User.isAdmin`); for anyone else the route doesn't exist (the menu). */
+  admin?: boolean;
 }
 
 /** What the play screen runs: a coop game from the server, or a solo run in the browser. */
@@ -156,6 +159,7 @@ export class App {
   async loggedIn(user: User): Promise<void> {
     this.user = user;
     void loadSprites();
+    this.refreshConfig(true);
     const save = await this.api.save();
     this.setSave(save);
     // The account's settings win over this browser's (they may come from another device).
@@ -195,6 +199,20 @@ export class App {
     } catch {
       // Stale coins for a moment are fine; the next action refreshes it.
     }
+  }
+
+  private configAt = -Infinity;
+
+  /**
+   * Fetches the published live-tuning config, for the numbers the menus show (`gameData()`): at
+   * login, then at most once a minute as screens open. Until it comes, the built-in data.
+   */
+  refreshConfig(force = false): void {
+    if (!force && performance.now() - this.configAt < 60_000) return;
+    this.configAt = performance.now();
+    this.api.config().then(setPublishedConfig, () => {
+      this.configAt = -Infinity; // Retried with the next screen.
+    });
   }
 
   /** The gacha rules and banners (cached; pity changes come back with each pull). */
@@ -521,7 +539,8 @@ export class App {
     const hasPartner = !!this.save && Object.keys(this.save.owned).length > 0;
     if (!this.user) name = route?.public ? name : 'login';
     else if (!hasPartner) name = route?.noPartner ? name : 'starter';
-    else if (!route || route.public || route.noPartner) name = 'menu';
+    else if (!route || route.public || route.noPartner || (route.admin && !this.user.isAdmin))
+      name = 'menu';
     if (name === 'play' && !this.game) name = 'menu';
     route = this.routes[name];
     if (!route) return;
@@ -534,6 +553,7 @@ export class App {
     this.busy.setBusyScreen(!!route.busy);
     // Runs (and their results) are never interrupted; the prompt waits for the menus.
     this.updates.screen(name === 'play');
+    if (name !== 'play') this.refreshConfig();
     this.screen = route.create(this, params);
     // Menu music everywhere outside a run (it starts on the first click or key); the game plays
     // its own.

@@ -88,11 +88,31 @@ const DEFAULT_BODY_ANCHOR = 24;
 const baseHp = (p: Pokemon) => (p.hp - 70) / 0.45;
 const baseSpeed = (p: Pokemon) => (p.speed - 78) / 0.42;
 
-let cached: SimData | undefined;
+/** Built once per game data object (the defaults, or each live-tuning config). */
+const cache = new WeakMap<GameData, SimData>();
 
+/** The sim's data for the built-in game data (`loadGameData()`): the default for every run. */
 export function simData(): SimData {
-  if (cached) return cached;
-  const game = loadGameData();
+  return simDataFor(loadGameData());
+}
+
+/** Which data each sim's state runs on (`Sim` registers it), for the views over a bare state. */
+const byState = new WeakMap<object, SimData>();
+
+/** Records that `state` runs on `d` (the `Sim` constructor does this). */
+export function bindSimData(state: object, d: SimData): void {
+  byState.set(state, d);
+}
+
+/** The data a sim's state runs on: what its `Sim` was built with, else the defaults. */
+export function simDataOf(state: object): SimData {
+  return byState.get(state) ?? simData();
+}
+
+/** The sim's data for this game data (e.g. with live-tuning overrides, `gameDataWith`). Cached. */
+export function simDataFor(game: GameData): SimData {
+  const hit = cache.get(game);
+  if (hit) return hit;
   const { moves: movesFile, types, enemies, world } = game;
 
   const MULT = new Set<string>(movesFile.modifierRules.multiplicative);
@@ -247,7 +267,7 @@ export function simData(): SimData {
 
   const { fromMinute, k: lateK } = enemies.lateGame;
 
-  cached = {
+  const built: SimData = {
     game,
     body(dex) {
       return (
@@ -351,5 +371,6 @@ export function simData(): SimData {
       return Math.exp(Math.min(30, lateK * m * m));
     },
   };
-  return cached;
+  cache.set(game, built);
+  return built;
 }

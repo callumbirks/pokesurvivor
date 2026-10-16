@@ -7,6 +7,7 @@ import type { Database } from '../db/index.js';
 import { pokemonPrestiges } from '../db/schema.js';
 import { upgradeCost } from '../economy/config.js';
 import type { EconomyConfig } from '../economy/config.js';
+import type { LiveConfig } from '../live-config/store.js';
 import { ApiError, parseBody } from '../http/errors.js';
 import { checkAchievements } from '../progress/achievements.js';
 import {
@@ -24,6 +25,8 @@ export interface SaveRoutesOptions {
   economy: EconomyConfig;
   /** The partner changed (the room, if any, shows the new one to its members). */
   onPartnerChanged?: (userId: string) => void;
+  /** Live tuning: prestige reads the published `tuning.prestige` (built-in without it). */
+  liveConfig?: LiveConfig;
 }
 
 const partnerBody = z.object({ dex: knownDexSchema, shiny: z.boolean().default(false) });
@@ -223,7 +226,9 @@ export function saveRoutes(app: FastifyInstance, opts: SaveRoutesOptions): void 
    */
   app.post('/api/save/prestige', { preHandler: requireUser }, async (request) => {
     const { dex } = parseBody(prestigeBody, request.body);
-    const tuning = getServerData().tuning.prestige;
+    const tuning = (
+      opts.liveConfig ? (await opts.liveConfig.current()).config.tuning : getServerData().tuning
+    ).prestige;
     const maxLevels = Object.fromEntries(
       Object.entries(economy.upgrades).map(([id, def]) => [id, def.maxLevel]),
     );

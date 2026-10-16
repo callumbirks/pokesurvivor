@@ -14,6 +14,7 @@ import type {
   SimEvent,
   SimState,
 } from '@pokesurvivor/sim';
+import { loadGameData, type GameData, type RunConfig } from '@pokesurvivor/data';
 import type { SavedGame } from './saved.js';
 import type { Session } from './session.js';
 
@@ -41,8 +42,26 @@ export interface PlayerOutcome {
   summary: ResultSummary;
 }
 
+/** The live-tuning config a game plays with for its whole life. */
+export interface GameTuning {
+  /** Its config version (`config_versions`; 0: the defaults). */
+  version: number;
+  /** The game data its sim runs on. */
+  data: GameData;
+  /** What clients get in `GameStatic.config`. */
+  run: RunConfig;
+}
+
+/** The built-in data, version 0 (tests, and games from before live tuning). */
+export function defaultGameTuning(): GameTuning {
+  const data = loadGameData();
+  return { version: 0, data, run: { version: 0, tuning: data.tuning, levelup: data.levelUp } };
+}
+
 export interface GameOutcome {
   gameId: string;
+  /** The config version it ran with (recorded on the run). */
+  configVersion: number;
   reason: string;
   startedAt: Date;
   endedAt: Date;
@@ -79,6 +98,7 @@ interface Restored {
   gameId: string;
   saved: SavedGame;
   sim: Sim;
+  tuning: GameTuning;
 }
 
 export class Game {
@@ -104,13 +124,17 @@ export class Game {
   private wasPaused = false;
   private snapshotDirty = false;
 
+  /** The config it plays with (a restored game keeps the one it was saved with). */
+  readonly tuning: GameTuning;
+
   constructor(
     readonly roomId: string,
-    from: readonly GamePlayerInfo[] | Restored,
+    from: { players: readonly GamePlayerInfo[]; tuning: GameTuning } | Restored,
     private readonly settings: GameSettings,
     private readonly sessionOf: (userId: string) => Session | null,
     private readonly onEnd: (game: Game, outcome: GameOutcome) => void,
   ) {
+    this.tuning = from.tuning;
     if ('saved' in from) {
       const { saved } = from;
       this.id = from.gameId;
@@ -135,7 +159,7 @@ export class Game {
     } else {
       this.id = randomUUID();
       this.seed = randomInt(1, 2 ** 31 - 1);
-      this.sim = this.createSim(from);
+      this.sim = this.createSim(from.players);
       this.info = this.describe();
     }
   }
@@ -148,12 +172,19 @@ export class Game {
     gameId: string,
     saved: SavedGame,
     simJson: string,
+    tuning: GameTuning,
     settings: GameSettings,
     sessionOf: (userId: string) => Session | null,
     onEnd: (game: Game, outcome: GameOutcome) => void,
   ): Game {
-    const sim = restoreSim(JSON.parse(simJson) as SimState);
-    const game = new Game(saved.room.id, { gameId, saved, sim }, settings, sessionOf, onEnd);
+    const sim = restoreSim(JSON.parse(simJson) as SimState, tuning.data);
+    const game = new Game(
+      saved.room.id,
+      { gameId, saved, sim, tuning },
+      settings,
+      sessionOf,
+      onEnd,
+    );
     // Every slot must be its player in the sim, and the summaries (what gets credited) must work.
     for (const slot of game.slots.values()) {
       if (sim.state.players[slot.index]?.id !== slot.userId)
@@ -217,6 +248,7 @@ export class Game {
       players: players.map((p) => p.loadout),
       choiceTimeoutSeconds: this.settings.choiceTimeoutS,
       debug: this.settings.simDebug,
+      data: this.tuning.data,
     });
     this.slots = new Map(players.map((p, index) => [p.userId, this.newSlot(p, index)]));
     return sim;
@@ -261,6 +293,7 @@ export class Game {
         shiny: this.sim.state.players[s.index]?.shiny ?? false,
         ...(s.loadout.prestige ? { prestige: s.loadout.prestige } : {}),
       })),
+      config: this.tuning.run,
     };
   }
 
@@ -521,6 +554,7 @@ export class Game {
     const players = this.outcomes();
     this.onEnd(this, {
       gameId: this.id,
+      configVersion: this.tuning.version,
       reason,
       startedAt: this.startedAt,
       endedAt,

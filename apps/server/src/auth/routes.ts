@@ -62,7 +62,7 @@ export function authRoutes(app: FastifyInstance, opts: AuthRoutesOptions): void 
       throw err;
     }
     await startSession(reply, userId);
-    return reply.status(201).send({ user: { id: userId, username } });
+    return reply.status(201).send({ user: { id: userId, username, isAdmin: false } });
   });
 
   app.post('/api/auth/login', { config: { rateLimit } }, async (request, reply) => {
@@ -73,7 +73,7 @@ export function authRoutes(app: FastifyInstance, opts: AuthRoutesOptions): void 
       : await verifyDummyPassword(password);
     if (!user || !ok) throw new ApiError(401, 'invalid_credentials', 'Wrong username or password');
     await startSession(reply, user.id);
-    return { user: { id: user.id, username: user.username } };
+    return { user: { id: user.id, username: user.username, isAdmin: user.isAdmin } };
   });
 
   app.post('/api/auth/logout', async (request, reply) => {

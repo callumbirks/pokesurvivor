@@ -135,6 +135,20 @@ export interface GameStatic<Roster = unknown> {
   /** This run's wild Pokémon per tier and its bosses (the sim's `RosterState`). */
   roster: Roster;
   players: PlayerLoadout[];
+  /**
+   * The live-tuning config the run plays with, from start to end: its `version` and the
+   * effective `tuning.json` and `levelup.json` (`RunConfig` in `@pokesurvivor/data`). The client
+   * predicts and shows numbers with it. Optional (added within version 7): without it, the
+   * client's built-in data.
+   */
+  config?: RunConfigWire;
+}
+
+/** A run's live-tuning config on the wire (the data files stay opaque to the protocol). */
+export interface RunConfigWire {
+  version: number;
+  tuning: unknown;
+  levelup: unknown;
 }
 
 export interface PlayerResult<Summary = unknown> {

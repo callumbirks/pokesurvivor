@@ -6,7 +6,10 @@
 // (stored, credited by the server only if the final report never comes), and `POST /api/runs`
 // with the run summary at the end (credited, capped by the server). At each checkpoint it also
 // saves the sim's state locally (`SoloRunStore`), so a closed tab can resume or report the run.
-// If the server can't be reached the run is still played; its results just aren't credited.
+// The server also issues the run its live-tuning config (and records its version), so the run
+// waits for `start` before the sim is built; a resume plays on with the config it saved.
+// If the server can't be reached the run is still played (with the built-in data); its results
+// just aren't credited.
 import {
   NetRoomConnection,
   type Game,
@@ -15,7 +18,7 @@ import {
   type Results,
   type RoomConnection,
 } from '@pokesurvivor/netclient';
-import type { RunSummary, SoloClock } from '@pokesurvivor/protocol';
+import type { RunConfigWire, RunSummary, SoloClock } from '@pokesurvivor/protocol';
 import type { Intent, PlayerConfig } from '@pokesurvivor/sim';
 import type { RunReport } from '../../app/api.js';
 import { loadFailed } from '../../load-recovery.js';
@@ -29,7 +32,8 @@ import type { SavedSoloRun, SoloRunStore } from './store.js';
  * ends; the connection then emits `results` with what was credited.
  */
 export interface SoloApi {
-  startRun(): Promise<{ runId: string; startedAt: string }>;
+  /** `config`: the live-tuning config the run plays with (absent from older servers). */
+  startRun(): Promise<{ runId: string; startedAt: string; config?: RunConfigWire }>;
   checkpointRun(runId: string, summary: RunSummary): Promise<unknown>;
   reportRun(runId: string, summary: RunSummary): Promise<RunReport>;
 }
@@ -150,6 +154,8 @@ export function createSoloConnection(opts: SoloOptions): SoloConnection {
   let lastCheckpoint = now();
   let clockTimer: ReturnType<typeof setTimeout> | null = null;
   let clockShown = false;
+  /** The run's live-tuning config, once the server issued it (or from the resumed save). */
+  let config: RunConfigWire | undefined = resume?.config;
   /** The run id once known, and the latest run summary: sent as the page goes away. */
   let knownRunId: string | null = null;
   let latestSummary: RunSummary | null = null;
@@ -171,6 +177,7 @@ export function createSoloConnection(opts: SoloOptions): SoloConnection {
     loadout,
     username: opts.username,
     owned,
+    ...(config ? { config } : {}),
     summary,
     state,
   });
@@ -372,31 +379,34 @@ export function createSoloConnection(opts: SoloOptions): SoloConnection {
     conn.handleResults(results);
   }
 
-  // Start the run on the server (in parallel with building the sim and loading), or continue
-  // the saved one.
+  // Start the run on the server, which issues its config, then build the sim with it; or
+  // continue the saved one with the config it saved.
   if (resume) knownRunId = resume.runId;
-  runId = resume
-    ? Promise.resolve(resume.runId)
-    : opts.api
-        .startRun()
-        .then((r) => (knownRunId = r.runId ?? null))
-        .catch((err: unknown) => {
-          console.warn('[solo] the run will not be credited:', err);
-          return null;
-        });
-  post({
-    type: 'init',
-    seed,
-    loadout,
-    username: opts.username,
-    owned,
-    skipMinutes: opts.skipMinutes,
-    invulnerable: opts.invulnerable,
-    devMoves: opts.devMoves,
-    devMoveLevel: opts.devMoveLevel,
-    restore: resume?.state ?? undefined,
-    checkpointEveryS: opts.checkpointEveryS ?? CHECKPOINT_EVERY_S,
-    saveEveryS: opts.saveEveryS ?? SAVE_EVERY_S,
+  const started: Promise<{ runId: string; config?: RunConfigWire } | null> = resume
+    ? Promise.resolve({ runId: resume.runId, config: resume.config })
+    : opts.api.startRun().catch((err: unknown) => {
+        console.warn('[solo] the run will not be credited:', err);
+        return null;
+      });
+  runId = started.then((r) => (r ? (knownRunId = r.runId) : null));
+  void started.then((r) => {
+    if (closed) return;
+    config = r?.config;
+    post({
+      type: 'init',
+      seed,
+      loadout,
+      username: opts.username,
+      owned,
+      skipMinutes: opts.skipMinutes,
+      invulnerable: opts.invulnerable,
+      devMoves: opts.devMoves,
+      devMoveLevel: opts.devMoveLevel,
+      restore: resume?.state ?? undefined,
+      config,
+      checkpointEveryS: opts.checkpointEveryS ?? CHECKPOINT_EVERY_S,
+      saveEveryS: opts.saveEveryS ?? SAVE_EVERY_S,
+    });
   });
 
   // Keep-alive: an open run that doesn't advance (paused, choosing) still checkpoints.

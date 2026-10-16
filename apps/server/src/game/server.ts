@@ -24,7 +24,14 @@ import type { FriendEvent, FriendNotifier, PresenceSource } from '../friends/pre
 import { friendIds } from '../friends/service.js';
 import { recordCoopRun } from '../runs/service.js';
 import { getSave } from '../saves/service.js';
-import { Game, type GameOutcome, type GameSettings } from './game.js';
+import {
+  Game,
+  defaultGameTuning,
+  type GameOutcome,
+  type GameSettings,
+  type GameTuning,
+} from './game.js';
+import { runConfigOf, type LiveConfig } from '../live-config/store.js';
 import { Room, newRoomId, type SavedRoom } from './room.js';
 import { Session } from './session.js';
 import { Ticker } from './ticker.js';
@@ -38,7 +45,7 @@ import {
   type SentPresence,
 } from './activity.js';
 import { RoomRegistry, type GameSaveRow } from './registry.js';
-import { SAVED_GAME_VERSION } from './saved.js';
+import { SAVED_GAME_VERSION, type SavedGame } from './saved.js';
 
 /** A request failed; the code goes to the client (it maps it to a UI string). */
 export class GameError extends Error {
@@ -59,6 +66,8 @@ export interface GameServerOptions {
   timeZone: string;
   /** Tests: sim debug flags for every game. */
   simDebug?: GameSettings['simDebug'];
+  /** Live tuning: each new game plays with the newest published config. */
+  liveConfig: LiveConfig;
 }
 
 /** Sustained messages per second allowed per socket (inputs are 30/s), and the burst on top. */
@@ -891,6 +900,7 @@ export class GameServer implements PresenceSource, FriendNotifier {
               startedAt: outcome.startedAt,
               endedAt: outcome.endedAt,
               durationS: outcome.durationS,
+              configVersion: outcome.configVersion,
               players,
             },
             { timeZone: this.opts.timeZone },
@@ -1185,6 +1195,7 @@ export class GameServer implements PresenceSource, FriendNotifier {
       row.gameId,
       saved,
       row.sim,
+      this.savedTuning(saved),
       this.gameSettings,
       (id) => this.sessionOf(id),
       (g, outcome) => room?.ended(g, outcome),
@@ -1208,6 +1219,27 @@ export class GameServer implements PresenceSource, FriendNotifier {
     );
   }
 
+  /** The config of a new game: the newest published version. */
+  async newGameTuning(): Promise<GameTuning> {
+    const v = await this.opts.liveConfig.current();
+    return { version: v.version, data: v.game, run: runConfigOf(v) };
+  }
+
+  /**
+   * The config a saved game was playing with: the files it was saved with (applied leniently over
+   * this build's defaults), under its version. Games saved before live tuning: the defaults.
+   */
+  private savedTuning(saved: SavedGame): GameTuning {
+    const cfg = saved.info.config;
+    if (!cfg) return defaultGameTuning();
+    const data = this.opts.liveConfig.gameForRun(cfg);
+    return {
+      version: cfg.version,
+      data,
+      run: { version: cfg.version, tuning: data.tuning, levelup: data.levelUp },
+    };
+  }
+
   /**
    * A saved game this server can't run (an incompatible sim change, a bad row): it ends like a
    * drained game, crediting every player's result as of the save, and its players get their
@@ -1217,6 +1249,7 @@ export class GameServer implements PresenceSource, FriendNotifier {
     const saved = row.game;
     const results = await this.record(row.roomId, {
       gameId: row.gameId,
+      configVersion: saved.info.config?.version ?? 0,
       reason: 'server-shutdown',
       startedAt: new Date(saved.startedAt),
       endedAt: row.savedAt,

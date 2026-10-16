@@ -61,11 +61,13 @@ import {
   type WeatherFile,
   type WorldFile,
 } from './schemas/index.js';
+import { crossCheck } from './live-config.js';
 import { indexBy, parseDataFile } from './util.js';
 import type { z } from 'zod';
 
 export * from './changelog.js';
 export * from './i18n.js';
+export * from './live-config.js';
 export * from './personality.js';
 export * from './prestige.js';
 export { indexBy, parseDataFile } from './util.js';
@@ -176,15 +178,10 @@ export function loadGameData(): GameData {
   const { bodies } = parse('bodies');
   const tuning = parse('tuning');
   const gacha = parse('gacha');
-  for (const tier of levelUp.rarity.tiers) {
-    if (!gacha.rarities.some((r) => r.rarity === tier.gachaRarity)) {
-      throw new Error(`levelup.rarity.tiers.${tier.id}: no gacha rarity ${tier.gachaRarity}`);
-    }
-  }
-  for (const id of tuning.lateGrowth.offers.statIds) {
-    if (!levelUp.statCards.some((c) => c.id === id)) {
-      throw new Error(`tuning.lateGrowth.offers.statIds: no level-up stat card "${id}"`);
-    }
+  const cross = crossCheck({ gacha, moves }, { tuning, levelup: levelUp });
+  if (cross[0]) {
+    const { file, path, message } = cross[0];
+    throw new Error(`${file}.${path}: ${message}`);
   }
 
   const movesByType = new Map<PokemonType, Move[]>();

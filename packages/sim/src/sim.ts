@@ -12,7 +12,7 @@ import {
 } from './choices.js';
 import { resolveCollisions, tickCombat, updateFields } from './combat.js';
 import { emit, playerById, presentPlayers, type Ctx } from './ctx.js';
-import { simData } from './data.js';
+import { bindSimData, simDataFor, type SimData } from './data.js';
 import { rebuildGrid, updateEnemies } from './enemies.js';
 import type { SimEvent } from './events.js';
 import { updateHazards } from './hazards.js';
@@ -40,7 +40,7 @@ import { newTeam } from './team.js';
 import { startWeather, updateWeather } from './weather.js';
 import { createChunkCache } from './world.js';
 import type { PlayerId, PlayerState, RunEventId, SimState } from './state.js';
-import type { PokemonType, WeatherId } from '@pokesurvivor/data';
+import { loadGameData, type GameData, type PokemonType, type WeatherId } from '@pokesurvivor/data';
 import { stateHash } from './hash.js';
 import { playerRunSummary, runSummary, type OwnsPokemon, type RunSummary } from './summary.js';
 import type { RunSummary as ProtocolRunSummary } from '@pokesurvivor/protocol';
@@ -56,6 +56,12 @@ export interface SimConfig {
   choiceTimeoutSeconds?: number | null;
   /** Debug and tests only. */
   debug?: { invulnerable?: boolean; noSpawns?: boolean };
+  /**
+   * The game data the run plays with, for its whole life: the built-in data by default, or with
+   * live-tuning overrides (`gameDataWith` in `@pokesurvivor/data`). Not part of the state: a
+   * restore must be given the same data again (`restoreSim`).
+   */
+  data?: GameData;
 }
 
 export interface MoveInput {
@@ -101,11 +107,12 @@ export class Sim {
   readonly ctx: Ctx;
 
   /** Use `createSim` or `restoreSim`. `init` runs once with the context (new runs). */
-  constructor(state: SimState, init?: (ctx: Ctx) => void) {
+  constructor(state: SimState, d: SimData, init?: (ctx: Ctx) => void) {
     this.state = state;
+    bindSimData(state, d);
     this.ctx = {
       s: state,
-      d: simData(),
+      d,
       rand: makeRand(state.rng),
       events: [],
       chunks: createChunkCache(state.world.seed),
@@ -346,7 +353,8 @@ export function createSim(config: SimConfig): Sim {
   if (new Set(config.players.map((p) => p.id)).size !== n) throw new Error('duplicate player id');
   const timeout = config.choiceTimeoutSeconds === undefined ? 30 : config.choiceTimeoutSeconds;
   const seed = Math.floor(Math.abs(config.seed)) % 2 ** 31 || 1;
-  const data = simData().game;
+  const d = simDataFor(config.data ?? loadGameData());
+  const data = d.game;
   const state: SimState = {
     tick: 0,
     time: 0,
@@ -388,7 +396,7 @@ export function createSim(config: SimConfig): Sim {
       noSpawns: !!config.debug?.noSpawns,
     },
   };
-  const sim = new Sim(state, (ctx) => {
+  const sim = new Sim(state, d, (ctx) => {
     state.roster = rollRoster(ctx);
     state.players = config.players.map((cfg, i): PlayerState => createPlayer(ctx, cfg, i, n));
     const ev = data.tuning.events;
@@ -399,11 +407,15 @@ export function createSim(config: SimConfig): Sim {
   return sim;
 }
 
-/** Rebuilds a Sim from a state snapshot (a deep copy of `sim.state`, e.g. through JSON). */
-export function restoreSim(state: SimState): Sim {
+/**
+ * Rebuilds a Sim from a state snapshot (a deep copy of `sim.state`, e.g. through JSON), on the
+ * game data the run was created with (`SimConfig.data`; the built-in data by default).
+ */
+export function restoreSim(state: SimState, data?: GameData): Sim {
+  const d = simDataFor(data ?? loadGameData());
   // Older saves remain resumable. Only fill missing fields: current snapshots must restore
   // byte-for-byte for deterministic replay, including enemies stashed outside a rift arena.
-  const gameTuning = simData().game.tuning;
+  const gameTuning = d.game.tuning;
   const tuning = gameTuning.enemyShields;
   for (const p of state.players) {
     p.relocationTokens ??= gameTuning.stragglers.burst;
@@ -421,7 +433,7 @@ export function restoreSim(state: SimState): Sim {
     if (!p.cardMul) {
       p.cardMul = {};
       for (const [id, n] of Object.entries(p.statsTaken)) {
-        const e = simData().game.statCardById.get(id)?.effect;
+        const e = d.game.statCardById.get(id)?.effect;
         if (e?.type === 'stat' && e.op === 'mul') p.cardMul[id] = e.value ** n;
       }
     }
@@ -429,13 +441,13 @@ export function restoreSim(state: SimState): Sim {
     if (!p.cardAdd) {
       p.cardAdd = {};
       for (const [id, n] of Object.entries(p.statsTaken)) {
-        const e = simData().game.statCardById.get(id)?.effect;
+        const e = d.game.statCardById.get(id)?.effect;
         if (e?.type === 'stat' && e.op === 'add') p.cardAdd[id] = e.value * n;
       }
     }
     // Saves from before max HP card ceilings: the picks taken at today's common value.
     for (const [id, n] of Object.entries(p.statsTaken)) {
-      const e = simData().game.statCardById.get(id)?.effect;
+      const e = d.game.statCardById.get(id)?.effect;
       if (e?.type === 'maxHp' && p.cardAdd[id] === undefined) p.cardAdd[id] = e.value * n;
     }
   }
@@ -454,5 +466,5 @@ export function restoreSim(state: SimState): Sim {
     e.shieldT = e.shield > 0 ? Math.min(e.shieldT, tuning.duration) : 0;
     if (e.behavior === 'shielder') e.skillCd = Math.min(e.skillCd, tuning.cooldown);
   }
-  return new Sim(state);
+  return new Sim(state, d);
 }

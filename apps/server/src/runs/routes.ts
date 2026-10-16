@@ -6,6 +6,7 @@ import { getServerData, knownDexSchema, pokemonTypeSchema } from '../data.js';
 import type { Database } from '../db/index.js';
 import type { RunCaps } from '../economy/config.js';
 import { ApiError, parseBody } from '../http/errors.js';
+import { runConfigOf, type LiveConfig } from '../live-config/store.js';
 import { getSave } from '../saves/service.js';
 import { getLeaderboard } from './leaderboard.js';
 import { checkpointSoloRun, finishSoloRun, startSoloRun } from './service.js';
@@ -26,6 +27,8 @@ export interface RunRoutesOptions {
    * presence). Absent without a game server.
    */
   runClosed?: (userId: string, runId: string) => void;
+  /** Live tuning: the config each new solo run is issued (the defaults, version 0, without). */
+  liveConfig?: LiveConfig;
 }
 
 const count = z.number().int().nonnegative().max(1_000_000);
@@ -86,8 +89,14 @@ export function runRoutes(app: FastifyInstance, opts: RunRoutesOptions): void {
       const userId = currentUser(request).id;
       if (await opts.inRoom?.(userId))
         throw new ApiError(409, 'in_room', 'Leave your room to start a solo run');
-      const run = await startSoloRun(db, userId, pokemon);
-      return reply.status(201).send({ runId: run.runId, startedAt: run.startedAt.toISOString() });
+      // The server issues the config (and records its version): the client never says which.
+      const config = await opts.liveConfig?.current();
+      const run = await startSoloRun(db, userId, pokemon, config?.version ?? 0);
+      return reply.status(201).send({
+        runId: run.runId,
+        startedAt: run.startedAt.toISOString(),
+        ...(config ? { config: runConfigOf(config) } : {}),
+      });
     },
   );
 

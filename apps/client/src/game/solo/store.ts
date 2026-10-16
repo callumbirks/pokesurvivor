@@ -1,7 +1,7 @@
 // The local save of an unfinished solo run (IndexedDB), written at each checkpoint, so a closed
 // tab, a crash or a reload can resume the run or report it (see `SavedSoloRun`). One per user:
 // a new run replaces an older save (the server still credits that one from its checkpoint).
-import type { RunSummary } from '@pokesurvivor/protocol';
+import type { RunConfigWire, RunSummary } from '@pokesurvivor/protocol';
 import type { PlayerConfig, SimState } from '@pokesurvivor/sim';
 
 export interface SavedSoloRun {
@@ -13,6 +13,11 @@ export interface SavedSoloRun {
   loadout: PlayerConfig;
   username: string;
   owned: number[];
+  /**
+   * The live-tuning config the server issued the run: a resume plays on with it. Absent in saves
+   * from before live tuning (the built-in data).
+   */
+  config?: RunConfigWire;
   /** The run so far: what "End run" reports. */
   summary: RunSummary;
   /**
