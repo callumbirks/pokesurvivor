@@ -4,6 +4,7 @@
 import { t } from '@pokesurvivor/data';
 import type { App, Screen } from '../app/app.js';
 import { h, replace } from '../app/dom.js';
+import { runExportPanel } from './admin-export.js';
 import { liveTuningPanel } from './admin-tuning.js';
 import { screenBox } from './common.js';
 
@@ -15,6 +16,7 @@ export interface AdminSection {
 
 const SECTIONS: AdminSection[] = [
   { id: 'tuning', title: () => t('admin.tuning'), render: liveTuningPanel },
+  { id: 'export', title: () => t('admin.export'), render: runExportPanel },
 ];
 
 export function adminScreen(app: App, params: URLSearchParams): Screen {

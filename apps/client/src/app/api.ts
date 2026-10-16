@@ -446,4 +446,11 @@ export class Api {
   configPatch() {
     return this.request<ConfigPatch>('GET', '/api/admin/config/patch');
   }
+  /** Balance records the export filters match (`query`: the export's query string). */
+  runExportCount(query: string) {
+    return this.request<{ count: number; flagged: number }>(
+      'GET',
+      `/api/admin/runs/count${query ? `?${query}` : ''}`,
+    );
+  }
 }
