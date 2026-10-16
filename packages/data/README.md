@@ -64,6 +64,11 @@ These values differ from the original game:
   74th pull (+6 points of 5★ chance per pull; legacy had none) and hard pity 90 (legacy 70).
 - `tuning.json` `pickups`: a boss drops a ×10 ticket with `bossTicket10Chance` 0.1 (legacy 1/3),
   a rift legendary with `legendaryTicket10Chance` 0.2 (legacy 0.5).
+- `tuning.json` `pickups` gems (R6, not in legacy): a regular enemy drops a gem with
+  `gemDropRate` 0.005, a boss with `bossGemChance` 1 and a rift legendary drops `legendaryGems` 2,
+  for about 5 gems in a 15-minute solo run (`pnpm --filter @pokesurvivor/sim gems` measures it).
+  `gems.resetCost` and `gems.prestigeCost` (100 each) are what an upgrade reset and a prestige
+  cost; the server charges them (`docs/api.md`).
 - `tuning.json` `events.goldThiefChance`: the chance a treasure thief is Gholdengo, who drops a
   ×10 ticket, instead of Meowth, who drops coins: 0.125 (hard-coded 0.25 in legacy
   thief spawning). The sim's event port reads it.
