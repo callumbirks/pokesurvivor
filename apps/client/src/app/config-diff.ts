@@ -1,6 +1,6 @@
 // The admin page's live-tuning helpers: what changed between two configs, setting by setting,
 // and JSON parse errors with their line.
-import { diffPatch, patchLeaves, TUNABLE_FILES, type TunableConfig } from '@pokesurvivor/data';
+import { TUNABLE_FILES, type TunableConfig } from '@pokesurvivor/data';
 
 /** One changed setting: `file` and `path` (`spawner.cap`), its value before and after. */
 export interface ConfigChange {
@@ -17,23 +17,67 @@ function at(obj: unknown, path: readonly string[]): unknown {
   return o;
 }
 
-/** The settings `to` changes from `from` (each leaf; an array is one setting). */
+/**
+ * The leaves that differ between two values: into objects key by key, and into arrays item by
+ * item when both have the same length (a curve point changed); otherwise the whole value.
+ */
+function leafDiffs(a: unknown, b: unknown, path: string[]): [string[], unknown, unknown][] {
+  if (JSON.stringify(a) === JSON.stringify(b)) return [];
+  const both = (f: (v: unknown) => boolean) => f(a) && f(b);
+  if (both(Array.isArray) && (a as unknown[]).length === (b as unknown[]).length)
+    return (a as unknown[]).flatMap((x, i) =>
+      leafDiffs(x, (b as unknown[])[i], [...path, String(i)]),
+    );
+  const isObject = (v: unknown) => !!v && typeof v === 'object' && !Array.isArray(v);
+  if (both(isObject)) {
+    const keys = new Set([...Object.keys(a as object), ...Object.keys(b as object)]);
+    return [...keys].flatMap((k) => leafDiffs(at(a, [k]), at(b, [k]), [...path, k]));
+  }
+  return [[path, a, b]];
+}
+
+/** The settings `to` changes from `from` (each value; a resized array is one setting). */
 export function configChanges(from: TunableConfig, to: TunableConfig): ConfigChange[] {
-  return TUNABLE_FILES.flatMap((file) => {
-    const patch = diffPatch(from[file], to[file]);
-    if (patch === undefined) return [];
-    return patchLeaves(patch).map(([path]) => ({
+  return TUNABLE_FILES.flatMap((file) =>
+    leafDiffs(from[file], to[file], []).map(([path, a, b]) => ({
       file,
       path: path.join('.'),
-      from: at(from[file], path),
-      to: at(to[file], path),
-    }));
-  });
+      from: a,
+      to: b,
+    })),
+  );
+}
+
+/** JSON on one line, spaced like the data files (`{ "a": 1, "b": [1, 2] }`). */
+function oneLine(v: unknown): string {
+  if (Array.isArray(v)) return `[${v.map(oneLine).join(', ')}]`;
+  if (v && typeof v === 'object') {
+    const body = Object.entries(v).map(([k, x]) => `${JSON.stringify(k)}: ${oneLine(x)}`);
+    return body.length ? `{ ${body.join(', ')} }` : '{}';
+  }
+  return JSON.stringify(v);
+}
+
+/**
+ * JSON laid out like the repo's data files (as Prettier leaves them): an object or array that
+ * fits in `width` on one line stays on one line, anything bigger gets a line per entry.
+ */
+export function formatJson(v: unknown, width = 100, indent = ''): string {
+  const flat = oneLine(v);
+  if (indent.length + flat.length <= width || !v || typeof v !== 'object') return flat;
+  const inner = `${indent}  `;
+  const lines = Array.isArray(v)
+    ? v.map((x) => inner + formatJson(x, width, inner))
+    : Object.entries(v).map(
+        ([k, x]) => `${inner}${JSON.stringify(k)}: ${formatJson(x, width - k.length - 4, inner)}`,
+      );
+  const [open, close] = Array.isArray(v) ? ['[', ']'] : ['{', '}'];
+  return `${open}\n${lines.join(',\n')}\n${indent}${close}`;
 }
 
 /** A value for the diff list: JSON, on one line. */
 export function showValue(v: unknown): string {
-  return v === undefined ? '—' : JSON.stringify(v);
+  return v === undefined ? '—' : oneLine(v);
 }
 
 class JsonStop extends Error {

@@ -824,7 +824,6 @@
     "tuning": "Live tuning",
     "tuningIntro": "Changes to tuning.json and levelup.json, published to every new run at once. Runs already going keep the config they started with.",
     "current": "Published: version {0}",
-    "defaultsVersion": "Version 0: the built-in defaults",
     "by": "by {0}",
     "revertOf": "revert to v{0}",
     "skippedTitle": "Some saved overrides don't apply to this build",

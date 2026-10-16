@@ -13,7 +13,13 @@ import {
 } from '@pokesurvivor/data';
 import type { ConfigVersionSummary, ConfigVersionView } from '../app/api.js';
 import type { App, Screen } from '../app/app.js';
-import { configChanges, parseJson, showValue, type ConfigChange } from '../app/config-diff.js';
+import {
+  configChanges,
+  formatJson,
+  parseJson,
+  showValue,
+  type ConfigChange,
+} from '../app/config-diff.js';
 import { confirmDialog } from '../app/confirm-dialog.js';
 import { h, replace } from '../app/dom.js';
 import { setPublishedConfig } from '../live-config.js';
@@ -32,7 +38,7 @@ type Checked =
   | { kind: 'invalid'; issues: ConfigIssue[] }
   | { kind: 'valid'; config: TunableConfig };
 
-const pretty = (v: unknown) => JSON.stringify(v, null, 2);
+const pretty = (v: unknown) => formatJson(v);
 const when = (iso: string) =>
   `${changelogDate(iso.slice(0, 10))} ${new Date(iso).toLocaleTimeString('en-GB', {
     hour: '2-digit',
@@ -176,27 +182,7 @@ export function liveTuningPanel(app: App): Screen {
     }
 
     function changeList(changes: ConfigChange[]): HTMLElement {
-      if (!changes.length) return h('p', { class: 'muted' }, t('admin.noChanges'));
-      return h(
-        'table',
-        { class: 'admin-changes' },
-        h(
-          'tr',
-          null,
-          h('th', null, ''),
-          h('th', null, t('admin.from')),
-          h('th', null, t('admin.to')),
-        ),
-        changes.map((c) =>
-          h(
-            'tr',
-            null,
-            h('td', { class: 'admin-path' }, `${c.file}.json › ${c.path}`),
-            h('td', { class: 'admin-old' }, showValue(c.from)),
-            h('td', { class: 'admin-new' }, showValue(c.to)),
-          ),
-        ),
-      );
+      return renderChanges(changes);
     }
 
     function update(): void {
@@ -311,7 +297,7 @@ export function liveTuningPanel(app: App): Screen {
         toast(t('admin.exportNone'));
         return;
       }
-      const blob = new Blob([`${pretty(patch)}\n`], { type: 'application/json' });
+      const blob = new Blob([`${JSON.stringify(patch, null, 2)}\n`], { type: 'application/json' });
       const a = h('a', {
         href: URL.createObjectURL(blob),
         download: `tuning-patch-v${patch.version}.json`,
@@ -379,7 +365,6 @@ export function liveTuningPanel(app: App): Screen {
               ),
         ),
         v.note ? h('p', { class: 'admin-version-note' }, v.note) : null,
-        v.version === 0 ? h('p', { class: 'muted' }, t('admin.defaultsVersion')) : null,
         details,
       );
     }
@@ -464,6 +449,29 @@ function skippedBox(skipped: readonly ConfigIssue[]): HTMLElement {
           'li',
           null,
           `${s.file}${s.file ? '.json' : ''}${s.path ? ` › ${s.path}` : ''}: ${s.message}`,
+        ),
+      ),
+    ),
+  );
+}
+
+/** Changed settings: the path, then the old value → the new one. */
+function renderChanges(changes: readonly ConfigChange[]): HTMLElement {
+  if (!changes.length) return h('p', { class: 'muted' }, t('admin.noChanges'));
+  return h(
+    'ul',
+    { class: 'admin-changes' },
+    changes.map((c) =>
+      h(
+        'li',
+        null,
+        h('div', { class: 'admin-path' }, `${c.file}.json › ${c.path}`),
+        h(
+          'div',
+          null,
+          h('span', { class: 'admin-old', title: t('admin.from') }, showValue(c.from)),
+          ' → ',
+          h('span', { class: 'admin-new', title: t('admin.to') }, showValue(c.to)),
         ),
       ),
     ),

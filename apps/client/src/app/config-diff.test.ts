@@ -1,6 +1,6 @@
 import { defaultTunables, loadGameData, mergePatch, type TunableConfig } from '@pokesurvivor/data';
 import { describe, expect, it } from 'vitest';
-import { configChanges, jsonErrorOffset, parseJson, showValue } from './config-diff.js';
+import { configChanges, formatJson, jsonErrorOffset, parseJson, showValue } from './config-diff.js';
 
 const defaults = defaultTunables(loadGameData());
 
@@ -8,19 +8,30 @@ describe('configChanges', () => {
   it('lists each changed setting with its old and new value', () => {
     const cap = defaults.tuning.spawner.cap + 1;
     const odds = defaults.levelup.rarity.odds.slice(0, 2);
+    const curve = defaults.tuning.spawner.hpCurve.map((p, i) =>
+      i === 1 ? { ...p, multiplier: p.multiplier + 0.1 } : p,
+    );
     const next = mergePatch(defaults, {
-      tuning: { spawner: { cap } },
+      tuning: { spawner: { cap, hpCurve: curve } },
       levelup: { rarity: { odds } },
     }) as TunableConfig;
     expect(configChanges(defaults, next)).toEqual([
       { file: 'tuning', path: 'spawner.cap', from: defaults.tuning.spawner.cap, to: cap },
+      // A point of a curve: just that value.
+      {
+        file: 'tuning',
+        path: 'spawner.hpCurve.1.multiplier',
+        from: defaults.tuning.spawner.hpCurve[1]!.multiplier,
+        to: curve[1]!.multiplier,
+      },
+      // A resized list: the whole list.
       { file: 'levelup', path: 'rarity.odds', from: defaults.levelup.rarity.odds, to: odds },
     ]);
     expect(configChanges(defaults, defaults)).toEqual([]);
   });
 
   it('shows values on one line', () => {
-    expect(showValue([1, { a: 2 }])).toBe('[1,{"a":2}]');
+    expect(showValue([1, { a: 2 }])).toBe('[1, { "a": 2 }]');
     expect(showValue(undefined)).toBe('—');
   });
 });
@@ -41,5 +52,17 @@ describe('jsonErrorOffset', () => {
     expect(jsonErrorOffset('{"a": 01}')).toBe(7);
     expect(jsonErrorOffset('[1, 2] x')).toBe(7);
     expect(jsonErrorOffset('{"a": tru}')).toBe(6);
+  });
+});
+
+describe('formatJson', () => {
+  it('keeps what fits on one line, and round-trips', () => {
+    expect(formatJson({ a: { b: 1, c: [1, 2] } })).toBe('{ "a": { "b": 1, "c": [1, 2] } }');
+    const long = { list: Array.from({ length: 30 }, (_, i) => ({ minute: i, value: i * 2 })) };
+    const text = formatJson(long, 60);
+    expect(text.split('\n')[1]).toBe('  "list": [');
+    expect(text.split('\n')[2]).toBe('    { "minute": 0, "value": 0 },');
+    expect(JSON.parse(text)).toEqual(long);
+    expect(JSON.parse(formatJson(defaults))).toEqual(defaults);
   });
 });

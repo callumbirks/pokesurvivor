@@ -2854,7 +2854,12 @@ canvas.backdrop {
 .admin-issues {
   margin: 0 0 8px;
   padding-left: 18px;
-  font-size: 14px;
+  font:
+    13px/1.5 ui-monospace,
+    'SFMono-Regular',
+    Menlo,
+    Consolas,
+    monospace;
 }
 .admin-issue {
   padding: 0;
@@ -2872,26 +2877,23 @@ canvas.backdrop {
   margin-top: 36px;
 }
 .admin-changes {
-  width: 100%;
-  margin-top: 8px;
-  border-collapse: collapse;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
   font:
-    13px/1.35 ui-monospace,
+    13px/1.4 ui-monospace,
     'SFMono-Regular',
     Menlo,
     Consolas,
     monospace;
 }
-.admin-changes th {
-  text-align: left;
-  color: var(--muted);
-  font-weight: normal;
-}
-.admin-changes td {
-  padding: 3px 6px 3px 0;
+.admin-changes li {
+  padding: 4px 0;
   border-top: 1px solid var(--rule);
-  vertical-align: top;
-  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+.admin-path {
+  color: var(--muted);
 }
 .admin-old {
   color: var(--red);
