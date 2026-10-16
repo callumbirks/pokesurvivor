@@ -6,7 +6,7 @@ import {
   type TunableConfig,
 } from '@pokesurvivor/data';
 import { describe, expect, it } from 'vitest';
-import { createSim, playerStats, restoreSim } from '../src/index.js';
+import { createSim, playerStats, restoreSim, type SimState } from '../src/index.js';
 import { quietSim, player } from './helpers.js';
 
 const base = loadGameData();
@@ -38,7 +38,7 @@ describe('game data per sim', () => {
     expect(playerStats(sim.state, player(sim)).defense).toBe(data.tuning.defense.max);
     expect(playerStats(plain.state, player(plain)).defense).toBe(base.tuning.defense.max);
 
-    const restored = restoreSim(JSON.parse(JSON.stringify(sim.state)), data);
+    const restored = restoreSim(JSON.parse(JSON.stringify(sim.state)) as SimState, data);
     expect(restored.ctx.d.game).toBe(data);
     expect(restored.hash()).toBe(sim.hash());
     for (let i = 0; i < 60; i++) {

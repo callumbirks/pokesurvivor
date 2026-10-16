@@ -43,7 +43,9 @@ async function main(): Promise<void> {
   const dryRun = args.includes('--dry-run');
   const file = args.find((a) => !a.startsWith('--'));
   if (!file) throw new Error('usage: apply-tuning-patch <patch.json> [--dry-run]');
-  const raw = JSON.parse(readFileSync(resolve(process.env.INIT_CWD ?? process.cwd(), file), 'utf8')) as unknown;
+  const raw = JSON.parse(
+    readFileSync(resolve(process.env.INIT_CWD ?? process.cwd(), file), 'utf8'),
+  ) as unknown;
   // The admin page's export, or bare overrides (`{ tuning?, levelup? }`).
   const overrides = isJsonObject(raw) && 'overrides' in raw ? raw.overrides : raw;
   if (!isJsonObject(overrides)) throw new Error('the patch has no overrides');

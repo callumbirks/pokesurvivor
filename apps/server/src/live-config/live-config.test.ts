@@ -23,7 +23,21 @@ async function makeAdmin(t: TestApp, userId: string): Promise<void> {
   await t.db.db.update(users).set({ isAdmin: true }).where(eq(users.id, userId));
 }
 
-const ADMIN_ROUTES: [string, string, object?][] = [
+interface View {
+  version: number;
+  createdBy: string | null;
+  revertedFrom: number | null;
+  overrides: Record<string, unknown>;
+  skipped: { file: string; path: string; message: string }[];
+  config: TunableConfig;
+}
+interface ErrorBody {
+  error: { code: string; issues?: unknown; current?: number };
+}
+
+type Route = [method: 'GET' | 'PUT' | 'POST', url: string, payload?: object];
+
+const ADMIN_ROUTES: Route[] = [
   ['GET', '/api/admin/config'],
   ['GET', '/api/admin/config/versions'],
   ['GET', '/api/admin/config/versions/0'],
@@ -32,8 +46,8 @@ const ADMIN_ROUTES: [string, string, object?][] = [
   ['POST', '/api/admin/config/revert', { version: 0, baseVersion: 0 }],
 ];
 
-function call(c: TestClient, [method, url, payload]: [string, string, object?]) {
-  return c.request({ method: method as 'GET', url, ...(payload ? { payload } : {}) });
+function call(c: TestClient, [method, url, payload]: Route) {
+  return c.request({ method, url, ...(payload ? { payload } : {}) });
 }
 
 describe('live tuning', () => {
@@ -49,9 +63,11 @@ describe('live tuning', () => {
 
   it('tells clients who is an admin', async () => {
     const me = await admin.get('/api/auth/me');
-    expect(me.json()).toMatchObject({ user: { isAdmin: true } });
+    expect(me.json<unknown>()).toMatchObject({ user: { isAdmin: true } });
     const player = await t.newUser();
-    expect((await player.get('/api/auth/me')).json()).toMatchObject({ user: { isAdmin: false } });
+    expect((await player.get('/api/auth/me')).json<unknown>()).toMatchObject({
+      user: { isAdmin: false },
+    });
   });
 
   it('answers 401 logged out and 404 to players on every admin endpoint', async () => {
@@ -60,7 +76,7 @@ describe('live tuning', () => {
       expect((await call(t.client(), route)).statusCode, route[1]).toBe(401);
       const res = await call(player, route);
       expect(res.statusCode, route[1]).toBe(404);
-      expect(res.json()).toMatchObject({ error: { code: 'not_found' } });
+      expect(res.json<unknown>()).toMatchObject({ error: { code: 'not_found' } });
     }
     expect((await admin.get('/api/admin/config')).statusCode).toBe(200);
   });
@@ -68,8 +84,8 @@ describe('live tuning', () => {
   it('serves the defaults as version 0 until something is published', async () => {
     const res = await t.client().get('/api/config');
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toEqual({ version: 0, ...defaults });
-    const view = (await admin.get('/api/admin/config')).json();
+    expect(res.json<unknown>()).toEqual({ version: 0, ...defaults });
+    const view = (await admin.get('/api/admin/config')).json<unknown>();
     expect(view).toMatchObject({ current: { version: 0, overrides: {}, skipped: [] }, defaults });
   });
 
@@ -80,16 +96,16 @@ describe('live tuning', () => {
     });
     const res = await admin.put('/api/admin/config', { config: bad, baseVersion: 0 });
     expect(res.statusCode).toBe(400);
-    expect(res.json().error).toMatchObject({
+    expect(res.json<ErrorBody>().error).toMatchObject({
       code: 'invalid_config',
       issues: expect.arrayContaining([
         expect.objectContaining({ file: 'tuning', path: 'spawner.cap' }),
         { file: 'levelup', path: 'weights.surprise', message: 'No such setting' },
-      ]),
+      ]) as unknown,
     });
     const unchanged = await admin.put('/api/admin/config', { config: defaults, baseVersion: 0 });
-    expect(unchanged.json()).toMatchObject({ error: { code: 'config_unchanged' } });
-    expect((await t.client().get('/api/config')).json().version).toBe(0);
+    expect(unchanged.json<unknown>()).toMatchObject({ error: { code: 'config_unchanged' } });
+    expect((await t.client().get('/api/config')).json<View>().version).toBe(0);
   });
 
   it('publishes a version on every save, keeps the history, and reverts', async () => {
@@ -99,14 +115,14 @@ describe('live tuning', () => {
       baseVersion: 0,
     });
     expect(saved.statusCode).toBe(200);
-    const v1 = saved.json();
+    const v1 = saved.json<View>();
     expect(v1).toMatchObject({
       version: 1,
       createdBy: admin.username,
       note: 'more wild Pokémon',
       overrides: { tuning: { spawner: { cap } } },
     });
-    expect((await t.client().get('/api/config')).json()).toMatchObject({
+    expect((await t.client().get('/api/config')).json<unknown>()).toMatchObject({
       version: 1,
       tuning: { spawner: { cap } },
     });
@@ -114,36 +130,49 @@ describe('live tuning', () => {
     // An edit based on an older version is refused (someone published meanwhile).
     const stale = await admin.put('/api/admin/config', { config: defaults, baseVersion: 0 });
     expect(stale.statusCode).toBe(409);
-    expect(stale.json().error).toMatchObject({ code: 'config_changed', current: 1 });
+    expect(stale.json<ErrorBody>().error).toMatchObject({ code: 'config_changed', current: 1 });
 
     const toDefaults = await admin.post('/api/admin/config/revert', {
       version: 0,
       baseVersion: 1,
     });
-    expect(toDefaults.json()).toMatchObject({ version: 2, revertedFrom: 0, overrides: {} });
-    expect((await t.client().get('/api/config')).json()).toEqual({ version: 2, ...defaults });
+    expect(toDefaults.json<unknown>()).toMatchObject({
+      version: 2,
+      revertedFrom: 0,
+      overrides: {},
+    });
+    expect((await t.client().get('/api/config')).json<unknown>()).toEqual({
+      version: 2,
+      ...defaults,
+    });
 
     const back = await admin.post('/api/admin/config/revert', { version: 1, baseVersion: 2 });
-    expect(back.json()).toMatchObject({ version: 3, revertedFrom: 1, overrides: v1.overrides });
+    expect(back.json<unknown>()).toMatchObject({
+      version: 3,
+      revertedFrom: 1,
+      overrides: v1.overrides,
+    });
 
-    const { versions } = (await admin.get('/api/admin/config/versions')).json();
-    expect(versions.map((v: { version: number }) => v.version)).toEqual([3, 2, 1, 0]);
+    const { versions } = (await admin.get('/api/admin/config/versions')).json<{
+      versions: { version: number }[];
+    }>();
+    expect(versions.map((v) => v.version)).toEqual([3, 2, 1, 0]);
     expect(versions[2]).toMatchObject({ createdBy: admin.username, changes: 1 });
-    const one = (await admin.get('/api/admin/config/versions/1')).json();
+    const one = (await admin.get('/api/admin/config/versions/1')).json<unknown>();
     expect(one).toMatchObject({ version: 1, config: { tuning: { spawner: { cap } } } });
     expect((await admin.get('/api/admin/config/versions/99')).statusCode).toBe(404);
   });
 
   it('exports the overrides in effect as a patch', async () => {
     const res = await admin.get('/api/admin/config/patch');
-    expect(res.json()).toMatchObject({
+    expect(res.json<unknown>()).toMatchObject({
       format: 'pokesurvivor-tuning-patch',
       version: 3,
       overrides: { tuning: { spawner: { cap } } },
     });
     // Merged into the defaults, the patch gives the published config.
-    expect(mergePatch(defaults, res.json().overrides)).toEqual(
-      (await admin.get('/api/admin/config')).json().current.config,
+    expect(mergePatch(defaults, res.json<{ overrides: unknown }>().overrides)).toEqual(
+      (await admin.get('/api/admin/config')).json<{ current: View }>().current.config,
     );
   });
 
@@ -193,26 +222,24 @@ describe('stored overrides a newer build cannot apply', () => {
     try {
       const admin = await t.newUser();
       await makeAdmin(t, admin.userId);
-      const { current } = (await admin.get('/api/admin/config')).json();
+      const { current } = (await admin.get('/api/admin/config')).json<{ current: View }>();
       expect(current).toMatchObject({
         version: 1,
         overrides: { tuning: { spawner: { cap } } },
         config: { tuning: { spawner: { cap }, rift: { chance: defaults.tuning.rift.chance } } },
       });
-      expect(
-        current.skipped.map((s: { file: string; path: string }) => `${s.file}:${s.path}`),
-      ).toEqual(
+      expect(current.skipped.map((s) => `${s.file}:${s.path}`)).toEqual(
         expect.arrayContaining(['tuning:spawner.oldSetting', 'tuning:rift.chance', 'gacha:']),
       );
       expect(current.skipped).toHaveLength(3);
       // Runs get the part that applies.
-      expect((await t.client().get('/api/config')).json()).toMatchObject({
+      expect((await t.client().get('/api/config')).json<unknown>()).toMatchObject({
         version: 1,
         tuning: { spawner: { cap } },
       });
       // Saving again publishes only what applies, which clears the warning.
       const res = await admin.put('/api/admin/config', { config: current.config, baseVersion: 1 });
-      expect(res.json()).toMatchObject({ version: 2, skipped: [] });
+      expect(res.json<unknown>()).toMatchObject({ version: 2, skipped: [] });
     } finally {
       await t.close();
     }

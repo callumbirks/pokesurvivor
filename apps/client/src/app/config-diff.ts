@@ -36,6 +36,12 @@ export function showValue(v: unknown): string {
   return v === undefined ? '—' : JSON.stringify(v);
 }
 
+class JsonStop extends Error {
+  constructor(readonly at: number) {
+    super(`invalid JSON at ${at}`);
+  }
+}
+
 /**
  * Where `text` stops being JSON: the offset of the first character a JSON parser can't take (a
  * small recursive-descent scan; browsers' `JSON.parse` messages often don't say where).
@@ -46,7 +52,7 @@ export function jsonErrorOffset(text: string): number {
     while (i < text.length && ' \t\n\r'.includes(text[i]!)) i++;
   };
   const fail = (): never => {
-    throw i;
+    throw new JsonStop(i);
   };
   const lit = (word: string) => {
     if (text.startsWith(word, i)) i += word.length;
@@ -110,8 +116,9 @@ export function jsonErrorOffset(text: string): number {
     value();
     ws();
     return i < text.length ? i : -1;
-  } catch (at) {
-    return typeof at === 'number' ? at : 0;
+  } catch (err) {
+    if (err instanceof JsonStop) return err.at;
+    throw err;
   }
 }
 
