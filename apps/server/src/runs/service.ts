@@ -48,7 +48,7 @@ interface AppliedRun {
 }
 
 /**
- * Credits a player's run to their locked save: coins and tickets through the ledger; caught
+ * Credits a player's run to their locked save: coins, tickets and gems through the ledger; caught
  * wild shinies (and the normal form) and rescued Pokémon into the collection; stats and the
  * per-run progress (items found, moves evolved, arenas won, legendaries beaten); then missions
  * and achievements (original `progress.js` events, applied once for the whole run).
@@ -64,6 +64,7 @@ function applyRunToSave(
   wallet.credit('coins', stats.coins, 'run_reward', runId);
   wallet.credit('tickets_x1', stats.ticketsX1, 'run_reward', runId);
   wallet.credit('tickets_x10', stats.ticketsX10, 'run_reward', runId);
+  wallet.credit('gems', stats.gems ?? 0, 'run_reward', runId);
 
   const now = run.endedAt.getTime();
   for (const dex of stats.shiniesCaught) {
@@ -156,6 +157,7 @@ function playerColumns(stats: Omit<RunStats, 'durationS'>) {
     coins: stats.coins,
     ticketsX1: stats.ticketsX1,
     ticketsX10: stats.ticketsX10,
+    gems: stats.gems ?? 0,
     shiniesCaught: stats.shiniesCaught,
   };
 }

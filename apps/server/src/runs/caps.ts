@@ -67,6 +67,7 @@ export function capRunStats(claim: RunStats, caps: RunCaps, elapsedS: number): C
     coins: Math.min(claim.coins, limit(caps.coinsFlat, caps.coinsPerMinute)),
     ticketsX1: Math.min(claim.ticketsX1, limit(caps.ticketsX1Flat, caps.ticketsX1PerMinute)),
     ticketsX10: Math.min(claim.ticketsX10, limit(caps.ticketsX10Flat, caps.ticketsX10PerMinute)),
+    gems: Math.min(claim.gems ?? 0, caps.gemsMax, limit(caps.gemsFlat, caps.gemsPerMinute)),
     shiniesCaught: unique(claim.shiniesCaught)
       .filter((dex) => data.hasShinySprite(dex))
       .slice(0, shinyLimit),
@@ -86,6 +87,7 @@ function fingerprint(s: RunStats): string {
     s.coins,
     s.ticketsX1,
     s.ticketsX10,
+    s.gems ?? 0,
     s.shiniesCaught,
     p.defeatsByType,
     p.chestsOpened,

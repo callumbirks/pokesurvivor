@@ -36,6 +36,10 @@ export interface RunCaps {
   ticketsX1PerMinute: number;
   ticketsX10Flat: number;
   ticketsX10PerMinute: number;
+  /** Gems: `min(gemsMax, gemsFlat + gemsPerMinute * minutes)`. */
+  gemsFlat: number;
+  gemsPerMinute: number;
+  gemsMax: number;
   /** Wild shinies caught: `min(shiniesMax, shiniesFlat + shiniesPerMinute * minutes)`. */
   shiniesFlat: number;
   shiniesPerMinute: number;
@@ -88,6 +92,10 @@ export const DEFAULT_ECONOMY: EconomyConfig = {
     ticketsX1PerMinute: 1,
     ticketsX10Flat: 0,
     ticketsX10PerMinute: 0.2,
+    // About 5 gems drop in a typical 15-minute run (`tuning.pickups`); strong players kill more.
+    gemsFlat: 3,
+    gemsPerMinute: 1.5,
+    gemsMax: 100,
     shiniesFlat: 1,
     shiniesPerMinute: 0.2,
     shiniesMax: 5,

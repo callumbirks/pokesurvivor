@@ -1,4 +1,4 @@
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, gt, inArray, like, max, sql } from 'drizzle-orm';
 import type { Executor, Transaction } from '../db/index.js';
 import { currencyLedger, saves } from '../db/schema.js';
 import { Wallet } from '../economy/ledger.js';
@@ -28,6 +28,7 @@ export interface SaveView extends SaveData {
   version: number;
   coins: number;
   tickets: { x1: number; x10: number };
+  gems: number;
   partner: Partner;
   updatedAt: string;
 }
@@ -35,7 +36,12 @@ export interface SaveView extends SaveData {
 type SaveRow = typeof saves.$inferSelect;
 
 function balancesOf(row: SaveRow): Balances {
-  return { coins: row.coins, tickets_x1: row.ticketsX1, tickets_x10: row.ticketsX10 };
+  return {
+    coins: row.coins,
+    tickets_x1: row.ticketsX1,
+    tickets_x10: row.ticketsX10,
+    gems: row.gems,
+  };
 }
 
 /**
@@ -74,6 +80,7 @@ export async function withLockedSave<T>(
         coins: balances.coins,
         ticketsX1: balances.tickets_x1,
         ticketsX10: balances.tickets_x10,
+        gems: balances.gems,
         updatedAt: sql`now()`,
       })
       .where(eq(saves.userId, userId));
@@ -109,6 +116,7 @@ export function toSaveView(row: SaveRow): SaveView {
     version: SAVE_DATA_VERSION,
     coins: row.coins,
     tickets: { x1: row.ticketsX1, x10: row.ticketsX10 },
+    gems: row.gems,
     partner: { dex: row.partnerDex, shiny: row.partnerShiny },
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -116,4 +124,26 @@ export function toSaveView(row: SaveRow): SaveView {
 
 export function ownsPokemon(data: SaveData, dex: number, shiny = false): boolean {
   return (shiny ? data.shiny : data.owned)[String(dex)] !== undefined;
+}
+
+/**
+ * Coins spent on `dex`'s upgrades since its last prestige or upgrade reset, whichever came last
+ * (or ever): the sum of its `upgrade_purchase` ledger entries after the latest `prestige` marker
+ * or `upgrade_refund`. What an upgrade reset gives back. Ledger ref ids start with `dex:`.
+ */
+export async function refundableCoins(db: Executor, userId: string, dex: number): Promise<number> {
+  const ofDex = and(
+    eq(currencyLedger.userId, userId),
+    eq(currencyLedger.currency, 'coins'),
+    like(currencyLedger.refId, `${dex}:%`),
+  );
+  const since = db
+    .select({ id: sql`coalesce(${max(currencyLedger.id)}, 0)` })
+    .from(currencyLedger)
+    .where(and(ofDex, inArray(currencyLedger.reason, ['prestige', 'upgrade_refund'])));
+  const [row] = await db
+    .select({ spent: sql<number>`coalesce(-sum(${currencyLedger.delta}), 0)::int` })
+    .from(currencyLedger)
+    .where(and(ofDex, eq(currencyLedger.reason, 'upgrade_purchase'), gt(currencyLedger.id, since)));
+  return row?.spent ?? 0;
 }

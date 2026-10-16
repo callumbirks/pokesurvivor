@@ -30,6 +30,7 @@ const summary = (over: Partial<RunStats> = {}): RunStats => ({
   coins: 0,
   ticketsX1: 0,
   ticketsX10: 0,
+  gems: 0,
   shiniesCaught: [],
   progress: emptyRunProgress(),
   ...over,
@@ -74,6 +75,7 @@ describe('capRunStats', () => {
         coins: 1e6,
         ticketsX1: 50,
         ticketsX10: 9,
+        gems: 50,
         shiniesCaught: getServerData()
           .pokedex.filter((p) => getServerData().hasShinySprite(p.dex))
           .map((p) => p.dex),
@@ -90,6 +92,7 @@ describe('capRunStats', () => {
       coins: caps.coinsFlat + 2 * caps.coinsPerMinute,
       ticketsX1: Math.floor(caps.ticketsX1Flat + 2 * caps.ticketsX1PerMinute),
       ticketsX10: Math.floor(caps.ticketsX10Flat + 2 * caps.ticketsX10PerMinute),
+      gems: Math.floor(caps.gemsFlat + 2 * caps.gemsPerMinute),
       shiniesCaught: getServerData()
         .pokedex.filter((p) => getServerData().hasShinySprite(p.dex))
         .map((p) => p.dex)
@@ -99,6 +102,21 @@ describe('capRunStats', () => {
         ),
       progress: emptyRunProgress(),
     });
+  });
+
+  it('caps gems per minute survived and per run, and counts none from older clients', () => {
+    const gems = (claimed: number, durationS: number) =>
+      capRunStats(summary({ durationS, gems: claimed }), caps, durationS);
+    const perMinute = Math.floor(caps.gemsFlat + 4 * caps.gemsPerMinute);
+    expect(perMinute).toBeLessThan(caps.gemsMax);
+    expect(gems(perMinute, 240)).toMatchObject({ stats: { gems: perMinute }, capped: false });
+    expect(gems(perMinute + 1, 240)).toMatchObject({ stats: { gems: perMinute }, capped: true });
+    // The longest run still gets no more than gemsMax.
+    expect(gems(1000, caps.maxDurationS).stats.gems).toBe(caps.gemsMax);
+
+    const older = summary({ durationS: 600 });
+    delete older.gems;
+    expect(capRunStats(older, caps, 600)).toMatchObject({ stats: { gems: 0 }, capped: false });
   });
 
   it('caps run progress per minute and drops what cannot happen', () => {
@@ -201,6 +219,7 @@ describe('runs', () => {
         coins: 450,
         ticketsX1: 3,
         ticketsX10: 1,
+        gems: 2,
         shiniesCaught: [133],
       }),
     });
@@ -221,6 +240,7 @@ describe('runs', () => {
     expect(body.save).toMatchObject({
       coins: DEFAULT_ECONOMY.startingCoins + 450 + rewards.coins,
       tickets: { x1: 3 + rewards.tickets, x10: 1 + rewards.tickets10 },
+      gems: 2,
       owned: { 133: { from: 'wild' } },
       shiny: { 133: { from: 'wild' } },
       stats: {
@@ -239,6 +259,7 @@ describe('runs', () => {
       .where(eq(currencyLedger.refId, runId));
     expect(ledger.map((l) => [l.currency, l.delta, l.reason]).sort()).toEqual([
       ['coins', 450, 'run_reward'],
+      ['gems', 2, 'run_reward'],
       ['tickets_x1', 3, 'run_reward'],
       ['tickets_x10', 1, 'run_reward'],
     ]);
@@ -249,7 +270,13 @@ describe('runs', () => {
     const runId = await start(c);
     await backdate(runId, 60);
     // Claims an hour and a fortune after one minute.
-    const claim = summary({ durationS: 3600, coins: 1_000_000, ticketsX1: 500, ticketsX10: 50 });
+    const claim = summary({
+      durationS: 3600,
+      coins: 1_000_000,
+      ticketsX1: 500,
+      ticketsX10: 50,
+      gems: 500,
+    });
     const res = await c.post('/api/runs', { runId, ...claim });
     const body = res.json<FinishResponse>();
     expect(body.capped).toBe(true);
@@ -266,6 +293,10 @@ describe('runs', () => {
     );
     expect(body.save.coins).toBe(DEFAULT_ECONOMY.startingCoins + body.stats.coins + rewards.coins);
     expect(body.save.tickets.x10).toBe(body.stats.ticketsX10 + rewards.tickets10);
+    expect(body.stats.gems).toBe(
+      Math.floor(caps.gemsFlat + (body.stats.durationS / 60) * caps.gemsPerMinute),
+    );
+    expect(body.save.gems).toBe(body.stats.gems);
 
     const [row] = await t.db.db.select().from(runPlayers).where(eq(runPlayers.runId, runId));
     expect(row?.claimed).toMatchObject({ durationS: 3600, coins: 1_000_000 });
@@ -338,7 +369,7 @@ describe('runs', () => {
         durationS: 900,
         players: [
           {
-            ...summary({ level: 40, kills: 2000, coins: 700, ticketsX1: 2 }),
+            ...summary({ level: 40, kills: 2000, coins: 700, ticketsX1: 2, gems: 3 }),
             userId: a.userId,
             pokemon: { dex: 25, shiny: false },
           },
@@ -373,6 +404,7 @@ describe('runs', () => {
     expect(saveA).toMatchObject({
       coins: DEFAULT_ECONOMY.startingCoins + 700 + rewardsA.coins,
       tickets: { x1: 2 + rewardsA.tickets, x10: rewardsA.tickets10 },
+      gems: 3,
       stats: { runs: 1, groupRuns: 1, bestGroupTimeS: 900, bestTimeS: 900, bestLevel: 40 },
     });
     expect(Object.keys(saveA.achievements).sort()).toEqual(expectedA.map((a) => a.id).sort());
@@ -389,12 +421,13 @@ describe('runs', () => {
     ).toEqual(expectedB.map((a) => a.id).sort());
     expect((await b.get('/api/save')).json()).toMatchObject({
       coins: DEFAULT_ECONOMY.startingCoins + 600 + rewardsB.coins,
+      gems: 0,
     });
     const ledger = await t.db.db
       .select()
       .from(currencyLedger)
       .where(eq(currencyLedger.refId, runId));
-    expect(ledger).toHaveLength(3);
+    expect(ledger).toHaveLength(4); // coins for both; tickets and gems for one
   });
 });
 

@@ -163,3 +163,10 @@ export async function grantPokemon(
     }
   });
 }
+
+/** Credits gems to a save (an `admin_adjustment`): runs are the only real source. */
+export async function grantGems(db: Db, userId: string, gems: number): Promise<void> {
+  await withLockedSave(db.db, userId, (save) => {
+    save.wallet.credit('gems', gems, 'admin_adjustment', 'test');
+  });
+}

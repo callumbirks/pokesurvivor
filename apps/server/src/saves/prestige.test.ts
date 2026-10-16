@@ -3,12 +3,13 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { getServerData, pokemonOf } from '../data.js';
 import { currencyLedger, pokemonPrestiges, saves } from '../db/schema.js';
 import { loadLoadout, partnerOf } from '../game/loadout.js';
-import { createTestApp, grantPokemon } from '../test/harness.js';
+import { createTestApp, grantGems, grantPokemon } from '../test/harness.js';
 import type { TestApp, TestClient } from '../test/harness.js';
 import { getSave } from './service.js';
 
 interface SaveBody {
   coins: number;
+  gems: number;
   upgrades: Record<string, Record<string, number>>;
   prestige: Record<string, number>;
   moveBans: Record<string, string[]>;
@@ -18,6 +19,7 @@ interface SaveBody {
 describe('prestige', () => {
   let t: TestApp;
   const { maxStars } = getServerData().tuning.prestige;
+  const { prestigeCost } = getServerData().tuning.gems;
   const pikachu = pokemonOf(25);
   const startingMove = getServerData().startingMoveOf(pikachu);
   const banned = getServerData()
@@ -82,6 +84,7 @@ describe('prestige', () => {
   it('resets every upgrade and banned move for a star, keeps the slots, and records it', async () => {
     const c = await t.newUser();
     await grantPokemon(t.db, c.userId, [{ dex: 25 }]);
+    await grantGems(t.db, c.userId, prestigeCost + 7);
     const maxed = await maxAll(c);
     expect(
       (
@@ -99,7 +102,8 @@ describe('prestige', () => {
     expect(save.upgrades[25]).toBeUndefined();
     expect(save.moveBans[25]).toBeUndefined();
     expect(save.moveBindings[25]).toEqual([startingMove, null, null, null]);
-    expect(save.coins).toBe(maxed.coins); // free
+    expect(save.coins).toBe(maxed.coins);
+    expect(save.gems).toBe(7);
 
     const [audit] = await t.db.db
       .select()
@@ -138,6 +142,7 @@ describe('prestige', () => {
     const c = await t.newUser();
     await grantPokemon(t.db, c.userId, [{ dex: 25 }]);
     await c.put('/api/save/partner', { dex: 25 });
+    await grantGems(t.db, c.userId, prestigeCost * (maxStars + 1));
     for (let star = 1; star <= maxStars; star++) {
       await maxAll(c);
       const res = await c.post('/api/save/prestige', { dex: 25 });
@@ -161,6 +166,7 @@ describe('prestige', () => {
   it('applies one of two simultaneous prestiges', async () => {
     const c = await t.newUser();
     await grantPokemon(t.db, c.userId, [{ dex: 25 }]);
+    await grantGems(t.db, c.userId, prestigeCost * 2);
     await maxAll(c);
     const results = await Promise.all([
       c.post('/api/save/prestige', { dex: 25 }),
@@ -176,5 +182,38 @@ describe('prestige', () => {
       .from(pokemonPrestiges)
       .where(eq(pokemonPrestiges.userId, c.userId));
     expect(audits).toHaveLength(1);
+    // Only the applied one was paid for.
+    expect((await c.get('/api/save')).json()).toMatchObject({ gems: prestigeCost });
+  });
+
+  it(`costs ${prestigeCost} gems, with a ledger entry; refuses short of them`, async () => {
+    const c = await t.newUser();
+    await grantPokemon(t.db, c.userId, [{ dex: 25 }]);
+    await grantGems(t.db, c.userId, prestigeCost - 1);
+    const maxed = await maxAll(c);
+    const short = await c.post('/api/save/prestige', { dex: 25 });
+    expect(short.statusCode).toBe(409);
+    expect(short.json()).toMatchObject({ error: { code: 'insufficient_gems' } });
+    // Nothing changed.
+    expect((await c.get('/api/save')).json()).toMatchObject({
+      gems: prestigeCost - 1,
+      prestige: {},
+      upgrades: maxed.upgrades,
+    });
+
+    await grantGems(t.db, c.userId, 1);
+    const res = await c.post('/api/save/prestige', { dex: 25 });
+    expect(res.json()).toMatchObject({ gems: 0, prestige: { 25: 1 } });
+    const spent = await t.db.db
+      .select()
+      .from(currencyLedger)
+      .where(and(eq(currencyLedger.userId, c.userId), eq(currencyLedger.currency, 'gems')))
+      .orderBy(currencyLedger.id);
+    expect(spent.at(-1)).toMatchObject({
+      delta: -prestigeCost,
+      balanceAfter: 0,
+      reason: 'prestige_cost',
+      refId: '25:prestige:1',
+    });
   });
 });
