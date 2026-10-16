@@ -65,7 +65,7 @@ These values differ from the original game:
 - `tuning.json` `pickups`: a boss drops a ×10 ticket with `bossTicket10Chance` 0.1 (legacy 1/3),
   a rift legendary with `legendaryTicket10Chance` 0.2 (legacy 0.5).
 - `tuning.json` `pickups` gems (R6, not in legacy): a regular enemy drops a gem with
-  `gemDropRate` 0.005, a boss with `bossGemChance` 1 and a rift legendary drops `legendaryGems` 2,
+  `gemDropRate` 0.0055, a boss with `bossGemChance` 1 and a rift legendary drops `legendaryGems` 2,
   for about 5 gems in a 15-minute solo run (`pnpm --filter @pokesurvivor/sim gems` measures it).
   `gems.resetCost` and `gems.prestigeCost` (100 each) are what an upgrade reset and a prestige
   cost; the server charges them (`docs/api.md`).
