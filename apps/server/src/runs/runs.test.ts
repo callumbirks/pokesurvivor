@@ -442,7 +442,9 @@ describe('leaderboard', () => {
     entries: {
       rank: number;
       durationS: number;
-      players: { username: string; pokemon: { dex: number } }[];
+      level: number;
+      kills: number;
+      players: { username: string; pokemon: { dex: number }; level: number; kills: number }[];
     }[];
     me: { rank: number; durationS: number } | null;
   };
@@ -548,5 +550,35 @@ describe('leaderboard', () => {
     // Solo boards don't include coop runs.
     const solo = (await a!.get('/api/leaderboard?mode=solo')).json<Board>();
     expect(solo.me).toBeNull();
+  });
+
+  it('gives a group entry the team’s level and defeated once, even with an early leaver', async () => {
+    const [a, b, c] = await Promise.all([1, 2, 3].map(() => t.newUser()));
+    const player = (u: { userId: string }, level: number, kills: number, leftAfterS?: number) => ({
+      ...summary({ level, kills }),
+      userId: u.userId,
+      pokemon: { dex: 133, shiny: false },
+      ...(leftAfterS ? { leftAfterS } : {}),
+    });
+    await recordCoopRun(
+      t.db.db,
+      {
+        startedAt: new Date(Date.now() - 2000_000),
+        endedAt: new Date(),
+        durationS: 2000,
+        // C left at 15 minutes, with what the team had then.
+        players: [player(a!, 40, 900), player(b!, 40, 900), player(c!, 31, 550, 900)],
+      },
+      TZ,
+    );
+    const board = (await a!.get('/api/leaderboard?mode=group&pokemon=133')).json<Board>();
+    expect(board.entries).toHaveLength(1);
+    expect(board.entries[0]).toMatchObject({ durationS: 2000, level: 40, kills: 900 });
+    expect(board.me).toMatchObject({ level: 40, kills: 900 });
+    // Players keep their own values.
+    expect(board.entries[0]?.players.map((p) => p.kills).sort()).toEqual([550, 900, 900]);
+    const solo = (await t.client().get('/api/leaderboard?mode=solo')).json<Board>();
+    for (const e of solo.entries)
+      expect(e).toMatchObject({ level: e.players[0]?.level, kills: e.players[0]?.kills });
   });
 });

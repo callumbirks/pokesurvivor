@@ -176,6 +176,9 @@ export interface LeaderboardEntry {
   rank: number;
   durationS: number;
   endedAt: string;
+  /** The run's (team's) level and Pokémon defeated. Absent from older servers. */
+  level?: number;
+  kills?: number;
   players: { username: string; pokemon: PokemonRef; level: number; kills: number }[];
 }
 export interface Leaderboard {

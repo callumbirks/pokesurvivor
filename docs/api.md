@@ -473,6 +473,8 @@ least one of you). `pokemon` keeps runs where that Pokémon was played.
       "rank": 1,
       "durationS": 1203,
       "endedAt": "2026-10-13T09:12:00.000Z",
+      "level": 41,
+      "kills": 2300,
       "players": [
         { "username": "Ash", "pokemon": { "dex": 25, "shiny": false }, "level": 41, "kills": 2300 }
       ]
@@ -482,7 +484,9 @@ least one of you). `pokemon` keeps runs where that Pokémon was played.
 }
 ```
 
-`me` is your best entry on that board, with its rank, even if it is outside `limit`.
+`me` is your best entry on that board, with its rank, even if it is outside `limit`. `level` and
+`kills` are the run's: in a group, the team's (players share XP and defeats; one who left early
+keeps what the team had then, so the entry has the highest).
 
 ## Friends
 

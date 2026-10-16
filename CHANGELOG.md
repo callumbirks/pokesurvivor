@@ -6,7 +6,7 @@ What changed for players in each release, newest first. Generated from
 
 ## Unreleased
 
-PRs: [#98](https://github.com/callumbirks/pokesurvivor/pull/98), [#100](https://github.com/callumbirks/pokesurvivor/pull/100)
+PRs: [#98](https://github.com/callumbirks/pokesurvivor/pull/98), [#99](https://github.com/callumbirks/pokesurvivor/pull/99), [#100](https://github.com/callumbirks/pokesurvivor/pull/100)
 
 ### New
 
@@ -17,6 +17,10 @@ PRs: [#98](https://github.com/callumbirks/pokesurvivor/pull/98), [#100](https://
 ### Changed
 
 - Prestige now costs 100 gems.
+
+### Fixed
+
+- Group leaderboard entries show the level and Pokémon defeated once instead of once per player.
 
 ## v16 - 2026-10-16
 
