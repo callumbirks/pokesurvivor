@@ -22,6 +22,44 @@ const query: {
   pokemon: null,
 };
 
+/**
+ * One leaderboard row. Level and defeated are the run's (shared by a group), so they show once;
+ * older servers send them only per player, so it falls back to the first player's.
+ */
+export function rankingRow(e: LeaderboardEntry, mine: boolean): HTMLElement {
+  const first = e.players[0];
+  const level = e.level ?? first?.level ?? 0;
+  const kills = e.kills ?? first?.kills ?? 0;
+  return h(
+    'div',
+    { class: ['rk-row', e.rank <= 3 && `top${e.rank}`, mine && 'mine'] },
+    h('span', { class: 'pos' }, e.rank <= 3 ? icon('trophy', 20) : null, String(e.rank)),
+    h(
+      'span',
+      { class: 'mons' },
+      e.players.map((p) =>
+        h(
+          'span',
+          { class: 'mini' },
+          sprite(p.pokemon.dex, {
+            scale: 1,
+            shiny: p.pokemon.shiny,
+            fit: { width: 44, height: 36 },
+            feet: true,
+          }),
+        ),
+      ),
+    ),
+    h(
+      'span',
+      { class: 'who' },
+      h('b', null, e.players.map((p) => p.username).join(' · ')),
+      h('small', null, t('leaderboard.lvDefeated', { 0: level, 1: kills })),
+    ),
+    h('span', { class: 'time' }, mmss(e.durationS)),
+  );
+}
+
 export function rankingScreen(app: App): Screen {
   const box = screenBox(app, { id: 'ranking', title: t('menu.leaderboard') });
   const controls = h('div', { class: 'rk-controls' });
@@ -30,54 +68,20 @@ export function rankingScreen(app: App): Screen {
   box.body.append(controls, list, me);
   const data = gameData();
 
-  const row = (e: LeaderboardEntry, mine: boolean) =>
-    h(
-      'div',
-      { class: ['rk-row', e.rank <= 3 && `top${e.rank}`, mine && 'mine'] },
-      h('span', { class: 'pos' }, e.rank <= 3 ? icon('trophy', 20) : null, String(e.rank)),
-      h(
-        'span',
-        { class: 'mons' },
-        e.players.map((p) =>
-          h(
-            'span',
-            { class: 'mini' },
-            sprite(p.pokemon.dex, {
-              scale: 1,
-              shiny: p.pokemon.shiny,
-              fit: { width: 44, height: 36 },
-              feet: true,
-            }),
-          ),
-        ),
-      ),
-      h(
-        'span',
-        { class: 'who' },
-        h('b', null, e.players.map((p) => p.username).join(' · ')),
-        h(
-          'small',
-          null,
-          e.players.map((p) => t('leaderboard.lvDefeated', { 0: p.level, 1: p.kills })).join(' · '),
-        ),
-      ),
-      h('span', { class: 'time' }, mmss(e.durationS)),
-    );
-
   const show = (board: Leaderboard) => {
     const name = app.user?.username;
     replace(
       list,
       board.entries.length
         ? board.entries.map((e) =>
-            row(
+            rankingRow(
               e,
               e.players.some((p) => p.username === name),
             ),
           )
         : h('p', { class: 'sub' }, t('leaderboard.noRecordsHereYetBe')),
     );
-    replace(me, board.me ? row(board.me, true) : t('app.noRecordYet'));
+    replace(me, board.me ? rankingRow(board.me, true) : t('app.noRecordYet'));
   };
 
   const load = () =>
