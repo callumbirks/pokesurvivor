@@ -355,3 +355,43 @@ docker run --stop-timeout 60 -p 3000:3000 -e DATABASE_URL=postgres://user:pass@h
 Migrations live in `apps/server/drizzle/` and are applied on start. To apply them by hand
 instead (e.g. from a one-off container), set `MIGRATE_ON_START=false` and run
 `pnpm db:migrate` with `DATABASE_URL` set.
+
+## Live tuning
+
+`tuning.json` and `levelup.json` can be tuned on the live server, without a deploy, from the
+admin page at `https://<domain>/#admin` (there is no link to it; for anyone who isn't an admin
+the route doesn't exist and every admin endpoint answers 404). A save publishes a new config
+version at once: every run that starts after it plays with it, and runs already going keep the
+version they started with (a coop game saved for a deploy too). The API is in
+[api.md](api.md#live-tuning-admin).
+
+**Make someone an admin** (in the Postgres service's console, or `psql "$DATABASE_URL"`):
+
+```sql
+UPDATE users SET is_admin = true WHERE lower(username) = lower('Ash');
+-- and to take it away again:
+UPDATE users SET is_admin = false WHERE lower(username) = lower('Ash');
+```
+
+It applies on their next request (the client reads it at login or on reload).
+
+**Bake the overrides into the repo.** Live overrides sit on top of the JSON files, which stay
+the source of truth. Once a tuning is settled:
+
+1. On `#admin`, **Export as patch** downloads `tuning-patch-v<N>.json` (the overrides in effect).
+2. In the repo: `pnpm --filter @pokesurvivor/tools apply-tuning-patch path/to/tuning-patch-vN.json`
+   rewrites the changed values in `packages/data/json/tuning.json` and `levelup.json` (nothing
+   else in them), formats them and validates them (`--dry-run` only prints the changes). Commit,
+   with a changelog line, and deploy as usual.
+3. After that deploy, **Revert to the defaults** on `#admin` (version 0's row in the history).
+   The defaults now hold the tuned values, so new runs play exactly as before; until then the
+   overrides would keep masking later edits to those settings in the JSON.
+
+**After a deploy**, a stored override may name a setting the new build removed, or a value its
+schema no longer accepts. The server starts anyway: those settings are skipped (runs use their
+defaults), logged as a warning (`config version has overrides this build skips`), and listed at
+the top of `#admin`. Publishing again (or reverting) stores only what applies.
+
+Overrides replace whole arrays (a curve or the list of stat cards), so an override of an array
+also hides changes a deploy makes to that array's defaults: check the diff against the defaults
+on `#admin` after deploying data changes.

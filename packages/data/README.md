@@ -75,6 +75,25 @@ These values differ from the original game:
 Display text in data files is English. Text for screens (buttons, toasts, HUD) goes in
 `i18n/en.json`, never in code. `test/english.test.ts` fails if anything Spanish appears.
 
+## Live tuning
+
+`tuning.json` and `levelup.json` can also be changed on a running server, without a deploy, from
+the admin page (`#admin`; see `docs/deploy.md`, "Live tuning"). The server stores overrides on
+top of these files; `src/live-config.ts` holds the shared logic:
+
+- overrides are a deep-merge patch per file (`mergePatch`): objects merge key by key, anything
+  else (numbers, strings, **whole arrays**) replaces the default;
+- `validateTunables` checks a whole config with the schemas (unknown keys rejected) plus the
+  cross-file checks `loadGameData` makes, with a file and path per problem;
+- `resolveOverrides` applies stored overrides leniently: a setting a newer build removed or no
+  longer accepts is skipped (its default applies) and reported, never thrown;
+- `gameDataWith(base, config)` / `gameDataForRun(base, runConfig)` give the `GameData` a run plays
+  with (the built-in object itself when nothing differs). Each sim takes its run's data
+  (`createSim({ data })`), so runs with different configs share a process.
+
+The JSON files stay the source of truth: "Export as patch" on the admin page and
+`pnpm --filter @pokesurvivor/tools apply-tuning-patch <file>` bake tuned values back into them.
+
 ## Logic
 
 Formula coefficients live in `packages/sim/src/`: enemy behaviours and scaling in `data.ts`,

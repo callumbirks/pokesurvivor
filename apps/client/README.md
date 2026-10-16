@@ -6,24 +6,26 @@ look (blue Mystery Dungeon boxes, the Pixelify Sans font in `public/fonts/`, OFL
 
 ## Layout
 
-| Path                                             | What                                                                                           |
-| ------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
-| `src/main.ts`                                    | Starts the app, or a dev-only view (`/?debug-sim`, `/?debug-net`, `/?play-solo`, `/?play-net`) |
-| `src/app/app.ts`                                 | The shell: routes, session, save cache, WebSocket lifecycle, top bar, invites, games           |
-| `src/app/api.ts`                                 | The HTTP API (`docs/api.md`), typed; errors are `ApiError` with the server's `code`            |
-| `src/app/busy.ts`                                | `BusyStatus`: `busy` in the room while on a busy screen, then the previous status back         |
-| `src/app/toast.ts`                               | Toasts, sticky notices, and `errorText()` (error code → `errors.<code>` in `en.json`)          |
-| `src/app/dom.ts`                                 | `h()`, pixel icons (`icon()`, rarity Poké Balls, `tNodes()`), sprites with `fit`/`feet`        |
-| `src/app/pokemon-picker.ts`                      | The Pokémon picker (solo, the room): search, filters, sort; logic in `pokemon-filter.ts`       |
-| `src/app/slots.ts`                               | The gacha's pixel-art slot machine (port of original `slots.js`)                               |
-| `src/app/backdrop.ts`                            | The living world behind the menus (port of legacy's `Backdrop`)                                |
-| `src/app/game.ts`                                | `mountGame` / `createSoloConnection`: the shell's view of `src/game/`                          |
-| `src/game/`                                      | The in-game client: renderer, prediction, HUD, choices, results, solo worker (below)           |
-| `src/icons.ts`, `src/sprites.ts`, `src/audio.ts` | Pixel icons, Pokémon sprite sheets and animator, the Web Audio synth (shared)                  |
-| `src/screens/index.ts`                           | The routes: `#menu`, `#gacha`, … and which are public / busy / show the top bar                |
-| `src/settings.ts`                                | The settings store (local, synced to the save's `settings`), read by the game                  |
-| `src/load-recovery.ts`                           | A bundle, chunk or worker that fails to load: one reload, then a hard-refresh message          |
-| `e2e/`                                           | Playwright tests against a real server                                                         |
+| Path                                             | What                                                                                                                                               |
+| ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/main.ts`                                    | Starts the app, or a dev-only view (`/?debug-sim`, `/?debug-net`, `/?play-solo`, `/?play-net`)                                                     |
+| `src/app/app.ts`                                 | The shell: routes, session, save cache, WebSocket lifecycle, top bar, invites, games                                                               |
+| `src/app/api.ts`                                 | The HTTP API (`docs/api.md`), typed; errors are `ApiError` with the server's `code`                                                                |
+| `src/app/busy.ts`                                | `BusyStatus`: `busy` in the room while on a busy screen, then the previous status back                                                             |
+| `src/app/toast.ts`                               | Toasts, sticky notices, and `errorText()` (error code → `errors.<code>` in `en.json`)                                                              |
+| `src/app/dom.ts`                                 | `h()`, pixel icons (`icon()`, rarity Poké Balls, `tNodes()`), sprites with `fit`/`feet`                                                            |
+| `src/app/pokemon-picker.ts`                      | The Pokémon picker (solo, the room): search, filters, sort; logic in `pokemon-filter.ts`                                                           |
+| `src/app/slots.ts`                               | The gacha's pixel-art slot machine (port of original `slots.js`)                                                                                   |
+| `src/app/backdrop.ts`                            | The living world behind the menus (port of legacy's `Backdrop`)                                                                                    |
+| `src/app/game.ts`                                | `mountGame` / `createSoloConnection`: the shell's view of `src/game/`                                                                              |
+| `src/game/`                                      | The in-game client: renderer, prediction, HUD, choices, results, solo worker (below)                                                               |
+| `src/icons.ts`, `src/sprites.ts`, `src/audio.ts` | Pixel icons, Pokémon sprite sheets and animator, the Web Audio synth (shared)                                                                      |
+| `src/screens/index.ts`                           | The routes: `#menu`, `#gacha`, … and which are public / busy / show the top bar                                                                    |
+| `src/settings.ts`                                | The settings store (local, synced to the save's `settings`), read by the game                                                                      |
+| `src/live-config.ts`                             | Which game data screens read (`gameData()`): the run's live-tuning config in a run (`Game.config`), the published one (`GET /api/config`) in menus |
+| `src/screens/admin.ts`, `admin-tuning.ts`        | The hidden `#admin` page (admins only): live tuning of `tuning.json` / `levelup.json`; add a section there for a new admin tool                    |
+| `src/load-recovery.ts`                           | A bundle, chunk or worker that fails to load: one reload, then a hard-refresh message                                                              |
+| `e2e/`                                           | Playwright tests against a real server                                                                                                             |
 
 ## The app shell
 
