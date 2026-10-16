@@ -1,6 +1,7 @@
 // The shop: permanent upgrades per Pokémon, bought with coins (legacy "Upgrades"). Levels and
 // prices come from the server (`GET /api/upgrades`); buying returns the updated save. As in
 // legacy, the "ban" upgrade opens the picker for the banned moves, and the move slots are below.
+// Once bought, "Repertoire" has a drop-down for the second move runs start with (or random).
 // Above the upgrades, the Pokémon's stats with its prestige and the Prestige button: once every
 // upgrade is maxed, the server resets them for a star (`POST /api/save/prestige`).
 import { canPrestige, t, type Move, type Pokemon } from '@pokesurvivor/data';
@@ -8,7 +9,8 @@ import { audio } from '../audio.js';
 import type { App, Screen } from '../app/app.js';
 import { gameData, h, icon, num, pokemonName, replace, sprite } from '../app/dom.js';
 import { confirmDialog } from '../app/confirm-dialog.js';
-import { bindableMoves, movePoolOf, startingMoveOf } from '../app/moves.js';
+import type { MovesBody } from '../app/api.js';
+import { bindableMoves, movePoolOf, repertoireMoves, startingMoveOf } from '../app/moves.js';
 import { statBars } from '../app/pokemon-views.js';
 import { prestigeGains, prestigeOf, stars } from '../app/prestige.js';
 import { shopPick, type ShopPick } from '../app/shop-pick.js';
@@ -18,6 +20,7 @@ import { loadInto, screenBox } from './common.js';
 type UpgradeRules = Record<string, { maxLevel: number; baseCost: number; growth: number }>;
 
 const BAN_UPGRADE = 'ban';
+const REPERTOIRE_UPGRADE = 'extra-move';
 const SLOTS = 4;
 
 // The view survives leaving and coming back, as in legacy, until the partner changes.
@@ -45,6 +48,10 @@ export function shopScreen(app: App): Screen {
   const render = () => {
     const s = app.save;
     if (!s) return;
+    // A drop-down that saved re-renders: the keys and the pad stay on the one replacing it.
+    const active = document.activeElement;
+    const refocus =
+      active instanceof HTMLElement && list.contains(active) ? active.dataset.testid : undefined;
     const partner = s.partner.dex;
     const owned = Object.keys(s.owned)
       .map(Number)
@@ -94,7 +101,7 @@ export function shopScreen(app: App): Screen {
     );
     const levels = levelsOf(dex);
     if (mon) renderPrestige(mon, levels);
-    const saveMoves = (body: { bindings?: (string | null)[]; bans?: string[] }, el: HTMLElement) =>
+    const saveMoves = (body: MovesBody, el: HTMLElement) =>
       void app.act(null, async () => {
         el.classList.add('saving');
         try {
@@ -133,6 +140,10 @@ export function shopScreen(app: App): Screen {
         // With levels of "ban", a button to open the picker (none without levels, as in legacy).
         const banLevels = u.id === BAN_UPGRADE ? lvl : 0;
         const bans = s.moveBans[String(dex)] ?? [];
+        const second =
+          u.id === REPERTOIRE_UPGRADE && lvl > 0 && mon
+            ? repertoireSelect(mon, bans, s.repertoireMoves?.[String(dex)], saveMoves)
+            : null;
         const choose = banLevels
           ? h(
               'button',
@@ -170,6 +181,7 @@ export function shopScreen(app: App): Screen {
             choose,
           ),
           h('div', { class: 'upg-btns' }, buy),
+          second,
         );
         return banLevels && banOpen && mon
           ? [item, banPicker(mon, bans, banLevels, saveMoves)]
@@ -177,6 +189,8 @@ export function shopScreen(app: App): Screen {
       }),
       mon ? bindPanel(mon, s.moveBindings[String(dex)] ?? [], saveMoves) : [],
     );
+    if (refocus)
+      list.querySelector<HTMLElement>(`[data-testid="${refocus}"]`)?.focus({ preventScroll: true });
   };
 
   /** The stats with the prestige share, and the Prestige button with what it would do. */
@@ -238,6 +252,9 @@ export function shopScreen(app: App): Screen {
           { class: 'dialog-list' },
           h('li', null, t('prestige.resetUpgrades', { 0: data.upgrades.length })),
           bans.length ? h('li', null, t('prestige.resetBans')) : null,
+          s.repertoireMoves?.[String(mon.dex)]
+            ? h('li', null, t('prestige.resetRepertoire'))
+            : null,
           h('li', { class: 'muted' }, t('prestige.keeps')),
         ),
         h('h4', null, t('prestige.gain'), ' ', stars(next)),
@@ -279,7 +296,7 @@ export function shopScreen(app: App): Screen {
   return { el: box.el, destroy: off };
 }
 
-type SaveMoves = (body: { bindings?: (string | null)[]; bans?: string[] }, el: HTMLElement) => void;
+type SaveMoves = (body: MovesBody, el: HTMLElement) => void;
 
 const byName = (a: Move, b: Move) => a.name.localeCompare(b.name);
 
@@ -323,6 +340,41 @@ function banPicker(mon: Pokemon, current: string[], max: number, save: SaveMoves
     { class: 'panel ban-picker', dataset: { testid: 'ban-picker' } },
     h('p', { class: 'sub' }, t('hud.tapTheMovesYouDo', { 0: `${bans.size}/${max}` })),
     chips,
+  );
+}
+
+/**
+ * Repertoire's second starting move: Random (the default, as before) or one of the moves it could
+ * roll, with its type. A choice that is no longer valid (banned since) shows as Random.
+ */
+function repertoireSelect(
+  mon: Pokemon,
+  bans: string[],
+  current: string | undefined,
+  save: SaveMoves,
+): HTMLElement {
+  const types = gameData().types.types;
+  const typeName = (id: string) => types.find((x) => x.id === id)?.name ?? id;
+  const options = repertoireMoves(mon, bans).sort(byName);
+  const select = h(
+    'select',
+    {
+      class: 'field',
+      'aria-label': t('upgrades.secondMove'),
+      dataset: { testid: 'repertoire-move' },
+    },
+    h('option', { value: '' }, t('upgrades.random')),
+    options.map((m) =>
+      h('option', { value: m.id }, t('upgrades.moveOption', { 0: m.name, 1: typeName(m.type) })),
+    ),
+  );
+  select.value = options.some((m) => m.id === current) ? (current ?? '') : '';
+  select.addEventListener('change', () => save({ repertoire: select.value || null }, select));
+  return h(
+    'label',
+    { class: 'upg-repertoire' },
+    h('span', { class: 'muted small' }, t('upgrades.secondMove')),
+    select,
   );
 }
 

@@ -43,6 +43,7 @@ export function soloScreen(app: App): Screen {
               prestige: prestigeOf(s, p.dex),
               bannedMoves: s.moveBans[key] ?? [],
               moveBindings: s.moveBindings[key] ?? [],
+              ...(s.repertoireMoves?.[key] ? { secondMove: s.repertoireMoves[key] } : {}),
               legendsBeaten: Object.keys(s.legendsBeaten).map(Number),
             },
             Object.keys(s.owned)

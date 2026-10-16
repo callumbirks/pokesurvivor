@@ -258,6 +258,30 @@ describe('MenuNav', () => {
     expect(sw.getAttribute('aria-checked')).toBe('false');
   });
 
+  it('steps a drop-down through its options with left / right, and leaves it up / down', () => {
+    const root = screen();
+    const select = place(document.createElement('select'), 0, 0);
+    for (const [value, disabled] of [
+      ['', false],
+      ['a', true],
+      ['b', false],
+    ] as const)
+      select.append(Object.assign(document.createElement('option'), { value, disabled }));
+    root.append(select);
+    const below = button('below', 0, 40, root);
+    const changes: string[] = [];
+    select.addEventListener('change', () => changes.push(select.value));
+    const nav = new MenuNav(() => root);
+    select.focus();
+    nav.press('left'); // at the first option
+    nav.press('right'); // skips the disabled one
+    nav.press('right'); // at the last option
+    nav.press('left');
+    expect(changes).toEqual(['b', '']);
+    nav.press('down');
+    expect(document.activeElement).toBe(below);
+  });
+
   it('keeps the focus on the same control when a press re-renders the screen', () => {
     const root = screen();
     const render = (on: boolean) => {

@@ -28,7 +28,10 @@
   "upgrades": {
     "max": "Max.",
     "free": "Free",
-    "eachPokemonHasItsOwn": "Each Pokémon has its own upgrades: they only count when you play with it."
+    "eachPokemonHasItsOwn": "Each Pokémon has its own upgrades: they only count when you play with it.",
+    "secondMove": "Second move",
+    "random": "Random",
+    "moveOption": "{0} · {1}"
   },
   "hud": {
     "powerForS": "{0} power! {1} for {2} s",
@@ -808,6 +811,7 @@
     "resets": "Resets",
     "resetUpgrades": "All {0} upgrades go back to level 0, Repertoire and Ban included.",
     "resetBans": "Its banned moves are cleared.",
+    "resetRepertoire": "Its chosen second move goes back to random.",
     "keeps": "Its move shortcuts stay. Prestige is free.",
     "gain": "You gain",
     "gainStar": "Prestige {0}, in every run with it:",

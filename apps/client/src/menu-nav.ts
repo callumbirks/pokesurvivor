@@ -9,7 +9,8 @@
 // Directions repeat while held (`NAV_REPEAT_DELAY_MS`, then every `NAV_REPEAT_MS`). Whatever is
 // held when the screen on top changes is ignored until released, so a press or a stick held in
 // one screen can't act in the next (nor gameplay movement in a menu).
-// On a slider, left / right move it a step; on a switch, left turns it off and right on.
+// On a slider, left / right move it a step; on a drop-down, to the previous / next option; on a
+// switch, left turns it off and right on.
 // Rows (`data-nav-row`) and grids (`data-nav-grid`) move in their own order; `data-nav-<dir>`
 // links a control, row or grid to where that direction goes (see `navLink`).
 // The keyboard does the same on the screens outside a run (arrows, Esc; Enter and Space press
@@ -472,7 +473,7 @@ export class MenuNav {
     return true;
   }
 
-  /** Left / right on a slider or a switch. */
+  /** Left / right on a slider, a drop-down or a switch. */
   private adjust(e: HTMLElement, dir: NavDir, root: HTMLElement): boolean {
     if (dir !== 'left' && dir !== 'right') return false;
     const up = dir === 'right';
@@ -485,6 +486,17 @@ export class MenuNav {
       const next = String(Number(value.toFixed((e.step.split('.')[1] ?? '').length)));
       if (next === e.value) return true;
       e.value = next;
+      e.dispatchEvent(new Event('input', { bubbles: true }));
+      e.dispatchEvent(new Event('change', { bubbles: true }));
+      return true;
+    }
+    if (e instanceof HTMLSelectElement) {
+      // The pad can't open the browser's list: it steps through the options (no wrap-around).
+      let i = e.selectedIndex;
+      do i += up ? 1 : -1;
+      while (e.options[i]?.disabled);
+      if (i < 0 || i >= e.options.length) return true;
+      e.selectedIndex = i;
       e.dispatchEvent(new Event('input', { bubbles: true }));
       e.dispatchEvent(new Event('change', { bubbles: true }));
       return true;

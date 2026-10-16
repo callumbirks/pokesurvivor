@@ -40,6 +40,13 @@ export interface Missions {
   weekly: MissionSet;
 }
 
+/** `PUT /api/save/moves/:dex`: slot bindings, bans and the Repertoire move (null: random). */
+export interface MovesBody {
+  bindings?: (string | null)[];
+  bans?: string[];
+  repertoire?: string | null;
+}
+
 export interface PokemonRef {
   dex: number;
   shiny: boolean;
@@ -59,6 +66,8 @@ export interface Save {
   prestige?: Record<string, number>;
   moveBindings: Record<string, (string | null)[]>;
   moveBans: Record<string, string[]>;
+  /** dex -> the chosen Repertoire move (absent: random). Optional: older cached saves lack it. */
+  repertoireMoves?: Record<string, string>;
   pity: Record<string, number>;
   stats: {
     runs: number;
@@ -317,7 +326,7 @@ export class Api {
       answers ? { dex, answers } : { dex },
     );
   }
-  setMoves(dex: number, moves: { bindings?: (string | null)[]; bans?: string[] }) {
+  setMoves(dex: number, moves: MovesBody) {
     return this.request<Save>('PUT', `/api/save/moves/${dex}`, moves);
   }
   buyUpgrade(dex: number, upgradeId: string) {

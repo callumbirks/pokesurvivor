@@ -1,8 +1,10 @@
 {
   "unreleased": {
-    "prs": [],
+    "prs": [98],
     "entries": {
-      "new": [],
+      "new": [
+        "Repertoire now lets you choose your second starting move (or keep it random) on the Upgrades screen."
+      ],
       "changed": [],
       "fixed": [],
       "behindTheScenes": []

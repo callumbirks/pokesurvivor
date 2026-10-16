@@ -1,5 +1,5 @@
 // Which moves a Pokémon starts with and can learn, as the server checks them for move bindings
-// and bans (`startingMoveOf` / `movePoolOf` in apps/server/src/data.ts).
+// bans and the Repertoire move (`startingMoveOf` / `movePoolOf` in apps/server/src/data.ts).
 import type { Move, Pokemon } from '@pokesurvivor/data';
 import { gameData } from './dom.js';
 
@@ -31,4 +31,15 @@ export function bindableMoves(pokemon: Pokemon): Move[] {
   const first = gameData().moveById.get(start);
   const pool = movePoolOf(pokemon).filter((m) => m.id !== start);
   return first ? [first, ...pool] : pool;
+}
+
+/**
+ * The moves "Repertoire" can start a run with as the second move: the pool's attacking moves
+ * other than the starting move, minus the banned ones (the server and the sim check the same).
+ */
+export function repertoireMoves(pokemon: Pokemon, bans: readonly string[]): Move[] {
+  const start = startingMoveOf(pokemon);
+  return movePoolOf(pokemon).filter(
+    (m) => m.id !== start && m.kind !== 'buff' && !bans.includes(m.id),
+  );
 }

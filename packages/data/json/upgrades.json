@@ -93,7 +93,7 @@
     "id": "extra-move",
     "icon": "cards",
     "name": "Repertoire",
-    "description": "Start with 2 moves",
+    "description": "Start with 2 moves (choose the second)",
     "maxLevel": 1,
     "baseCost": 1500,
     "costGrowth": 1,
