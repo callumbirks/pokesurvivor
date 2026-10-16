@@ -1,27 +1,38 @@
 {
   "unreleased": {
-    "prs": [92, 93, 94, 95, 96],
+    "prs": [],
     "entries": {
-      "new": [
-        "Server updates no longer end co-op runs: you get a short warning, and your run continues right after the update."
-      ],
-      "changed": [
-        "Wild Pokémon get tougher faster after the first few minutes, and hit a little harder later on.",
-        "Rare, Epic and Legendary upgrade cards are rarer, especially after minute 8.",
-        "Momentum now tops out at ×1.2 and drains a little faster.",
-        "Defence now works as toughness (+100% defence halves damage), up to +500%, instead of stopping at 70% damage reduction. Armor, Assault Vest, Harden and prestige give defence."
-      ],
-      "fixed": [
-        "After an update the game no longer gets stuck on a black or white screen until you hard-refresh."
-      ],
-      "behindTheScenes": [
-        "Balance can now be tuned live by admins, without an update: new runs use the latest settings and runs already going keep theirs.",
-        "Every run records which balance settings it was played with.",
-        "Every run now keeps a balance record per player (cards picked, stats each minute, what knocked you out), and admins can export them to see what made runs easy or hard. It doesn't change rewards."
-      ]
+      "new": [],
+      "changed": [],
+      "fixed": [],
+      "behindTheScenes": []
     }
   },
   "versions": [
+    {
+      "version": 16,
+      "date": "2026-10-16",
+      "prs": [92, 93, 94, 95, 96],
+      "entries": {
+        "new": [
+          "Server updates no longer end co-op runs: you get a short warning, and your run continues right after the update."
+        ],
+        "changed": [
+          "Wild Pokémon get tougher faster after the first few minutes, and hit a little harder later on.",
+          "Rare, Epic and Legendary upgrade cards are rarer, especially after minute 8.",
+          "Momentum now tops out at ×1.2 and drains a little faster.",
+          "Defence now works as toughness (+100% defence halves damage), up to +500%, instead of stopping at 70% damage reduction. Armor, Assault Vest, Harden and prestige give defence."
+        ],
+        "fixed": [
+          "After an update the game no longer gets stuck on a black or white screen until you hard-refresh."
+        ],
+        "behindTheScenes": [
+          "Balance can now be tuned live by admins, without an update: new runs use the latest settings and runs already going keep theirs.",
+          "Every run records which balance settings it was played with.",
+          "Every run now keeps a balance record per player (cards picked, stats each minute, what knocked you out), and admins can export them to see what made runs easy or hard. It doesn't change rewards."
+        ]
+      }
+    },
     {
       "version": 15,
       "date": "2026-10-15",
