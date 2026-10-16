@@ -19,6 +19,8 @@ export interface RunSummary {
   /** Gacha tickets picked up. */
   ticketsX1: number;
   ticketsX10: number;
+  /** Gems picked up (R6). Optional: older clients don't send it (0). */
+  gems?: number;
   /** Dex numbers of wild shinies caught (each also grants the normal form). */
   shiniesCaught: number[];
   progress: RunProgress;

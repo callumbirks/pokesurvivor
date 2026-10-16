@@ -113,8 +113,12 @@
     "max": 420,
     "ticketDropRate": 0.0025,
     "bossTicket10Chance": 0.1,
-    "legendaryTicket10Chance": 0.2
+    "legendaryTicket10Chance": 0.2,
+    "gemDropRate": 0.005,
+    "bossGemChance": 1,
+    "legendaryGems": 2
   },
+  "gems": { "prestigeCost": 100, "resetCost": 100 },
   "defense": { "max": 5 },
   "prestige": {
     "maxStars": 3,

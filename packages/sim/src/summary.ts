@@ -20,6 +20,8 @@ export interface PlayerSummary {
   coinsCollected: number;
   tickets: number;
   tickets10: number;
+  /** Gems picked up (the team's, like tickets). */
+  gems: number;
   /** Shiny wild Pokémon defeated this run (each player gets them). */
   shinies: number[];
   /**
@@ -100,6 +102,7 @@ export function runSummary(ctx: Ctx, owns?: OwnsPokemon): RunSummary {
       coinsCollected: team.coins,
       tickets: team.tickets,
       tickets10: team.tickets10,
+      gems: team.gems,
       shinies: [...team.shinies],
       ...reward(p),
       coinMul: p.coinMul,
@@ -131,6 +134,7 @@ export function playerRunSummary(summary: RunSummary, playerId: string): Protoco
     coins: p.rewardCoins,
     ticketsX1: p.tickets,
     ticketsX10: p.tickets10,
+    gems: p.gems,
     shiniesCaught: [...p.shinies],
     progress: {
       defeatsByType: { ...pr.defeatsByType },

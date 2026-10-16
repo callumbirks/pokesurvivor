@@ -65,7 +65,11 @@ export function dropPickup(
   push(ctx, makePickup(ctx, kind, x, y, value, itemId));
 }
 
-/** XP from a defeated enemy (bosses burst into big gems and rewards), plus occasional drops. */
+/**
+ * XP from a defeated enemy (bosses burst into big XP gems and rewards), plus occasional drops:
+ * tickets and gems (the currency, `gemDropRate`; a boss `bossGemChance`, a legendary
+ * `legendaryGems`).
+ */
 export function dropXp(
   ctx: Ctx,
   x: number,
@@ -87,10 +91,15 @@ export function dropXp(
     if (rand() < (legend ? tuning.legendaryTicket10Chance : tuning.bossTicket10Chance)) {
       dropPickup(ctx, 'ticket10', x, y - 20, 1);
     }
+    if (legend) {
+      for (let i = 0; i < tuning.legendaryGems; i++)
+        dropPickup(ctx, 'gem', x + rand.range(-20, 20), y + 20, 1);
+    } else if (rand() < tuning.bossGemChance) dropPickup(ctx, 'gem', x, y + 20, 1);
     return;
   }
   dropPickup(ctx, value >= 20 ? 'xp-big' : 'xp', x, y, value);
   if (rand() < tuning.ticketDropRate) dropPickup(ctx, 'ticket', x + rand.range(-6, 6), y, 1);
+  if (rand() < tuning.gemDropRate) dropPickup(ctx, 'gem', x + rand.range(-6, 6), y, 1);
   const r = rand();
   if (r < 0.012) dropPickup(ctx, 'heal', x + rand.range(-8, 8), y);
   else if (r < 0.02) dropPickup(ctx, 'magnet', x, y);
@@ -162,6 +171,9 @@ function collect(ctx: Ctx, p: PickupState, who: PlayerState): void {
       return;
     case 'ticket10':
       s.team.tickets10++;
+      return;
+    case 'gem':
+      s.team.gems++;
       return;
     case 'heal':
       healPlayer(ctx, who, who.maxHp * 0.3);

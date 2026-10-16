@@ -219,6 +219,16 @@ export const TuningFileSchema = z.strictObject({
     /** Chance a boss / a rift legendary drops a ×10 ticket. */
     bossTicket10Chance: Chance,
     legendaryTicket10Chance: Chance,
+    /** Chance a regular enemy drops a gem (R6: the rare currency for resets and prestige). */
+    gemDropRate: Chance,
+    /** Chance a boss drops a gem; a rift legendary drops `legendaryGems` instead. */
+    bossGemChance: Chance,
+    legendaryGems: z.number().int().nonnegative().max(20),
+  }),
+  /** What gems buy (R6): a Pokémon's prestige, and a reset of its upgrades for its coins back. */
+  gems: z.strictObject({
+    prestigeCost: z.number().int().nonnegative(),
+    resetCost: z.number().int().nonnegative(),
   }),
   /**
    * Pokémon prestige (stars): reached by maxing every permanent upgrade, which then reset. Each

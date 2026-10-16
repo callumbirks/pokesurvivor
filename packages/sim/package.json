@@ -23,7 +23,8 @@
     "momentum": "tsx test/measure-momentum.ts",
     "training": "tsx test/measure-training.ts",
     "rarities": "tsx test/measure-rarities.ts",
-    "runaway": "tsx test/measure-runaway.ts"
+    "runaway": "tsx test/measure-runaway.ts",
+    "gems": "tsx test/measure-gems.ts"
   },
   "dependencies": {
     "@pokesurvivor/data": "workspace:*",
