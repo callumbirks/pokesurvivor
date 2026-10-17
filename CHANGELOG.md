@@ -6,7 +6,11 @@ What changed for players in each release, newest first. Generated from
 
 ## Unreleased
 
-PRs: [#102](https://github.com/callumbirks/pokesurvivor/pull/102), [#103](https://github.com/callumbirks/pokesurvivor/pull/103)
+PRs: [#102](https://github.com/callumbirks/pokesurvivor/pull/102), [#103](https://github.com/callumbirks/pokesurvivor/pull/103), [#106](https://github.com/callumbirks/pokesurvivor/pull/106)
+
+### New
+
+- Coming back from a rift now gives you a 3-2-1 before the action resumes.
 
 ### Changed
 

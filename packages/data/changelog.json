@@ -1,8 +1,8 @@
 {
   "unreleased": {
-    "prs": [102, 103],
+    "prs": [102, 103, 106],
     "entries": {
-      "new": [],
+      "new": ["Coming back from a rift now gives you a 3-2-1 before the action resumes."],
       "changed": [
         "Balance update: over the past few days we've been testing balance changes live, and they're now the defaults.",
         "The first few minutes are gentler.",
