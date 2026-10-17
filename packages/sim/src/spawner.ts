@@ -5,7 +5,8 @@
 import { DT, OUTER_RADIUS } from './constants.js';
 import { activePlayers, emit, presentPlayers, type Ctx } from './ctx.js';
 import { addEnemy, createEnemy, makeGolden, makeShiny, pokemonName } from './enemies.js';
-import { goldenHour, hordeBag } from './runevents.js';
+import { bossAlive, goldenHour, hordeBag } from './runevents.js';
+import { hordeSize } from './wildlegends.js';
 import { TAU, dist2 } from './math.js';
 import { isFree } from './world.js';
 import { wildDamageMultiplier } from './wilddamage.js';
@@ -25,7 +26,7 @@ export const scaleRate = (n: number): number => 1 + 0.75 * Math.max(0, n - 1);
 export const scaleHp = (n: number): number => 1 + 0.3 * Math.max(0, n - 1);
 
 /** Extra toughness that grows with the run: ×3.3 at the start, up to ×5 around minute 6. */
-const hpK = (t: number) => 3.3 + Math.min(1.7, t / 210);
+export const hordeToughness = (t: number): number => 3.3 + Math.min(1.7, t / 210);
 
 /** Enemies per second at second `t`. */
 export function spawnRate(ctx: Ctx, t: number): number {
@@ -209,13 +210,19 @@ export function spawnOne(ctx: Ctx, pl: PlayerState, t: number, angle?: number): 
   if (!pt) return null;
   const shiny = rollShiny(ctx, def.dex);
   const n = activePlayers(s).length;
-  const e = createEnemy(ctx, def, pt[0], pt[1], scaled(enemyScale(ctx, t), scaleHp(n) * hpK(t)));
+  const e = createEnemy(
+    ctx,
+    def,
+    pt[0],
+    pt[1],
+    scaled(enemyScale(ctx, t), scaleHp(n) * hordeToughness(t)),
+  );
   // Fewer but tougher enemies than the original game (`density`), with more damage and XP each.
   e.damage *= tuning.damageK;
   e.regularHit = true;
   e.xp = Math.round(e.xp * tuning.xpK);
   // At the cap, new ones are elites, so the difficulty doesn't drop.
-  if (s.enemies.length >= tuning.cap * tuning.eliteFrom) {
+  if (hordeSize(ctx) >= tuning.cap * tuning.eliteFrom) {
     e.regularHit = false;
     e.maxHp = e.hp = Math.round(e.maxHp * 1.6);
     e.damage *= 1.25;
@@ -256,8 +263,6 @@ function spawnBoss(ctx: Ctx, pl: PlayerState, t: number, b: BossDef): EnemyState
   return e;
 }
 
-const bossAlive = (ctx: Ctx) => ctx.s.enemies.some((e) => e.boss && !e.dead);
-
 export function updateSpawner(ctx: Ctx): void {
   const { s, d, rand } = ctx;
   const sp = s.spawner;
@@ -284,12 +289,12 @@ export function updateSpawner(ctx: Ctx): void {
   // Boss fight: waves drop to 25% and no surges, so the boss is its own moment and can be aimed at.
   const bossFight = bossAlive(ctx);
 
-  // --- trickle ---
-  if (s.enemies.length < cap) {
+  // --- trickle --- (wild legendaries don't count toward the cap)
+  if (hordeSize(ctx) < cap) {
     sp.acc += spawnRate(ctx, t) * scaleRate(n) * (bossFight ? 0.25 : 1) * DT;
     let k = Math.floor(sp.acc);
     sp.acc -= k;
-    while (k-- > 0 && s.enemies.length < cap) {
+    while (k-- > 0 && hordeSize(ctx) < cap) {
       const at = anchor(ctx);
       if (at) spawnOne(ctx, at, t);
     }
@@ -302,7 +307,7 @@ export function updateSpawner(ctx: Ctx): void {
     const target = anchor(ctx);
     const base = target ? arrivalAngle(ctx, target) : 0;
     const count = Math.min(
-      cap - s.enemies.length,
+      cap - hordeSize(ctx),
       Math.round((14 + Math.floor(t / 22)) * scaleRate(n) * 0.4),
     );
     if (target)
@@ -316,7 +321,7 @@ export function spawnBurst(ctx: Ctx, count: number): void {
   const target = anchor(ctx);
   if (!target) return;
   const base = arrivalAngle(ctx, target);
-  for (let i = 0; i < count && ctx.s.enemies.length < spawnCap(ctx) + 10; i++) {
+  for (let i = 0; i < count && hordeSize(ctx) < spawnCap(ctx) + 10; i++) {
     spawnOne(ctx, target, ctx.s.time, base + ctx.rand.range(-0.6, 0.6));
   }
 }

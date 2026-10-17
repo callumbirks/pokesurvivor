@@ -265,6 +265,7 @@ scope.onmessage = (ev) => {
         const a = m.action;
         if (a === 'rift') sim.debugOpenRift();
         else if (a === 'arena') sim.debugStartArena();
+        else if (a === 'legend') sim.debugSpawnWildLegend();
         else if (a === 'weather')
           sim.debugStartWeather(WEATHERS[weatherIdx++ % WEATHERS.length]!, 40);
         else if (a === 'momentum') sim.debugMaxMomentum(playerId);

@@ -645,7 +645,15 @@ export class EntityLayer {
     if (e.boss || e.shiny || gold) {
       ctx.save();
       ctx.globalAlpha = (gold && !e.boss ? 0.32 : 0.22) + Math.sin(v.bob * 0.5) * 0.06;
-      ctx.fillStyle = e.fury ? '#ff4a4a' : e.shiny ? '#9ae6ff' : gold ? '#ffd23f' : '#ffd95e';
+      ctx.fillStyle = e.fury
+        ? '#ff4a4a'
+        : e.shiny
+          ? '#9ae6ff'
+          : e.wildLegend
+            ? '#c9a6ff'
+            : gold
+              ? '#ffd23f'
+              : '#ffd95e';
       ellipse(ctx, e.x, e.y, e.r * 1.6, e.r * 0.6);
       ctx.fill();
       ctx.restore();
@@ -690,7 +698,7 @@ export class EntityLayer {
       const y = e.y - h - 10;
       ctx.fillStyle = 'rgba(0,0,0,.6)';
       ctx.fillRect(e.x - w / 2, y, w, 3.4);
-      ctx.fillStyle = e.boss ? '#ffcb3d' : '#ff5f6d';
+      ctx.fillStyle = e.wildLegend ? '#b48aff' : e.boss ? '#ffcb3d' : '#ff5f6d';
       ctx.fillRect(e.x - w / 2, y, w * clamp01(e.hp / Math.max(1, e.maxHp)), 3.4);
       if (e.shielded) {
         // Same scale as HP: the blue segment shows the actual extra health, including at full HP.

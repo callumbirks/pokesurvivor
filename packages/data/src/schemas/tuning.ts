@@ -20,6 +20,20 @@ const MinuteCurve = z
     'Start at minute zero and use strictly increasing minutes',
   );
 
+/** A value versus run minute from any first minute (held before it): strictly increasing minutes. */
+const LateCurve = z
+  .array(
+    z.strictObject({
+      minute: z.number().nonnegative(),
+      multiplier: z.number().positive(),
+    }),
+  )
+  .min(1)
+  .refine(
+    (points) => points.every((p, i) => i === 0 || p.minute > points[i - 1]!.minute),
+    'Use strictly increasing minutes',
+  );
+
 /** Named tuning constants from the legacy systems. Times are in seconds. */
 export const TuningFileSchema = z.strictObject({
   spawner: z.strictObject({
@@ -144,6 +158,26 @@ export const TuningFileSchema = z.strictObject({
     /** Chance a rescued lost Pokémon joins the collection; coins if it was already owned. */
     lostJoinChance: Chance,
     rescueOwnedCoins: z.number().int().nonnegative(),
+  }),
+  /**
+   * Wild legendaries: from `fromMinute`, rare legendary mini-bosses on the map (a boss's attacks,
+   * hits not capped like regular ones). Curves are by run minute: interpolate, hold the ends.
+   * HP, damage and speed are multiples of a regular wild Pokémon (the last tier's) at that minute.
+   */
+  wildLegends: z.strictObject({
+    fromMinute: z.number().nonnegative(),
+    /** Expected spawns per minute (a chance every tick), while fewer than `maxAlive` are out. */
+    spawnCurve: LateCurve,
+    maxAlive: z.number().int().nonnegative(),
+    hpCurve: LateCurve,
+    damageCurve: LateCurve,
+    speedCurve: LateCurve,
+    /** XP versus a regular wild Pokémon's, dropped as `xpGems` big gems. */
+    xpMultiplier: z.number().nonnegative(),
+    xpGems: z.number().int().positive().max(30),
+    /** Chance of a gem and of a ticket on defeat (counted against the run's usual caps). */
+    gemChance: z.number().min(0).max(1),
+    ticketChance: z.number().min(0).max(1),
   }),
   combat: z.strictObject({ critMultiplier: z.number().positive() }),
   /** Earned late-game growth: level-up offers that keep damage scaling after the early game. */

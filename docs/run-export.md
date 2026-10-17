@@ -51,10 +51,13 @@ All times are run seconds (they stop while a choice is pending). Numbers keep 3 
     player was down / in a rift arena at the sample.
 - `downs`: each time the player went down: `t`, `by` (what hit them: `kind` `contact`, `shot`,
   `zone`, `beam`, `liquid`, `trap` or `weather`, and for enemies their `dex` and `tier`: `wild`,
-  `elite`, `boss` or `legend`), `taken10s` (damage in the ~10 s before), `rift`, and `revivedAt`
+  `elite`, `boss`, `legend` or `wildLegend`), `taken10s` (damage in the ~10 s before), `rift`, and `revivedAt`
   (null: they stayed down; the last down of a run that ended `all-down` is the death).
 - `rifts`: `t`, the legendary's `dex`, the arena `type`, `result` (`won`, `lost`, or null if the
   run ended in it) and `dur` (seconds in the fight).
+- `wildLegends` (absent in records from before them): each wild legendary that appeared on the
+  map, `t`, `dex`, `maxHp`, `defeatedAt` (null: not beaten), `dealt` (this player's damage to
+  it) and `top` when this player dealt it the most of the team.
 
 About 8 KB of JSON per player for a 10-minute run and 25 KB for 30 minutes (most of it the
 picks and the timeline); Postgres compresses it to about a third on disk (~3 KB for 10

@@ -31,7 +31,9 @@ const NO_HORDE: ReadonlySet<EnemyBehavior> = new Set(['bomber', 'healer', 'shiel
 /** Lost Pokémon: it gets home within this distance of the marker. */
 const HOME_RANGE = 56;
 
-export const bossAlive = (ctx: Ctx): boolean => ctx.s.enemies.some((e) => e.boss && !e.dead);
+/** A map boss is out (wild legendaries don't count: they don't hold up the waves or events). */
+export const bossAlive = (ctx: Ctx): boolean =>
+  ctx.s.enemies.some((e) => e.boss && !e.wildLegend && !e.dead);
 
 /** Golden hour: new spawns are golden. */
 export const goldenHour = (ctx: Ctx): boolean => ctx.s.events.current?.id === 'gold';

@@ -89,6 +89,8 @@ export interface NetEnemy {
   shiny: boolean;
   golden: boolean;
   legend: boolean;
+  /** A legendary in the wild (also `boss`). */
+  wildLegend: boolean;
   flying: boolean;
   burning: boolean;
   poisoned: boolean;
@@ -550,6 +552,7 @@ export class SnapshotEncoder {
         !!e.ai?.fury,
         e.jump !== null,
         e.dead,
+        e.wildLegend,
       ),
       this.str(e.phase),
       q(e.scale, 100),
@@ -971,6 +974,7 @@ export class SnapshotDecoder {
       shielded: bit(fl, 8),
       fury: bit(fl, 9),
       dead: bit(fl, 11),
+      wildLegend: bit(fl, 12),
       phase: this.s(v[8]) ?? 'walk',
       scale: (v[9] ?? 100) / 100,
       height: v[10] ?? 0,

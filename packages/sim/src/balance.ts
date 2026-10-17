@@ -34,6 +34,7 @@ export function newBalance(
     timeline: [],
     downs: [],
     rifts: [],
+    wildLegends: [],
     taken: 0,
     at: { dealt: 0, taken: 0, downs: 0, revives: 0 },
     momSum: 0,
@@ -46,7 +47,15 @@ export function newBalance(
 
 /** What an enemy is, for a `HitSource`. */
 export function enemyRef(e: EnemyState): Required<Pick<HitSource, 'dex' | 'tier'>> {
-  const tier = e.legend ? 'legend' : e.boss ? 'boss' : e.regularHit === false ? 'elite' : 'wild';
+  const tier = e.wildLegend
+    ? 'wildLegend'
+    : e.legend
+      ? 'legend'
+      : e.boss
+        ? 'boss'
+        : e.regularHit === false
+          ? 'elite'
+          : 'wild';
   return { dex: e.dex, tier };
 }
 
@@ -141,6 +150,42 @@ export function noteRiftEnd(ctx: Ctx, result: 'won' | 'lost') {
       r.dur = r3(a.t);
     }
   }
+}
+
+/** A wild legendary appeared on the map. */
+export function noteWildLegendSpawn(ctx: Ctx, e: EnemyState) {
+  for (const p of presentPlayers(ctx.s))
+    p.balance?.wildLegends.push({
+      id: e.id,
+      t: r3(ctx.s.time),
+      dex: e.dex,
+      maxHp: Math.round(e.maxHp),
+      defeatedAt: null,
+      dealt: 0,
+    });
+}
+
+const wildLegendOf = (p: PlayerState | undefined, id: number) =>
+  p?.balance?.wildLegends.findLast((w) => w.id === id);
+
+/** A player took `amount` HP off a wild legendary. */
+export function noteWildLegendHit(ctx: Ctx, e: EnemyState, by: string, amount: number) {
+  const w = wildLegendOf(
+    ctx.s.players.find((p) => p.id === by),
+    e.id,
+  );
+  if (w) w.dealt += amount;
+}
+
+/** A wild legendary was defeated: when, and who dealt it the most damage. */
+export function noteWildLegendDefeated(ctx: Ctx, e: EnemyState) {
+  const entries = ctx.s.players.map((p) => wildLegendOf(p, e.id)).filter((w) => w !== undefined);
+  let top: (typeof entries)[number] | undefined;
+  for (const w of entries) {
+    w.defeatedAt = r3(ctx.s.time);
+    if (w.dealt > (top?.dealt ?? 0)) top = w;
+  }
+  if (top) top.top = true;
 }
 
 /** Product of a player's stat-card multipliers on attack (Power). */
@@ -278,5 +323,13 @@ export function balanceRecord(ctx: Ctx, p: PlayerState): BalanceRecord | undefin
     timeline,
     downs: b.downs.map((d) => ({ ...d, by: d.by && { ...d.by } })),
     rifts: b.rifts.map((r) => ({ ...r })),
+    wildLegends: b.wildLegends.map((w) => ({
+      t: w.t,
+      dex: w.dex,
+      maxHp: w.maxHp,
+      defeatedAt: w.defeatedAt,
+      dealt: Math.round(w.dealt),
+      ...(w.top ? { top: true as const } : {}),
+    })),
   };
 }

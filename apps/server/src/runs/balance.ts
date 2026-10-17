@@ -19,7 +19,7 @@ const time = nonneg.max(24 * 3600);
 const hitSource = z.strictObject({
   kind: z.enum(['contact', 'shot', 'zone', 'beam', 'liquid', 'trap', 'weather']),
   dex: z.number().int().nonnegative().max(100_000).optional(),
-  tier: z.enum(['wild', 'elite', 'boss', 'legend']).optional(),
+  tier: z.enum(['wild', 'elite', 'boss', 'legend', 'wildLegend']).optional(),
 });
 
 const sample = z.strictObject({
@@ -127,6 +127,19 @@ export const balanceRecordSchema = z.strictObject({
       }),
     )
     .max(500),
+  wildLegends: z
+    .array(
+      z.strictObject({
+        t: time,
+        dex: z.number().int().nonnegative(),
+        maxHp: nonneg,
+        defeatedAt: time.nullable(),
+        dealt: nonneg,
+        top: z.literal(true).optional(),
+      }),
+    )
+    .max(2000)
+    .optional(),
 }) satisfies z.ZodType<BalanceRecord>;
 
 export type BalanceParse = { ok: true; record: BalanceRecord } | { ok: false; reason: string };
