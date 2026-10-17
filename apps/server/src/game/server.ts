@@ -905,6 +905,7 @@ export class GameServer implements PresenceSource, FriendNotifier {
           return await recordCoopRun(
             this.db,
             {
+              gameId: outcome.gameId,
               startedAt: outcome.startedAt,
               endedAt: outcome.endedAt,
               durationS: outcome.durationS,

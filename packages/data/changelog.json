@@ -4,7 +4,7 @@
     "entries": {
       "new": [],
       "changed": [],
-      "fixed": [],
+      "fixed": ["Co-op runs that carried over a server update are credited again."],
       "behindTheScenes": []
     }
   },

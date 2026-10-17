@@ -66,8 +66,11 @@ const finishBody = z.object({
   coins: count,
   ticketsX1: count,
   ticketsX10: count,
-  /** Optional: clients before gems (R6) don't send it. */
-  gems: count.optional(),
+  /**
+   * Optional: clients before gems (R6) don't send it. Null counts as 0: v17 clients that resumed a
+   * solo run saved before gems counted NaN, which JSON sends as null.
+   */
+  gems: count.nullish().transform((v) => (v === null ? 0 : v)),
   shiniesCaught: z.array(knownDexSchema).max(100),
   progress: progressBody,
   /** The balance record: checked on its own (`parseBalance`), never failing the request. */

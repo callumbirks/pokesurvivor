@@ -419,6 +419,9 @@ export function restoreSim(state: SimState, data?: GameData): Sim {
   // byte-for-byte for deterministic replay, including enemies stashed outside a rift arena.
   const gameTuning = d.game.tuning;
   const tuning = gameTuning.enemyShields;
+  // Saves from before gems (v16): none yet. A non-number too (a NaN saved as JSON null), or the
+  // first gem picked up would make the count NaN and the run couldn't be credited.
+  if (!Number.isFinite(state.team.gems)) state.team.gems = 0;
   for (const p of state.players) {
     // Saves from before balance records: one from now on (the setup it can't know is left empty).
     p.balance ??= newBalance(

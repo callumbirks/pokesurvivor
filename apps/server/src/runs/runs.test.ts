@@ -1,6 +1,7 @@
 import { emptyRunProgress } from '@pokesurvivor/protocol';
+import { createSim, restoreSim, type SimState } from '@pokesurvivor/sim';
 import { eq, sql } from 'drizzle-orm';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { currencyLedger, runPlayers, runs } from '../db/schema.js';
 import { DEFAULT_ECONOMY } from '../economy/config.js';
 import { getServerData } from '../data.js';
@@ -11,7 +12,7 @@ import type { TestApp, TestClient } from '../test/harness.js';
 import type { SaveView } from '../saves/service.js';
 import { capRunStats } from './caps.js';
 import type { RunStats } from './caps.js';
-import { recordCoopRun } from './service.js';
+import { recordCoopRun, sanitizeStats } from './service.js';
 
 const caps = testRunCaps;
 
@@ -357,6 +358,28 @@ describe('runs', () => {
     expect((await c.post('/api/runs', { ...summary(), runId: 'not-a-uuid' })).statusCode).toBe(400);
   });
 
+  it('counts null gems (a NaN from a v17 client that resumed a v16 run) as none', async () => {
+    const c = await player();
+    const runId = await start(c);
+    await backdate(runId, 120);
+    const checkpoint = await c.post('/api/runs/checkpoint', {
+      runId,
+      ...summary({ durationS: 60 }),
+      gems: null,
+    });
+    expect(checkpoint.statusCode, checkpoint.body).toBe(200);
+    const res = await c.post('/api/runs', {
+      runId,
+      ...summary({ durationS: 100, coins: 30 }),
+      gems: null,
+    });
+    expect(res.statusCode, res.body).toBe(200);
+    expect(res.json<FinishResponse>()).toMatchObject({
+      stats: { gems: 0, coins: 30 },
+      save: { gems: 0 },
+    });
+  });
+
   it('records coop runs reported by the game server for every player', async () => {
     const a = await player();
     const b = await player([1]);
@@ -428,6 +451,96 @@ describe('runs', () => {
       .from(currencyLedger)
       .where(eq(currencyLedger.refId, runId));
     expect(ledger).toHaveLength(4); // coins for both; tickets and gems for one
+  });
+  it('records a coop run restored from a state saved before gems (v16)', async () => {
+    const a = await player();
+    const b = await player([1]);
+    const sim = createSim({
+      seed: 5,
+      players: [
+        { id: a.userId, dex: 25 },
+        { id: b.userId, dex: 1 },
+      ],
+      debug: { noSpawns: true },
+    });
+    for (let i = 0; i < 30; i++) sim.step();
+    const saved = JSON.parse(JSON.stringify(sim.state)) as SimState;
+    delete (saved.team as { gems?: number }).gems;
+    const restored = restoreSim(saved);
+    const p = restored.state.players[0]!;
+    restored.ctx.s.pickups.length = 0;
+    // A gem right under the first player, as a regular enemy would drop it.
+    restored.ctx.s.pickups.push({
+      id: 999_999,
+      kind: 'gem',
+      x: p.x,
+      y: p.y,
+      vx: 0,
+      vy: 0,
+      value: 1,
+      itemId: null,
+      pulled: true,
+    });
+    for (let i = 0; i < 5; i++) restored.step();
+    const summaries = [a, b].map((c) => restored.runSummaryFor(c.userId));
+    for (const s of summaries) expect(s.gems).toBe(1);
+
+    const { runId } = await recordCoopRun(
+      t.db.db,
+      {
+        startedAt: new Date(Date.now() - 60_000),
+        endedAt: new Date(),
+        durationS: summaries[0]!.durationS,
+        players: [a, b].map((c, i) => ({
+          ...summaries[i]!,
+          userId: c.userId,
+          pokemon: { dex: i ? 1 : 25, shiny: false },
+        })),
+      },
+      TZ,
+    );
+    const rows = await t.db.db.select().from(runPlayers).where(eq(runPlayers.runId, runId));
+    expect(rows.map((r) => r.gems)).toEqual([1, 1]);
+    for (const c of [a, b]) expect((await c.get('/api/save')).json()).toMatchObject({ gems: 1 });
+  });
+
+  it('credits the rest of a coop run when a count is not a number, and logs it', async () => {
+    const a = await player();
+    const b = await player([1]);
+    const warn = vi.fn();
+    const { runId } = await recordCoopRun(
+      t.db.db,
+      {
+        gameId: 'g-nan',
+        startedAt: new Date(Date.now() - 600_000),
+        endedAt: new Date(),
+        durationS: 600,
+        players: [
+          {
+            ...summary({ level: 20, kills: 300, coins: 400, ticketsX1: 2, gems: NaN }),
+            userId: a.userId,
+            pokemon: { dex: 25, shiny: false },
+          },
+          {
+            ...summary({ level: 20, kills: 300, coins: 400, gems: 3 }),
+            userId: b.userId,
+            pokemon: { dex: 1, shiny: false },
+          },
+        ],
+      },
+      TZ,
+      { log: { warn } },
+    );
+    const rows = await t.db.db.select().from(runPlayers).where(eq(runPlayers.runId, runId));
+    expect(rows.find((r) => r.userId === a.userId)).toMatchObject({ gems: 0, coins: 400 });
+    expect(rows.find((r) => r.userId === b.userId)).toMatchObject({ gems: 3, coins: 400 });
+    expect((await a.get('/api/save')).json()).toMatchObject({ gems: 0 });
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0]?.[0]).toMatchObject({
+      gameId: 'g-nan',
+      userId: a.userId,
+      fixed: { gems: 'NaN' },
+    });
   });
 });
 
@@ -580,5 +693,31 @@ describe('leaderboard', () => {
     const solo = (await t.client().get('/api/leaderboard?mode=solo')).json<Board>();
     for (const e of solo.entries)
       expect(e).toMatchObject({ level: e.players[0]?.level, kills: e.players[0]?.kills });
+  });
+});
+
+describe('sanitizeStats', () => {
+  it('turns non-finite and negative counts into 0 and rounds fractions down', () => {
+    const warn = vi.fn();
+    const out = sanitizeStats(
+      summary({
+        kills: Infinity,
+        coins: -5,
+        gems: 2.7,
+        progress: {
+          ...emptyRunProgress(),
+          chestsOpened: NaN,
+          defeatsByType: { fire: NaN, water: 4 },
+        },
+      }),
+      { warn },
+      { runId: 'r' },
+    );
+    expect(out).toMatchObject({ kills: 0, coins: 0, gems: 2 });
+    expect(out.progress).toMatchObject({ chestsOpened: 0, defeatsByType: { fire: 0, water: 4 } });
+    expect(warn).toHaveBeenCalledTimes(1);
+    const valid = summary({ kills: 3, gems: 1 });
+    expect(sanitizeStats(valid, { warn }, {})).toEqual(valid);
+    expect(warn).toHaveBeenCalledTimes(1);
   });
 });
