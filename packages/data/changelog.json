@@ -1,8 +1,10 @@
 {
   "unreleased": {
-    "prs": [102],
+    "prs": [102, 104],
     "entries": {
-      "new": [],
+      "new": [
+        "From 30 minutes, wild legendary Pokémon start appearing: tougher than anything else in the wild."
+      ],
       "changed": [],
       "fixed": ["Co-op runs that carried over a server update are credited again."],
       "behindTheScenes": [
