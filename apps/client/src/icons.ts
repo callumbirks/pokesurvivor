@@ -495,6 +495,23 @@ const UI: Record<string, IconDef> = {
       '............',
     ],
   },
+  gem: {
+    pal: { c: '#5fe3ff', b: '#2a8fd0', d: '#1b5c9e', w: '#e6fbff' },
+    rows: [
+      '............',
+      '...kkkkkk...',
+      '..kwwcccbk..',
+      '.kwccccbbdk.',
+      'kkkkkkkkkkkk',
+      'kwcccccbbbdk',
+      '.kccccbbbdk.',
+      '..kcccbbdk..',
+      '...kccbdk...',
+      '....kcdk....',
+      '.....kk.....',
+      '............',
+    ],
+  },
   wsun: {
     pal: { y: '#ffd23f', o: '#ff9a3d' },
     rows: [

@@ -1,6 +1,7 @@
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, gt, inArray, like, max, sql } from 'drizzle-orm';
 import type { Executor, Transaction } from '../db/index.js';
 import { currencyLedger, saves } from '../db/schema.js';
+import { upgradeCost, type UpgradeDef } from '../economy/config.js';
 import { Wallet } from '../economy/ledger.js';
 import type { Balances } from '../economy/ledger.js';
 import { ApiError } from '../http/errors.js';
@@ -28,6 +29,7 @@ export interface SaveView extends SaveData {
   version: number;
   coins: number;
   tickets: { x1: number; x10: number };
+  gems: number;
   partner: Partner;
   updatedAt: string;
 }
@@ -35,7 +37,12 @@ export interface SaveView extends SaveData {
 type SaveRow = typeof saves.$inferSelect;
 
 function balancesOf(row: SaveRow): Balances {
-  return { coins: row.coins, tickets_x1: row.ticketsX1, tickets_x10: row.ticketsX10 };
+  return {
+    coins: row.coins,
+    tickets_x1: row.ticketsX1,
+    tickets_x10: row.ticketsX10,
+    gems: row.gems,
+  };
 }
 
 /**
@@ -74,6 +81,7 @@ export async function withLockedSave<T>(
         coins: balances.coins,
         ticketsX1: balances.tickets_x1,
         ticketsX10: balances.tickets_x10,
+        gems: balances.gems,
         updatedAt: sql`now()`,
       })
       .where(eq(saves.userId, userId));
@@ -109,6 +117,7 @@ export function toSaveView(row: SaveRow): SaveView {
     version: SAVE_DATA_VERSION,
     coins: row.coins,
     tickets: { x1: row.ticketsX1, x10: row.ticketsX10 },
+    gems: row.gems,
     partner: { dex: row.partnerDex, shiny: row.partnerShiny },
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -116,4 +125,56 @@ export function toSaveView(row: SaveRow): SaveView {
 
 export function ownsPokemon(data: SaveData, dex: number, shiny = false): boolean {
   return (shiny ? data.shiny : data.owned)[String(dex)] !== undefined;
+}
+
+/** What an upgrade reset of a Pokémon gives back (`refundFor`). */
+export interface UpgradeRefund {
+  /** Coins in all: `recorded + unrecorded`. */
+  refund: number;
+  /** From the ledger: its `upgrade_purchase` entries since its last prestige or reset. */
+  recorded: number;
+  /**
+   * Its levels with no purchase entry since then (bought before the ledger, e.g. saves imported
+   * from legacy), priced at today's costs.
+   */
+  unrecorded: number;
+}
+
+/**
+ * Coins spent on `dex`'s upgrades since its last prestige or upgrade reset, whichever came last
+ * (or ever): what an upgrade reset gives back. Each level the ledger has a purchase for (an
+ * `upgrade_purchase` entry `dex:upgrade:level` after the latest `prestige` marker or
+ * `upgrade_refund` of the Pokémon) refunds exactly what it cost; a level of `levels` without
+ * one is priced at today's cost (`upgrades`), so upgrades from before the ledger refund too.
+ */
+export async function refundFor(
+  db: Executor,
+  userId: string,
+  dex: number,
+  levels: Record<string, number>,
+  upgrades: Record<string, UpgradeDef>,
+): Promise<UpgradeRefund> {
+  const ofDex = and(
+    eq(currencyLedger.userId, userId),
+    eq(currencyLedger.currency, 'coins'),
+    like(currencyLedger.refId, `${dex}:%`),
+  );
+  const since = db
+    .select({ id: sql`coalesce(${max(currencyLedger.id)}, 0)` })
+    .from(currencyLedger)
+    .where(and(ofDex, inArray(currencyLedger.reason, ['prestige', 'upgrade_refund'])));
+  const bought = await db
+    .select({ refId: currencyLedger.refId, delta: currencyLedger.delta })
+    .from(currencyLedger)
+    .where(and(ofDex, eq(currencyLedger.reason, 'upgrade_purchase'), gt(currencyLedger.id, since)));
+  const recorded = bought.reduce((sum, b) => sum - b.delta, 0);
+  const paid = new Set(bought.map((b) => b.refId));
+  let unrecorded = 0;
+  for (const [id, level] of Object.entries(levels)) {
+    const def = Object.hasOwn(upgrades, id) ? upgrades[id] : undefined;
+    if (!def) continue;
+    for (let n = 1; n <= level; n++)
+      if (!paid.has(`${dex}:${id}:${n}`)) unrecorded += upgradeCost(def, n - 1);
+  }
+  return { refund: recorded + unrecorded, recorded, unrecorded };
 }

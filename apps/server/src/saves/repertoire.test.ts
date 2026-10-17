@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { getServerData, pokemonOf } from '../data.js';
 import { pokemonPrestiges, saves } from '../db/schema.js';
 import { loadLoadout } from '../game/loadout.js';
-import { createTestApp, grantPokemon } from '../test/harness.js';
+import { createTestApp, grantGems, grantPokemon } from '../test/harness.js';
 import type { TestApp, TestClient } from '../test/harness.js';
 import { getSave } from './service.js';
 
@@ -110,6 +110,7 @@ describe('Repertoire: the chosen second starting move', () => {
   it('prestige clears the choice and records it', async () => {
     const c = await owner(['extra-move', 'ban']);
     await choose(c, chosen);
+    await grantGems(t.db, c.userId, data.tuning.gems.prestigeCost);
     const res = await c.post('/api/save/prestige', { dex: 25 });
     expect(res.statusCode, res.body).toBe(200);
     expect(res.json<SaveBody>().repertoireMoves).toEqual({});

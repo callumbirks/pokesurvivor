@@ -54,7 +54,7 @@ export interface Route {
   public?: boolean;
   /** Reachable before choosing a starter (the starter screens themselves). */
   noPartner?: boolean;
-  /** Shows the top bar (coins, tickets, account). */
+  /** Shows the top bar (coins, tickets, gems, account). */
   topbar?: boolean;
   /** Admins only (`User.isAdmin`); for anyone else the route doesn't exist (the menu). */
   admin?: boolean;
@@ -587,6 +587,12 @@ export class App {
         num(s.tickets.x1),
         icon('ticket10', 18),
         num(s.tickets.x10),
+      ),
+      h(
+        'div',
+        { class: 'tb-cell', title: t('app.gems'), dataset: { testid: 'topbar-gems' } },
+        icon('gem', 18),
+        num(s.gems ?? 0),
       ),
       room
         ? h(

@@ -118,6 +118,8 @@ export const saves = pgTable(
     coins: integer('coins').notNull().default(0),
     ticketsX1: integer('tickets_x1').notNull().default(0),
     ticketsX10: integer('tickets_x10').notNull().default(0),
+    /** Gems (R6): found in runs, spent on upgrade resets and prestige. */
+    gems: integer('gems').notNull().default(0),
     partnerDex: integer('partner_dex'),
     partnerShiny: boolean('partner_shiny').notNull().default(false),
     /** Version of the `data` layout, for future migrations of the JSONB. */
@@ -130,10 +132,11 @@ export const saves = pgTable(
     check('saves_coins_non_negative', sql`${t.coins} >= 0`),
     check('saves_tickets_x1_non_negative', sql`${t.ticketsX1} >= 0`),
     check('saves_tickets_x10_non_negative', sql`${t.ticketsX10} >= 0`),
+    check('saves_gems_non_negative', sql`${t.gems} >= 0`),
   ],
 );
 
-export const currency = pgEnum('currency', ['coins', 'tickets_x1', 'tickets_x10']);
+export const currency = pgEnum('currency', ['coins', 'tickets_x1', 'tickets_x10', 'gems']);
 
 /** Every balance change, with why it happened. Written only by `economy/ledger.ts`. */
 export const currencyLedger = pgTable(
@@ -216,6 +219,7 @@ export const runPlayers = pgTable(
     coins: integer('coins').notNull().default(0),
     ticketsX1: integer('tickets_x1').notNull().default(0),
     ticketsX10: integer('tickets_x10').notNull().default(0),
+    gems: integer('gems').notNull().default(0),
     shiniesCaught: integer('shinies_caught').array().notNull().default([]),
     /** The credited `RunProgress` (defeats by type, rift wins, …), null for older runs. */
     progress: jsonb('progress'),

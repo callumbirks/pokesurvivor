@@ -113,3 +113,15 @@ describe('results: prestige', () => {
     expect(team.textContent).toContain('Charmander');
   });
 });
+
+describe('results: gems', () => {
+  it('shows the gems found, and no line without any', () => {
+    const withGems = player('me');
+    withGems.summary.run = { ...withGems.summary.run, gems: 3 } as typeof withGems.summary.run;
+    const line = render(coop([withGems])).querySelector('[data-testid="results-gems"]');
+    expect(line?.textContent).toBe(' +3');
+    expect(line?.querySelector('img')?.alt).toBe('gem');
+    expect(line?.parentElement?.parentElement?.textContent).toContain('Gems');
+    expect(render(coop([player('me')])).querySelector('[data-testid="results-gems"]')).toBeNull();
+  });
+});

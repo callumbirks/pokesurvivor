@@ -17,6 +17,7 @@ export function newTeam(): TeamState {
     coins: 0,
     tickets: 0,
     tickets10: 0,
+    gems: 0,
     shinies: [],
   };
 }

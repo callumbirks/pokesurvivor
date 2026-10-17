@@ -5,6 +5,8 @@ import { createAuthHooks, currentUser } from '../auth/plugin.js';
 import { getServerData, knownDexSchema, pokemonOf } from '../data.js';
 import type { Database } from '../db/index.js';
 import { pokemonPrestiges } from '../db/schema.js';
+import type { Executor } from '../db/index.js';
+import type { Wallet } from '../economy/ledger.js';
 import { upgradeCost } from '../economy/config.js';
 import type { EconomyConfig } from '../economy/config.js';
 import type { LiveConfig } from '../live-config/store.js';
@@ -17,7 +19,8 @@ import {
   profileSchema,
   settingsSchema,
 } from './schema.js';
-import { getSave, ownsPokemon, withLockedSave } from './service.js';
+import { getSave, ownsPokemon, refundFor, withLockedSave } from './service.js';
+import type { SaveData } from './schema.js';
 
 export interface SaveRoutesOptions {
   db: Database;
@@ -25,7 +28,10 @@ export interface SaveRoutesOptions {
   economy: EconomyConfig;
   /** The partner changed (the room, if any, shows the new one to its members). */
   onPartnerChanged?: (userId: string) => void;
-  /** Live tuning: prestige reads the published `tuning.prestige` (built-in without it). */
+  /**
+   * Live tuning: prestige and resets read the published `tuning.prestige` and `tuning.gems`
+   * (built-in without it).
+   */
   liveConfig?: LiveConfig;
 }
 
@@ -60,6 +66,18 @@ const BAN_UPGRADE = 'ban';
 /** Upgrade id that starts runs with a second move ("Repertoire"), which the player may choose. */
 const REPERTOIRE_UPGRADE = 'extra-move';
 
+/** Spends a gem cost, refusing with `insufficient_gems` (409) when the balance is short. */
+function spendGems(
+  wallet: Wallet,
+  cost: number,
+  reason: 'prestige_cost' | 'upgrade_reset_cost',
+  refId: string,
+) {
+  const has = wallet.balances.gems;
+  if (has < cost) throw new ApiError(409, 'insufficient_gems', `Needs ${cost} gems, has ${has}`);
+  wallet.debit('gems', cost, reason, refId);
+}
+
 function notOwned(dex: number, shiny: boolean): ApiError {
   return new ApiError(
     409,
@@ -75,6 +93,16 @@ function notOwned(dex: number, shiny: boolean): ApiError {
 export function saveRoutes(app: FastifyInstance, opts: SaveRoutesOptions): void {
   const { db, economy } = opts;
   const { requireUser } = createAuthHooks(opts);
+  const tuning = async () =>
+    opts.liveConfig ? (await opts.liveConfig.current()).config.tuning : getServerData().tuning;
+
+  /** What resetting `dex`'s upgrades would give back now; refuses Pokémon that aren't owned. */
+  async function resetQuote(tx: Executor, userId: string, dex: number, save: SaveData) {
+    if (!ownsPokemon(save, dex)) throw notOwned(dex, false);
+    const levels = save.upgrades[String(dex)] ?? {};
+    const refund = await refundFor(tx, userId, dex, levels, economy.upgrades);
+    return { dex, ...refund, cost: (await tuning()).gems.resetCost };
+  }
 
   app.get('/api/save', { preHandler: requireUser }, (request) =>
     getSave(db, currentUser(request).id),
@@ -242,16 +270,57 @@ export function saveRoutes(app: FastifyInstance, opts: SaveRoutesOptions): void 
   });
 
   /**
+   * What resetting a Pokémon's upgrades would refund now (`refundFor`: the coins spent on them
+   * since its last prestige or reset, plus today's price of levels with no purchase entry) and
+   * cost in gems, for the Upgrades screen's Reset button.
+   */
+  app.get('/api/save/upgrades/reset/:dex', { preHandler: requireUser }, async (request) => {
+    const { dex } = parseBody(movesParams, request.params);
+    const userId = currentUser(request).id;
+    const save = await getSave(db, userId);
+    return resetQuote(db, userId, dex, save);
+  });
+
+  /**
+   * Resets an owned Pokémon's upgrades for `tuning.gems.resetCost` gems and gives back every coin
+   * spent on them since its last prestige (or reset): the ledger's `upgrade_purchase` entries,
+   * not a recomputation from the costs, and today's price for levels without an entry (bought
+   * before the ledger; `refundFor`). Repertoire and Ban go with them, as do the banned moves
+   * and the chosen Repertoire move; move slot bindings and prestige stars stay. Refused with
+   * `nothing_to_refund` when nothing was bought since. Under the save lock, so a second request
+   * at the same time finds nothing left to refund.
+   */
+  app.post('/api/save/upgrades/reset', { preHandler: requireUser }, async (request) => {
+    const { dex } = parseBody(prestigeBody, request.body);
+    const userId = currentUser(request).id;
+    await withLockedSave(db, userId, async (save, tx) => {
+      const { refund, cost } = await resetQuote(tx, userId, dex, save.data);
+      if (refund <= 0)
+        throw new ApiError(
+          409,
+          'nothing_to_refund',
+          `Nothing bought for ${dex} since its prestige`,
+        );
+      const key = String(dex);
+      spendGems(save.wallet, cost, 'upgrade_reset_cost', `${dex}:reset`);
+      save.wallet.credit('coins', refund, 'upgrade_refund', `${dex}:reset`);
+      delete save.data.upgrades[key];
+      delete save.data.moveBans[key];
+      delete save.data.repertoireMoves[key];
+    });
+    return getSave(db, userId);
+  });
+
+  /**
    * Prestige: once every upgrade of an owned Pokémon is maxed, reset its upgrades (Repertoire and
    * Ban too), banned moves and the chosen Repertoire move for a star, up to
-   * `tuning.prestige.maxStars`. Free. Move slot
-   * bindings stay: they don't depend on any upgrade.
+   * `tuning.prestige.maxStars`, for `tuning.gems.prestigeCost` gems. Move slot bindings stay:
+   * they don't depend on any upgrade.
    */
   app.post('/api/save/prestige', { preHandler: requireUser }, async (request) => {
     const { dex } = parseBody(prestigeBody, request.body);
-    const tuning = (
-      opts.liveConfig ? (await opts.liveConfig.current()).config.tuning : getServerData().tuning
-    ).prestige;
+    const live = await tuning();
+    const prestige = live.prestige;
     const maxLevels = Object.fromEntries(
       Object.entries(economy.upgrades).map(([id, def]) => [id, def.maxLevel]),
     );
@@ -259,12 +328,18 @@ export function saveRoutes(app: FastifyInstance, opts: SaveRoutesOptions): void 
     await withLockedSave(db, userId, async (save, tx) => {
       if (!ownsPokemon(save.data, dex)) throw notOwned(dex, false);
       const key = String(dex);
-      const stars = clampStars(tuning, save.data.prestige[key]);
-      if (stars >= tuning.maxStars)
+      const stars = clampStars(prestige, save.data.prestige[key]);
+      if (stars >= prestige.maxStars)
         throw new ApiError(409, 'prestige_maxed', `Pokémon ${dex} has ${stars} stars`);
       const levels = save.data.upgrades[key] ?? {};
       if (!allUpgradesMaxed(maxLevels, levels))
         throw new ApiError(409, 'prestige_not_ready', `Pokémon ${dex} has upgrades left to buy`);
+      spendGems(
+        save.wallet,
+        live.gems.prestigeCost,
+        'prestige_cost',
+        `${dex}:prestige:${stars + 1}`,
+      );
       const moveBans = save.data.moveBans[key] ?? [];
       const repertoireMove = save.data.repertoireMoves[key];
       delete save.data.upgrades[key];

@@ -1,6 +1,6 @@
 import { ApiError } from '../http/errors.js';
 
-export const CURRENCIES = ['coins', 'tickets_x1', 'tickets_x10'] as const;
+export const CURRENCIES = ['coins', 'tickets_x1', 'tickets_x10', 'gems'] as const;
 export type Currency = (typeof CURRENCIES)[number];
 export type Balances = Record<Currency, number>;
 
@@ -18,6 +18,15 @@ export type LedgerReason =
    * the coins spent on its upgrades since its last prestige can be summed from the ledger.
    */
   | 'prestige'
+  /** Gems spent on a prestige (`refId` `dex:prestige:stars`). */
+  | 'prestige_cost'
+  /** Gems spent on resetting a Pokémon's upgrades (`refId` `dex:reset`). */
+  | 'upgrade_reset_cost'
+  /**
+   * Coins given back by an upgrade reset (`refId` `dex:reset`): every `upgrade_purchase` of the
+   * Pokémon since its last prestige or reset, whichever came last.
+   */
+  | 'upgrade_refund'
   | 'admin_adjustment';
 
 export interface LedgerEntry {

@@ -25,6 +25,7 @@ const RunSummarySchema = z.strictObject({
   coins: count,
   ticketsX1: count,
   ticketsX10: count,
+  gems: count.optional(),
   shiniesCaught: z.array(dex),
   progress: z.strictObject({
     defeatsByType: z.partialRecord(type, count),
@@ -75,6 +76,7 @@ describe('protocol run summaries', () => {
       expect(sum).toBeLessThanOrEqual(run.kills * 2);
       expect(p.progress.defeats).toBe(run.kills);
       expect(run.bosses).toBeLessThanOrEqual(run.kills);
+      expect(run.gems).toBe(full.team.gems);
     }
     // Fortune upgrade: same run, more coins.
     expect(sim.runSummaryFor('a').coins).toBeGreaterThan(sim.runSummaryFor('b').coins);

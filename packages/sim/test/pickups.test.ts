@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { hurtEnemy } from '../src/enemies.js';
 import { dropPickup, dropXp } from '../src/pickups.js';
 import { simData } from '../src/data.js';
-import { player, quietSim, seconds, spawnDummy, steps } from './helpers.js';
+import { patchTuning, player, quietSim, seconds, spawnDummy, steps } from './helpers.js';
 
 describe('pickups', () => {
   it('sit still until inside the magnet radius, then fly to the player', () => {
@@ -39,6 +39,43 @@ describe('pickups', () => {
     expect(p.hp).toBeGreaterThan(10);
     expect(p.hp).toBeLessThanOrEqual(p.maxHp);
     expect(sim.state.team).toMatchObject({ tickets: 1, tickets10: 1 });
+  });
+
+  it("gems count for the team and go in every player's summary", () => {
+    const sim = quietSim();
+    const p = player(sim);
+    dropPickup(sim.ctx, 'gem', p.x + 5, p.y, 1);
+    dropPickup(sim.ctx, 'gem', p.x + 5, p.y, 1);
+    steps(sim, 3);
+    expect(sim.state.team.gems).toBe(2);
+    expect(sim.summary().players[0]).toMatchObject({ gems: 2 });
+    expect(sim.runSummaryFor(p.id)).toMatchObject({ gems: 2 });
+  });
+
+  it('regular enemies drop gems at gemDropRate, the same for the same seed', () => {
+    const drops = (seed: number, rate: number) => {
+      const sim = quietSim(1, { seed });
+      patchTuning(sim, 'pickups', { gemDropRate: rate });
+      for (let i = 0; i < 200; i++) dropXp(sim.ctx, 3000 + i, 3000, 1);
+      return sim.state.pickups.filter((q) => q.kind === 'gem').length;
+    };
+    expect(drops(3, 0)).toBe(0);
+    expect(drops(3, 1)).toBe(200);
+    const some = drops(3, 0.1);
+    expect(some).toBeGreaterThan(0);
+    expect(some).toBeLessThan(200);
+    expect(drops(3, 0.1)).toBe(some);
+  });
+
+  it('a boss drops a gem with bossGemChance, a rift legendary legendaryGems', () => {
+    const gems = (legend: boolean) => {
+      const sim = quietSim();
+      patchTuning(sim, 'pickups', { bossGemChance: 1, legendaryGems: 3 });
+      dropXp(sim.ctx, 3000, 3000, 140, true, legend);
+      return sim.state.pickups.filter((q) => q.kind === 'gem').length;
+    };
+    expect(gems(false)).toBe(1);
+    expect(gems(true)).toBe(3);
   });
 
   it('bomb: hurts every enemy the collector can see', () => {

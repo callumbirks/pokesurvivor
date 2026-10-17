@@ -1,11 +1,13 @@
 {
   "unreleased": {
-    "prs": [98, 99],
+    "prs": [98, 99, 100],
     "entries": {
       "new": [
-        "Repertoire now lets you choose your second starting move (or keep it random) on the Upgrades screen."
+        "Repertoire now lets you choose your second starting move (or keep it random) on the Upgrades screen.",
+        "Gems: a rare new currency found in runs.",
+        "Spend 100 gems to reset a Pokémon's upgrades and get all its PokéCoins back."
       ],
-      "changed": [],
+      "changed": ["Prestige now costs 100 gems."],
       "fixed": [
         "Group leaderboard entries show the level and Pokémon defeated once instead of once per player."
       ],

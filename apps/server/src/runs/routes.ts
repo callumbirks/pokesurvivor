@@ -66,6 +66,8 @@ const finishBody = z.object({
   coins: count,
   ticketsX1: count,
   ticketsX10: count,
+  /** Optional: clients before gems (R6) don't send it. */
+  gems: count.optional(),
   shiniesCaught: z.array(knownDexSchema).max(100),
   progress: progressBody,
   /** The balance record: checked on its own (`parseBalance`), never failing the request. */

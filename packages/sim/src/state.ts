@@ -335,6 +335,8 @@ export interface TeamState {
   /** Gacha tickets picked up. */
   tickets: number;
   tickets10: number;
+  /** Gems picked up (R6: a rare currency, each player gets them all, like tickets). */
+  gems: number;
   /** Shiny wild Pokémon defeated (everyone gets them). */
   shinies: number[];
 }
@@ -610,7 +612,7 @@ export interface HazardState {
 // ---------------------------------------------------------------- pickups
 
 export type PickupKind =
-  'xp' | 'xp-big' | 'coin' | 'heal' | 'magnet' | 'bomb' | 'ticket' | 'ticket10' | 'item';
+  'xp' | 'xp-big' | 'coin' | 'heal' | 'magnet' | 'bomb' | 'ticket' | 'ticket10' | 'gem' | 'item';
 
 export interface PickupState {
   id: EntityId;

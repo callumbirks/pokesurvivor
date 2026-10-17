@@ -374,6 +374,11 @@ wasn't recorded) lists the achievements the run unlocked for that player, `[{id,
 tickets?, tickets10?}, title}]` as in `POST /api/runs`; their rewards were credited on top of the
 run's own coins and tickets. It was added without a version bump: older clients ignore it.
 
+Gems (R6) were added the same way, within version 7: `RunSummary.gems` (optional) and
+`PlayerSummary.gems` carry the gems the team picked up, which every player is credited, like
+tickets. In the snapshots a gem is a pickup of kind `gem` (pickup kinds go through the string
+table, so no column changed); the team's gem count is not in the team table, whose width stays 9.
+
 ## Deploys
 
 Deploys are stop-first (see [deploy.md](deploy.md#deploys-while-people-are-playing)). On SIGTERM:
