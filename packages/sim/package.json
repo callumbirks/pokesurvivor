@@ -19,6 +19,7 @@
     "rifts:fit": "tsx test/fit-rift-curve.ts",
     "wilds": "tsx test/measure-wilds.ts",
     "wilds:summary": "tsx test/summarize-wilds.ts",
+    "wild-legends": "tsx test/measure-wild-legends.ts",
     "late-growth": "tsx test/measure-late-growth.ts",
     "momentum": "tsx test/measure-momentum.ts",
     "training": "tsx test/measure-training.ts",

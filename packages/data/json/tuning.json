@@ -80,13 +80,14 @@
     ],
     "maxAlive": 2,
     "hpCurve": [
-      { "minute": 30, "multiplier": 40 },
-      { "minute": 60, "multiplier": 50 },
-      { "minute": 90, "multiplier": 60 }
+      { "minute": 30, "multiplier": 25 },
+      { "minute": 45, "multiplier": 20 },
+      { "minute": 60, "multiplier": 15 },
+      { "minute": 90, "multiplier": 8 }
     ],
     "damageCurve": [
-      { "minute": 30, "multiplier": 1.6 },
-      { "minute": 60, "multiplier": 1.9 },
+      { "minute": 30, "multiplier": 1.4 },
+      { "minute": 60, "multiplier": 1.8 },
       { "minute": 90, "multiplier": 2.2 }
     ],
     "speedCurve": [
