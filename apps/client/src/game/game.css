@@ -239,6 +239,35 @@ html[data-input='gamepad'] .ps-card.focus .ds {
 html[data-input='gamepad'] .ps-card.rarity.legendary.focus {
   background: var(--bar);
 }
+/* The Unique card (Mega Evolution): a rainbow frame in the Mega symbol's colours, slowly moving
+   (still in calm mode and with reduced motion). */
+.ps-card.unique {
+  border: 3px solid transparent;
+  padding: 7px 11px 7px 23px;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, #ff4fd8 16%, var(--bg2)), var(--bg2) 65%) padding-box,
+    var(--mega-rainbow) border-box;
+  background-size:
+    100% 100%,
+    200% 100%;
+  animation: mega-rainbow 6s linear infinite;
+}
+.ps-card.unique:hover,
+.ps-card.unique:focus-visible,
+html[data-input='gamepad'] .ps-card.unique.focus {
+  background:
+    linear-gradient(var(--bar), var(--bar)) padding-box,
+    var(--mega-rainbow) border-box;
+  background-size:
+    100% 100%,
+    200% 100%;
+}
+.ps-card.unique.calm {
+  animation: none;
+}
+.ps-game .tag-chip.unique-chip {
+  background: linear-gradient(90deg, #ff4fd8, #ffe14d, #4fe0ff, #a55cff);
+}
 .ps-cards.done .ps-card {
   opacity: 0.45;
   pointer-events: none;
@@ -741,6 +770,7 @@ html[data-input='touch'] .ps-toasts {
 }
 @media (prefers-reduced-motion: reduce) {
   .ps-rotate-ico,
+  .ps-card.unique,
   .ps-toast.sticky.compact {
     animation: none;
   }

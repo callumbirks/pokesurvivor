@@ -12,6 +12,7 @@ import { NAV_REPEAT_DELAY_MS } from '../menu-nav.js';
 // The pixel icons paint on a canvas, which happy-dom doesn't have.
 vi.mock('../icons.js', () => ({
   iconImg: () => document.createElement('img'),
+  megaItemImg: (item: string) => Object.assign(document.createElement('img'), { alt: item }),
   typeColor: () => '#ffffff',
 }));
 
@@ -490,5 +491,49 @@ describe('stat card rarities', () => {
     g.overlay.key('PadDown');
     g.overlay.key('PadA');
     expect(g.send).toHaveBeenLastCalledWith(expect.objectContaining({ cardId: 'stat:heal' }));
+  });
+});
+
+describe('the Unique card (Mega Evolution)', () => {
+  const offer = (dex: number): PendingChoice => ({
+    id: 7,
+    playerId: 'me',
+    kind: 'level-up',
+    level: 60,
+    deadlineTick: null,
+    options: [
+      { id: 'stat:attack', type: 'stat', statId: 'attack', rarity: 'common' },
+      { id: 'new:ember', type: 'new', moveId: 'ember' },
+      { id: `mega:${dex}`, type: 'mega' },
+    ],
+  });
+
+  it('renders with the Unique label, the rainbow frame, the item and its text', () => {
+    const h = setup();
+    h.show(snap([offer(6)], 0));
+    const card = h.cards()[2] as HTMLElement;
+    expect(card.classList.contains('unique')).toBe(true);
+    expect(card.querySelector('.nm')!.textContent).toContain('Mega Evolve');
+    expect(card.querySelector('.unique-chip')!.textContent).toBe('Unique');
+    expect(card.querySelector<HTMLImageElement>('.ico img')!.alt).toBe('charizardite-x');
+    expect(card.querySelector('.ds')!.textContent).toBe(
+      'Charizard Mega Evolves using Charizardite X! A huge boost for the rest of the run: ' +
+        '+50% damage, +30% max HP, +10% speed, -10% cooldowns.',
+    );
+    h.advance(CHOICE_INPUT_GRACE_MS);
+    h.overlay.key('Digit3');
+    expect(h.send).toHaveBeenLastCalledWith(expect.objectContaining({ cardId: 'mega:6' }));
+  });
+
+  it('words Primal Reversion and the Rusted Sword', () => {
+    const h = setup();
+    h.show(snap([offer(382)], 0));
+    expect(h.cards()[2]!.textContent).toContain(
+      'Kyogre undergoes Primal Reversion with the Blue Orb!',
+    );
+    const z = setup();
+    z.show(snap([offer(888)], 0));
+    expect(z.cards()[2]!.textContent).toContain('Take up the Rusted Sword');
+    expect(z.cards()[2]!.textContent).toContain('Zacian takes up the Rusted Sword!');
   });
 });

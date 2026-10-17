@@ -661,7 +661,8 @@ html[data-input='touch']
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .notice.compact {
+  .notice.compact,
+  .whats-new.theme-mega::after {
     animation: none;
   }
 }
@@ -1096,6 +1097,30 @@ html[data-input='touch']
   gap: 10px;
   padding: 2px 12px;
   font-size: 18px;
+}
+/* The Mega theme (changelog.json whatsNewTheme): the charcoal window, its inner rule (the frame's
+   last 3px, just outside the padding) in the Mega Evolution rainbow, slowly moving (still in calm
+   mode and with reduced motion). */
+.whats-new.theme-mega::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  padding: 3px;
+  background: var(--mega-rainbow);
+  background-size: 200% 100%;
+  mask:
+    linear-gradient(#000 0 0) content-box exclude,
+    linear-gradient(#000 0 0);
+  pointer-events: none;
+  animation: mega-rainbow-1 6s linear infinite;
+}
+.whats-new.theme-mega.calm::after {
+  animation: none;
+}
+@keyframes mega-rainbow-1 {
+  to {
+    background-position: 100% 0;
+  }
 }
 .new-dot {
   width: 10px;
@@ -2743,6 +2768,35 @@ canvas.backdrop {
   font-size: 11px;
   line-height: 14px;
   padding: 0 3px;
+}
+/* "Mega Capable" (megas.json): the Mega symbol or the Rusted Sword / Shield by the rarity ball,
+   and its line in the detail panel. */
+.badge-mega {
+  display: inline-flex;
+  align-items: center;
+  line-height: 0;
+}
+.mega-line {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin: 4px 0;
+  color: #ffb3f0;
+}
+/* A tooltip (app/tooltip.ts): one element on <body>, under its anchor. */
+.tooltip {
+  position: fixed;
+  z-index: 1000;
+  max-width: 260px;
+  padding: 4px 8px;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--ink);
+  box-shadow:
+    inset 0 0 0 2px var(--rule),
+    var(--win-shadow);
+  pointer-events: none;
 }
 /* Phones in portrait: the details under the grid, sharing the height with it; the bar's
    controls narrow to fit beside the search. */

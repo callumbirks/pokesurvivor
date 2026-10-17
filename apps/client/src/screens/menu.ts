@@ -8,6 +8,7 @@ import type { Save } from '../app/api.js';
 import type { SavedSoloRun } from '../app/game.js';
 import { endSavedRun, resumeSolo, savedSoloRun } from '../app/solo-runs.js';
 import { hasUnseenRelease } from '../changelog.js';
+import { settings } from '../settings.js';
 import {
   CursorList,
   gameData,
@@ -47,20 +48,29 @@ const MENU_ICON: Record<string, string> = {
 
 /**
  * What's new, under the partner's window: the newest version, and a dot until it has been seen
- * on this device. It never opens the changelog by itself.
+ * on this device. It never opens the changelog by itself. `changelog.json` `whatsNewTheme`
+ * (temporary, switched off by hand) gives it a theme: `mega` is charcoal with the Mega Evolution
+ * rainbow for its inner border and the Mega symbol.
  */
-function whatsNewButton(app: App): HTMLElement {
-  const changelog = loadChangelog();
+export function whatsNewButton(app: App, changelog = loadChangelog()): HTMLElement {
   const latest = latestRelease(changelog);
   const unseen = hasUnseenRelease(changelog);
+  const mega = changelog.whatsNewTheme === 'mega';
   return h(
     'button',
     {
-      class: ['win', 'hot', 'whats-new', unseen && 'unseen'],
+      class: [
+        'win',
+        !mega && 'hot',
+        'whats-new',
+        unseen && 'unseen',
+        mega && 'theme-mega',
+        mega && settings.get().calmMode && 'calm',
+      ],
       dataset: { testid: 'menu-changelog', talk: 'whatsNew' },
       on: { click: () => app.go('changelog') },
     },
-    icon('star', 20),
+    icon(mega ? 'mega' : 'star', 20),
     t('changelog.whatsNew'),
     latest ? ` · v${latest.version}` : null,
     unseen

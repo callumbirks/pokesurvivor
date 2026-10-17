@@ -107,6 +107,16 @@ describe('releaseChangelog', () => {
     expect(ChangelogFileSchema.parse(next)).toEqual(next);
   });
 
+  it("keeps the What's new theme switch as it is", () => {
+    const on = releaseChangelog(file({ unreleased: pending, whatsNewTheme: 'mega' }), '2026-10-14');
+    expect(on.file.whatsNewTheme).toBe('mega');
+    const off = releaseChangelog(file({ unreleased: pending, whatsNewTheme: null }), '2026-10-14');
+    expect(off.file.whatsNewTheme).toBeNull();
+    expect(releaseChangelog(file({ unreleased: pending }), '2026-10-14').file).not.toHaveProperty(
+      'whatsNewTheme',
+    );
+  });
+
   it('makes v1 from an empty history', () => {
     expect(releaseChangelog(file({ unreleased: pending }), '2026-10-14').version.version).toBe(1);
   });

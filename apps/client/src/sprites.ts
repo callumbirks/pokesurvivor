@@ -7,7 +7,16 @@
 //
 // Each animation has its own frame size, so they're aligned by their ground anchor: that pixel is
 // always at the entity's feet and the sprite doesn't jump when Walk turns into Attack.
-import type { AnimationName, PokemonSprites, SpriteAnimation } from '@pokesurvivor/data';
+//
+// A sprite is a dex, or the key of an alternate form (`"6-mega"`: megas.json, the sheets under
+// `/sprites/6-mega/`). Forms can lack animations; asking for one gives the closest it has
+// (`ANIM_FALLBACKS`): no Faint holds Hurt (the caller fades it, `hasAnim`), no Shoot attacks.
+import {
+  formKey,
+  type AnimationName,
+  type PokemonSprites,
+  type SpriteAnimation,
+} from '@pokesurvivor/data';
 import type { SpriteData } from '@pokesurvivor/data/sprites';
 
 /** World units per art pixel. Tiles and sprites share it. */
@@ -21,6 +30,26 @@ export const ANIMATIONS: readonly AnimationName[] = [
   'Hurt',
   'Faint',
 ];
+
+/** A dex (the base form), or an alternate form's sprite key (`"6-mega"`). */
+export type SpriteRef = number | string;
+
+/** The sprite of a Pokémon's Mega (Primal, Crowned) form. */
+export const megaSpriteRef = (dex: number, kind: string): SpriteRef => formKey(dex, kind);
+
+/**
+ * What to draw for an animation a sheet set lacks, in order (some alternate forms have no Faint,
+ * Shoot or Hurt). The last resort is Idle, which every sprite has.
+ */
+export const ANIM_FALLBACKS: Readonly<Record<AnimationName, readonly AnimationName[]>> = {
+  Idle: ['Walk'],
+  Walk: ['Idle'],
+  Attack: ['Charge', 'Shoot'],
+  Shoot: ['Attack', 'Charge'],
+  Charge: ['Attack', 'Shoot'],
+  Hurt: ['Idle'],
+  Faint: ['Hurt'],
+};
 
 let manifest: SpriteData | null = null;
 let loading: Promise<SpriteData> | null = null;
@@ -36,19 +65,34 @@ export function initSprites(): Promise<SpriteData> {
 
 export const spritesReady = (): boolean => manifest !== null;
 
-function meta(dex: number): PokemonSprites | null {
-  return manifest?.byDex.get(dex) ?? null;
+function meta(ref: SpriteRef): PokemonSprites | null {
+  return (typeof ref === 'number' ? manifest?.byDex.get(ref) : manifest?.byKey.get(ref)) ?? null;
 }
 
-export const hasShiny = (dex: number): boolean => !!meta(dex)?.shiny;
-export const hovers = (dex: number): boolean => !!meta(dex)?.hovers;
+export const hasShiny = (ref: SpriteRef): boolean => !!meta(ref)?.shiny;
+export const hovers = (ref: SpriteRef): boolean => !!meta(ref)?.hovers;
+/** The sprite has this animation's own sheet (not a fallback). */
+export const hasAnim = (ref: SpriteRef, anim: AnimationName): boolean =>
+  !!meta(ref)?.animations[anim];
 
-/** The animation's geometry (the shiny one only differs in rare cases). */
-export function animMeta(dex: number, anim: AnimationName, shiny = false): SpriteAnimation | null {
-  const m = meta(dex);
+/** The animation drawn for `anim`: itself, or its fallback (`ANIM_FALLBACKS`). */
+export function resolveAnim(ref: SpriteRef, anim: AnimationName): AnimationName {
+  const m = meta(ref);
+  if (!m || m.animations[anim]) return anim;
+  return ANIM_FALLBACKS[anim].find((a) => m.animations[a]) ?? 'Idle';
+}
+
+/** The animation's geometry (the shiny one only differs in rare cases), fallbacks resolved. */
+export function animMeta(
+  ref: SpriteRef,
+  anim: AnimationName,
+  shiny = false,
+): SpriteAnimation | null {
+  const m = meta(ref);
   if (!m) return null;
+  const a = resolveAnim(ref, anim);
   const s = shiny && m.shiny;
-  return (s ? m.shinyAnimations?.[anim] : undefined) ?? m.animations[anim] ?? null;
+  return (s ? m.shinyAnimations?.[a] : undefined) ?? m.animations[a] ?? null;
 }
 
 interface Sheet {
@@ -77,11 +121,12 @@ function evict(now: number): void {
   }
 }
 
-function sheet(dex: number, anim: AnimationName, shiny = false): Sheet | null {
-  const m = meta(dex);
+function sheet(ref: SpriteRef, requested: AnimationName, shiny = false): Sheet | null {
+  const m = meta(ref);
   if (!m || !manifest) return null;
+  const anim = resolveAnim(ref, requested);
   const s = shiny && m.shiny;
-  const k = `${dex}/${anim}${s ? '/s' : ''}`;
+  const k = `${ref}/${anim}${s ? '/s' : ''}`;
   const now = performance.now();
   const sh = sheets.get(k);
   if (sh) {
@@ -94,7 +139,7 @@ function sheet(dex: number, anim: AnimationName, shiny = false): Sheet | null {
     return sh;
   }
   if (sheets.size >= MAX_SHEETS) evict(now);
-  const src = sheetUrl(dex, anim, s)!;
+  const src = sheetUrl(ref, anim, s)!;
   const created: Sheet = {
     img: new Image(),
     ready: false,
@@ -119,7 +164,7 @@ function sheet(dex: number, anim: AnimationName, shiny = false): Sheet | null {
  * `timeoutMs`; `progress(done, total)` reports along the way.
  */
 export async function preloadSprites(
-  list: readonly { dex: number; shiny?: boolean }[],
+  list: readonly { dex: SpriteRef; shiny?: boolean }[],
   progress?: (done: number, total: number) => void,
   timeoutMs = 12000,
 ): Promise<void> {
@@ -127,6 +172,8 @@ export async function preloadSprites(
   const all: Sheet[] = [];
   for (const { dex, shiny } of list)
     for (const a of ANIMATIONS) {
+      // A fallback is the same sheet as the animation it falls back to.
+      if (!hasAnim(dex, a)) continue;
       const s = sheet(dex, a, shiny);
       if (s) all.push(s);
     }
@@ -143,10 +190,11 @@ export async function preloadSprites(
 }
 
 /** The URL of an animation's sheet (null until the manifest is loaded, or for an unknown dex). */
-export function sheetUrl(dex: number, anim: AnimationName, shiny = false): string | null {
-  const m = meta(dex);
+export function sheetUrl(ref: SpriteRef, anim: AnimationName, shiny = false): string | null {
+  const m = meta(ref);
   if (!m || !manifest) return null;
-  return `${manifest.basePath}/${dex}/${shiny && m.shiny ? 's/' : ''}${anim}.png?v=${m.hash}`;
+  const a = resolveAnim(ref, anim);
+  return `${manifest.basePath}/${ref}/${shiny && m.shiny ? 's/' : ''}${a}.png?v=${m.hash}`;
 }
 
 /** Screen angle (atan2(dy, dx)) → direction row 0–7. */
@@ -167,17 +215,17 @@ export function stableDir(cur: number, a: number, margin = 0.15): number {
 }
 
 /** Visual height (for health bars and damage numbers). */
-export function bodyHeight(dex: number, scale = 1): number {
+export function bodyHeight(dex: SpriteRef, scale = 1): number {
   return (animMeta(dex, 'Idle')?.anchorY ?? 24) * PX * scale;
 }
 
 /** PMD's ShadowSize for a Pokémon (0–2), once the manifest is loaded. */
-export const shadowSizeOf = (dex: number): number | null => meta(dex)?.shadowSize ?? null;
+export const shadowSizeOf = (dex: SpriteRef): number | null => meta(dex)?.shadowSize ?? null;
 
 /** An elliptical shadow under the feet, sized by PMD's ShadowSize. */
 export function drawShadow(
   ctx: CanvasRenderingContext2D,
-  dex: number,
+  dex: SpriteRef,
   x: number,
   y: number,
   scale = 1,
@@ -241,7 +289,7 @@ export class Animator {
   dir = 0;
 
   constructor(
-    readonly dex: number,
+    readonly dex: SpriteRef,
     readonly scale = 1,
     shiny = false,
   ) {

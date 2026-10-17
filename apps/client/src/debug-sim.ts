@@ -3,6 +3,7 @@
 //   WASD / arrows  move player 1        1-4 / Q / E  switch move (or pick a card / item)
 //   R reroll cards   G god mode   P peaceful (no spawns)   +/- sim speed   N new run
 //   F open a rift   V arena now   L wild legendary   H horde   J golden hour   K lost Pokémon   T thief   B weather
+//   M the Unique card now (a Mega-capable partner: ?dex=6)
 // URL params: players=1..4 (the others are simple bots), seed=, dex=, t=<minutes to skip ahead>.
 import { t } from '@pokesurvivor/data';
 import {
@@ -130,6 +131,7 @@ export function startDebugSim(canvas: HTMLCanvasElement, ctx: CanvasRenderingCon
     if (e.key === '-') speed = Math.max(0.25, speed / 2);
     if (e.code === 'KeyN') sim = newRun(Math.floor(Math.random() * 1e6));
     if (e.code === 'KeyF') sim.debugOpenRift();
+    if (e.code === 'KeyM') sim.debugOfferMega('you');
     if (e.code === 'KeyV') sim.debugStartArena();
     if (e.code === 'KeyL') sim.debugSpawnWildLegend();
     if (e.code === 'KeyH') sim.debugStartEvent('horde');
@@ -394,7 +396,7 @@ export function startDebugSim(canvas: HTMLCanvasElement, ctx: CanvasRenderingCon
     ctx.fillStyle = '#aaa';
     ctx.font = '12px ui-monospace, monospace';
     ctx.fillText(
-      'WASD move · 1-4/Q/E moves or choices · R reroll · G god · P peaceful · +/- speed · N new run · F rift · V arena · H/J/K/T events · B weather',
+      'WASD move · 1-4/Q/E moves or choices · R reroll · G god · P peaceful · +/- speed · N new run · F rift · V arena · H/J/K/T events · B weather · M mega card',
       10,
       h - 10,
     );

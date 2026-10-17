@@ -63,6 +63,19 @@ fn)` (spinner on the button, toast on error), loads through `loadInto(el, load, 
 - **Gacha reveal**: the slot machine (lever, reels, suspense on epic/legendary/shiny, the tray),
   click to speed up; it plays the `ball`, `shake`, `reveal`, `legend` and `shiny` sounds on its
   beats, then the burst and a card per pull.
+- **What's new theme (temporary)**: `packages/data/changelog.json` → `whatsNewTheme`. `"mega"` gives
+  the main menu's What's new button the Mega Evolution look (charcoal, the rainbow inner border,
+  the Mega symbol) to point players at Mega Evolution; `null` (or removing the field) switches it
+  back to the usual gold notice. It isn't tied to a version: turn it off by hand after a few
+  updates. `pnpm release` keeps it as it is.
+- **Mega Evolution** (megas.json): the Unique card (`choice-ui.ts`, a rainbow frame and the
+  item's 16×16 icon from `public/items/`), the transformation drawn on the player while the sim
+  holds the pause (`scene/entities.ts`, `onMegaEvolved`; the banner, flash and sound at the swap
+  come from `events.ts`), and the "Mega Capable" badge on the collection's and picker's cells
+  (`megaBadge`, with `app/tooltip.ts`). A form is a sprite key (`"6-mega"`, `megaSpriteRef`);
+  the animations it lacks fall back (`ANIM_FALLBACKS` in `sprites.ts`: no Faint holds Hurt and
+  fades). A shiny partner whose form has no shiny sheets shows the regular colours, sparkling.
+  Dev: `M` in `/?debug-sim` (`&dex=6`) or on `/?play-solo&god&dex=6[&shiny]` offers the card now.
 - **Backdrop**: the run map with 20 wandering Pokémon and a drifting camera, a biome change
   every 30 s, drawn with `src/game/scene/` and moved with the sim's `WorldView.move`. Shown on
   every screen but `#play`. Calm mode and `prefers-reduced-motion` keep it still.

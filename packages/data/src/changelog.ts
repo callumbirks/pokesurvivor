@@ -109,6 +109,7 @@ export function releaseChangelog(file: ChangelogFile, date: string): Release {
     entries,
   };
   const next = ChangelogFileSchema.parse({
+    ...(file.whatsNewTheme !== undefined && { whatsNewTheme: file.whatsNewTheme }),
     // Empty lists rather than none, so the next PR sees where its lines go.
     unreleased: { prs: [], entries: Object.fromEntries(CHANGELOG_SECTIONS.map((k) => [k, []])) },
     versions: [version, ...file.versions],

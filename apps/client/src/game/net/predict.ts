@@ -116,7 +116,8 @@ export class Predictor {
 
   constructor(
     private readonly world: Mover,
-    private readonly r: number,
+    /** Collision radius: the sim's body (a Mega form's once it evolves). */
+    public r: number,
     private readonly types: readonly string[],
   ) {}
 

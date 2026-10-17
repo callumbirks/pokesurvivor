@@ -20,7 +20,7 @@ import { inputDevice, installInputDevice } from '../input-device.js';
 import { installMenuNav, menuNav } from '../menu-nav.js';
 import { installUiScale } from '../ui-scale.js';
 import { CROSSHAIR_COLORS, settings } from '../settings.js';
-import { preloadSprites } from '../sprites.js';
+import { megaSpriteRef, preloadSprites } from '../sprites.js';
 import { AchievementTracker, type AchievementSave } from './achievements.js';
 import { ChoiceOverlay } from './choice-ui.js';
 import { ChoiceState } from './choices.js';
@@ -330,6 +330,13 @@ class GameScreen {
     }
     if (this.disposed) return;
     if (this.conn.phase === 'loading' && this.conn.game?.gameId === game.gameId) this.conn.loaded();
+    // The Mega forms the partners can take, in the background (needed after minute 30 at the
+    // earliest), so the sprite is there when one evolves.
+    const megas = game.players.flatMap((p) => {
+      const m = gameData().megaByDex.get(p.dex);
+      return m ? [{ dex: megaSpriteRef(p.dex, m.kind), shiny: p.shiny }] : [];
+    });
+    if (megas.length) void preloadSprites(megas, undefined, 60000).catch(() => undefined);
   }
 
   // ---------------------------------------------------------------- the run
@@ -956,6 +963,11 @@ class Run {
     const serverSelf = latest.players.find((p) => p.id === conn.selfId) ?? null;
     let selfPos: SelfView | null = null;
     if (serverSelf) {
+      // Mega Evolved: the form's body, as the sim's.
+      if (latest.details[conn.selfId]?.mega !== undefined) {
+        const dex = this.game.players.find((p) => p.id === conn.selfId)?.dex ?? 25;
+        this.predictor.r = gameData().megaBodyByDex.get(dex)?.radius ?? this.predictor.r;
+      }
       const active =
         !latest.paused &&
         !latest.ended &&

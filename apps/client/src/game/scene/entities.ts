@@ -13,8 +13,20 @@ import type {
   NetProjectile,
   PlayerDetail,
 } from '@pokesurvivor/netclient';
-import { drawIcon, typeColor } from '../../icons.js';
-import { Animator, PX, bodyHeight, drawShadow, stableDir } from '../../sprites.js';
+import { MEGA_RAINBOW, drawIcon, typeColor } from '../../icons.js';
+import { gameData } from '../../live-config.js';
+import { settings } from '../../settings.js';
+import {
+  Animator,
+  PX,
+  bodyHeight,
+  drawShadow,
+  hasAnim,
+  hasShiny,
+  megaSpriteRef,
+  stableDir,
+  type SpriteRef,
+} from '../../sprites.js';
 import type { Frame } from '../frame.js';
 import type { Camera } from './camera.js';
 import type { FX } from './fx.js';
@@ -89,6 +101,17 @@ const PICKUP_ICON: Record<string, string> = {
 };
 
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
+/** `alpha` (0–1) as the two hex digits of a `#rrggbbaa` colour. */
+const alphaHex = (alpha: number) =>
+  Math.round(Math.max(0, Math.min(1, alpha)) * 255)
+    .toString(16)
+    .padStart(2, '0');
+/** How white the sprite glows through a Mega Evolution (0–1): rising, held over the swap, gone. */
+export function megaWhite(u: number): number {
+  if (u < 0.4) return (u / 0.4) * 0.9;
+  if (u < MEGA_SWAP + 0.1) return 0.9;
+  return Math.max(0, 0.9 * (1 - (u - MEGA_SWAP - 0.1) / 0.25));
+}
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
 const TAU = Math.PI * 2;
 
@@ -99,10 +122,29 @@ function ellipse(ctx: CanvasRenderingContext2D, x: number, y: number, rx: number
 
 interface PlayerVis {
   anim: Animator;
+  /** The sprite drawn: the dex, or its Mega form's key once it has evolved. */
+  ref: SpriteRef;
   flash: number;
   dead: boolean;
+  /** Seconds since it went down (a form without Faint fades its held Hurt instead). */
+  deadT: number;
   hp: number;
+  /** Shiny sparkle timer: a shiny Mega form with no shiny sheets sparkles instead. */
+  sparkT: number;
 }
+
+/**
+ * A Mega Evolution playing on a player (while the sim holds the pause): a white, rainbow-tinged
+ * glow; the energy shell bursts; the sprite swaps with a flash at `SWAP`; then it settles.
+ */
+interface MegaFx {
+  start: number;
+  dur: number;
+  /** The swap happened (the flash and the banner). */
+  swapped: boolean;
+}
+/** Where in the animation (0–1) the sprite changes form. */
+export const MEGA_SWAP = 0.55;
 
 interface EnemyVis {
   anim: Animator;
@@ -146,16 +188,59 @@ export class EntityLayer {
     let v = this.players.get(p.id);
     if (!v) {
       const info = frame.game.players.find((x) => x.id === p.id);
+      const ref = this.formOf(p.id, frame);
       v = {
-        anim: new Animator(info?.dex ?? 25, 1, info?.shiny ?? false),
+        anim: new Animator(ref, 1, info?.shiny ?? false),
+        ref,
         flash: 0,
         dead: p.dead,
+        deadT: p.dead ? 9 : 0,
         hp: p.hp,
+        sparkT: 0,
       };
       if (p.dead) v.anim.play('Faint', { hold: true });
       this.players.set(p.id, v);
     }
     return v;
+  }
+
+  /** The sprite a player should show: its Mega form once the snapshots say it evolved. */
+  private formOf(id: string, frame: Frame): SpriteRef {
+    const dex = frame.game.players.find((x) => x.id === id)?.dex ?? 25;
+    const m = frame.snap.details[id]?.mega !== undefined && gameData().megaByDex.get(dex);
+    return m ? megaSpriteRef(dex, m.kind) : dex;
+  }
+
+  /** Changes a player's sprite (keeping where it faces and what it loops). */
+  private swapSprite(id: string, v: PlayerVis, ref: SpriteRef, frame: Frame): void {
+    const info = frame.game.players.find((x) => x.id === id);
+    const anim = new Animator(ref, 1, info?.shiny ?? false);
+    anim.dir = v.anim.dir;
+    anim.loop(v.anim.base);
+    v.anim = anim;
+    v.ref = ref;
+  }
+
+  private megas = new Map<string, MegaFx>();
+
+  /**
+   * A player Mega Evolved: plays the transformation (`onSwap` at the swap: the flash, the banner
+   * and the sound). Without the event (joined later, a lost frame) the sprite just changes.
+   */
+  onMegaEvolved(playerId: string, onSwap: () => void): void {
+    this.megas.set(playerId, {
+      start: -1,
+      dur: Math.max(0.6, gameData().tuning.mega.animationSeconds),
+      swapped: false,
+    });
+    this.megaSwap.set(playerId, onSwap);
+  }
+  private megaSwap = new Map<string, () => void>();
+
+  /** 0–1 through a player's Mega Evolution, or null. */
+  megaProgress(id: string, time: number): number | null {
+    const m = this.megas.get(id);
+    return m && m.start >= 0 ? clamp01((time - m.start) / m.dur) : null;
   }
 
   private enemyVis(e: NetEnemy): EnemyVis {
@@ -234,13 +319,36 @@ export class EntityLayer {
     for (const p of frame.players) {
       if (p.left) continue;
       const v = this.playerVis(p, frame);
+      // Mega Evolution: the sprite changes at the animation's swap, or at once without one.
+      const fx = this.megas.get(p.id);
+      if (fx && fx.start < 0) fx.start = frame.time;
+      const u = this.megaProgress(p.id, frame.time);
+      if (fx && u !== null && u >= MEGA_SWAP && !fx.swapped) {
+        fx.swapped = true;
+        this.megaSwap.get(p.id)?.();
+        this.megaSwap.delete(p.id);
+      }
+      if (fx && u !== null && u >= 1) this.megas.delete(p.id);
+      const ref = this.formOf(p.id, frame);
+      if (ref !== v.ref && (!fx || fx.swapped)) this.swapSprite(p.id, v, ref, frame);
       v.anim.update(dt);
       if (v.flash > 0) v.flash -= dt;
       if (p.hp < v.hp - 0.5 && !p.dead && p.id !== frame.selfId) v.flash = 0.14;
       v.hp = p.hp;
       if (p.dead && !v.dead) v.anim.play('Faint', { hold: true });
       else if (!p.dead && v.dead) v.anim.loop('Idle');
+      v.deadT = p.dead ? v.deadT + dt : 0;
       v.dead = p.dead;
+      // A shiny whose form has no shiny sheets: the regular colours, sparkling as shiny.
+      const info = frame.game.players.find((x) => x.id === p.id);
+      if (info?.shiny && v.ref !== info.dex && !hasShiny(v.ref) && !p.dead) {
+        v.sparkT -= dt;
+        if (v.sparkT <= 0) {
+          v.sparkT = 0.22;
+          const h = bodyHeight(v.ref);
+          this.fx.twinkle(p.x + rand(-12, 12) * 1.4, p.y - rand(4, h * 1.1));
+        }
+      }
       if (p.dead) continue;
       // The sim's rule: its target while attacking (a run of casts is one attack), else where it
       // walks. Ours walks as predicted; whether it attacks and at what comes from the server.
@@ -331,8 +439,9 @@ export class EntityLayer {
 
   /** Where a player is drawn (for effects that follow them). */
   playerHeight(frame: Frame, id: string): number {
+    const v = this.players.get(id);
     const info = frame.game.players.find((p) => p.id === id);
-    return bodyHeight(info?.dex ?? 25);
+    return bodyHeight(v?.ref ?? info?.dex ?? 25);
   }
 
   // ---------------------------------------------------------------- drawing
@@ -544,10 +653,102 @@ export class EntityLayer {
     return out;
   }
 
+  /** Behind the sprite: a rainbow-tinged light that swells, and the shell's shards after it bursts. */
+  private drawMegaBack(
+    ctx: CanvasRenderingContext2D,
+    p: NetPlayer,
+    v: PlayerVis,
+    u: number,
+    time: number,
+  ): void {
+    const h = bodyHeight(v.ref);
+    const cy = p.y - h * 0.5;
+    const calm = settings.get().calmMode;
+    const glow = u < MEGA_SWAP ? u / MEGA_SWAP : Math.max(0, 1 - (u - MEGA_SWAP) / 0.35);
+    if (glow > 0) {
+      const tint = MEGA_RAINBOW[Math.floor(time * (calm ? 3 : 9)) % MEGA_RAINBOW.length]!;
+      const rad = 18 + h * 0.6 + glow * 26;
+      const g = ctx.createRadialGradient(p.x, cy, 2, p.x, cy, rad);
+      g.addColorStop(0, `rgba(255,255,255,${0.85 * glow})`);
+      g.addColorStop(0.45, `${tint}${alphaHex(0.55 * glow)}`);
+      g.addColorStop(1, `${tint}00`);
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(p.x, cy, rad, 0, TAU);
+      ctx.fill();
+      ctx.restore();
+    }
+    // Rising motes of every colour while it charges.
+    if (u < MEGA_SWAP && !calm) {
+      ctx.save();
+      for (let i = 0; i < 14; i++) {
+        const a = (i / 14) * TAU + time * 1.7;
+        const rise = (time * 0.9 + i * 0.37) % 1;
+        ctx.globalAlpha = (1 - rise) * Math.min(1, u * 4);
+        ctx.fillStyle = MEGA_RAINBOW[i % MEGA_RAINBOW.length]!;
+        const px = p.x + Math.cos(a) * (14 + h * 0.25);
+        ctx.fillRect(Math.round(px), Math.round(p.y - rise * h * 1.4), 3, 3);
+      }
+      ctx.restore();
+    }
+  }
+
+  /**
+   * In front: the energy shell (a rainbow ring with the Mega symbol over the head) gathering until
+   * the swap, when it bursts outwards.
+   */
+  private drawMegaFront(
+    ctx: CanvasRenderingContext2D,
+    p: NetPlayer,
+    v: PlayerVis,
+    u: number,
+    time: number,
+  ): void {
+    const h = bodyHeight(v.ref);
+    const cy = p.y - h * 0.5;
+    const rad = 12 + h * 0.55;
+    ctx.save();
+    if (u < MEGA_SWAP) {
+      // The shell closes in and spins faster as it charges.
+      const k = u / MEGA_SWAP;
+      const r = rad * (1.6 - 0.6 * k);
+      const spin = time * (2 + k * 8);
+      ctx.lineWidth = 3;
+      ctx.globalAlpha = Math.min(1, k * 2.5);
+      MEGA_RAINBOW.forEach((c, i) => {
+        const a0 = spin + (i / MEGA_RAINBOW.length) * TAU;
+        ctx.strokeStyle = c;
+        ctx.beginPath();
+        ctx.ellipse(p.x, cy, r, r * 0.9, 0, a0, a0 + TAU / MEGA_RAINBOW.length - 0.08);
+        ctx.stroke();
+      });
+      // The Mega symbol over the head, growing in.
+      const size = 24 * (0.5 + 0.5 * Math.min(1, k * 1.6));
+      drawIcon(ctx, 'mega', p.x - size / 2, p.y - h - size - 6, size);
+    } else {
+      // The shell bursts: shards of each colour flying out, fading.
+      const k = (u - MEGA_SWAP) / (1 - MEGA_SWAP);
+      ctx.globalAlpha = Math.max(0, 1 - k * 1.3);
+      MEGA_RAINBOW.forEach((c, i) => {
+        const a = (i / MEGA_RAINBOW.length) * TAU + 0.4;
+        const d = rad + k * 110;
+        ctx.fillStyle = c;
+        const x = p.x + Math.cos(a) * d;
+        const y = cy + Math.sin(a) * d * 0.8;
+        ctx.fillRect(Math.round(x - 3), Math.round(y - 3), 6, 6);
+      });
+      // The symbol rises and fades.
+      drawIcon(ctx, 'mega', p.x - 12, p.y - h - 30 - k * 18, 24);
+    }
+    ctx.restore();
+  }
+
   private drawPlayer(ctx: CanvasRenderingContext2D, p: NetPlayer, v: PlayerVis, frame: Frame) {
     const detail: PlayerDetail | undefined = frame.snap.details[p.id];
     const info = frame.game.players.find((x) => x.id === p.id);
-    const dex = info?.dex ?? 25;
+    const dex = v.ref;
     const r = 12;
     const offline = !p.connected;
     // The active move's type halo on the ground.
@@ -575,12 +776,22 @@ export class EntityLayer {
     }
     const blinkAlpha =
       p.invulnerable && !p.dead && p.connected ? (Math.floor(frame.time * 18) % 2 ? 0.45 : 1) : 1;
+    // A form without Faint holds Hurt instead and fades a little (still there to revive).
+    const faded = p.dead && !hasAnim(v.ref, 'Faint') ? Math.max(0.45, 1 - v.deadT * 0.8) : 1;
+    const mega = this.megaProgress(p.id, frame.time);
+    if (mega !== null) this.drawMegaBack(ctx, p, v, mega, frame.time);
     v.anim.draw(ctx, p.x, p.y, {
       flash: v.flash > 0,
       softFlash: true,
-      alpha: offline ? 0.4 : blinkAlpha,
+      alpha: (offline ? 0.4 : blinkAlpha) * faded,
       color: PLAYER_COLORS[p.index] ?? '#ffcb3d',
     });
+    if (mega !== null) {
+      // Glowing white: the sprite again, all white, over itself.
+      const white = megaWhite(mega);
+      if (white > 0) v.anim.draw(ctx, p.x, p.y, { flash: true, alpha: white });
+      this.drawMegaFront(ctx, p, v, mega, frame.time);
+    }
     // Buff arcs around the feet.
     let i = 0;
     for (const [k, n] of (detail?.buffs ?? [0, 0, 0, 0]).entries()) {

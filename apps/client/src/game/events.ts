@@ -6,13 +6,15 @@ import { gameData } from '../live-config.js';
 import type { SimEvent } from '@pokesurvivor/sim';
 import { moveStatsAt } from '@pokesurvivor/sim';
 import { audio, type SfxName } from '../audio.js';
-import { typeColor } from '../icons.js';
+import { MEGA_RAINBOW, typeColor } from '../icons.js';
+import { settings } from '../settings.js';
 import { bodyHeight } from '../sprites.js';
 import type { Frame } from './frame.js';
 import type { Camera } from './scene/camera.js';
 import { LIFT, type EntityLayer, pokemonName } from './scene/entities.js';
 import type { FX } from './scene/fx.js';
 import { vfxForMove, vfxForType, vfxSpins } from './scene/vfx.js';
+import { megaBannerText } from './text.js';
 import type { WorldRenderer } from './scene/world.js';
 
 /** Families that sound like an older one (original implementation). */
@@ -377,6 +379,27 @@ export class EventEffects {
         fx.ring(p.x, p.y, 8, 120, '#ffd23f', 0.8, 6);
         fx.burst(p.x, p.y - entities.playerHeight(frame, p.id) * 0.5, '#ffe14d', 40, 240);
         if (mine(e.playerId)) this.sfx('legend');
+        return;
+      }
+      case 'mega-evolved': {
+        // Everyone sees it. The game stays paused for it (tuning `mega.animationSeconds`).
+        const form = gameData().megaByDex.get(e.dex);
+        this.sfx('shiny');
+        entities.onMegaEvolved(e.playerId, () => {
+          const p = frame.players.find((x) => x.id === e.playerId);
+          const calm = settings.get().calmMode;
+          this.k.flash('#ffffff', calm ? 0.25 : 0.55);
+          if (p) {
+            const y = p.y - entities.playerHeight(frame, p.id) * 0.5;
+            for (const [i, c] of MEGA_RAINBOW.entries()) {
+              fx.ring(p.x, y, 6 + i * 3, 150 + i * 12, c, 0.9, 4);
+              if (!calm) fx.burst(p.x, y, c, 10, 260);
+            }
+          }
+          camera.kick(0.35);
+          this.sfx('reveal', { rarity: 5 });
+          if (form) this.k.say(megaBannerText(form), 3.5);
+        });
         return;
       }
       case 'move-learned':
