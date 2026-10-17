@@ -133,3 +133,20 @@ describe('network stats hooks', () => {
     net.close();
   });
 });
+
+describe('online count', () => {
+  it('keeps the latest count and emits it; unknown messages are ignored', () => {
+    const socket = new Socket();
+    const net = new NetClient({ url: 'ws://test/ws', createSocket: () => socket });
+    socket.welcome();
+    expect(net.onlineCount).toBeNull();
+    const counts: number[] = [];
+    net.on('online', (n) => counts.push(n));
+    socket.onmessage?.({ data: JSON.stringify({ type: 'online', count: 3 }) });
+    socket.onmessage?.({ data: JSON.stringify({ type: 'from.the.future', x: 1 }) });
+    socket.onmessage?.({ data: JSON.stringify({ type: 'online', count: 4 }) });
+    expect(counts).toEqual([3, 4]);
+    expect(net.onlineCount).toBe(4);
+    net.close();
+  });
+});

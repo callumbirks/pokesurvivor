@@ -48,6 +48,8 @@ export interface GameConfig {
   inviteTtlMs: number;
   /** Clients ping this often; sockets silent for 5 of these are dropped. */
   heartbeatMs: number;
+  /** The online player count goes out to everyone at most this often (and only when it changed). */
+  onlineCountMs: number;
   /**
    * SIGTERM (a deploy): players are warned this long before the server stops; coop games keep
    * running meanwhile, then are saved to the database and continue on the next server.
@@ -150,6 +152,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       loadingTimeoutMs: positiveInt('LOADING_TIMEOUT_S', env.LOADING_TIMEOUT_S, 15) * 1000,
       inviteTtlMs: 120_000,
       heartbeatMs: 2000,
+      onlineCountMs: 5000,
       updateWarningMs: nonNegativeInt('UPDATE_WARNING_S', env.UPDATE_WARNING_S, 30) * 1000,
       restoreGraceMs: positiveInt('RESTORE_GRACE_S', env.RESTORE_GRACE_S, 60) * 1000,
       resumeCountdownMs: 3000,

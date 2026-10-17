@@ -97,6 +97,8 @@ export interface ClientEvents extends Record<string, unknown> {
   rtt: number;
   /** The server's game loop fell behind (`server.lag`; in a running game, at most 1/s). */
   lag: { late: number; skipped: number; worstMs: number };
+  /** How many players are online (`online`; after welcome, then when it changes). */
+  online: number;
 }
 
 export interface NetClientOptions {
@@ -144,6 +146,8 @@ export class NetClient {
   draining = false;
   /** When it stops (`Date.now()` time), from its `server-update` notice; null: not stopping. */
   updateAt: number | null = null;
+  /** Players online, from the server's last `online` message; null until one arrives. */
+  onlineCount: number | null = null;
   /** The server's clock minus ours (from `welcome`): notice deadlines are converted with it. */
   private serverSkewMs = 0;
   roomView: RoomView | null = null;
@@ -456,6 +460,10 @@ export class NetClient {
         return;
       case 'server.lag':
         this.emitter.emit('lag', { late: m.late, skipped: m.skipped, worstMs: m.worstMs });
+        return;
+      case 'online':
+        this.onlineCount = m.count;
+        this.emitter.emit('online', m.count);
         return;
       case 'reply': {
         const p = this.pending.get(m.rid);

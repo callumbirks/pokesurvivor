@@ -357,6 +357,12 @@ export type ServerMessage<Roster = unknown, Summary = unknown> =
    * behind that it skipped ticks, `worstMs` the most it was behind. Optional: older clients
    * ignore it (no version bump).
    */
-  | { type: 'server.lag'; late: number; skipped: number; worstMs: number };
+  | { type: 'server.lag'; late: number; skipped: number; worstMs: number }
+  /**
+   * How many players are online (logged in with the game open, wherever they are): sent right
+   * after `welcome`, then to everyone when it changes, at most every few seconds. Optional: older
+   * clients ignore it (no version bump).
+   */
+  | { type: 'online'; count: number };
 
 export type ServerMessageType = ServerMessage['type'];
