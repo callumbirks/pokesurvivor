@@ -1,19 +1,24 @@
 {
   "spawner": {
-    "cap": 64,
+    "cap": 80,
     "eliteFrom": 0.85,
     "density": 0.24,
     "damageK": 4.32,
     "xpK": 5.6,
     "shinyRate": 0.000244140625,
     "damageCurve": [
-      { "minute": 0, "multiplier": 0.5 },
-      { "minute": 2, "multiplier": 0.735 },
-      { "minute": 4, "multiplier": 0.75 },
+      { "minute": 0, "multiplier": 0.3 },
+      { "minute": 2, "multiplier": 0.42 },
+      { "minute": 4, "multiplier": 0.55 },
+      { "minute": 6, "multiplier": 0.75 },
       { "minute": 8, "multiplier": 0.98 },
       { "minute": 10, "multiplier": 0.78 },
       { "minute": 15, "multiplier": 1.2 },
-      { "minute": 20, "multiplier": 1.35 }
+      { "minute": 20, "multiplier": 1.35 },
+      { "minute": 30, "multiplier": 1.6 },
+      { "minute": 40, "multiplier": 2 },
+      { "minute": 50, "multiplier": 2.6 },
+      { "minute": 60, "multiplier": 3.5 }
     ],
     "hpCurve": [
       { "minute": 0, "multiplier": 0.95 },
@@ -21,7 +26,11 @@
       { "minute": 12, "multiplier": 1.3 },
       { "minute": 16, "multiplier": 1.6 },
       { "minute": 20, "multiplier": 1.85 },
-      { "minute": 30, "multiplier": 2.2 }
+      { "minute": 30, "multiplier": 2.2 },
+      { "minute": 40, "multiplier": 3 },
+      { "minute": 50, "multiplier": 4.5 },
+      { "minute": 60, "multiplier": 6 },
+      { "minute": 90, "multiplier": 12 }
     ],
     "regularHitCapFraction": 0.6,
     "directionBias": { "smoothingSeconds": 1.5, "aheadShare": 0.2, "minSpeed": 35 }
@@ -74,7 +83,7 @@
   "lateGrowth": {
     "offers": {
       "fromMinute": 15,
-      "guaranteedOffenseSlots": 1,
+      "guaranteedOffenseSlots": 0,
       "statIds": ["attack", "cooldown"],
       "preserveReadyEvolution": true
     }
@@ -84,7 +93,7 @@
     "maxStacksStart": 10,
     "maxStacksFullMinute": 10,
     "maxStacks": 10,
-    "graceSeconds": 2.5,
+    "graceSeconds": 2,
     "decayPerSecond": 6
   },
   "poison": { "bossFactor": 0.035 },
@@ -119,7 +128,7 @@
     "legendaryGems": 2
   },
   "gems": { "prestigeCost": 100, "resetCost": 100 },
-  "defense": { "max": 5 },
+  "defense": { "max": 2 },
   "prestige": {
     "maxStars": 3,
     "perStar": {

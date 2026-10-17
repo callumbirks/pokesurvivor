@@ -6,11 +6,22 @@ What changed for players in each release, newest first. Generated from
 
 ## Unreleased
 
-PRs: [#102](https://github.com/callumbirks/pokesurvivor/pull/102)
+PRs: [#102](https://github.com/callumbirks/pokesurvivor/pull/102), [#103](https://github.com/callumbirks/pokesurvivor/pull/103)
+
+### Changed
+
+- Balance update: over the past few days we've been testing balance changes live, and they're now the defaults.
+- The first few minutes are gentler.
+- After 30 minutes, wild Pokémon keep getting tougher, and there are more of them.
+- Defence now tops out at +200%.
+- Rare, Epic and Legendary upgrade cards give smaller bonuses (×1.25 / ×1.5 / ×2), and Power cards give +6%.
+- There's no longer a guaranteed Power or Reflexes card after 15 minutes.
+- The game has moved to a more powerful server to reduce multiplayer lag.
 
 ### Fixed
 
 - Co-op runs that carried over a server update are credited again.
+- Some co-op runs weren't credited after the server move; those players have now been credited.
 
 ### Behind the scenes
 

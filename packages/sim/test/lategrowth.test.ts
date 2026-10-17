@@ -31,12 +31,20 @@ const atMinute = (sim: Sim, minute: number) => {
 const offenseCount = (sim: Sim) =>
   offerCards(sim.ctx, player(sim)).filter((c) => offensive.has(c.id)).length;
 
+/** At least one guaranteed slot whatever the data's default (0 turns the mechanic off). */
+const SLOTS = Math.max(1, late.guaranteedOffenseSlots);
+const lateSim = () => {
+  const sim = quietSim();
+  patchTuning(sim, 'lateGrowth', { offers: { ...late, guaranteedOffenseSlots: SLOTS } });
+  return sim;
+};
+
 describe('guaranteed offensive level-up card', () => {
   it('is in every offer from the configured minute, and not guaranteed before it', () => {
-    const sim = quietSim();
+    const sim = lateSim();
     atMinute(sim, late.fromMinute);
     for (let i = 0; i < TRIALS; i++) {
-      expect(offenseCount(sim)).toBeGreaterThanOrEqual(late.guaranteedOffenseSlots);
+      expect(offenseCount(sim)).toBeGreaterThanOrEqual(SLOTS);
     }
     // Just before, the ordinary weighted offer: some rounds come without one.
     atMinute(sim, late.fromMinute - 1 / 60);
@@ -45,7 +53,7 @@ describe('guaranteed offensive level-up card', () => {
   });
 
   it('offers whichever card is not at its ceiling, and nothing extra once all are', () => {
-    const sim = quietSim();
+    const sim = lateSim();
     const p = player(sim);
     atMinute(sim, late.fromMinute + 5);
     // Give every offensive card a ceiling (the data may leave some uncapped), then reach it.
@@ -79,7 +87,7 @@ describe('guaranteed offensive level-up card', () => {
   });
 
   it('rolls a rarity for the guaranteed card', () => {
-    const sim = quietSim();
+    const sim = lateSim();
     const p = player(sim);
     atMinute(sim, late.fromMinute);
     // Only the guaranteed card can be a stat card: every other stat card is out of the pool.
@@ -87,14 +95,14 @@ describe('guaranteed offensive level-up card', () => {
     p.maxSlots = p.slots.length;
     for (let i = 0; i < TRIALS; i++) {
       const offence = offerCards(sim.ctx, p).filter((c) => offensive.has(c.id));
-      expect(offence.length).toBeGreaterThanOrEqual(late.guaranteedOffenseSlots);
+      expect(offence.length).toBeGreaterThanOrEqual(SLOTS);
       for (const c of offence)
         expect(d.game.levelUp.rarity.tiers.map((t) => t.id)).toContain(c.rarity);
     }
   });
 
   it('never pushes a ready move evolution out of the offer', () => {
-    const sim = quietSim();
+    const sim = lateSim();
     const p = player(sim);
     atMinute(sim, late.fromMinute + 5);
     giveMove(sim, p, 'ember', d.maxMoveLevel('ember'));
@@ -103,7 +111,7 @@ describe('guaranteed offensive level-up card', () => {
     for (let i = 0; i < TRIALS; i++) {
       const ids = offerCards(sim.ctx, p).map((c) => c.id);
       expect(ids).toContain('evolution:ember');
-      if (d.game.levelUp.cardsOffered > late.guaranteedOffenseSlots) {
+      if (d.game.levelUp.cardsOffered > SLOTS) {
         expect(ids.some((id) => offensive.has(id))).toBe(true);
       }
     }
