@@ -6,6 +6,8 @@ What changed for players in each release, newest first. Generated from
 
 ## Unreleased
 
+PRs: [#102](https://github.com/callumbirks/pokesurvivor/pull/102)
+
 ### Fixed
 
 - Co-op runs that carried over a server update are credited again.
