@@ -37,6 +37,7 @@ import { makeRand, seedRng } from './rng.js';
 import { openRift, startArena, updateRift } from './rift.js';
 import { spawnThief, startEvent, updateRunEvents } from './runevents.js';
 import { rollRoster, updateSpawner } from './spawner.js';
+import { spawnWildLegend, updateWildLegends } from './wildlegends.js';
 import { newTeam } from './team.js';
 import { startWeather, updateWeather } from './weather.js';
 import { createChunkCache } from './world.js';
@@ -241,6 +242,11 @@ export class Sim {
     this.state.spawner.forceShiny = n;
   }
 
+  /** Debug: a wild legendary near a player now (`dex`: this one). */
+  debugSpawnWildLegend(dex?: number): void {
+    spawnWildLegend(this.ctx, dex);
+  }
+
   /** Debug: open a rift near a player now. */
   debugOpenRift(): void {
     openRift(this.ctx);
@@ -307,6 +313,7 @@ export class Sim {
     if (presentPlayers(s).length > 1) for (const p of s.players) reviveTick(ctx, p);
     updatePaths(ctx);
     updateSpawner(ctx);
+    updateWildLegends(ctx);
     trackVelocities(ctx);
     updateEnemies(ctx);
     rebuildGrid(ctx);
@@ -437,6 +444,7 @@ export function restoreSim(state: SimState, data?: GameData): Sim {
       { prestige: 0, upgrades: {}, players: state.players.length, atkUpgrade: 1, atkPrestige: 1 },
       state.time,
     );
+    p.balance.wildLegends ??= [];
     p.relocationTokens ??= gameTuning.stragglers.burst;
     p.travelVx ??= 0;
     p.travelVy ??= 0;
@@ -471,6 +479,8 @@ export function restoreSim(state: SimState, data?: GameData): Sim {
     }
   }
   for (const e of [...state.enemies, ...(state.arena?.stash ?? [])]) {
+    // Saves from before wild legendaries (v18): none.
+    e.wildLegend ??= false;
     e.targetId ??= null;
     e.transferFromId ??= null;
     // Pre-healing-budget saves have no earned credit; further HP damage earns it normally.

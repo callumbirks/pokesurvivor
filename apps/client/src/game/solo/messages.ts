@@ -62,6 +62,8 @@ export type DevAction =
   | 'lost'
   | 'thief'
   | 'weather'
+  /** A wild legendary near the player now. */
+  | 'legend'
   /** Momentum stacks up to the cap (then drains after the grace, as usual). */
   | 'momentum';
 

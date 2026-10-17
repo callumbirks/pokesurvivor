@@ -24,7 +24,7 @@ import { preloadSprites } from '../sprites.js';
 import { AchievementTracker, type AchievementSave } from './achievements.js';
 import { ChoiceOverlay } from './choice-ui.js';
 import { ChoiceState } from './choices.js';
-import { clockText, everyTick, riftResume, secondsLeft } from './countdown.js';
+import { ResumeCountdown, clockText, everyTick, secondsLeft } from './countdown.js';
 import { clear, el, icon } from './dom.js';
 import { clearRunConfig, gameData, setRunConfig } from '../live-config.js';
 import { EventEffects } from './events.js';
@@ -114,6 +114,8 @@ class GameScreen {
   private readonly ctx: CanvasRenderingContext2D;
   private readonly layer: HTMLElement;
   private readonly toasts: Toasts;
+  /** A restored game resuming in 3, 2, 1. */
+  private readonly resume: ResumeCountdown;
   private readonly offs: (() => void)[] = [];
   private disposed = false;
   private raf = 0;
@@ -135,6 +137,7 @@ class GameScreen {
     if (!ctx) throw new Error('Canvas 2D is not available');
     this.ctx = ctx;
     this.layer = el('div', { class: 'ps-layer' });
+    this.resume = new ResumeCountdown(this.layer);
     this.root = el('div', { class: 'ps-game', data: { testid: 'game' } }, this.canvas, this.layer);
     host.append(this.root);
     installInputDevice();
@@ -189,9 +192,9 @@ class GameScreen {
     // Already updating or reconnecting when the game opened (the shell hides its own notices here).
     if (client.updateAt) this.updateCountdown(client.updateAt);
     else if (client.draining) this.toasts.set('draining', t('game.noticeDraining'), 'warn');
-    if (client.state === 'reconnecting')
-      this.toasts.set('connection', t('game.reconnecting'), 'warn');
+    if (client.state === 'reconnecting') this.reconnecting(client);
     this.offs.push(
+      () => this.resume.hide(),
       () => this.stopUpdateClock?.(),
       () => this.stopHoldClock?.(),
       client.on('notice', (n) => {
@@ -205,7 +208,7 @@ class GameScreen {
         else this.toasts.show(text, 'info', 4.5);
       }),
       client.on('state', (s) => {
-        if (s === 'reconnecting') this.toasts.set('connection', t('game.reconnecting'), 'warn');
+        if (s === 'reconnecting') this.reconnecting(client);
         else if (s === 'open') {
           this.toasts.clear('connection');
           // A new server instance after a deploy isn't stopping.
@@ -214,38 +217,60 @@ class GameScreen {
             this.toasts.clear('draining');
           }
         } else if (s === 'failed' || s === 'closed')
+          // Final (the shell shows Reload over the game): in full, it doesn't shrink.
           this.toasts.set('connection', t('game.connectionLost'), 'warn');
       }),
       // The restored game goes on (or this is a fresh start): no more waiting.
       this.conn.on('start', () => {
         this.stopHoldClock?.();
         this.toasts.clear('hold');
+        this.resume.hide();
       }),
     );
   }
 
-  /** "Server update in 0:30 · your run will continue right after", ticking down. */
+  /** "Connection lost: reconnecting…", shrinking to a chip. */
+  private reconnecting(client: GameClient): void {
+    // The update is under way: the reconnecting notice says it all now.
+    if (client.updateAt && Date.now() >= client.updateAt) {
+      this.stopUpdateClock?.();
+      this.toasts.clear('draining');
+    }
+    this.toasts.set('connection', t('game.reconnecting'), 'warn', t('game.chipReconnecting'));
+  }
+
+  /** "Server update in 0:30 · your run will continue right after", ticking down, then "Update 0:21". */
   private updateCountdown(deadline: number): void {
     this.stopUpdateClock?.();
-    this.stopUpdateClock = everyTick(deadline, (now) =>
-      this.toasts.set('draining', t('game.noticeUpdate', { 0: clockText(deadline, now) }), 'warn'),
-    );
+    this.stopUpdateClock = everyTick(deadline, (now) => {
+      const clock = clockText(deadline, now);
+      this.toasts.set(
+        'draining',
+        t('game.noticeUpdate', { 0: clock }),
+        'warn',
+        t('game.chipUpdate', { 0: clock }),
+      );
+    });
   }
+
+  /** The 3-2-1 before a restored game resumes: big, in the middle (it's short, and it matters). */
 
   /** A restored game: waiting for players (until `deadline`), or resuming in 3, 2, 1. */
   private holdCountdown(code: 'game-waiting' | 'game-resuming', deadline: number, who: string[]) {
     this.stopHoldClock?.();
     this.stopHoldClock = everyTick(deadline, (now) => {
       if (code === 'game-resuming') {
-        const s = secondsLeft(deadline, now);
-        if (s > 0) this.toasts.set('hold', t('game.noticeResuming', { 0: String(s) }), 'info');
-        else this.toasts.clear('hold');
-      } else
+        this.toasts.clear('hold');
+        this.resume.show(secondsLeft(deadline, now));
+      } else {
+        const clock = clockText(deadline, now);
         this.toasts.set(
           'hold',
-          t('game.noticeWaiting', { 0: who.join(', '), 1: clockText(deadline, now) }),
+          t('game.noticeWaiting', { 0: who.join(', '), 1: clock }),
           'info',
+          t('game.chipWaiting', { 0: clock }),
         );
+      }
     });
   }
 
@@ -496,6 +521,8 @@ class Run {
   private lastSelf: { x: number; y: number } | null = null;
   private connected = new Map<string, boolean>();
   private stopped = false;
+  /** Back from a rift: the 3-2-1 before the map moves again. */
+  private readonly riftResume: ResumeCountdown;
 
   constructor(
     private readonly screen: GameScreen,
@@ -520,6 +547,8 @@ class Run {
     });
     const banner = new MateBanner(toasts.root.parentElement ?? layer);
     this.offs.push(() => banner.dispose());
+    this.riftResume = new ResumeCountdown(layer);
+    this.offs.push(() => this.riftResume.hide());
     this.mates = new MateAlerts({
       banner: (text, hint, self) => banner.show(text, hint, undefined, self),
       toast: (text) => toasts.show(text, 'good', 2.5),
@@ -979,7 +1008,8 @@ class Run {
     this.world.update(dt);
     this.fx.update(dt);
     this.weather.update(latest.misc.weather, dt);
-    riftResume(this.toasts, latest.misc.resume);
+    // Back from a rift: the sim holds the map for a 3-2-1.
+    this.riftResume.show(latest.misc.resume ?? 0);
     // The camera follows us, or whom we spectate (whose surroundings the server sends then).
     const watched = this.spectator.active
       ? frame.players.find((p) => p.id === this.spectator.target)

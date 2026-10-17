@@ -7,7 +7,7 @@ import { DT, OUTER_RADIUS } from './constants.js';
 import { activePlayers, emit, nextId, presentPlayers, seenByAny, type Ctx } from './ctx.js';
 import type { PokemonType } from '@pokesurvivor/data';
 import type { HitLabel } from './events.js';
-import { enemyRef } from './balance.js';
+import { enemyRef, noteWildLegendDefeated, noteWildLegendHit } from './balance.js';
 import { addHazard } from './hazards.js';
 import { addMomentum } from './momentum.js';
 import { TAU, clamp, dist, dist2, hash2, norm } from './math.js';
@@ -16,6 +16,7 @@ import { dropPickup, dropXp } from './pickups.js';
 import { spawnProjectile } from './projectiles.js';
 import { rejoinPlayer, spawnCap } from './spawner.js';
 import { weatherSpeedMult } from './weather.js';
+import { dropWildLegendLoot } from './wildlegends.js';
 import { collide, isLiquid, liquidKind, rollItem } from './world.js';
 import type {
   BossAi,
@@ -67,6 +68,7 @@ export function createEnemy(
     scale,
     boss,
     legend: false,
+    wildLegend: false,
     shiny: false,
     golden: false,
     // Only Pokémon that float in their sprite fly over rocks and water (a Rowlet walks though it's
@@ -157,6 +159,7 @@ export function addEnemy(ctx: Ctx, e: EnemyState): EnemyState {
     dex: e.dex,
     boss: e.boss,
     legend: e.legend,
+    wildLegend: e.wildLegend,
     shiny: e.shiny,
   });
   return e;
@@ -280,6 +283,7 @@ export function hurtEnemy(ctx: Ctx, e: EnemyState, amount: number, o: HurtOption
     e.maxHp * healing.maxHpFraction,
     e.healCredit + Math.min(e.hp, hpDamage) * healing.damageFraction,
   );
+  if (e.wildLegend && by) noteWildLegendHit(ctx, e, by, Math.min(Math.max(0, e.hp), hpDamage));
   e.hp -= hpDamage;
   emit(ctx, {
     type: 'enemy-hurt',
@@ -337,14 +341,19 @@ export function killEnemy(ctx: Ctx, e: EnemyState): void {
     legend: e.legend,
     shiny: e.shiny,
   });
-  if (e.boss) {
-    for (let i = 0; i < 10; i++) {
-      dropPickup(ctx, 'coin', e.x + rand.range(-40, 40), e.y + rand.range(-30, 30), 5);
+  if (e.wildLegend) {
+    noteWildLegendDefeated(ctx, e);
+    dropWildLegendLoot(ctx, e);
+  } else {
+    if (e.boss) {
+      for (let i = 0; i < 10; i++) {
+        dropPickup(ctx, 'coin', e.x + rand.range(-40, 40), e.y + rand.range(-30, 30), 5);
+      }
+      // Bosses always drop a held item.
+      dropPickup(ctx, 'item', e.x - 26, e.y - 10, 0, rollItem(ctx));
     }
-    // Bosses always drop a held item.
-    dropPickup(ctx, 'item', e.x - 26, e.y - 10, 0, rollItem(ctx));
+    dropXp(ctx, e.x, e.y, e.xp, e.boss, e.legend);
   }
-  dropXp(ctx, e.x, e.y, e.xp, e.boss, e.legend);
   if (e.golden && rand() < 0.35) dropPickup(ctx, 'coin', e.x + 6, e.y - 4, 3);
   // Treasure thieves: Meowth drops coins; Gholdengo a ×10 ticket.
   if (e.behavior === 'thief') {
@@ -474,7 +483,9 @@ function removeEnemy(ctx: Ctx, i: number): void {
 function countKill(ctx: Ctx, e: EnemyState): void {
   const { s } = ctx;
   s.team.kills++;
-  if (e.boss) s.team.bosses++;
+  // Wild legendaries aren't bosses for coins and missions (their reward is their own loot).
+  const boss = e.boss && !e.wildLegend;
+  if (boss) s.team.bosses++;
   const killer = e.lastHitBy ? s.players.find((p) => p.id === e.lastHitBy) : undefined;
   if (killer) {
     killer.stats.lastHits++;
@@ -485,14 +496,14 @@ function countKill(ctx: Ctx, e: EnemyState): void {
     const pr = p.stats.progress;
     pr.defeats++;
     for (const t of e.types) pr.defeatsByType[t] = (pr.defeatsByType[t] ?? 0) + 1;
-    if (e.boss) pr.bossDefeats++;
+    if (boss) pr.bossDefeats++;
     if (e.legend) pr.legendariesDefeated.push(e.dex);
   }
   emit(ctx, {
     type: 'progress',
     event: 'defeat',
     playerId: null,
-    data: { types: e.types, boss: e.boss, legend: e.legend ? e.dex : 0 },
+    data: { types: e.types, boss, legend: e.legend ? e.dex : 0 },
   });
 }
 

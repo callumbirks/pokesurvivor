@@ -146,7 +146,8 @@ Coop games run in the server's memory. On `SIGTERM` the server:
    a live timer: "Server update in 0:30 · your run will continue right after" in a coop run,
    "Server update in 0:30" in the menus and lobbies, and "… · your solo run isn't affected" in a
    solo run (solo runs are simulated in the browser; only their checkpoint uploads pause while
-   the server is down, and they retry). Coop runs **keep playing** during the countdown. Nobody
+   the server is down, and they retry). After 3 s the banner shrinks into a small "Update 0:21"
+   chip out of the way (as does "Reconnecting…" later). Coop runs **keep playing** during the countdown. Nobody
    can create a room, join one or start a game meanwhile (`server_draining`, "server updating");
    a game still loading is called off and its players go back to their lobby.
 2. **Saves every running coop game** at the end of the countdown: it freezes them and writes, in

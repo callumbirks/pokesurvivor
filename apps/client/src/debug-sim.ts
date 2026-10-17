@@ -2,7 +2,7 @@
 // shapes, for eyeballing behaviour. Not the game renderer.
 //   WASD / arrows  move player 1        1-4 / Q / E  switch move (or pick a card / item)
 //   R reroll cards   G god mode   P peaceful (no spawns)   +/- sim speed   N new run
-//   F open a rift   V arena now   H horde   J golden hour   K lost Pokémon   T thief   B weather
+//   F open a rift   V arena now   L wild legendary   H horde   J golden hour   K lost Pokémon   T thief   B weather
 // URL params: players=1..4 (the others are simple bots), seed=, dex=, t=<minutes to skip ahead>.
 import { t } from '@pokesurvivor/data';
 import {
@@ -131,6 +131,7 @@ export function startDebugSim(canvas: HTMLCanvasElement, ctx: CanvasRenderingCon
     if (e.code === 'KeyN') sim = newRun(Math.floor(Math.random() * 1e6));
     if (e.code === 'KeyF') sim.debugOpenRift();
     if (e.code === 'KeyV') sim.debugStartArena();
+    if (e.code === 'KeyL') sim.debugSpawnWildLegend();
     if (e.code === 'KeyH') sim.debugStartEvent('horde');
     if (e.code === 'KeyJ') sim.debugStartEvent('gold');
     if (e.code === 'KeyK') sim.debugStartEvent('lost');

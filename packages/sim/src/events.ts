@@ -67,6 +67,8 @@ export type SimEvent =
       dex: number;
       boss: boolean;
       legend: boolean;
+      /** A legendary in the wild (also `boss`). */
+      wildLegend: boolean;
       shiny: boolean;
     }
   /** An enemy left without dying (straggler that found no room ahead). */

@@ -1,7 +1,7 @@
 // Countdowns to a server time (already in `Date.now()` time): a server update, a restored game
 // waiting for its players. And the 3-2-1 after a rift, which the sim counts (`misc.resume`).
 import { t } from '@pokesurvivor/data';
-import type { Toasts } from './toasts.js';
+import { el } from './dom.js';
 
 /** `m:ss` left until `deadline` (rounded up, so it reads 0:00 only once it's due). */
 export function clockText(deadline: number, now = Date.now()): string {
@@ -29,11 +29,24 @@ export function everyTick(deadline: number, render: (now: number) => void): () =
 }
 
 /**
- * Back from a rift, the map waits for a 3-2-1: shown like a restored game's "Resuming in 3…",
- * from the newest snapshot's `misc.resume` (whole seconds; absent once the map moves again).
+ * The "Resuming in 3…" over the game: a restored game about to go on, or the team back from a rift
+ * (the sim counts that one; `misc.resume`). `show(0)` takes it away.
  */
-export function riftResume(toasts: Pick<Toasts, 'set' | 'clear'>, resume?: number): void {
-  if (resume && resume > 0)
-    toasts.set('rift-resume', t('game.noticeResuming', { 0: String(resume) }), 'info');
-  else toasts.clear('rift-resume');
+export class ResumeCountdown {
+  private node: HTMLElement | null = null;
+
+  constructor(private readonly parent: HTMLElement) {}
+
+  show(seconds: number): void {
+    if (seconds <= 0) return this.hide();
+    this.node ??= el('div', { class: 'ps-resume', data: { testid: 'resume-countdown' } });
+    if (!this.node.isConnected) this.parent.append(this.node);
+    const text = t('game.noticeResuming', { 0: String(seconds) });
+    if (this.node.textContent !== text) this.node.textContent = text;
+  }
+
+  hide(): void {
+    this.node?.remove();
+    this.node = null;
+  }
 }

@@ -153,6 +153,14 @@ already own" are the server's job.
   `decayPerSecond`.
 - Enemies spawn around a random living player, out of everyone's view; rate ×(1 + 0.75·(n − 1)),
   HP ×(1 + 0.3·(n − 1)); bosses get another ×1.4 in a group.
+- Wild legendaries (`wildlegends.ts`, `tuning.wildLegends`): from `fromMinute`, a chance every
+  tick gives `spawnCurve` spawns per minute while fewer than `maxAlive` are out, none during a
+  rift. Each is a `boss` with `wildLegend` set: the boss attack kit, uncapped hits, and HP, damage
+  and speed as `hpCurve` / `damageCurve` / `speedCurve` times a regular wild Pokémon of the last
+  tier at that minute (HP ×(1 + 0.3·(n − 1)) like the horde). They don't count toward the
+  spawner cap, don't slow the waves or hold up events, and aren't bosses for coins or missions;
+  they drop `xpGems` big XP gems (`xpMultiplier` × a regular's XP), a heal, and a gem / ticket by
+  chance. Balance records note each one (`wildLegends`).
 - A downed player is revived by a teammate standing within 56 units for 3 s (progress decays at
   half speed when they step away), at 50% HP.
 

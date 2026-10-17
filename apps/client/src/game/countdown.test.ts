@@ -1,8 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest';
 import { t } from '@pokesurvivor/data';
-import { clockText, riftResume, secondsLeft } from './countdown.js';
-import { Toasts } from './toasts.js';
+import { ResumeCountdown, clockText, secondsLeft } from './countdown.js';
 
 describe('countdowns', () => {
   it('shows m:ss, rounded up, never negative', () => {
@@ -22,15 +21,16 @@ describe('countdowns', () => {
   });
 });
 
-describe('the 3-2-1 after a rift', () => {
-  it('counts down from the snapshot, then goes away', () => {
-    const toasts = new Toasts(document.createElement('div'));
-    const shown = () => [...toasts.root.querySelectorAll('[data-key="rift-resume"]')];
-    riftResume(toasts, 3);
-    expect(shown().map((e) => e.textContent)).toEqual([t('game.noticeResuming', { 0: '3' })]);
-    riftResume(toasts, 1);
-    expect(shown().map((e) => e.textContent)).toEqual([t('game.noticeResuming', { 0: '1' })]);
-    riftResume(toasts, undefined);
+describe('the resume countdown', () => {
+  it('counts down over the game, then goes away', () => {
+    const layer = document.createElement('div');
+    const countdown = new ResumeCountdown(layer);
+    const shown = () => [...layer.querySelectorAll('.ps-resume')].map((e) => e.textContent);
+    countdown.show(3);
+    expect(shown()).toEqual([t('game.noticeResuming', { 0: '3' })]);
+    countdown.show(1);
+    expect(shown()).toEqual([t('game.noticeResuming', { 0: '1' })]);
+    countdown.show(0);
     expect(shown()).toEqual([]);
   });
 });

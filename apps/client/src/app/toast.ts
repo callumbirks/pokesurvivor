@@ -4,13 +4,13 @@ import { t } from '@pokesurvivor/data';
 import { h, replace } from './dom.js';
 import { audio } from '../audio.js';
 import { ApiError } from './api.js';
+import { calmClass, Shrink } from '../game/compact.js';
 import type { UiStringKey } from '@pokesurvivor/data';
 
 export type ToastKind = 'info' | 'good' | 'error' | 'gold';
 
 let toastBox: HTMLElement | null = null;
 let noticeBox: HTMLElement | null = null;
-const notices = new Map<string, HTMLElement>();
 
 /** Creates the toast and notice containers (once). */
 export function mountToasts(root: HTMLElement): void {
@@ -45,23 +45,63 @@ export function toast(text: string | Node, kind: ToastKind = 'info', ms = 3200):
   }, ms);
 }
 
-/** Shows or replaces the sticky notice `id`; `null` removes it. */
-export function notice(id: string, content: string | Node | null, kind: ToastKind = 'info'): void {
+interface Notice {
+  el: HTMLElement;
+  full: string | Node;
+  /** The chip it shrinks into (null: it stays in full, e.g. with a Reload button). */
+  compact: string | Node | null;
+  shrink: Shrink;
+}
+const notices = new Map<string, Notice>();
+
+/**
+ * Shows or replaces the sticky notice `id`; `null` removes it. With `compact` it shrinks into that
+ * chip after `COMPACT_AFTER_MS` (a long countdown, reconnecting); replacing it without one (a
+ * Reload button to press) brings it back in full.
+ */
+export function notice(
+  id: string,
+  content: string | Node | null,
+  kind: ToastKind = 'info',
+  compact?: string | Node,
+): void {
   if (!noticeBox) return;
-  const old = notices.get(id);
+  let n = notices.get(id);
   if (content === null) {
-    old?.remove();
+    n?.shrink.stop();
+    n?.el.remove();
     notices.delete(id);
     return;
   }
-  if (old) {
-    old.className = `notice ${kind}`;
-    replace(old, content);
-    return;
+  if (!n) {
+    const el = h('div', { class: ['notice', kind], dataset: { id } });
+    calmClass(el);
+    const shrink = new Shrink(() => renderNotice(entry));
+    const entry: Notice = { el, full: content, compact: null, shrink };
+    notices.set(id, entry);
+    noticeBox.append(el);
+    n = entry;
   }
-  const el = h('div', { class: ['notice', kind], dataset: { id } }, content);
-  notices.set(id, el);
-  noticeBox.append(el);
+  for (const k of ['info', 'good', 'error', 'gold'] as const) n.el.classList.toggle(k, k === kind);
+  n.full = content;
+  n.compact = compact ?? null;
+  n.shrink.update(compact !== undefined);
+  renderNotice(n);
+}
+
+function renderNotice(n: Notice): void {
+  const compact = n.shrink.compact && n.compact !== null;
+  n.el.classList.toggle('compact', compact);
+  const content = compact ? n.compact! : n.full;
+  // A live countdown re-renders four times a second: only touch the DOM when the text changes.
+  if (typeof content === 'string' && n.el.childNodes.length === 1 && n.el.textContent === content)
+    return;
+  replace(n.el, content);
+}
+
+/** Is the sticky notice `id` a chip now (tests)? */
+export function noticeIsCompact(id: string): boolean {
+  return notices.get(id)?.shrink.compact ?? false;
 }
 
 /** The UI text for an API or room error code (`errors.<code>`), falling back to a generic one. */

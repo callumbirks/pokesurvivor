@@ -1,6 +1,7 @@
 // The in-run HUD, drawn in screen coordinates on the game canvas (port of original implementation, the
 // HUD half of systems/events.js and the co-op panel): XP bar, HP and level, the clock, weather,
-// the boss bar, off-screen arrows (rift, shinies, teammates, the lost Pokémon, thieves), event
+// the boss bars, off-screen arrows (rift, shinies, teammates, the lost Pokémon, thieves, wild
+// legendaries), event
 // timers, the banner, move slots with cooldowns, the held item, the aim switch, and touch buttons.
 import { t } from '@pokesurvivor/data';
 import { gameData } from '../live-config.js';
@@ -29,6 +30,8 @@ const drawIcon = (
 const F = (w: number, s: number) => `${w} ${s}px Pixelify,"Segoe UI",system-ui,sans-serif`;
 const BUFF_COLORS = ['#ff6b4d', '#7fe0ff', '#b0b8c8', '#5fe08a'];
 const BOND = '#ff8ad8';
+/** Wild legendaries: their boss bar and off-screen arrow. */
+const WILD_LEGEND = '#b48aff';
 const clamp = (v: number, a: number, b: number) => (v < a ? a : v > b ? b : v);
 const TAU = Math.PI * 2;
 /** The menus' charcoal palette (ui.css), for the HUD's Momentum chip. */
@@ -327,16 +330,21 @@ export class Hud {
       ctx.fillText(txt, x0 + 32, y0 + 17);
     }
 
-    // ---------- boss bar ----------
-    const boss = frame.enemies.find((e) => e.boss && !e.dead);
-    if (boss) {
+    // ---------- boss bars: the boss, then the wild legendaries (purple) ----------
+    const bosses = frame.enemies
+      .filter((e) => e.boss && !e.dead)
+      .sort((a, b) => Number(a.wildLegend) - Number(b.wildLegend))
+      .slice(0, 3);
+    bosses.forEach((boss, i) => {
       const bw = Math.min(420, w - 80);
-      bar(ctx, (w - bw) / 2, 70, bw, 12, boss.hp / Math.max(1, boss.maxHp), '#ffcb3d');
+      const by = 70 + i * 16;
+      const col = boss.wildLegend ? WILD_LEGEND : '#ffcb3d';
+      bar(ctx, (w - bw) / 2, by, bw, 12, boss.hp / Math.max(1, boss.maxHp), col);
       ctx.font = F(800, 10);
       ctx.fillStyle = '#20160a';
       ctx.textAlign = 'center';
-      ctx.fillText(pokemonName(boss.dex).toUpperCase(), w / 2, 80);
-    }
+      ctx.fillText(pokemonName(boss.dex).toUpperCase(), w / 2, by + 10);
+    });
 
     // ---------- shinies off screen: a flashing arrow on the edge ----------
     const cam = k.camera;
@@ -449,7 +457,11 @@ export class Hud {
       ctx.textAlign = 'center';
       ctx.font = F(800, 12);
       ctx.fillStyle = '#d9c2ff';
-      ctx.fillText(t('hud.rift', { 0: mmss(this.arenaTime - arena.t) }), w / 2, boss ? 98 : 76);
+      ctx.fillText(
+        t('hud.rift', { 0: mmss(this.arenaTime - arena.t) }),
+        w / 2,
+        bosses.length ? 98 : 76,
+      );
     }
 
     this.drawEvents(ctx, k);
@@ -1060,9 +1072,12 @@ export class Hud {
         waiting ? `${pokemonName(L.dex)} · ${metres} m` : t('hud.markerM', { 0: metres }),
       );
     }
-    for (const e of frame.enemies)
-      if (e.behavior === 'thief' && !e.dead)
+    for (const e of frame.enemies) {
+      if (e.dead) continue;
+      if (e.behavior === 'thief')
         this.edgeArrow(ctx, k, e.x, e.y - 10, '#ffd23f', pokemonName(e.dex));
+      else if (e.wildLegend) this.edgeArrow(ctx, k, e.x, e.y - 10, WILD_LEGEND, pokemonName(e.dex));
+    }
     const ev = misc.event;
     if (ev && ev.id !== 'lost' && ev.dur !== null) {
       const left = Math.max(0, Math.ceil(ev.dur - ev.t));

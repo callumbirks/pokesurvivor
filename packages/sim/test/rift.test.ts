@@ -10,6 +10,7 @@ import { hurtPlayer } from '../src/players.js';
 import { legendCoopHpMultiplier, legendHpMultiplier, placeRift, updateRift } from '../src/rift.js';
 import { addMove } from '../src/moves.js';
 import { bossAlive } from '../src/runevents.js';
+import { spawnWildLegend } from '../src/wildlegends.js';
 import { WALL, isFree, terrainAt } from '../src/world.js';
 import { botInputs, pickFirst } from './bots.js';
 import { giveMove, patchTuning, player, quietSim, seconds, spawnDummy, steps } from './helpers.js';
@@ -563,6 +564,26 @@ describe('the 3-2-1 after a rift', () => {
     expect(sim.state.time).toBeGreaterThan(before.time);
     expect(p.x).toBeGreaterThan(before.x);
     expect(p.hp).toBeLessThan(before.hp);
+  });
+
+  it('wild legendaries that were out come back frozen too', () => {
+    const sim = quietSim(1);
+    const p = player(sim);
+    const wild = spawnWildLegend(sim.ctx, 150)!;
+    wild.x = p.x + 120;
+    wild.y = p.y;
+    backFromRift(sim);
+    const back = sim.state.enemies.find((e) => e.id === wild.id)!;
+    expect(back.wildLegend).toBe(true);
+    const frozen = JSON.stringify(back);
+    sim.drainEvents();
+    steps(sim, countdown);
+    expect(JSON.stringify(back)).toBe(frozen);
+    expect(sim.state.hazards).toEqual([]);
+    expect(sim.state.projectiles).toEqual([]);
+    expect(sim.drainEvents().filter((e) => e.type === 'player-hurt')).toEqual([]);
+    play(sim, seconds(1));
+    expect(JSON.stringify(back)).not.toBe(frozen);
   });
 
   it('exitCountdown 0: play resumes at once', () => {

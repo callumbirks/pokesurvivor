@@ -65,6 +65,24 @@ describe('balance records: validation and flags', () => {
     expect(rec.picks.length).toBeGreaterThan(0);
   });
 
+  it('accepts wild legendaries and downs by one, and records from before them', () => {
+    const withLegends = clone(rec);
+    withLegends.wildLegends = [
+      { t: 1900, dex: 150, maxHp: 1e6, defeatedAt: 1950, dealt: 1e6, top: true },
+      { t: 2000, dex: 249, maxHp: 1e6, defeatedAt: null, dealt: 0 },
+    ];
+    withLegends.downs.push({
+      t: 2010,
+      by: { kind: 'zone', dex: 249, tier: 'wildLegend' },
+      taken10s: 900,
+      revivedAt: null,
+    });
+    expect(parseBalance(withLegends)).toEqual({ ok: true, record: withLegends });
+    const before = clone(rec);
+    delete before.wildLegends;
+    expect(parseBalance(before)).toEqual({ ok: true, record: before });
+  });
+
   it('refuses malformed or oversized records', () => {
     expect(parseBalance({ v: 1 })).toMatchObject({ ok: false });
     expect(parseBalance('nope')).toMatchObject({ ok: false });

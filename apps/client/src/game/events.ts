@@ -196,7 +196,7 @@ export class EventEffects {
         return;
       }
       case 'enemy-spawned':
-        if (e.legend) this.sfx('legend');
+        if (e.legend || e.wildLegend) this.sfx('legend');
         else if (e.boss) this.sfx('boss');
         else if (e.shiny) this.sfx('shiny');
         return;
