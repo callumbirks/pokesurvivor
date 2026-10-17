@@ -187,6 +187,7 @@ describe('the Unique card', () => {
     expect(sim.debugOfferMega('p0')).toBe(true);
     const c = sim.state.pendingChoices[0];
     expect(c?.kind === 'level-up' && c.options.at(-1)?.type).toBe('mega');
+    expect(c?.kind === 'level-up' && c.options.length).toBe(sim.ctx.d.game.levelUp.cardsOffered);
     const pika = quietSim([{ id: 'p0', dex: PIKACHU }]);
     expect(pika.debugOfferMega('p0')).toBe(false);
   });

@@ -34,7 +34,7 @@ All times are run seconds (they stop while a choice is pending). Numbers keep 3 
 - `moves`: final moves with `level`, `evolved`, `learnedAt` (0 for starting moves), `evolvedAt`.
 - `items`: held items in the order equipped (`t`, `id`).
 - `picks`: every level-up card taken: `t`, the level `lv`, `card` (`new:…`, `upgrade:…`,
-  `evolution:…`, `stat:…`), stat cards' `rarity` and `value` (the effect at that rarity),
+  `evolution:…`, `stat:…`, `mega:<dex>` for the Unique card), stat cards' `rarity` and `value` (the effect at that rarity),
   `auto` if picked by the deadline, and the `declined` cards of the offer (stat cards as
   `stat:attack@rare`).
 - `timeline`: one sample at the end of each minute (`t` = 60, 120, …), plus one for the last
@@ -55,6 +55,10 @@ All times are run seconds (they stop while a choice is pending). Numbers keep 3 
   (null: they stayed down; the last down of a run that ended `all-down` is the death).
 - `rifts`: `t`, the legendary's `dex`, the arena `type`, `result` (`won`, `lost`, or null if the
   run ended in it) and `dur` (seconds in the fight).
+- `mega` (absent: the partner didn't Mega Evolve, or the record is from before Mega Evolution):
+  when it took the Unique card, `t`, and the `form` it took, `{dex}-{kind}` from megas.json
+  (`6-mega`, `382-primal`, `888-crowned`). Its boost (tuning `mega`) is already in the timeline's
+  `atk`, `cd`, `spd` and `maxHp` from that minute on; `atkOther` includes its attack factor.
 - `wildLegends` (absent in records from before them): each wild legendary that appeared on the
   map, `t`, `dex`, `maxHp`, `defeatedAt` (null: not beaten), `dealt` (this player's damage to
   it) and `top` when this player dealt it the most of the team.

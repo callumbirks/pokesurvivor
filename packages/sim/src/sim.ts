@@ -284,11 +284,15 @@ export class Sim {
     const p = playerById(this.state, playerId);
     if (!p || p.megaAt != null || !megaFormOf(this.ctx, p) || this.state.pendingChoices.length)
       return false;
+    // As a real offer: the Unique card in the last slot.
+    const options = offerCards(this.ctx, p).filter((c) => c.type !== 'mega');
+    const n = this.ctx.d.game.levelUp.cardsOffered;
+    options.splice(Math.min(options.length, n - 1), 1, megaCard(p.dex));
     openChoice(this.ctx, {
       kind: 'level-up',
       playerId: p.id,
       level: this.state.team.level,
-      options: [...offerCards(this.ctx, p).filter((c) => c.type !== 'mega'), megaCard(p.dex)],
+      options,
     });
     return true;
   }
