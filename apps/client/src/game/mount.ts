@@ -24,7 +24,7 @@ import { preloadSprites } from '../sprites.js';
 import { AchievementTracker, type AchievementSave } from './achievements.js';
 import { ChoiceOverlay } from './choice-ui.js';
 import { ChoiceState } from './choices.js';
-import { clockText, everyTick, secondsLeft } from './countdown.js';
+import { ResumeCountdown, clockText, everyTick, secondsLeft } from './countdown.js';
 import { clear, el, icon } from './dom.js';
 import { clearRunConfig, gameData, setRunConfig } from '../live-config.js';
 import { EventEffects } from './events.js';
@@ -114,6 +114,8 @@ class GameScreen {
   private readonly ctx: CanvasRenderingContext2D;
   private readonly layer: HTMLElement;
   private readonly toasts: Toasts;
+  /** A restored game resuming in 3, 2, 1. */
+  private readonly resume: ResumeCountdown;
   private readonly offs: (() => void)[] = [];
   private disposed = false;
   private raf = 0;
@@ -135,6 +137,7 @@ class GameScreen {
     if (!ctx) throw new Error('Canvas 2D is not available');
     this.ctx = ctx;
     this.layer = el('div', { class: 'ps-layer' });
+    this.resume = new ResumeCountdown(this.layer);
     this.root = el('div', { class: 'ps-game', data: { testid: 'game' } }, this.canvas, this.layer);
     host.append(this.root);
     installInputDevice();
@@ -191,7 +194,7 @@ class GameScreen {
     else if (client.draining) this.toasts.set('draining', t('game.noticeDraining'), 'warn');
     if (client.state === 'reconnecting') this.reconnecting(client);
     this.offs.push(
-      () => this.resumeEl?.remove(),
+      () => this.resume.hide(),
       () => this.stopUpdateClock?.(),
       () => this.stopHoldClock?.(),
       client.on('notice', (n) => {
@@ -221,8 +224,7 @@ class GameScreen {
       this.conn.on('start', () => {
         this.stopHoldClock?.();
         this.toasts.clear('hold');
-        this.resumeEl?.remove();
-        this.resumeEl = null;
+        this.resume.hide();
       }),
     );
   }
@@ -252,7 +254,6 @@ class GameScreen {
   }
 
   /** The 3-2-1 before a restored game resumes: big, in the middle (it's short, and it matters). */
-  private resumeEl: HTMLElement | null = null;
 
   /** A restored game: waiting for players (until `deadline`), or resuming in 3, 2, 1. */
   private holdCountdown(code: 'game-waiting' | 'game-resuming', deadline: number, who: string[]) {
@@ -260,15 +261,7 @@ class GameScreen {
     this.stopHoldClock = everyTick(deadline, (now) => {
       if (code === 'game-resuming') {
         this.toasts.clear('hold');
-        const s = secondsLeft(deadline, now);
-        if (s > 0) {
-          this.resumeEl ??= el('div', { class: 'ps-resume', data: { testid: 'resume-countdown' } });
-          if (!this.resumeEl.isConnected) this.layer.append(this.resumeEl);
-          this.resumeEl.textContent = t('game.noticeResuming', { 0: String(s) });
-        } else {
-          this.resumeEl?.remove();
-          this.resumeEl = null;
-        }
+        this.resume.show(secondsLeft(deadline, now));
       } else {
         const clock = clockText(deadline, now);
         this.toasts.set(
@@ -528,6 +521,8 @@ class Run {
   private lastSelf: { x: number; y: number } | null = null;
   private connected = new Map<string, boolean>();
   private stopped = false;
+  /** Back from a rift: the 3-2-1 before the map moves again. */
+  private readonly riftResume: ResumeCountdown;
 
   constructor(
     private readonly screen: GameScreen,
@@ -552,6 +547,8 @@ class Run {
     });
     const banner = new MateBanner(toasts.root.parentElement ?? layer);
     this.offs.push(() => banner.dispose());
+    this.riftResume = new ResumeCountdown(layer);
+    this.offs.push(() => this.riftResume.hide());
     this.mates = new MateAlerts({
       banner: (text, hint, self) => banner.show(text, hint, undefined, self),
       toast: (text) => toasts.show(text, 'good', 2.5),
@@ -1011,6 +1008,8 @@ class Run {
     this.world.update(dt);
     this.fx.update(dt);
     this.weather.update(latest.misc.weather, dt);
+    // Back from a rift: the sim holds the map for a 3-2-1.
+    this.riftResume.show(latest.misc.resume ?? 0);
     // The camera follows us, or whom we spectate (whose surroundings the server sends then).
     const watched = this.spectator.active
       ? frame.players.find((p) => p.id === this.spectator.target)

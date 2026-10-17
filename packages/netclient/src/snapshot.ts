@@ -19,7 +19,7 @@ import {
   writeFrame,
   type Reader,
 } from '@pokesurvivor/protocol';
-import { isAttacking, playerMoveSpeed, playerStats } from '@pokesurvivor/sim';
+import { TICK_HZ, isAttacking, playerMoveSpeed, playerStats } from '@pokesurvivor/sim';
 import type {
   ArenaState,
   LostPokemonState,
@@ -296,6 +296,8 @@ export interface NetMisc {
   event: { id: string; t: number; dur: number | null; type: string | null } | null;
   /** The lost Pokémon (moves while following someone). */
   lost: Omit<LostPokemonState, 't' | 'hitCd' | 'joins'> | null;
+  /** Back from a rift: whole seconds until the frozen map resumes (the 3-2-1). Absent: playing. */
+  resume?: number;
 }
 
 // ------------------------------------------------------------------ tables
@@ -505,7 +507,7 @@ export class SnapshotEncoder {
       s.tick,
       Math.round(s.time * 1000),
       ackSeq,
-      flags(this.full, opts.paused === true || s.pendingChoices.length > 0),
+      flags(this.full, opts.paused === true || s.pendingChoices.length > 0 || s.resumeTicks > 0),
       this.full ? 0 : this.lastSeq,
     ];
     this.full = false;
@@ -714,6 +716,7 @@ function miscOf(s: SimState): NetMisc {
           ty: lost.ty,
         }
       : null,
+    ...(s.resumeTicks > 0 ? { resume: Math.ceil(s.resumeTicks / TICK_HZ) } : {}),
   };
 }
 

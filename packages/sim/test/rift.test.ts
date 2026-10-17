@@ -4,12 +4,13 @@ import { describe, expect, it } from 'vitest';
 import { BIOME_SECONDS, DT, TILE } from '../src/constants.js';
 import { simData } from '../src/data.js';
 import { addEnemy, createEnemy, hurtEnemy } from '../src/enemies.js';
-import { createSim, type Sim } from '../src/index.js';
+import { createSim, restoreSim, type Sim } from '../src/index.js';
 import { dropPickup } from '../src/pickups.js';
 import { hurtPlayer } from '../src/players.js';
 import { legendCoopHpMultiplier, legendHpMultiplier, placeRift, updateRift } from '../src/rift.js';
 import { addMove } from '../src/moves.js';
 import { bossAlive } from '../src/runevents.js';
+import { spawnWildLegend } from '../src/wildlegends.js';
 import { WALL, isFree, terrainAt } from '../src/world.js';
 import { botInputs, pickFirst } from './bots.js';
 import { giveMove, patchTuning, player, quietSim, seconds, spawnDummy, steps } from './helpers.js';
@@ -363,7 +364,8 @@ describe('the arena', () => {
     expect(sim.state.enemies.every((e) => e.legend)).toBe(true);
     expect(sim.state.world.biome).toBe(0);
     killLegend(sim);
-    play(sim, seconds(R.returnAfterWin + 1));
+    // Back, and past the 3-2-1 (the biome catches up once the map moves again).
+    play(sim, seconds(R.returnAfterWin + R.exitCountdown + 1));
     expect(sim.state.arena).toBeNull();
     expect(sim.state.world.biome).toBe(Math.floor(sim.state.time / BIOME_SECONDS));
   });
@@ -519,5 +521,143 @@ describe('the arena', () => {
     const chance = freshWeight / (freshWeight + beaten.length);
     const tolerance = 5 * Math.sqrt((chance * (1 - chance)) / n) + 1 / n;
     expect(Math.abs(fresh / n - chance)).toBeLessThanOrEqual(tolerance);
+  });
+});
+
+describe('the 3-2-1 after a rift', () => {
+  const countdown = seconds(R.exitCountdown);
+
+  /**
+   * Wins a rift with a biting wild Pokémon waiting on the map where player 0 comes back, and
+   * steps until the team is back (taking any cards). Player 0 holds right throughout.
+   */
+  function backFromRift(sim: Sim) {
+    const p = player(sim);
+    giveMove(sim, p, 'harden');
+    const foe = spawnDummy(sim, p.x + 12, p.y, { damage: 40, speed: 60 });
+    sim.setInput(p.id, { moveX: 1, moveY: 0 });
+    sim.debugStartArena('fire');
+    killLegend(sim);
+    while (sim.state.arena) play(sim, 1);
+    while (sim.state.pendingChoices.length) pickFirst(sim);
+    return { p, foe };
+  }
+
+  it('freezes the map for exitCountdown, then resumes', () => {
+    expect(countdown).toBeGreaterThan(1);
+    const sim = quietSim(1);
+    const { p, foe } = backFromRift(sim);
+    expect(sim.state.resumeTicks).toBe(countdown);
+    expect(sim.paused).toBe(true);
+    const before = { time: sim.state.time, x: p.x, y: p.y, hp: p.hp, fx: foe.x, fy: foe.y };
+    sim.drainEvents();
+    steps(sim, countdown);
+    // Frozen: the run clock, the player, the wild Pokémon, and nothing hurt anyone.
+    expect(sim.state.time).toBe(before.time);
+    expect({ x: p.x, y: p.y, hp: p.hp }).toEqual({ x: before.x, y: before.y, hp: before.hp });
+    expect({ x: foe.x, y: foe.y }).toEqual({ x: before.fx, y: before.fy });
+    expect(sim.drainEvents().filter((e) => e.type === 'player-hurt')).toEqual([]);
+    expect(sim.state.resumeTicks).toBe(0);
+    expect(sim.paused).toBe(false);
+    // Then it moves again, and the foe bites.
+    play(sim, seconds(2));
+    expect(sim.state.time).toBeGreaterThan(before.time);
+    expect(p.x).toBeGreaterThan(before.x);
+    expect(p.hp).toBeLessThan(before.hp);
+  });
+
+  it('wild legendaries that were out come back frozen too', () => {
+    const sim = quietSim(1);
+    const p = player(sim);
+    const wild = spawnWildLegend(sim.ctx, 150)!;
+    wild.x = p.x + 120;
+    wild.y = p.y;
+    backFromRift(sim);
+    const back = sim.state.enemies.find((e) => e.id === wild.id)!;
+    expect(back.wildLegend).toBe(true);
+    const frozen = JSON.stringify(back);
+    sim.drainEvents();
+    steps(sim, countdown);
+    expect(JSON.stringify(back)).toBe(frozen);
+    expect(sim.state.hazards).toEqual([]);
+    expect(sim.state.projectiles).toEqual([]);
+    expect(sim.drainEvents().filter((e) => e.type === 'player-hurt')).toEqual([]);
+    play(sim, seconds(1));
+    expect(JSON.stringify(back)).not.toBe(frozen);
+  });
+
+  it('exitCountdown 0: play resumes at once', () => {
+    const sim = quietSim(1);
+    patchTuning(sim, 'rift', { exitCountdown: 0 });
+    const { p } = backFromRift(sim);
+    expect(sim.state.resumeTicks).toBe(0);
+    expect(sim.paused).toBe(false);
+    const { time, x } = { time: sim.state.time, x: p.x };
+    play(sim, 5);
+    expect(sim.state.time).toBeGreaterThan(time);
+    expect(p.x).toBeGreaterThan(x);
+  });
+
+  it('waits for cards offered as the team comes back', () => {
+    const sim = quietSim(1);
+    const p = player(sim);
+    giveMove(sim, p, 'harden');
+    sim.debugStartArena('fire');
+    killLegend(sim);
+    while (sim.state.arena) {
+      while (sim.state.pendingChoices.length) pickFirst(sim);
+      // The level-up lands on the tick the team comes back.
+      if (sim.state.arena.phase === 'won' && sim.state.arena.endT <= DT)
+        sim.state.pendingLevels = 1;
+      sim.step();
+    }
+    expect(sim.state.pendingChoices.length).toBeGreaterThan(0);
+    steps(sim, countdown * 2);
+    expect(sim.state.resumeTicks).toBe(countdown);
+    pickFirst(sim);
+    while (sim.state.pendingChoices.length) pickFirst(sim);
+    const time = sim.state.time;
+    steps(sim, countdown);
+    expect(sim.state.time).toBe(time);
+    expect(sim.paused).toBe(false);
+  });
+
+  it('a teammate dropping mid-countdown changes nothing about it', () => {
+    const sim = quietSim(2);
+    backFromRift(sim);
+    steps(sim, 10);
+    sim.setConnected(player(sim, 1).id, false);
+    steps(sim, countdown - 11);
+    expect(sim.state.resumeTicks).toBe(1);
+    sim.step();
+    expect(sim.paused).toBe(false);
+  });
+
+  it('is deterministic and round-trips a save mid-countdown', () => {
+    const run = () => {
+      const sim = quietSim(1);
+      backFromRift(sim);
+      steps(sim, Math.floor(countdown / 2));
+      return sim;
+    };
+    const a = run();
+    const b = run();
+    expect(a.hash()).toBe(b.hash());
+    a.drainEvents();
+    const restored = restoreSim(JSON.parse(JSON.stringify(a.state)) as typeof a.state);
+    expect(restored.state.resumeTicks).toBe(a.state.resumeTicks);
+    expect(restored.hash()).toBe(a.hash());
+    for (let i = 0; i < countdown * 2; i++) {
+      pickFirst(a);
+      pickFirst(restored);
+      a.step();
+      restored.step();
+      expect(restored.drainEvents()).toEqual(a.drainEvents());
+    }
+    expect(restored.hash()).toBe(a.hash());
+    // A save from before the countdown existed restores as playing.
+    const old = JSON.parse(JSON.stringify(a.state)) as typeof a.state;
+    Reflect.deleteProperty(old, 'resumeTicks');
+    expect(restoreSim(old).state.resumeTicks).toBe(0);
   });
 });

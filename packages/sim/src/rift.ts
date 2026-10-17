@@ -20,7 +20,7 @@
 //     ring, then the player's own spot; `misses` resets only once the rift is open.
 import { noteRiftEnd, noteRiftStart } from './balance.js';
 import { bondOptions } from './bonds.js';
-import { DT, TILE } from './constants.js';
+import { DT, TICK_HZ, TILE } from './constants.js';
 import { activePlayers, emit, presentPlayers, type Ctx } from './ctx.js';
 import { addEnemy, createEnemy, makeShiny, pokemonName, rebuildGrid } from './enemies.js';
 import { TAU, clamp, dist2 } from './math.js';
@@ -390,7 +390,10 @@ function lost(ctx: Ctx): void {
   emit(ctx, { type: 'say', key: 'hud.theRiftThrewYouOut', seconds: 2.6 });
 }
 
-/** Back to the map: the downed revived and everyone still standing healed. */
+/**
+ * Back to the map: the downed revived, everyone still standing healed, and the map frozen for
+ * `exitCountdown`.
+ */
 function finishArena(ctx: Ctx): void {
   const { s } = ctx;
   const a = s.arena;
@@ -418,7 +421,9 @@ function finishArena(ctx: Ctx): void {
   s.hazards = [];
   const players = presentPlayers(s);
   const first = players.map((p) => a.back[p.id]).find((b) => b) ?? { x: 0, y: 0 };
-  const exitHeal = ctx.d.game.tuning.rift.exitHeal;
+  const { exitHeal, exitCountdown } = ctx.d.game.tuning.rift;
+  // A moment to get your bearings before the map's horde moves again (sim.ts freezes it).
+  s.resumeTicks = Math.max(0, Math.round(exitCountdown * TICK_HZ));
   for (const p of players) {
     const b = a.back[p.id] ?? first;
     teleport(p, b.x, b.y);

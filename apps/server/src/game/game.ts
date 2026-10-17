@@ -389,8 +389,10 @@ export class Game {
     // the reset even for backpressured sockets: their next writable frame must also be full.
     if (this.wasPaused && !paused) for (const slot of slots) slot.encoder.reset();
     // Tick choices at 30 Hz (deadlines still run), but a frozen world only needs a heartbeat.
-    // Choice mutations and pause/resume transitions are delivered on the very next tick.
-    this.snapAcc += paused ? 1 : this.settings.snapshotHz;
+    // Choice mutations and pause/resume transitions are delivered on the very next tick. The
+    // 3-2-1 after a rift keeps the full rate so every client's countdown turns over on time.
+    const heartbeat = paused && this.sim.state.resumeTicks === 0;
+    this.snapAcc += heartbeat ? 1 : this.settings.snapshotHz;
     if (
       this.snapAcc >= TICK_HZ ||
       paused !== this.wasPaused ||
