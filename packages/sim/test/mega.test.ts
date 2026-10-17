@@ -53,13 +53,15 @@ describe('the Unique card', () => {
     }
   });
 
-  it('has half the top rarity chance by default', () => {
+  it('is half as likely per offer as an offer showing a Legendary card, by default', () => {
     const sim = quietSim([{ id: 'p0', dex: CHARIZARD }]);
     sim.state.time = 30 * 60;
     const w = sim.ctx.d.game.levelUp.rarity.odds.at(-1)!.weights;
-    const legendary = w.at(-1)! / w.reduce((a, x) => a + x, 0);
+    const p = w.at(-1)! / w.reduce((a, x) => a + x, 0);
+    const k = sim.ctx.d.game.levelUp.cardsOffered;
+    const legendaryOffer = 1 - (1 - p) ** k;
     expect(megaChance(sim.ctx, player(sim))).toBeCloseTo(
-      sim.ctx.d.game.tuning.mega.legendaryFactor * legendary,
+      sim.ctx.d.game.tuning.mega.legendaryFactor * legendaryOffer,
     );
     expect(sim.ctx.d.game.tuning.mega.legendaryFactor).toBe(0.5);
   });

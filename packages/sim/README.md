@@ -150,8 +150,11 @@ already own" are the server's job.
   evolutions, whatever its rarity.
 - Mega Evolution (`mega.ts`, `tuning.mega`, megas.json): from `fromMinute` (30), a partner that
   can Mega Evolve may find one "Unique" card (`mega:<dex>`) in the last slot of an offer, with
-  `legendaryFactor` (0.5) × the chance a stat card rolls the top rarity tier at that minute. The
-  RNG is only drawn for such a partner, so others' runs replay unchanged. It comes back if
+  `legendaryFactor` (0.5) × the chance an offer shows a Legendary card, `1 − (1 − p)^k` (`p`:
+  the top tier's share of the rarity odds at that minute, `k`: `cardsOffered`). With today's
+  odds (6% from minute 30, held after) that is 8.5% per offer at minutes 30, 45 and 60 (a
+  Legendary shows in 17%), so at about 3 level-ups a minute it turns up some 4 minutes (about
+  12 offers) after minute 30 on average. The RNG is only drawn for such a partner, so others' runs replay unchanged. It comes back if
   declined, never after it's taken. Picking it sets `PlayerState.megaAt`, multiplies
   `attackMul`, `speedMul`, `cooldownMul` and max HP once (the HP added is healed; the stats panel
   and balance samples include it), takes the form's body radius, records `balance.mega`, and

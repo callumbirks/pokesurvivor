@@ -197,8 +197,9 @@ export const TuningFileSchema = z.strictObject({
   }),
   /**
    * In-run Mega Evolution (megas.json): from `fromMinute`, a Mega-capable partner's level-up offer
-   * can include one "Unique" card, with `legendaryFactor` × the chance a stat card rolls the top
-   * rarity tier at that minute (levelup.json `rarity.odds`). Picking it changes the partner's form
+   * can include one "Unique" card, with `legendaryFactor` × the chance an offer shows a top-tier
+   * card at that minute, `1 − (1 − p)^cardsOffered` with `p` the top tier's share of levelup.json
+   * `rarity.odds` (0.5 → half as often as an offer shows a Legendary). Picking it changes the partner's form
    * for the rest of the run and multiplies its stats once; the game stays paused for
    * `animationSeconds` while the client plays the transformation.
    */

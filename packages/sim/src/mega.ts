@@ -17,9 +17,11 @@ export const megaFormOf = (ctx: Ctx, p: PlayerState): MegaForm | undefined =>
   ctx.d.game.megaByDex.get(p.dex);
 
 /**
- * The chance a level-up offer holds the Unique card now: `legendaryFactor` × the chance a stat
- * card rolls the top rarity tier at this minute. 0 for a partner that can't, or already did, or
- * before `fromMinute`.
+ * The chance a level-up offer holds the Unique card now: `legendaryFactor` × the chance an offer
+ * shows a top-tier (Legendary) card, `1 − (1 − p)^k`, with `p` the top tier's share of the rarity
+ * odds at this minute and `k` the cards offered (each rolls its rarity on its own). With the
+ * defaults (0.5, 6%, 3 cards) an offer holds it 8.5% of the time from minute 30: half as often as
+ * one shows a Legendary card. 0 for a partner that can't, or already did, or before `fromMinute`.
  */
 export function megaChance(ctx: Ctx, p: PlayerState): number {
   const m = ctx.d.game.tuning.mega;
@@ -27,7 +29,10 @@ export function megaChance(ctx: Ctx, p: PlayerState): number {
   if (p.megaAt != null || minute < m.fromMinute || !megaFormOf(ctx, p)) return 0;
   const w = rarityWeights(ctx.d.game.levelUp.rarity.odds, minute);
   const total = w.reduce((a, x) => a + x, 0);
-  return total > 0 ? Math.min(1, (m.legendaryFactor * (w.at(-1) ?? 0)) / total) : 0;
+  if (total <= 0) return 0;
+  const top = (w.at(-1) ?? 0) / total;
+  const legendaryOffer = 1 - (1 - top) ** ctx.d.game.levelUp.cardsOffered;
+  return Math.min(1, m.legendaryFactor * legendaryOffer);
 }
 
 export const megaCard = (dex: number): CardOption => ({ id: `mega:${dex}`, type: 'mega' });
