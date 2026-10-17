@@ -19,9 +19,13 @@ const geometry = SpriteAnimationSchema.omit({ bounds: true });
 const metadataSchema = z.strictObject({
   pokemon: z.array(
     z.strictObject({
-      ...PokemonSpritesSchema.pick({ dex: true, shadowSize: true, hovers: true, shiny: true })
-        .shape,
-      animations: z.record(AnimationNameSchema, geometry),
+      dex: PokemonSpritesSchema.shape.dex,
+      form: PokemonSpritesSchema.shape.form,
+      shadowSize: PokemonSpritesSchema.shape.shadowSize,
+      hovers: PokemonSpritesSchema.shape.hovers,
+      shiny: PokemonSpritesSchema.shape.shiny,
+      // Alternate forms (import-forms.ts) may lack some; base forms have all of them.
+      animations: z.partialRecord(AnimationNameSchema, geometry),
       shinyAnimations: z.partialRecord(AnimationNameSchema, geometry).optional(),
     }),
   ),
@@ -29,7 +33,10 @@ const metadataSchema = z.strictObject({
 const metadata = metadataSchema.parse(
   JSON.parse(readFileSync(join(root, 'assets/sprite-metadata.json'), 'utf8')),
 );
-const byDex = new Map(metadata.pokemon.map((p) => [p.dex, p]));
+// The directory of an entry: its dex, or `{dex}-{form}` for an alternate form.
+const keyOf = (p: { dex: number; form?: string | undefined }) =>
+  p.form ? `${p.dex}-${p.form}` : String(p.dex);
+const byKey = new Map(metadata.pokemon.map((p) => [keyOf(p), p]));
 
 function hashDir(dir: string): string {
   const hash = createHash('sha1');
@@ -73,22 +80,23 @@ function animation(file: string, a: Animation) {
     bounds: right > left ? { left, top, right, bottom } : { left: 0, top: 0, right: w, bottom: h },
   };
 }
-function animations(dir: string, anims: Record<string, Animation>) {
+function animations(dir: string, anims: Partial<Record<string, Animation>>) {
   return Object.fromEntries(
-    Object.entries(anims).map(([name, a]) => [name, animation(join(dir, `${name}.png`), a)]),
+    Object.entries(anims).map(([name, a]) => [name, animation(join(dir, `${name}.png`), a!)]),
   );
 }
 
-const dexes = readdirSync(spritesDir)
-  .map(Number)
-  .sort((a, b) => a - b);
-if (dexes.length !== byDex.size || dexes.some((dex) => !byDex.has(dex)))
+// By dex, each base form followed by its alternate form.
+const keys = readdirSync(spritesDir).sort(
+  (a, b) => parseInt(a) - parseInt(b) || a.length - b.length,
+);
+if (keys.length !== byKey.size || keys.some((key) => !byKey.has(key)))
   throw new Error('Sprite directories and assets/sprite-metadata.json must list the same Pokémon');
 const sprites = SpriteManifestSchema.parse({
   basePath: '/sprites',
-  pokemon: dexes.map((dex) => {
-    const p = byDex.get(dex)!;
-    const dir = join(spritesDir, String(dex));
+  pokemon: keys.map((key) => {
+    const p = byKey.get(key)!;
+    const dir = join(spritesDir, key);
     const shiny = readdirSync(dir).includes('s');
     const { shinyAnimations: overrides, ...normal } = p;
     if (shiny) animations(join(dir, 's'), { ...p.animations, ...overrides });
@@ -106,6 +114,7 @@ const bodies = BodiesFileSchema.parse({
     const idle = p.animations.Idle ?? p.animations.Walk;
     return {
       dex: p.dex,
+      ...(p.form ? { form: p.form } : {}),
       radius: Math.min(26, Math.max(5, (idle?.width ?? 32) * 0.22)) * 2,
       height: (idle?.anchorY ?? 24) * 2,
       hovers: p.hovers,

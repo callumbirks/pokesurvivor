@@ -195,6 +195,23 @@ export const TuningFileSchema = z.strictObject({
       preserveReadyEvolution: z.boolean(),
     }),
   }),
+  /**
+   * In-run Mega Evolution (megas.json): from `fromMinute`, a Mega-capable partner's level-up offer
+   * can include one "Unique" card, with `legendaryFactor` × the chance a stat card rolls the top
+   * rarity tier at that minute (levelup.json `rarity.odds`). Picking it changes the partner's form
+   * for the rest of the run and multiplies its stats once; the game stays paused for
+   * `animationSeconds` while the client plays the transformation.
+   */
+  mega: z.strictObject({
+    fromMinute: z.number().nonnegative(),
+    legendaryFactor: z.number().nonnegative().max(10),
+    attackMul: z.number().positive(),
+    /** Max HP × this; the HP added is healed. */
+    maxHpMul: z.number().positive(),
+    speedMul: z.number().positive(),
+    cooldownMul: z.number().positive(),
+    animationSeconds: z.number().nonnegative().max(10),
+  }),
   /** Kill-streak damage bonus, per player: every kill credited to a player adds a stack. */
   momentum: z
     .strictObject({

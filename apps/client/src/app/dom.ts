@@ -228,11 +228,11 @@ export function sprite(dex: number, opts: SpriteOptions = {}): HTMLElement {
 function paint(el: HTMLElement): void {
   delete el.dataset.pending;
   const entry = sprites?.byDex.get(Number(el.dataset.dex));
-  if (!sprites || !entry) {
+  const anim = entry?.animations.Idle;
+  if (!sprites || !entry || !anim) {
     el.classList.add('missing');
     return;
   }
-  const anim = entry.animations.Idle;
   const [fw, fh] = (el.dataset.fit ?? '').split('x').map(Number);
   const feet = !!el.dataset.feet;
   // Standing sprites get the game's ground shadow (not silhouettes, as in legacy).

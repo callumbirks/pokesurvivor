@@ -8,6 +8,7 @@ import enemiesJson from '../json/enemies.json' with { type: 'json' };
 import gachaJson from '../json/gacha.json' with { type: 'json' };
 import itemsJson from '../json/items.json' with { type: 'json' };
 import levelUpJson from '../json/levelup.json' with { type: 'json' };
+import megasJson from '../json/megas.json' with { type: 'json' };
 import missionsJson from '../json/missions.json' with { type: 'json' };
 import movesJson from '../json/moves.json' with { type: 'json' };
 import musicJson from '../json/music.json' with { type: 'json' };
@@ -27,6 +28,7 @@ import {
   GachaFileSchema,
   ItemsFileSchema,
   LevelUpFileSchema,
+  MegasFileSchema,
   MissionsFileSchema,
   MovesFileSchema,
   MusicFileSchema,
@@ -45,6 +47,7 @@ import {
   type GachaFile,
   type Item,
   type LevelUpFile,
+  type MegaForm,
   type Mission,
   type MissionsFile,
   type Move,
@@ -87,6 +90,7 @@ export const rawData = {
   gacha: gachaJson,
   items: itemsJson,
   levelup: levelUpJson,
+  megas: megasJson,
   missions: missionsJson,
   moves: movesJson,
   music: musicJson,
@@ -109,6 +113,7 @@ export const dataSchemas = {
   gacha: GachaFileSchema,
   items: ItemsFileSchema,
   levelup: LevelUpFileSchema,
+  megas: MegasFileSchema,
   missions: MissionsFileSchema,
   moves: MovesFileSchema,
   music: MusicFileSchema,
@@ -132,6 +137,8 @@ export interface GameData {
   upgrades: readonly Upgrade[];
   items: readonly Item[];
   levelUp: LevelUpFile;
+  /** Partners that can Mega Evolve (or Primal Revert, or be Crowned) during a run. */
+  megas: readonly MegaForm[];
   missions: MissionsFile;
   achievements: AchievementsFile;
   music: MusicFile;
@@ -155,6 +162,9 @@ export interface GameData {
   missionById: ReadonlyMap<string, Mission>;
   achievementById: ReadonlyMap<string, Achievement>;
   bodyByDex: ReadonlyMap<number, Body>;
+  /** Mega forms' bodies, by dex (`megas.json`; the form's own sprite). */
+  megaBodyByDex: ReadonlyMap<number, Body>;
+  megaByDex: ReadonlyMap<number, MegaForm>;
 }
 
 function parse<K extends keyof typeof rawData>(key: K): z.infer<(typeof dataSchemas)[K]> {
@@ -175,7 +185,9 @@ export function loadGameData(): GameData {
   const levelUp = parse('levelup');
   const missions = parse('missions');
   const achievements = parse('achievements');
-  const { bodies } = parse('bodies');
+  const { bodies: allBodies } = parse('bodies');
+  const bodies = allBodies.filter((b) => b.form === undefined);
+  const { forms: megas } = parse('megas');
   const tuning = parse('tuning');
   const gacha = parse('gacha');
   const cross = crossCheck({ gacha, moves }, { tuning, levelup: levelUp });
@@ -200,6 +212,7 @@ export function loadGameData(): GameData {
     upgrades,
     items,
     levelUp,
+    megas,
     missions,
     achievements,
     music: parse('music'),
@@ -221,6 +234,12 @@ export function loadGameData(): GameData {
     missionById: indexBy([...missions.daily, ...missions.weekly], (m) => m.id, 'mission id'),
     achievementById: indexBy(achievements.achievements, (a) => a.id, 'achievement id'),
     bodyByDex: indexBy(bodies, (b) => b.dex, 'body dex'),
+    megaBodyByDex: indexBy(
+      allBodies.filter((b) => megas.some((m) => m.dex === b.dex && m.kind === b.form)),
+      (b) => b.dex,
+      'mega body dex',
+    ),
+    megaByDex: indexBy(megas, (m) => m.dex, 'mega dex'),
   };
   return gameData;
 }

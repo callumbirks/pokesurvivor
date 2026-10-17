@@ -22,6 +22,11 @@ The only generated files are `sprites.json` and `bodies.json`:
 pnpm --filter @pokesurvivor/tools generate-sprites
 ```
 
+Mega, Primal and Crowned forms (`megas.json`) have their own sheets in `assets/pokemon/{dex}-{kind}/`
+(`6-mega`, `382-primal`, `888-crowned`), entries with `form` in both files, and are fetched from
+SpriteCollab with `pnpm --filter @pokesurvivor/tools import-forms [dex…]` (then regenerate). A form
+may lack some animations; the client falls back to a similar one.
+
 The generator reads only `assets/`. `assets/sprite-metadata.json` records each sheet's frame
 geometry, durations, anchors, shadow size and hovering flag (these cannot be inferred from PNG
 pixels). When replacing a sheet, update that metadata if its geometry or animation timing changes;
@@ -40,6 +45,7 @@ collision bodies, then validates both outputs against their schemas before writi
 | `enemies.json`      | Spawn tiers, boss slots, late-game scaling constants, fixed behaviours and summoner → minion pairs                          |
 | `upgrades.json`     | Permanent upgrades: cost curve, max level and per-level value                                                               |
 | `items.json`        | Held items: stat effects while held, plus params for the ones that react to events                                          |
+| `megas.json`        | Partners that can Mega Evolve in a run: form kind (mega/primal/crowned), SpriteCollab form, item, names                     |
 | `levelup.json`      | Level-up stat cards (effect, ceiling), their rarities and odds, and the card-offer weights                                  |
 | `missions.json`     | Daily and weekly mission templates (event, filter, value, goals, reward, text with `{count}`/`{type}`)                      |
 | `achievements.json` | Categories and achievements (metric, goal, reward, title), including one per legendary                                      |
@@ -48,7 +54,7 @@ collision bodies, then validates both outputs against their schemas before writi
 | `biomes.json`       | Run biomes (palette, liquid, music) and the 18 rift arenas (palette, terrain, weather)                                      |
 | `world.json`        | Map props, liquid effects, locked-chest/trap/altar constants and altar powers                                               |
 | `weather.json`      | Weather kinds (multipliers, immune types, slow), weights per biome, schedule                                                |
-| `tuning.json`       | Named constants from the legacy spawner, rifts, events, combat and pickups                                                  |
+| `tuning.json`       | Named constants from the legacy spawner, rifts, events, combat and pickups; `mega`: the Unique card's odds and boost        |
 
 `changelog.json` (at the package root, not in `json/`) is the player-facing changelog: released
 versions newest first and an `unreleased` block that pull requests add lines to. `loadChangelog()`

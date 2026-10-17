@@ -1,4 +1,6 @@
 // Cross-file references: every id or dex one file mentions must exist where it points.
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { loadGameData } from '../src/index.js';
 import { MOVE_KINDS, POKEMON_TYPES } from '../src/schemas/index.js';
@@ -204,5 +206,19 @@ describe('world', () => {
     for (const arena of data.biomes.arenas) {
       if (arena.weather) expect(weather.has(arena.weather), arena.type).toBe(true);
     }
+  });
+});
+
+describe('megas', () => {
+  it('lists Pokémon of the pokédex, each with its form body and an item icon', () => {
+    expect(unknown(new Set(data.megas.map((m) => m.dex)), dexes)).toEqual([]);
+    for (const m of data.megas) {
+      expect(data.megaBodyByDex.get(m.dex)?.form, `${m.dex}`).toBe(m.kind);
+      expect(
+        existsSync(resolve(import.meta.dirname, `../../../apps/client/public/items/${m.item}.png`)),
+        m.item,
+      ).toBe(true);
+    }
+    expect(data.megaByDex.size).toBe(41);
   });
 });

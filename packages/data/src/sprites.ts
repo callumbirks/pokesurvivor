@@ -7,8 +7,15 @@ import { SpriteManifestSchema, type PokemonSprites, type SpriteManifest } from '
 export const rawSprites = spritesJson;
 
 export interface SpriteData extends SpriteManifest {
+  /** Base forms. */
   byDex: ReadonlyMap<number, PokemonSprites>;
+  /** Every entry by its sprite key (`spriteKey`): `"6"`, `"6-mega"`. */
+  byKey: ReadonlyMap<string, PokemonSprites>;
 }
+
+/** The directory (under `basePath`) and lookup key of an entry: its dex, or `{dex}-{form}`. */
+export const spriteKey = (p: Pick<PokemonSprites, 'dex' | 'form'>): string =>
+  p.form ? `${p.dex}-${p.form}` : String(p.dex);
 
 let spriteData: SpriteData | undefined;
 
@@ -16,7 +23,15 @@ let spriteData: SpriteData | undefined;
 export function loadSpriteManifest(): SpriteData {
   if (spriteData) return spriteData;
   const manifest = parseDataFile('sprites', SpriteManifestSchema, rawSprites);
-  spriteData = { ...manifest, byDex: indexBy(manifest.pokemon, (p) => p.dex, 'sprite dex') };
+  spriteData = {
+    ...manifest,
+    byDex: indexBy(
+      manifest.pokemon.filter((p) => !p.form),
+      (p) => p.dex,
+      'sprite dex',
+    ),
+    byKey: indexBy(manifest.pokemon, spriteKey, 'sprite key'),
+  };
   return spriteData;
 }
 
@@ -28,5 +43,5 @@ export function spriteUrl(
   shiny = false,
 ): string {
   const dir = shiny && pokemon.shiny ? 's/' : '';
-  return `${manifest.basePath}/${pokemon.dex}/${dir}${animation}.png?v=${pokemon.hash}`;
+  return `${manifest.basePath}/${spriteKey(pokemon)}/${dir}${animation}.png?v=${pokemon.hash}`;
 }

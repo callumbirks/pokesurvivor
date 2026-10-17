@@ -5,7 +5,7 @@ import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { loadGameData } from '../src/index.js';
 import { ANIMATIONS } from '../src/schemas/index.js';
-import { loadSpriteManifest, spriteUrl } from '../src/sprites.js';
+import { loadSpriteManifest, spriteKey, spriteUrl } from '../src/sprites.js';
 
 const spritesDir = resolve(import.meta.dirname, '../../../assets/pokemon');
 const manifest = loadSpriteManifest();
@@ -29,47 +29,54 @@ function hashDir(dir: string): string {
 }
 
 describe('sprite manifest', () => {
-  it('has an entry for every Pokémon and every sprite directory', () => {
-    const inManifest = manifest.pokemon.map((p) => p.dex);
-    const onDisk = readdirSync(spritesDir)
-      .map(Number)
-      .sort((a, b) => a - b);
-    expect(inManifest).toEqual(onDisk);
-    expect(inManifest).toEqual(loadGameData().pokedex.map((p) => p.dex));
+  it('has an entry for every Pokémon, every form and every sprite directory', () => {
+    const inManifest = manifest.pokemon.map(spriteKey).sort();
+    expect(inManifest).toEqual(readdirSync(spritesDir).sort());
+    const base = manifest.pokemon.filter((p) => !p.form).map((p) => p.dex);
+    expect(base).toEqual(loadGameData().pokedex.map((p) => p.dex));
+    const forms = manifest.pokemon.filter((p) => p.form).map(spriteKey);
+    expect(forms.sort()).toEqual(
+      loadGameData()
+        .megas.map((m) => `${m.dex}-${m.kind}`)
+        .sort(),
+    );
   });
 
   it('points at sheets that exist, shiny ones included', () => {
     const missing: string[] = [];
     for (const p of manifest.pokemon) {
-      const dir = join(spritesDir, String(p.dex));
+      const key = spriteKey(p);
+      const dir = join(spritesDir, key);
       for (const anim of ANIMATIONS) {
-        if (!existsSync(join(dir, `${anim}.png`))) missing.push(`${p.dex}/${anim}.png`);
-        if (p.shiny && !existsSync(join(dir, 's', `${anim}.png`)))
-          missing.push(`${p.dex}/s/${anim}.png`);
+        // A form may lack some animations (the client falls back); its manifest says which.
+        const listed = anim in p.animations;
+        if (existsSync(join(dir, `${anim}.png`)) !== listed) missing.push(`${key}/${anim}.png`);
+        if (listed && p.shiny && !existsSync(join(dir, 's', `${anim}.png`)))
+          missing.push(`${key}/s/${anim}.png`);
       }
-      expect(existsSync(join(dir, 's')), `${p.dex}/s exists iff shiny`).toBe(p.shiny);
+      expect(existsSync(join(dir, 's')), `${key}/s exists iff shiny`).toBe(p.shiny);
     }
     expect(missing).toEqual([]);
   });
 
   it('has up-to-date content hashes', () => {
     const stale = manifest.pokemon.filter(
-      (p) => hashDir(join(spritesDir, String(p.dex))) !== p.hash,
+      (p) => hashDir(join(spritesDir, spriteKey(p))) !== p.hash,
     );
-    expect(
-      stale.map((p) => p.dex),
-      'run pnpm --filter @pokesurvivor/tools generate-sprites',
-    ).toEqual([]);
+    expect(stale.map(spriteKey), 'run pnpm --filter @pokesurvivor/tools generate-sprites').toEqual(
+      [],
+    );
   });
 
   it('agrees with bodies.json (the sizes the sim uses)', () => {
-    const { bodyByDex } = loadGameData();
-    expect(bodyByDex.size).toBe(manifest.pokemon.length);
+    const { bodyByDex, megaBodyByDex } = loadGameData();
+    expect(bodyByDex.size + megaBodyByDex.size).toBe(manifest.pokemon.length);
     for (const p of manifest.pokemon) {
       const idle = p.animations.Idle ?? p.animations.Walk;
-      const body = bodyByDex.get(p.dex);
-      expect(body, `${p.dex}`).toEqual({
+      const body = (p.form ? megaBodyByDex : bodyByDex).get(p.dex);
+      expect(body, spriteKey(p)).toEqual({
         dex: p.dex,
+        ...(p.form ? { form: p.form } : {}),
         radius: Math.min(26, Math.max(5, (idle?.width ?? 32) * 0.22)) * 2,
         height: (idle?.anchorY ?? 24) * 2,
         hovers: p.hovers,
@@ -83,5 +90,7 @@ describe('sprite manifest', () => {
     expect(spriteUrl(manifest, pikachu, 'Walk', true)).toBe(
       `/sprites/25/s/Walk.png?v=${pikachu.hash}`,
     );
+    const mega = manifest.byKey.get('6-mega')!;
+    expect(spriteUrl(manifest, mega, 'Idle')).toBe(`/sprites/6-mega/Idle.png?v=${mega.hash}`);
   });
 });

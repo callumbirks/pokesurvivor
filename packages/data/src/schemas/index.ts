@@ -2,6 +2,7 @@ export * from './bodies.js';
 export * from './changelog.js';
 export * from './common.js';
 export * from './enemies.js';
+export * from './megas.js';
 export * from './moves.js';
 export * from './music.js';
 export * from './player.js';
