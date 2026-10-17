@@ -19,7 +19,7 @@ import {
   writeFrame,
   type Reader,
 } from '@pokesurvivor/protocol';
-import { TICK_HZ, isAttacking, playerMoveSpeed, playerStats } from '@pokesurvivor/sim';
+import { TICK_HZ, isAttacking, isPaused, playerMoveSpeed, playerStats } from '@pokesurvivor/sim';
 import type {
   ArenaState,
   LostPokemonState,
@@ -193,6 +193,11 @@ export interface PlayerDetail {
   power: { id: string; t: number } | null;
   /** Buff stacks: attack, speed, defense, regen. */
   buffs: [number, number, number, number];
+  /**
+   * The partner Mega Evolved (its form: megas.json by dex) at this run time (s). Optional: added
+   * within protocol 7; absent until it happens, and from older servers.
+   */
+  mega?: number;
 }
 
 /** What only the viewer gets about its own Pokémon, in every snapshot. */
@@ -507,7 +512,7 @@ export class SnapshotEncoder {
       s.tick,
       Math.round(s.time * 1000),
       ackSeq,
-      flags(this.full, opts.paused === true || s.pendingChoices.length > 0 || s.resumeTicks > 0),
+      flags(this.full, opts.paused === true || isPaused(s)),
       this.full ? 0 : this.lastSeq,
     ];
     this.full = false;
@@ -765,6 +770,7 @@ function playerDetail(p: PlayerState): PlayerDetail {
     magnet: Math.round(p.magnet),
     power: p.power ? { id: p.power.id, t: Math.ceil(p.power.t) } : null,
     buffs: [p.buffs.attack.n, p.buffs.speed.n, p.buffs.defense.n, p.buffs.regen.n],
+    ...(p.megaAt != null && { mega: Math.round(p.megaAt * 10) / 10 }),
   };
 }
 

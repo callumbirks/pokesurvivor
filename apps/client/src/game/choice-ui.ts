@@ -11,7 +11,8 @@
 import { t } from '@pokesurvivor/data';
 import { audio } from '../audio.js';
 import { glyph, inputHint } from '../glyphs.js';
-import { typeColor } from '../icons.js';
+import { megaItemImg, typeColor } from '../icons.js';
+import { settings } from '../settings.js';
 import type { ChoiceState, ChoiceView, WaitingView } from './choices.js';
 import { clear, el, icon } from './dom.js';
 import { cardText, itemDescription, itemName, moveName, nameList } from './text.js';
@@ -298,6 +299,18 @@ export class ChoiceOverlay {
       );
       c.options.forEach((o, i) => {
         const tx = cardText(o);
+        if (tx.mega) {
+          // The Unique card: the item's icon and a rainbow frame (still in calm mode).
+          card(
+            i,
+            megaItemImg(tx.mega.item, 32),
+            [tx.title, ' ', el('span', { class: 'tag-chip unique-chip' }, tx.tag)],
+            tx.description,
+            ` unique${settings.get().calmMode ? ' calm' : ''}`,
+            tx.color,
+          );
+          return;
+        }
         const r = tx.rarity;
         // A rarity replaces the plain "Upgrade" chip, but not the evolution it unlocks.
         const chips = r

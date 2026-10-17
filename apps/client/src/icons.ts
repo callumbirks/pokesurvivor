@@ -32,7 +32,46 @@ const MEDAL = [
   '...kkkkkk...',
 ];
 
+/** The Mega Evolution colours, in order around the symbol (also the Unique card's border). */
+export const MEGA_RAINBOW = [
+  '#ff4fd8',
+  '#ff9a3c',
+  '#ffe14d',
+  '#5fe07a',
+  '#4fe0ff',
+  '#4f7dff',
+  '#a55cff',
+] as const;
+
 const UI: Record<string, IconDef> = {
+  /** The Mega Evolution symbol: a rainbow ring around a swirl ("Mega Capable", What's new). */
+  mega: {
+    pal: {
+      m: MEGA_RAINBOW[0],
+      r: MEGA_RAINBOW[1],
+      y: MEGA_RAINBOW[2],
+      g: MEGA_RAINBOW[3],
+      c: MEGA_RAINBOW[4],
+      b: MEGA_RAINBOW[5],
+      p: MEGA_RAINBOW[6],
+      n: '#241a3a',
+      w: '#f4f8ff',
+    },
+    rows: [
+      '...kkkkkk...',
+      '..kpppmmmk..',
+      '.kppnnwwmmk.',
+      'kbbnnwwnnrrk',
+      'kbnnwwnnnnrk',
+      'kbnnnwwnnnrk',
+      'kbnnnnwwnnrk',
+      'kcnnnnnwwnyk',
+      'kccnnnwwnyyk',
+      '.kccnwwnnyk.',
+      '..kcggggyk..',
+      '...kkkkkk...',
+    ],
+  },
   gear: {
     pal: { g: '#c9d6ff', d: '#7f93c9' },
     rows: [
@@ -1332,6 +1371,26 @@ export function iconImg(name: string, size = 20): HTMLImageElement {
   img.src = iconUrl(name);
   img.width = w;
   img.height = (w * cv.height) / cv.width;
+  img.alt = '';
+  img.draggable = false;
+  img.style.imageRendering = 'pixelated';
+  return img;
+}
+
+/** The URL of a Mega Evolution item's 16×16 icon (megas.json `item`, in `public/items/`). */
+export const megaItemUrl = (item: string): string => `/items/${item}.png`;
+
+/**
+ * A Mega Evolution item's icon as a pixelated `<img>`: the size rounded to a whole multiple of its
+ * 16 px, so it stays sharp (32 px sits beside the 12 px icons drawn at ×2–×3).
+ */
+export function megaItemImg(item: string, size = 32): HTMLImageElement {
+  const w = 16 * Math.max(1, Math.round(size / 16));
+  const img = document.createElement('img');
+  img.className = 'pix';
+  img.src = megaItemUrl(item);
+  img.width = w;
+  img.height = w;
   img.alt = '';
   img.draggable = false;
   img.style.imageRendering = 'pixelated';

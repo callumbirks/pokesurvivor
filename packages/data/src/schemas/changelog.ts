@@ -51,6 +51,12 @@ export type ChangelogVersion = z.infer<typeof ChangelogVersionSchema>;
  */
 export const ChangelogFileSchema = z
   .strictObject({
+    /**
+     * A temporary look for the main menu's What's new button, to point players at a big
+     * addition (`mega`: Mega Evolution). null or absent: the usual gold notice. Switched off by
+     * hand; `pnpm release` keeps it.
+     */
+    whatsNewTheme: z.enum(['mega']).nullable().optional(),
     unreleased: z.strictObject({ prs: PrsSchema, entries: ChangelogEntriesSchema }),
     versions: z.array(ChangelogVersionSchema),
   })

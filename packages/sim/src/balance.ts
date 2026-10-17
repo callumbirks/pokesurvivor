@@ -98,6 +98,10 @@ export function noteRevive(ctx: Ctx, p: PlayerState) {
   if (d && d.revivedAt === null) d.revivedAt = r3(ctx.s.time);
 }
 
+export function noteMega(ctx: Ctx, p: PlayerState, form: { dex: number; kind: string }) {
+  if (p.balance) p.balance.mega = { t: r3(ctx.s.time), form: `${form.dex}-${form.kind}` };
+}
+
 export function noteItem(ctx: Ctx, p: PlayerState, id: string) {
   p.balance?.items.push({ t: r3(ctx.s.time), id });
 }
@@ -323,6 +327,7 @@ export function balanceRecord(ctx: Ctx, p: PlayerState): BalanceRecord | undefin
     timeline,
     downs: b.downs.map((d) => ({ ...d, by: d.by && { ...d.by } })),
     rifts: b.rifts.map((r) => ({ ...r })),
+    ...(b.mega ? { mega: { ...b.mega } } : {}),
     wildLegends: b.wildLegends.map((w) => ({
       t: w.t,
       dex: w.dex,

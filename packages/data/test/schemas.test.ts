@@ -24,7 +24,7 @@ describe('data files', () => {
     expect(data.starterByDex.get(1)?.startingMove).toBe('vine-whip');
     expect(data.itemById.get('life-orb')?.name).toBe('Life Orb');
     expect(loadGameData()).toBe(data);
-    expect(loadSpriteManifest().byDex.get(25)?.animations.Idle.rows).toBe(8);
+    expect(loadSpriteManifest().byDex.get(25)?.animations.Idle?.rows).toBe(8);
   });
 });
 

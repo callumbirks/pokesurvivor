@@ -7,6 +7,11 @@ import { DexSchema } from './common.js';
  */
 export const BodySchema = z.strictObject({
   dex: DexSchema,
+  /** An alternate form's body (`megas.json` kind: `mega`, `primal`, `crowned`); absent: the base form. */
+  form: z
+    .string()
+    .regex(/^[a-z]+$/)
+    .optional(),
   /** Collision radius at scale 1: `clamp(idleFrameWidth · 0.22, 5, 26) · 2`. */
   radius: z.number().positive(),
   /** Visual height above the feet at scale 1: the Idle ground anchor's y · 2. */

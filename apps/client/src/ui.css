@@ -43,6 +43,40 @@
   --frame-talk: url('/ui/frame-talk.png');
   --frame-hot: url('/ui/frame-hot.png');
   --font: 'Pixelify', 'Segoe UI', system-ui, sans-serif;
+  /* The Mega Evolution symbol's colours (icons.ts MEGA_RAINBOW), twice over a 200% wide layer:
+     sliding it by one box width (the mega-rainbow animation) loops seamlessly. */
+  --mega-rainbow: linear-gradient(
+    90deg,
+    #ff4fd8,
+    #ff9a3c,
+    #ffe14d,
+    #5fe07a,
+    #4fe0ff,
+    #4f7dff,
+    #a55cff,
+    #ff4fd8,
+    #ff9a3c,
+    #ffe14d,
+    #5fe07a,
+    #4fe0ff,
+    #4f7dff,
+    #a55cff,
+    #ff4fd8
+  );
+}
+
+/* Slides a two-layer background's second layer (a 200% wide --mega-rainbow) by one period. */
+@keyframes mega-rainbow {
+  from {
+    background-position:
+      0 0,
+      0 0;
+  }
+  to {
+    background-position:
+      0 0,
+      100% 0;
+  }
 }
 
 * {

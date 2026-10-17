@@ -17,6 +17,31 @@
       "legendary": "Legendary"
     }
   },
+  "mega": {
+    "unique": "Unique",
+    "title": {
+      "mega": "Mega Evolve",
+      "primal": "Primal Reversion",
+      "crowned": "Take up the {item}"
+    },
+    "card": {
+      "mega": "{name} Mega Evolves using {item}!",
+      "primal": "{name} undergoes Primal Reversion with the {item}!",
+      "crowned": "{name} takes up the {item}!"
+    },
+    "boost": "A huge boost for the rest of the run: +{attack}% damage, +{hp}% max HP, +{speed}% speed, -{cooldown}% cooldowns.",
+    "banner": {
+      "mega": "{name} Mega Evolved into {form}!",
+      "primal": "{name} underwent Primal Reversion into {form}!",
+      "crowned": "{name} took up the {item} and became {form}!"
+    },
+    "capable": "Mega Capable",
+    "capableHint": {
+      "mega": "Can Mega Evolve in runs, using {item}",
+      "primal": "Can undergo Primal Reversion in runs, with the {item}",
+      "crowned": "Can take up the {item} in runs"
+    }
+  },
   "items": {
     "anItem": "An item!",
     "keep": "Keep",

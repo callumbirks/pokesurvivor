@@ -36,6 +36,14 @@ export type SpriteAnimation = z.infer<typeof SpriteAnimationSchema>;
 export const PokemonSpritesSchema = z
   .strictObject({
     dex: DexSchema,
+    /**
+     * An alternate form (`megas.json` kind): its sheets are under `{dex}-{form}/` instead of
+     * `{dex}/`. Absent: the base form.
+     */
+    form: z
+      .string()
+      .regex(/^[a-z]+$/)
+      .optional(),
     /** Content hash of the Pokémon's sheets; append as `?v=` to bust long-lived caches. */
     hash: z.string().regex(/^[0-9a-f]{8}$/),
     shadowSize: z.number().int().min(0),
@@ -43,17 +51,27 @@ export const PokemonSpritesSchema = z
     hovers: z.boolean(),
     /** Has shiny sheets under `{dex}/s/`. */
     shiny: z.boolean(),
-    animations: z.record(AnimationNameSchema, SpriteAnimationSchema),
+    /**
+     * Every animation for a base form. An alternate form may lack some (not Idle or Walk): the
+     * client falls back to a similar one (see its `sprites.ts`).
+     */
+    animations: z.partialRecord(AnimationNameSchema, SpriteAnimationSchema),
     /** Shiny sheets whose geometry differs from the normal ones (rare). */
     shinyAnimations: z.partialRecord(AnimationNameSchema, SpriteAnimationSchema).optional(),
   })
   .refine((p) => p.shiny || !p.shinyAnimations, {
     message: 'shinyAnimations without shiny sheets',
+  })
+  .refine((p) => (p.form ? ['Idle', 'Walk'] : ANIMATIONS).every((a) => a in p.animations), {
+    message: 'missing animations (a base form needs all of them, a form Idle and Walk)',
   });
 export type PokemonSprites = z.infer<typeof PokemonSpritesSchema>;
 
 export const SpriteManifestSchema = z.strictObject({
-  /** URL prefix the server serves `assets/pokemon/` at: `{basePath}/{dex}/[s/]{Animation}.png`. */
+  /**
+   * URL prefix the server serves `assets/pokemon/` at: `{basePath}/{key}/[s/]{Animation}.png`, where
+   * the key is the dex, or `{dex}-{form}` for an alternate form.
+   */
   basePath: z.string().startsWith('/'),
   pokemon: z.array(PokemonSpritesSchema),
 });

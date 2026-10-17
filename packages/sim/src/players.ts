@@ -119,6 +119,7 @@ export function createPlayer(
     cardAdd: {},
     item: null,
     itemRegen: 0,
+    megaAt: null,
     sashAt: null,
     bellHeal: 0,
     attackingUntil: 0,

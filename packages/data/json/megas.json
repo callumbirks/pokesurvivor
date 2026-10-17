@@ -1,0 +1,332 @@
+{
+  "forms": [
+    {
+      "dex": 6,
+      "kind": "mega",
+      "spriteCollab": "0001",
+      "item": "charizardite-x",
+      "itemName": "Charizardite X",
+      "name": "Mega Charizard X"
+    },
+    {
+      "dex": 65,
+      "kind": "mega",
+      "spriteCollab": "0001",
+      "item": "alakazite",
+      "itemName": "Alakazite",
+      "name": "Mega Alakazam"
+    },
+    {
+      "dex": 80,
+      "kind": "mega",
+      "spriteCollab": "0002",
+      "item": "slowbronite",
+      "itemName": "Slowbronite",
+      "name": "Mega Slowbro"
+    },
+    {
+      "dex": 94,
+      "kind": "mega",
+      "spriteCollab": "0001",
+      "item": "gengarite",
+      "itemName": "Gengarite",
+      "name": "Mega Gengar"
+    },
+    {
+      "dex": 115,
+      "kind": "mega",
+      "spriteCollab": "0001",
+      "item": "kangaskhanite",
+      "itemName": "Kangaskhanite",
+      "name": "Mega Kangaskhan"
+    },
+    {
+      "dex": 142,
+      "kind": "mega",
+      "spriteCollab": "0001",
+      "item": "aerodactylite",
+      "itemName": "Aerodactylite",
+      "name": "Mega Aerodactyl"
+    },
+    {
+      "dex": 150,
+      "kind": "mega",
+      "spriteCollab": "0002",
+      "item": "mewtwonite-y",
+      "itemName": "Mewtwonite Y",
+      "name": "Mega Mewtwo Y"
+    },
+    {
+      "dex": 208,
+      "kind": "mega",
+      "spriteCollab": "0001",
+      "item": "steelixite",
+      "itemName": "Steelixite",
+      "name": "Mega Steelix"
+    },
+    {
+      "dex": 227,
+      "kind": "mega",
+      "spriteCollab": "0001",
+      "item": "skarmorite",
+      "itemName": "Skarmorite",
+      "name": "Mega Skarmory"
+    },
+    {
+      "dex": 229,
+      "kind": "mega",
+      "spriteCollab": "0001",
+      "item": "houndoominite",
+      "itemName": "Houndoominite",
+      "name": "Mega Houndoom"
+    },
+    {
+      "dex": 248,
+      "kind": "mega",
+      "spriteCollab": "0001",
+      "item": "tyranitarite",
+      "itemName": "Tyranitarite",
+      "name": "Mega Tyranitar"
+    },
+    {
+      "dex": 282,
+      "kind": "mega",
+      "spriteCollab": "0001",
+      "item": "gardevoirite",
+      "itemName": "Gardevoirite",
+      "name": "Mega Gardevoir"
+    },
+    {
+      "dex": 302,
+      "kind": "mega",
+      "spriteCollab": "0001",
+      "item": "sablenite",
+      "itemName": "Sablenite",
+      "name": "Mega Sableye"
+    },
+    {
+      "dex": 303,
+      "kind": "mega",
+      "spriteCollab": "0001",
+      "item": "mawilite",
+      "itemName": "Mawilite",
+      "name": "Mega Mawile"
+    },
+    {
+      "dex": 308,
+      "kind": "mega",
+      "spriteCollab": "0001",
+      "item": "medichamite",
+      "itemName": "Medichamite",
+      "name": "Mega Medicham"
+    },
+    {
+      "dex": 310,
+      "kind": "mega",
+      "spriteCollab": "0001",
+      "item": "manectite",
+      "itemName": "Manectite",
+      "name": "Mega Manectric"
+    },
+    {
+      "dex": 323,
+      "kind": "mega",
+      "spriteCollab": "0001",
+      "item": "cameruptite",
+      "itemName": "Cameruptite",
+      "name": "Mega Camerupt"
+    },
+    {
+      "dex": 334,
+      "kind": "mega",
+      "spriteCollab": "0001",
+      "item": "altarianite",
+      "itemName": "Altarianite",
+      "name": "Mega Altaria"
+    },
+    {
+      "dex": 354,
+      "kind": "mega",
+      "spriteCollab": "0001",
+      "item": "banettite",
+      "itemName": "Banettite",
+      "name": "Mega Banette"
+    },
+    {
+      "dex": 359,
+      "kind": "mega",
+      "spriteCollab": "0001",
+      "item": "absolite",
+      "itemName": "Absolite",
+      "name": "Mega Absol"
+    },
+    {
+      "dex": 362,
+      "kind": "mega",
+      "spriteCollab": "0001",
+      "item": "glalitite",
+      "itemName": "Glalitite",
+      "name": "Mega Glalie"
+    },
+    {
+      "dex": 380,
+      "kind": "mega",
+      "spriteCollab": "0001",
+      "item": "latiasite",
+      "itemName": "Latiasite",
+      "name": "Mega Latias"
+    },
+    {
+      "dex": 381,
+      "kind": "mega",
+      "spriteCollab": "0001",
+      "item": "latiosite",
+      "itemName": "Latiosite",
+      "name": "Mega Latios"
+    },
+    {
+      "dex": 382,
+      "kind": "primal",
+      "spriteCollab": "0001",
+      "item": "blue-orb",
+      "itemName": "Blue Orb",
+      "name": "Primal Kyogre"
+    },
+    {
+      "dex": 383,
+      "kind": "primal",
+      "spriteCollab": "0001",
+      "item": "red-orb",
+      "itemName": "Red Orb",
+      "name": "Primal Groudon"
+    },
+    {
+      "dex": 384,
+      "kind": "mega",
+      "spriteCollab": "0001",
+      "item": "mega-shard",
+      "itemName": "Mega Shard",
+      "name": "Mega Rayquaza"
+    },
+    {
+      "dex": 428,
+      "kind": "mega",
+      "spriteCollab": "0001",
+      "item": "lopunnite",
+      "itemName": "Lopunnite",
+      "name": "Mega Lopunny"
+    },
+    {
+      "dex": 448,
+      "kind": "mega",
+      "spriteCollab": "0001",
+      "item": "lucarionite",
+      "itemName": "Lucarionite",
+      "name": "Mega Lucario"
+    },
+    {
+      "dex": 475,
+      "kind": "mega",
+      "spriteCollab": "0001",
+      "item": "galladite",
+      "itemName": "Galladite",
+      "name": "Mega Gallade"
+    },
+    {
+      "dex": 491,
+      "kind": "mega",
+      "spriteCollab": "0002",
+      "item": "darkranite",
+      "itemName": "Darkranite",
+      "name": "Mega Darkrai"
+    },
+    {
+      "dex": 530,
+      "kind": "mega",
+      "spriteCollab": "0001",
+      "item": "excadrite",
+      "itemName": "Excadrite",
+      "name": "Mega Excadrill"
+    },
+    {
+      "dex": 604,
+      "kind": "mega",
+      "spriteCollab": "0001",
+      "item": "eelektrossite",
+      "itemName": "Eelektrossite",
+      "name": "Mega Eelektross"
+    },
+    {
+      "dex": 670,
+      "kind": "mega",
+      "spriteCollab": "0006",
+      "item": "floettite",
+      "itemName": "Floettite",
+      "name": "Mega Floette"
+    },
+    {
+      "dex": 691,
+      "kind": "mega",
+      "spriteCollab": "0001",
+      "item": "dragalgite",
+      "itemName": "Dragalgite",
+      "name": "Mega Dragalge"
+    },
+    {
+      "dex": 718,
+      "kind": "mega",
+      "spriteCollab": "0005",
+      "item": "zygardite",
+      "itemName": "Zygardite",
+      "name": "Mega Zygarde"
+    },
+    {
+      "dex": 719,
+      "kind": "mega",
+      "spriteCollab": "0001",
+      "item": "diancite",
+      "itemName": "Diancite",
+      "name": "Mega Diancie"
+    },
+    {
+      "dex": 780,
+      "kind": "mega",
+      "spriteCollab": "0001",
+      "item": "drampanite",
+      "itemName": "Drampanite",
+      "name": "Mega Drampa"
+    },
+    {
+      "dex": 807,
+      "kind": "mega",
+      "spriteCollab": "0001",
+      "item": "zeraorite",
+      "itemName": "Zeraorite",
+      "name": "Mega Zeraora"
+    },
+    {
+      "dex": 888,
+      "kind": "crowned",
+      "spriteCollab": "0001",
+      "item": "rusted-sword",
+      "itemName": "Rusted Sword",
+      "name": "Crowned Sword Zacian"
+    },
+    {
+      "dex": 889,
+      "kind": "crowned",
+      "spriteCollab": "0001",
+      "item": "rusted-shield",
+      "itemName": "Rusted Shield",
+      "name": "Crowned Shield Zamazenta"
+    },
+    {
+      "dex": 978,
+      "kind": "mega",
+      "spriteCollab": "0003",
+      "item": "tatsugirinite",
+      "itemName": "Tatsugirinite",
+      "name": "Mega Tatsugiri"
+    }
+  ]
+}

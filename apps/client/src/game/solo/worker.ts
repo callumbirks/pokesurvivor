@@ -269,6 +269,7 @@ scope.onmessage = (ev) => {
         else if (a === 'weather')
           sim.debugStartWeather(WEATHERS[weatherIdx++ % WEATHERS.length]!, 40);
         else if (a === 'momentum') sim.debugMaxMomentum(playerId);
+        else if (a === 'mega') sim.debugOfferMega(playerId);
         else sim.debugStartEvent(a);
         return;
       }

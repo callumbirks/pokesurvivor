@@ -65,7 +65,9 @@ export type DevAction =
   /** A wild legendary near the player now. */
   | 'legend'
   /** Momentum stacks up to the cap (then drains after the grace, as usual). */
-  | 'momentum';
+  | 'momentum'
+  /** A level-up offer with the Unique card now (a Mega-capable partner). */
+  | 'mega';
 
 export type FromWorker =
   /** The run is built (its static info, roster included): load its assets. */

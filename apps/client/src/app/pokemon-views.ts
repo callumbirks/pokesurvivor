@@ -2,7 +2,10 @@
 // shiny / rarity chips, a grid cell, and the detail panel (stage, types, stats, starting move).
 import { prestigeBonus, t, type Pokemon } from '@pokesurvivor/data';
 import { boxFor, gameData, h, icon, rarityBall, rarityInfo, sprite, typeChip } from './dom.js';
+import { megaItemImg } from '../icons.js';
+import { megaCapableText } from '../game/text.js';
 import { movePoolOf, startingMoveOf } from './moves.js';
+import { withTooltip } from './tooltip.js';
 import { prestigeBox, stars } from './prestige.js';
 
 /**
@@ -80,9 +83,25 @@ export interface CellOptions {
   onClick: (e: MouseEvent) => void;
 }
 
+/**
+ * The "Mega Capable" badge of a Pokémon that can Mega Evolve in runs (megas.json): the Mega
+ * symbol, or for Zacian and Zamazenta their Rusted Sword / Shield, with a tooltip on hover and
+ * while `focus` (its grid cell) has the focus. Null for the others.
+ */
+export function megaBadge(dex: number, focus?: HTMLElement): HTMLElement | null {
+  const m = gameData().megaByDex.get(dex);
+  if (!m) return null;
+  const badge = h(
+    'span',
+    { class: 'badge-mega', dataset: { testid: 'mega-badge' } },
+    m.kind === 'crowned' ? megaItemImg(m.item, 16) : icon('mega', 12),
+  );
+  return withTooltip(badge, megaCapableText(m), focus);
+}
+
 /** A grid cell: dex number, crown or shiny mark, the sprite, the name and the rarity's ball. */
 export function pokemonCell(p: Pokemon, o: CellOptions): HTMLElement {
-  return h(
+  const cell = h(
     'button',
     {
       class: ['cell', !o.own && 'locked', o.selected && 'on'],
@@ -116,6 +135,9 @@ export function pokemonCell(p: Pokemon, o: CellOptions): HTMLElement {
       o.tag ? h('span', { class: 'badge dim cell-tag' }, o.tag) : null,
     ),
   );
+  const mega = megaBadge(p.dex, cell);
+  if (mega) cell.querySelector('.cell-foot')?.append(mega);
+  return cell;
 }
 
 /** Moves `.on` and the gamepad's start to the cell of `dex` in `grid`. */
@@ -139,6 +161,19 @@ export interface DetailOptions {
   compact?: boolean;
   /** Prestige stars: by the name, as gold tips on the stat bars, and the "Prestige" box. */
   prestige?: number;
+}
+
+/** The detail panel's "Mega Capable" line: the badge and its text (no hover on touch). */
+function megaLine(dex: number): HTMLElement | null {
+  const m = gameData().megaByDex.get(dex);
+  if (!m) return null;
+  return h(
+    'div',
+    { class: 'mega-line small', dataset: { testid: 'mega-line' } },
+    m.kind === 'crowned' ? megaItemImg(m.item, 16) : icon('mega', 12),
+    ' ',
+    megaCapableText(m),
+  );
 }
 
 /** Bar lengths: the largest base stats in the Pokédex (HP, attack, speed). */
@@ -256,6 +291,7 @@ export function pokemonDetail(p: Pokemon, o: DetailOptions): Node[] {
         rarityInfo(p.rarity).name,
       ),
       o.own ? h('div', { style: 'margin:6px 0' }, p.types.map(typeChip)) : null,
+      megaLine(p.dex),
       o.extra ?? null,
     ),
   ];

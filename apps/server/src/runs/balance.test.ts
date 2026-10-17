@@ -83,6 +83,15 @@ describe('balance records: validation and flags', () => {
     expect(parseBalance(before)).toEqual({ ok: true, record: before });
   });
 
+  it('accepts a Mega Evolution, and records without one', () => {
+    expect(rec.mega).toBeUndefined();
+    const mega = clone(rec);
+    mega.mega = { t: 1834.5, form: '6-mega' };
+    mega.picks.push({ t: 1834.5, lv: 60, card: 'mega:6', declined: ['stat:attack@epic'] });
+    expect(parseBalance(mega)).toEqual({ ok: true, record: mega });
+    expect(parseBalance({ ...mega, mega: { t: 'soon', form: '6-mega' } })?.ok).toBe(false);
+  });
+
   it('refuses malformed or oversized records', () => {
     expect(parseBalance({ v: 1 })).toMatchObject({ ok: false });
     expect(parseBalance('nope')).toMatchObject({ ok: false });

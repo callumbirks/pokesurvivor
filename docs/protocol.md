@@ -18,7 +18,9 @@ stats panel; older clients ignore it, and clients without one show no panel), th
 `game.spectate` (spectating while down; a new message type, so nothing older sends it), and the
 notices `server-update`, `game-waiting` and `game-resuming` (stop-first deploys, see
 [Deploys](#deploys); older clients ignore notice codes they don't know), and `GameStatic.config`
-(the run's live-tuning config; optional, older clients use their built-in data).
+(the run's live-tuning config; optional, older clients use their built-in data). Also within
+version 7: `details.mega` (optional, additive: older clients ignore it) and the `mega-evolved`
+event; the snapshot's paused flag also covers a Mega Evolution's animation.
 
 ## Connection
 
@@ -303,7 +305,8 @@ for that client.
 
 - `choices` and `waiting`;
 - `details`: a player's moves, slots, item, bonds, rerolls left, magnet, altar power and buff
-  stacks (attack, speed, defense, regen), sent when they change;
+  stacks (attack, speed, defense, regen), and `mega` (the run time its partner Mega Evolved;
+  optional, absent until then), sent when they change;
 - `self`, in every snapshot: the viewer's move cooldowns (0–1 of the full cooldown, per move, in
   1/50 steps) for the HUD, its speed before liquids (`moveSpeedOf`) for client-side
   prediction, and its Momentum stacks (kill streak, 1/10 steps; optional) for the HUD;

@@ -8,7 +8,7 @@ const pokemon = (dex: number) => {
   if (!p) throw new Error(`no sprite for ${dex}`);
   return p;
 };
-const idle = (dex: number) => pokemon(dex).animations.Idle;
+const idle = (dex: number) => pokemon(dex).animations.Idle!;
 
 /**
  * The fixed containers that stand sprites on their bottom edge (the `fit` box and the CSS):
@@ -61,7 +61,7 @@ describe('sprites standing in their containers', () => {
   for (const [name, c] of Object.entries(CONTAINERS)) {
     it(`every Pokémon, shadow included, sits inside the ${name} with a margin`, () => {
       for (const p of manifest.pokemon) {
-        const frame = p.animations.Idle;
+        const frame = p.animations.Idle!;
         const lay = spriteLayout(frame, {
           scale: c.scale,
           box: c.box,

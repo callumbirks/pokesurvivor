@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "generate-sprites": "tsx sprites/generate.ts",
+    "import-forms": "tsx sprites/import-forms.ts",
     "changelog": "tsx changelog/cli.ts render",
     "changelog:check": "tsx changelog/cli.ts check",
     "release": "tsx changelog/cli.ts release",

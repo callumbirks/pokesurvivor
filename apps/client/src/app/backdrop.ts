@@ -204,7 +204,7 @@ export class MenuBackdrop {
     // Off camera: comes back somewhere in view.
     for (const [i, wd] of this.wanderers.entries())
       if (!this.camera.sees(wd.body.x, wd.body.y, 120))
-        this.wanderers[i] = this.spawn(wd.anim.dex, false);
+        this.wanderers[i] = this.spawn(Number(wd.anim.dex), false);
   }
 
   private draw(): void {

@@ -138,6 +138,19 @@ async function playSolo(): Promise<void> {
     };
     // ?god: can't be hurt (perf tests); not credited either.
     const invulnerable = params.has('god');
+    // &dex=6&shiny: play another Pokémon, without its upgrades (offline runs only: ?t or ?god).
+    const devDex = Number(params.get('dex'));
+    if (devDex && (skipMinutes || invulnerable)) {
+      const { secondMove: _unused, ...rest } = opts.loadout;
+      void _unused;
+      opts.loadout = {
+        ...rest,
+        dex: devDex,
+        shiny: params.has('shiny'),
+        upgrades: {},
+        prestige: 0,
+      };
+    }
     // &moves=rock-slide,hail&level=5: play with these moves (to check each move's visuals).
     const devMoves = params.get('moves')?.split(',').filter(Boolean);
     const devMoveLevel = Number(params.get('level')) || 1;
@@ -151,8 +164,8 @@ async function playSolo(): Promise<void> {
       api: skipMinutes || invulnerable || devMoves ? offline : devApi,
     });
     // Dev triggers, as in /?debug-sim: F rift · V arena · H horde · J golden hour · K lost Pokémon
-    // · G thief · B weather · L wild legendary · N max Momentum (runs with triggers aren't reported either; T is the
-    // aim switch).
+    // · G thief · B weather · L wild legendary · N max Momentum · M the Unique (Mega Evolution) card
+    // (runs with triggers aren't reported either; T is the aim switch).
     const keys: Record<string, Parameters<typeof conn.devTrigger>[0]> = {
       KeyF: 'rift',
       KeyV: 'arena',
@@ -163,6 +176,7 @@ async function playSolo(): Promise<void> {
       KeyB: 'weather',
       KeyN: 'momentum',
       KeyL: 'legend',
+      KeyM: 'mega',
     };
     devKeys =
       skipMinutes || invulnerable ? (code) => keys[code] && conn.devTrigger(keys[code]) : null;

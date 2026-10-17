@@ -1,6 +1,6 @@
 // Display text for what the sim sends as ids: level-up cards, moves, items and types.
 // The client turns these into titles and descriptions from the data.
-import { formatText, t, type StatCard, type UiStringKey } from '@pokesurvivor/data';
+import { formatText, t, type MegaForm, type StatCard, type UiStringKey } from '@pokesurvivor/data';
 import { rarityTier, scaledCardEffect, type CardOption } from '@pokesurvivor/sim';
 import { typeColor } from '../icons.js';
 import { gameData } from '../live-config.js';
@@ -17,6 +17,8 @@ export interface CardText {
   evolution: boolean;
   /** A stat card's rolled rarity: its name and its gacha rarity colour (the card's frame). */
   rarity?: { name: string; color: string };
+  /** The Unique card (Mega Evolution): its form, whose item is the icon. */
+  mega?: MegaForm;
 }
 
 /** The run's config: card rarities and values come from its `levelup.json`. */
@@ -44,6 +46,39 @@ export function upgradeText(moveId: string, toLevel: number): string {
   if (!m) return '';
   const ladder = data().moves.upgradeLadders[m.kind] ?? [];
   return ladder[toLevel - 2]?.text ?? '';
+}
+
+/** The form of a Unique card (`mega:<dex>`). */
+export function megaOfCard(c: Pick<CardOption, 'id' | 'type'>): MegaForm | undefined {
+  return c.type === 'mega' ? data().megaByDex.get(Number(c.id.slice(5))) : undefined;
+}
+
+const percent = (mul: number) => String(Math.round(Math.abs(mul - 1) * 100));
+
+/** "Charizard Mega Evolves using Charizardite X! A huge boost for the rest of the run: …". */
+export function megaCardText(m: MegaForm): { title: string; description: string } {
+  const name = data().pokemonByDex.get(m.dex)?.name ?? '';
+  const b = data().tuning.mega;
+  return {
+    title: t(`mega.title.${m.kind}`, { item: m.itemName }),
+    description: `${t(`mega.card.${m.kind}`, { name, item: m.itemName })} ${t('mega.boost', {
+      attack: percent(b.attackMul),
+      hp: percent(b.maxHpMul),
+      speed: percent(b.speedMul),
+      cooldown: percent(b.cooldownMul),
+    })}`,
+  };
+}
+
+/** The banner when it happens: "Charizard Mega Evolved into Mega Charizard X!". */
+export function megaBannerText(m: MegaForm): string {
+  const name = data().pokemonByDex.get(m.dex)?.name ?? '';
+  return t(`mega.banner.${m.kind}`, { name, item: m.itemName, form: m.name });
+}
+
+/** The "Mega Capable" badge's tooltip. */
+export function megaCapableText(m: MegaForm): string {
+  return `${t('mega.capable')} · ${t(`mega.capableHint.${m.kind}`, { item: m.itemName })}`;
 }
 
 export function cardText(c: CardOption): CardText {
@@ -98,6 +133,18 @@ export function cardText(c: CardOption): CardText {
             color: gacha?.color ?? '#9fb1c9',
           },
         }),
+      };
+    }
+    case 'mega': {
+      const m = megaOfCard(c);
+      const text = m ? megaCardText(m) : { title: '', description: '' };
+      return {
+        ...text,
+        tag: t('mega.unique'),
+        color: '#ff4fd8',
+        icon: 'mega',
+        evolution: false,
+        ...(m && { mega: m }),
       };
     }
   }
