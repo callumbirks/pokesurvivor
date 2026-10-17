@@ -6,7 +6,7 @@ What changed for players in each release, newest first. Generated from
 
 ## Unreleased
 
-PRs: [#102](https://github.com/callumbirks/pokesurvivor/pull/102), [#103](https://github.com/callumbirks/pokesurvivor/pull/103), [#104](https://github.com/callumbirks/pokesurvivor/pull/104)
+PRs: [#102](https://github.com/callumbirks/pokesurvivor/pull/102), [#103](https://github.com/callumbirks/pokesurvivor/pull/103), [#104](https://github.com/callumbirks/pokesurvivor/pull/104), [#105](https://github.com/callumbirks/pokesurvivor/pull/105)
 
 ### New
 
@@ -21,6 +21,7 @@ PRs: [#102](https://github.com/callumbirks/pokesurvivor/pull/102), [#103](https:
 - Rare, Epic and Legendary upgrade cards give smaller bonuses (×1.25 / ×1.5 / ×2), and Power cards give +6%.
 - There's no longer a guaranteed Power or Reflexes card after 15 minutes.
 - The game has moved to a more powerful server to reduce multiplayer lag.
+- The server update and reconnecting banners shrink out of the way after a moment.
 
 ### Fixed
 

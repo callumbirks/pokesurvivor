@@ -574,6 +574,53 @@ html[data-input='gamepad'] .ps-card.rarity.legendary.focus {
   border-image-source: var(--frame-hot);
   color: var(--ink);
 }
+/* A long-lived notice after its first moment: a small chip in the corner, the live text in short
+   (compact.ts). Sticky chips stay on top of the column. */
+.ps-toast.sticky.compact {
+  padding: 0 4px;
+  border-width: 6px;
+  border-image-width: 6px;
+  font-size: 11px;
+  white-space: nowrap;
+  opacity: 0.92;
+  animation: ps-shrink 0.24s steps(3);
+}
+.ps-toast.sticky.compact.calm {
+  animation: none;
+}
+@keyframes ps-shrink {
+  from {
+    transform: scale(1.25);
+    transform-origin: top right;
+  }
+}
+/* With touch controls the aim switch sits under the pause button (hud.ts `drawAimToggle`, at most
+   108 px down): notices and chips go below it. */
+html[data-input='touch'] .ps-toasts {
+  top: 116px;
+}
+@media (pointer: coarse) {
+  /* (More specific than the phone layout's `top: 60px` below.) */
+  html .ps-toasts {
+    top: 116px;
+  }
+}
+/* The 3-2-1 before a restored game resumes: big and centred, but short. */
+.ps-resume {
+  position: absolute;
+  top: 30%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 18px;
+  border: 9px solid transparent;
+  border-image: var(--frame-hot) 9 fill / 9px / 0 stretch;
+  image-rendering: pixelated;
+  box-shadow: var(--win-shadow);
+  color: var(--ink);
+  font-size: 24px;
+  white-space: nowrap;
+  pointer-events: none;
+}
 @keyframes ps-slide {
   from {
     transform: translateX(30px);
@@ -693,7 +740,8 @@ html[data-input='gamepad'] .ps-card.rarity.legendary.focus {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .ps-rotate-ico {
+  .ps-rotate-ico,
+  .ps-toast.sticky.compact {
     animation: none;
   }
 }

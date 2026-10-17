@@ -331,12 +331,14 @@ export class App {
     this.stopUpdateClock = everyTick(at, (now) => {
       const solo = this.routeName === 'play' && this.game?.kind === 'solo';
       const clock = clockText(at, now);
+      const due = now >= at;
       notice(
         'draining',
-        now >= at
+        due
           ? t('app.serverUpdateNow')
           : t(solo ? 'app.serverUpdateSolo' : 'app.serverUpdate', { 0: clock }),
         'gold',
+        due ? t('app.serverUpdateNow') : t('game.chipUpdate', { 0: clock }),
       );
     });
   }
@@ -349,7 +351,13 @@ export class App {
       // A new server instance after a deploy isn't stopping: this clears the old notice.
       this.serverUpdateNotice();
     } else if (state === 'reconnecting') {
-      notice('connection', t('app.reconnecting'), 'error');
+      // The update is under way: the reconnecting notice says it all now.
+      if (net.updateAt !== null && Date.now() >= net.updateAt) {
+        this.stopUpdateClock?.();
+        this.stopUpdateClock = null;
+        notice('draining', null);
+      }
+      notice('connection', t('app.reconnecting'), 'error', t('game.chipReconnecting'));
     } else if (state === 'failed') {
       const code = net.failure?.code;
       if (code === CloseCode.unauthenticated) {
