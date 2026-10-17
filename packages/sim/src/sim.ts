@@ -201,9 +201,9 @@ export class Sim {
     if (!presentPlayers(this.state).length) this.end('everyone-left');
   }
 
-  /** Paused while any choice is pending (for everyone). */
+  /** Paused while any choice is pending (for everyone), or counting down after a rift. */
   get paused(): boolean {
-    return this.state.pendingChoices.length > 0;
+    return this.state.pendingChoices.length > 0 || this.state.resumeTicks > 0;
   }
 
   get ended(): boolean {
@@ -277,6 +277,12 @@ export class Sim {
     s.tick++;
     tickChoices(ctx);
     if (s.pendingChoices.length) {
+      for (const p of s.players) p.input.slot = null;
+      return;
+    }
+    // Back from a rift: the map stays frozen for the 3-2-1 (after any cards, which come first).
+    if (s.resumeTicks > 0) {
+      s.resumeTicks--;
       for (const p of s.players) p.input.slot = null;
       return;
     }
@@ -389,6 +395,7 @@ export function createSim(config: SimConfig): Sim {
     allDownT: 0,
     rift: { checkT: data.tuning.rift.checkEvery, misses: 0, opened: 0, open: null },
     arena: null,
+    resumeTicks: 0,
     weather: { current: null, checkT: data.weather.checkEvery, chipT: 0 },
     events: { nextT: 0, current: null, last: null, thiefT: 0, thieves: 0, lost: null },
     ended: null,
@@ -422,6 +429,8 @@ export function restoreSim(state: SimState, data?: GameData): Sim {
   // Saves from before gems (v16): none yet. A non-number too (a NaN saved as JSON null), or the
   // first gem picked up would make the count NaN and the run couldn't be credited.
   if (!Number.isFinite(state.team.gems)) state.team.gems = 0;
+  // Saves from before the rift exit countdown: playing.
+  if (!Number.isFinite(state.resumeTicks)) state.resumeTicks = 0;
   for (const p of state.players) {
     // Saves from before balance records: one from now on (the setup it can't know is left empty).
     p.balance ??= newBalance(

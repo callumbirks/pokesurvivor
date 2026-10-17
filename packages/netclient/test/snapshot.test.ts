@@ -3,6 +3,7 @@ import {
   isAttacking,
   playerMoveSpeed,
   playerStats,
+  TICK_HZ,
   type FieldState,
   type SimEvent,
 } from '@pokesurvivor/sim';
@@ -141,6 +142,20 @@ describe('snapshots', () => {
       });
     },
   );
+
+  it('mark the 3-2-1 after a rift paused, with the whole seconds left', () => {
+    const s = structuredClone(sim.state);
+    const enc = new SnapshotEncoder({ viewerId: 'p1' });
+    const dec = new SnapshotDecoder(ids);
+    s.resumeTicks = Math.round(2.5 * TICK_HZ);
+    const counting = dec.decode(enc.encode(s, [], 1, 0));
+    expect(counting.paused).toBe(true);
+    expect(counting.misc.resume).toBe(3);
+    s.resumeTicks = 0;
+    const playing = dec.decode(enc.encode(s, [], 2, 0));
+    expect(playing.paused).toBe(false);
+    expect(playing.misc.resume).toBeUndefined();
+  });
 
   it('list every pending choice, the viewer’s own in full', () => {
     const s = structuredClone(sim.state);

@@ -57,6 +57,11 @@ export interface SimState {
   rift: RiftState;
   /** The legendary's arena while the team is in it (null: on the map). */
   arena: ArenaState | null;
+  /**
+   * Ticks the map stays frozen after the team comes back from a rift (the 3-2-1, `exitCountdown`).
+   * Like a pending choice, it pauses everything and the run clock; 0: playing.
+   */
+  resumeTicks: number;
   weather: WeatherState;
   /** Mid-run events (hordes, golden hour, lost Pokémon) and treasure thieves. */
   events: EventsState;

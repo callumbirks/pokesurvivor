@@ -24,7 +24,7 @@ import { preloadSprites } from '../sprites.js';
 import { AchievementTracker, type AchievementSave } from './achievements.js';
 import { ChoiceOverlay } from './choice-ui.js';
 import { ChoiceState } from './choices.js';
-import { clockText, everyTick, secondsLeft } from './countdown.js';
+import { clockText, everyTick, riftResume, secondsLeft } from './countdown.js';
 import { clear, el, icon } from './dom.js';
 import { clearRunConfig, gameData, setRunConfig } from '../live-config.js';
 import { EventEffects } from './events.js';
@@ -979,6 +979,7 @@ class Run {
     this.world.update(dt);
     this.fx.update(dt);
     this.weather.update(latest.misc.weather, dt);
+    riftResume(this.toasts, latest.misc.resume);
     // The camera follows us, or whom we spectate (whose surroundings the server sends then).
     const watched = this.spectator.active
       ? frame.players.find((p) => p.id === this.spectator.target)
