@@ -588,6 +588,49 @@ main.screens:not([data-screen='play']) ~ .topbar {
 .notice {
   margin: 6px 8px 0;
 }
+/* A long-lived notice after its first moment (a countdown, reconnecting): a small chip with the
+   live text in short (game/compact.ts). It expands again only to show a Reload button. */
+.notice.compact {
+  align-self: center;
+  padding: 0 6px;
+  border-width: 6px;
+  border-image-width: 6px;
+  font-size: 12px;
+  white-space: nowrap;
+  animation: notice-shrink 0.24s steps(3);
+}
+.notice.compact.calm {
+  animation: none;
+}
+@keyframes notice-shrink {
+  from {
+    transform: scale(1.25);
+  }
+}
+/* Over a solo run, chips go to the corner under the pause and aim buttons, out of the way. */
+main.screens[data-screen='play'] ~ .notices:not(:has(.notice:not(.compact))) {
+  top: 96px;
+  left: auto;
+  right: 12px;
+  transform: none;
+  width: auto;
+  align-items: flex-end;
+}
+html[data-input='touch']
+  main.screens[data-screen='play']
+  ~ .notices:not(:has(.notice:not(.compact))) {
+  top: 116px;
+}
+@media (pointer: coarse) {
+  main.screens[data-screen='play'] ~ .notices:not(:has(.notice:not(.compact))) {
+    top: 116px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .notice.compact {
+    animation: none;
+  }
+}
 /* The "new version" prompt: its text, then Reload and close; they wrap under it on phones. */
 .update-notice {
   display: flex;

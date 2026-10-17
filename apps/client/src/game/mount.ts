@@ -189,9 +189,9 @@ class GameScreen {
     // Already updating or reconnecting when the game opened (the shell hides its own notices here).
     if (client.updateAt) this.updateCountdown(client.updateAt);
     else if (client.draining) this.toasts.set('draining', t('game.noticeDraining'), 'warn');
-    if (client.state === 'reconnecting')
-      this.toasts.set('connection', t('game.reconnecting'), 'warn');
+    if (client.state === 'reconnecting') this.reconnecting(client);
     this.offs.push(
+      () => this.resumeEl?.remove(),
       () => this.stopUpdateClock?.(),
       () => this.stopHoldClock?.(),
       client.on('notice', (n) => {
@@ -205,7 +205,7 @@ class GameScreen {
         else this.toasts.show(text, 'info', 4.5);
       }),
       client.on('state', (s) => {
-        if (s === 'reconnecting') this.toasts.set('connection', t('game.reconnecting'), 'warn');
+        if (s === 'reconnecting') this.reconnecting(client);
         else if (s === 'open') {
           this.toasts.clear('connection');
           // A new server instance after a deploy isn't stopping.
@@ -214,38 +214,70 @@ class GameScreen {
             this.toasts.clear('draining');
           }
         } else if (s === 'failed' || s === 'closed')
+          // Final (the shell shows Reload over the game): in full, it doesn't shrink.
           this.toasts.set('connection', t('game.connectionLost'), 'warn');
       }),
       // The restored game goes on (or this is a fresh start): no more waiting.
       this.conn.on('start', () => {
         this.stopHoldClock?.();
         this.toasts.clear('hold');
+        this.resumeEl?.remove();
+        this.resumeEl = null;
       }),
     );
   }
 
-  /** "Server update in 0:30 · your run will continue right after", ticking down. */
+  /** "Connection lost: reconnecting…", shrinking to a chip. */
+  private reconnecting(client: GameClient): void {
+    // The update is under way: the reconnecting notice says it all now.
+    if (client.updateAt && Date.now() >= client.updateAt) {
+      this.stopUpdateClock?.();
+      this.toasts.clear('draining');
+    }
+    this.toasts.set('connection', t('game.reconnecting'), 'warn', t('game.chipReconnecting'));
+  }
+
+  /** "Server update in 0:30 · your run will continue right after", ticking down, then "Update 0:21". */
   private updateCountdown(deadline: number): void {
     this.stopUpdateClock?.();
-    this.stopUpdateClock = everyTick(deadline, (now) =>
-      this.toasts.set('draining', t('game.noticeUpdate', { 0: clockText(deadline, now) }), 'warn'),
-    );
+    this.stopUpdateClock = everyTick(deadline, (now) => {
+      const clock = clockText(deadline, now);
+      this.toasts.set(
+        'draining',
+        t('game.noticeUpdate', { 0: clock }),
+        'warn',
+        t('game.chipUpdate', { 0: clock }),
+      );
+    });
   }
+
+  /** The 3-2-1 before a restored game resumes: big, in the middle (it's short, and it matters). */
+  private resumeEl: HTMLElement | null = null;
 
   /** A restored game: waiting for players (until `deadline`), or resuming in 3, 2, 1. */
   private holdCountdown(code: 'game-waiting' | 'game-resuming', deadline: number, who: string[]) {
     this.stopHoldClock?.();
     this.stopHoldClock = everyTick(deadline, (now) => {
       if (code === 'game-resuming') {
+        this.toasts.clear('hold');
         const s = secondsLeft(deadline, now);
-        if (s > 0) this.toasts.set('hold', t('game.noticeResuming', { 0: String(s) }), 'info');
-        else this.toasts.clear('hold');
-      } else
+        if (s > 0) {
+          this.resumeEl ??= el('div', { class: 'ps-resume', data: { testid: 'resume-countdown' } });
+          if (!this.resumeEl.isConnected) this.layer.append(this.resumeEl);
+          this.resumeEl.textContent = t('game.noticeResuming', { 0: String(s) });
+        } else {
+          this.resumeEl?.remove();
+          this.resumeEl = null;
+        }
+      } else {
+        const clock = clockText(deadline, now);
         this.toasts.set(
           'hold',
-          t('game.noticeWaiting', { 0: who.join(', '), 1: clockText(deadline, now) }),
+          t('game.noticeWaiting', { 0: who.join(', '), 1: clock }),
           'info',
+          t('game.chipWaiting', { 0: clock }),
         );
+      }
     });
   }
 
