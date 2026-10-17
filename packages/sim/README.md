@@ -70,7 +70,7 @@ everyone has left: `state.ended = { reason: 'all-down' | 'everyone-left', tick, 
 | `tick`, `time`                                                                               | Ticks stepped (paused ones too) and seconds played (running only).                                                                                                                                                                                              | every tick                        |
 | `rng`                                                                                        | 4 × uint32 (sfc32).                                                                                                                                                                                                                                             | every tick                        |
 | `players[]`                                                                                  | Position, velocity, aim and target, HP and stats, buffs, moves (`stats` already levelled), slots, item, input, revive progress, run stats.                                                                                                                      | every tick (position, timers)     |
-| `enemies[]`                                                                                  | ~64 alive (cap) plus minions and bosses: position, HP, statuses, AI state (`phase`, boss `ai`, `jump`), `def` (base stats).                                                                                                                                     | every tick                        |
+| `enemies[]`                                                                                  | ~80 alive (cap) plus minions and bosses: position, HP, statuses, AI state (`phase`, boss `ai`, `jump`), `def` (base stats).                                                                                                                                     | every tick                        |
 | `projectiles[]`                                                                              | Player and enemy shots, orbs (`orb: true`). Tens at a time. `hits` / `hitLog` are what they already hit.                                                                                                                                                        | every tick                        |
 | `fields[]`, `hazards[]`                                                                      | Mines/meteors/turrets/trail pools; telegraphed enemy attacks. A handful.                                                                                                                                                                                        | every tick                        |
 | `pickups[]`                                                                                  | XP gems, coins and loot on the ground: up to 420 (then the oldest gems merge). Mostly still unless pulled.                                                                                                                                                      | on drops/pulls                    |
@@ -136,9 +136,9 @@ already own" are the server's job.
 - Every level-up gives every player (connected or not; disconnected ones are auto-picked) their
   own server-generated cards; the game is paused until all are resolved. Item swaps (picking up a
   second held item) pause it too. Level-ups wait for pending swaps.
-- From `tuning.lateGrowth.offers.fromMinute`, every level-up offer holds an offensive stat card
-  (Power or Reflexes, whichever isn't at its ceiling) at a random slot; a ready evolution keeps
-  its own.
+- From `tuning.lateGrowth.offers.fromMinute`, every level-up offer holds
+  `guaranteedOffenseSlots` offensive stat cards (Power or Reflexes, whichever isn't at its
+  ceiling) at random slots; a ready evolution keeps its own. The default is 0 (off).
 - Stat cards have no pick limits. Each offered one (except `rarity: false`, Sitrus Berry) rolls a
   rarity (`rarity.ts`, levelup.json `rarity`): the odds interpolate over the run minute, and the
   tier's multiplier scales the card's bonus (the part above 1 of a multiplier). A card with a `cap`
@@ -242,7 +242,7 @@ The game server and `packages/netclient` use this; see `docs/protocol.md`.
   need it until the team is back (then they're `enemies` again).
 - **Changes every tick**: `tick`, `time`, `rng`, players' position/velocity/aim/timers, enemies'
   position and AI timers, projectiles (incl. orbs), fields, hazards, pulled pickups.
-- **Large**: `enemies` (~64–90 × ~60 fields, plus a `def` that could be sent once per dex/tier),
+- **Large**: `enemies` (~80–90 × ~60 fields, plus a `def` that could be sent once per dex/tier),
   `pickups` (up to 420), `projectiles` (`hits`/`hitLog` are server-only and needn't be sent),
   `players[].moves[].stats` (changes only on level-ups).
 - **Interest management**: enemies, projectiles and pickups have positions; legacy sent enemies
@@ -451,7 +451,7 @@ builds over minutes 2–20. It does not inspect a player's meta or scale enemy d
 
 **Defence** is toughness: a hit is divided by `1 + defence` (`defenseOf`), where defence sums the
 Armor upgrade, Armor cards, held items, prestige and Harden's stacks (1 = +100%, half damage), up
-to `tuning.defense.max` (+500%, a sixth). It never reaches zero damage. Older saves convert their
+to `tuning.defense.max` (+200%, a third). It never reaches zero damage. Older saves convert their
 damage reduction d to the defence taking the same damage, d / (1 − d).
 
 `spawner.hpCurve` multiplies regular wild HP the same way (minute/multiplier points from minute
