@@ -1,9 +1,11 @@
 {
   "unreleased": {
-    "prs": [],
+    "prs": [109],
     "entries": {
       "new": [],
-      "changed": [],
+      "changed": [
+        "Long runs are no longer held back by the reward limits: you keep the coins and tickets you earn."
+      ],
       "fixed": [],
       "behindTheScenes": []
     }

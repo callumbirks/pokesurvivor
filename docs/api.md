@@ -253,11 +253,28 @@ tuning, levelup }` (see [Live tuning](#live-tuning-admin)): the server issues it
    credited and `achievements` the ones it unlocked (`[{ id, reward, title }]`).
 
 The server clamps the duration to the wall-clock time since `start` (and 3 hours), and every
-other number to a flat allowance plus a per-minute rate of that duration (see
-`apps/server/src/economy/config.ts`): defeats per type to the capped kills, chests, items,
-evolutions, rift wins and rescues per minute, legendaries to the rift wins, and gems to
-`min(gemsMax, gemsFlat + gemsPerMinute × minutes)` (100, 3 and 1.5: a typical 15-minute run finds
-about 5). It also drops
+other number to a flat allowance plus a per-minute rate of that duration (`runCaps` in
+`apps/server/src/economy/config.ts`); defeats per type are clamped to the capped kills and
+legendaries to the capped rift wins. The caps are an anti-cheat ceiling at about 1.5–2× the most
+an honest run earns (the derivation is in the comment there), so honest runs aren't capped:
+
+|                | cap (`minutes` = the capped duration)                           |
+| -------------- | --------------------------------------------------------------- |
+| level          | 1000                                                            |
+| kills          | 1500 / min                                                      |
+| bosses         | 2 / min                                                         |
+| coins          | 500 + 2000 / min                                                |
+| ×1 tickets     | 5 + 8 / min                                                     |
+| ×10 tickets    | 3 + 0.5 / min                                                   |
+| gems           | min(100, 3 + 1.5 / min) (a typical 15-minute run finds about 5) |
+| shinies caught | min(75, 2 + 0.4 / min)                                          |
+| chests opened  | 2 + 0.5 / min                                                   |
+| items equipped | 2 + 2 / min                                                     |
+| moves evolved  | 1 + 0.5 / min                                                   |
+| rift wins      | 2 + 1.2 / min                                                   |
+| rescues        | min(10, 1 + 0.1 / min)                                          |
+
+Each limit is rounded down. It also drops
 entries that can't happen: shinies without shiny sprites, non-legendary "legendaries", and
 rescues that legacy can't spawn (over 3★, legendary, hovering or without sprites). It stores
 the original claim on the run when anything was capped, credits coins, tickets and gems through

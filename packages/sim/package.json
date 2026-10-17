@@ -25,7 +25,8 @@
     "training": "tsx test/measure-training.ts",
     "rarities": "tsx test/measure-rarities.ts",
     "runaway": "tsx test/measure-runaway.ts",
-    "gems": "tsx test/measure-gems.ts"
+    "gems": "tsx test/measure-gems.ts",
+    "rewards": "tsx test/measure-rewards.ts"
   },
   "dependencies": {
     "@pokesurvivor/data": "workspace:*",
