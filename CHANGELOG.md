@@ -6,7 +6,11 @@ What changed for players in each release, newest first. Generated from
 
 ## Unreleased
 
-PRs: [#102](https://github.com/callumbirks/pokesurvivor/pull/102), [#103](https://github.com/callumbirks/pokesurvivor/pull/103)
+PRs: [#102](https://github.com/callumbirks/pokesurvivor/pull/102), [#103](https://github.com/callumbirks/pokesurvivor/pull/103), [#104](https://github.com/callumbirks/pokesurvivor/pull/104)
+
+### New
+
+- From 30 minutes, wild legendary Pokémon start appearing: tougher than anything else in the wild.
 
 ### Changed
 

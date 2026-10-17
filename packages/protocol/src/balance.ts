@@ -15,8 +15,11 @@ export interface HitSource {
    */
   kind: 'contact' | 'shot' | 'zone' | 'beam' | 'liquid' | 'trap' | 'weather';
   dex?: number;
-  /** `wild` an ordinary spawn, `elite` a spawn at the enemy cap, `boss`, or a rift `legend`. */
-  tier?: 'wild' | 'elite' | 'boss' | 'legend';
+  /**
+   * `wild` an ordinary spawn, `elite` a spawn at the enemy cap, `boss`, a rift `legend`, or a
+   * `wildLegend` (a legendary on the map, late in the run).
+   */
+  tier?: 'wild' | 'elite' | 'boss' | 'legend' | 'wildLegend';
 }
 
 /** A level-up card the player took. */
@@ -118,6 +121,20 @@ export interface BalanceRift {
   dur: number;
 }
 
+/** A wild legendary that appeared on the map (late in the run). */
+export interface BalanceWildLegend {
+  /** Run time (s) it appeared. */
+  t: number;
+  dex: number;
+  maxHp: number;
+  /** When it was defeated (null: still out at the end, or it was never beaten). */
+  defeatedAt: number | null;
+  /** Damage this player dealt to it. */
+  dealt: number;
+  /** This player dealt it the most damage of the team (set when it is defeated). */
+  top?: true;
+}
+
 export interface BalanceRecord {
   v: typeof BALANCE_RECORD_VERSION;
   setup: {
@@ -164,4 +181,6 @@ export interface BalanceRecord {
   timeline: BalanceSample[];
   downs: BalanceDown[];
   rifts: BalanceRift[];
+  /** Wild legendaries that appeared (absent in records from before them). */
+  wildLegends?: BalanceWildLegend[];
 }

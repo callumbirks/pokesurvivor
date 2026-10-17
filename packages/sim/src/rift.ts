@@ -31,7 +31,7 @@ import { scaleHp } from './spawner.js';
 import { clearWeather, startWeather } from './weather.js';
 import { arenaTheme, isFree, resetChunks } from './world.js';
 import type { EnemyDef, PlayerState } from './state.js';
-import type { PokemonType, TuningFile } from '@pokesurvivor/data';
+import type { Pokemon, PokemonType, TuningFile } from '@pokesurvivor/data';
 
 /** Touch the rift within this distance (of a point just above its base). */
 const ENTER_RANGE = 30;
@@ -51,6 +51,10 @@ const RANGED_TYPES: readonly PokemonType[] = [
   'ice',
   'dragon',
 ];
+
+/** Legendaries of the shooting types fight from afar (`ranged`), the rest up close (`charger`). */
+export const legendBehavior = (mon: Pokemon): 'ranged' | 'charger' =>
+  mon.types.some((x) => RANGED_TYPES.includes(x)) ? 'ranged' : 'charger';
 
 export const inArena = (ctx: Ctx): boolean => ctx.s.arena !== null;
 
@@ -284,7 +288,7 @@ function spawnLegend(ctx: Ctx): void {
   const curve = n > 2 ? rift.coopHp.hpCurve : rift.hpCurve;
   const def: EnemyDef = {
     dex: mon.dex,
-    behavior: mon.types.some((x) => RANGED_TYPES.includes(x)) ? 'ranged' : 'charger',
+    behavior: legendBehavior(mon),
     hp: Math.round(
       (3200 + t * 9) *
         lk *

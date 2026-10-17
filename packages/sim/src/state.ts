@@ -13,6 +13,7 @@ import type {
   BalancePick,
   BalanceRift,
   BalanceSample,
+  BalanceWildLegend,
   HitSource,
   RunProgress,
 } from '@pokesurvivor/protocol';
@@ -287,6 +288,8 @@ export interface BalanceState {
   timeline: BalanceSample[];
   downs: BalanceDown[];
   rifts: BalanceRift[];
+  /** Wild legendaries that appeared (`id`: the enemy, until the record is built). */
+  wildLegends: (BalanceWildLegend & { id: EntityId })[];
   /** Damage taken so far. */
   taken: number;
   /** Totals at the last sample (for the per-minute amounts). */
@@ -435,6 +438,8 @@ export interface EnemyState {
   boss: boolean;
   /** Rift legendary. */
   legend: boolean;
+  /** A legendary in the wild (late in the run): a `boss` with its own spawns and rewards. */
+  wildLegend: boolean;
   shiny: boolean;
   /** Golden hour: double XP. */
   golden: boolean;
