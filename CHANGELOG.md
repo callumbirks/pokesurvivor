@@ -6,7 +6,12 @@ What changed for players in each release, newest first. Generated from
 
 ## Unreleased
 
-PRs: [#109](https://github.com/callumbirks/pokesurvivor/pull/109)
+PRs: [#109](https://github.com/callumbirks/pokesurvivor/pull/109), [#110](https://github.com/callumbirks/pokesurvivor/pull/110)
+
+### New
+
+- Mega Evolution! After 30 minutes, Mega-capable Pokémon can find a rare Unique card to Mega Evolve for the rest of the run, with a big boost and a new look. Kyogre and Groudon undergo Primal Reversion, and Zacian and Zamazenta take up their Rusted Sword and Shield.
+- A "Mega Capable" badge marks the Pokémon that can Mega Evolve, in your collection and when choosing who to play.
 
 ### Changed
 
