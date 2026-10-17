@@ -234,7 +234,7 @@ tuning, levelup }` (see [Live tuning](#live-tuning-admin)): the server issues it
 
    This is `RunSummary` from `@pokesurvivor/protocol`. `coins` is the run's total coin reward as
    the game computes it at the end of a run. `gems` (R6) are the gems picked up; optional, as
-   older clients don't send it (0). `progress` (`RunProgress`) holds the counters
+   older clients don't send it (0), and null counts as 0. `progress` (`RunProgress`) holds the counters
    missions and achievements need; it may be left out (counts as empty):
    - `defeatsByType`: defeats per type id; an enemy counts once for each of its types.
    - `itemsEquipped`: each time a different held item was equipped; `movesEvolved`: the base
@@ -263,7 +263,10 @@ rescues that legacy can't spawn (over 3★, legendary, hovering or without sprit
 the original claim on the run when anything was capped, credits coins, tickets and gems through
 the ledger (`run_reward`), adds caught shinies (and their normal form) and rescued Pokémon to the collection,
 updates the stats, items found, moves evolved, arenas won and legendaries beaten, advances the
-missions and unlocks achievements. Each run can be reported once.
+missions and unlocks achievements. Each run can be reported once. Before crediting any run, solo
+or co-op, a count that isn't a non-negative integer (NaN or Infinity from a sim bug, a negative,
+a fraction) is credited as 0, or rounded down, and logged (`run stats had invalid numbers`), so one
+bad value can't roll back a whole team's credit.
 
 ### Checkpoints and the timeout credit
 

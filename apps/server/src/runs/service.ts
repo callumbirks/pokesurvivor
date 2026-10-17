@@ -37,6 +37,11 @@ export interface RunResult {
 export interface ProgressOptions {
   /** Daily and weekly missions roll over at midnight in this time zone. */
   timeZone: string;
+  /**
+   * When the run counts for missions (default: its end). A run credited long after it ended (a
+   * re-credit) counts for today's missions, rather than rolling them back to its day's.
+   */
+  missionsAt?: Date;
 }
 
 interface AppliedRun {
@@ -93,7 +98,7 @@ function applyRunToSave(
   s.evolutions += p.movesEvolved.length;
   s.riftWins += p.riftWins.length;
 
-  ensureMissions(save, periodsAt(run.endedAt, opts.timeZone));
+  ensureMissions(save, periodsAt(opts.missionsAt ?? run.endedAt, opts.timeZone));
   advanceMissions(data, {
     kind: 'run',
     summary: stats,
@@ -146,6 +151,70 @@ async function storeBalance(
       'storing a balance record failed',
     );
   }
+}
+
+/** The integer counts of a run that are credited and stored in `run_players`. */
+const COUNTS = [
+  'durationS',
+  'level',
+  'kills',
+  'bosses',
+  'coins',
+  'ticketsX1',
+  'ticketsX10',
+  'gems',
+] as const;
+
+/**
+ * Input sanitisation before crediting: a count that isn't a non-negative integer (NaN or
+ * Infinity from a sim bug, a negative, a fraction) would make the ledger or the `run_players`
+ * insert throw and roll back the credit of the whole team. Non-finite and negative values become
+ * 0, fractions are rounded down, and each fix is logged with the run.
+ */
+export function sanitizeStats<T extends Partial<RunStats>>(
+  stats: T,
+  log: Pick<FastifyBaseLogger, 'warn'> | undefined,
+  context: Record<string, unknown>,
+): T {
+  const fixed: Record<string, unknown> = {};
+  const out = { ...stats };
+  const clean = (v: unknown): number | undefined => {
+    if (typeof v !== 'number' || !Number.isFinite(v) || v < 0) return 0;
+    return Number.isInteger(v) ? undefined : Math.floor(v);
+  };
+  for (const key of COUNTS) {
+    if (!(key in stats) || stats[key] === undefined) continue;
+    const v = clean(stats[key]);
+    if (v === undefined) continue;
+    fixed[key] = stats[key];
+    (out as Record<string, unknown>)[key] = v;
+  }
+  const p = stats.progress;
+  if (p) {
+    const chests = clean(p.chestsOpened);
+    const byType = Object.entries(p.defeatsByType).filter(([, n]) => clean(n) !== undefined);
+    if (chests !== undefined || byType.length) {
+      if (chests !== undefined) fixed.chestsOpened = p.chestsOpened;
+      for (const [type, n] of byType) fixed[`defeatsByType.${type}`] = n;
+      out.progress = {
+        ...p,
+        chestsOpened: chests ?? p.chestsOpened,
+        defeatsByType: Object.fromEntries(
+          Object.entries(p.defeatsByType).map(([type, n]) => [type, clean(n) ?? n]),
+        ),
+      };
+    }
+  }
+  if (Object.keys(fixed).length)
+    // JSON turns NaN into null: show it as a string.
+    log?.warn(
+      {
+        ...context,
+        fixed: Object.fromEntries(Object.entries(fixed).map(([k, v]) => [k, String(v)])),
+      },
+      'run stats had invalid numbers: credited as 0 (or rounded down)',
+    );
+  return out;
 }
 
 function playerColumns(stats: Omit<RunStats, 'durationS'>) {
@@ -243,7 +312,9 @@ export async function checkpointSoloRun(
 ): Promise<RunCheckpoint> {
   return db.transaction(async (tx) => {
     const run = await lockOpenSoloRun(tx, userId, runId);
-    const { stats, capped } = capRunStats(claim, caps, run.elapsedS);
+    const result = capRunStats(claim, caps, run.elapsedS);
+    const capped = result.capped;
+    const stats = sanitizeStats(result.stats, balance.log, { runId, userId });
     if (balance.record)
       await storeBalance(
         tx,
@@ -279,7 +350,9 @@ export async function finishSoloRun(
 ): Promise<RunResult> {
   return db.transaction(async (tx) => {
     const run = await lockOpenSoloRun(tx, userId, runId);
-    const { stats, capped } = capRunStats(claim, caps, run.elapsedS);
+    const result = capRunStats(claim, caps, run.elapsedS);
+    const capped = result.capped;
+    const stats = sanitizeStats(result.stats, balance.log, { runId, userId });
     await tx
       .update(runs)
       .set({ status: 'finished', endedAt: sql`now()`, durationS: stats.durationS })
@@ -355,7 +428,7 @@ export async function creditTimedOutRuns(
         .for('update', { of: runs, skipLocked: true });
       if (!run?.checkpointAt) return null;
       // Written by `checkpointSoloRun`, already capped.
-      const stats = run.checkpoint as RunStats;
+      const stats = sanitizeStats(run.checkpoint as RunStats, undefined, {});
       const endedAt = run.checkpointAt;
       await tx
         .update(runs)
@@ -377,6 +450,10 @@ export async function creditTimedOutRuns(
 }
 
 export interface CoopRunReport {
+  /** The game it was (for logs). */
+  gameId?: string;
+  /** The run's id (default: a new one). A re-credit sets it, so it can be done once. */
+  runId?: string;
   startedAt: Date;
   endedAt: Date;
   durationS: number;
@@ -408,11 +485,14 @@ export async function recordCoopRun(
 ): Promise<{ runId: string; achievements: Map<string, UnlockedAchievement[]> }> {
   if (report.players.length === 0) throw new Error('A coop run needs at least one player');
   // Lock saves in a stable order so concurrent reports can't deadlock.
-  const players = [...report.players].sort((a, b) => a.userId.localeCompare(b.userId));
+  const players = [...report.players]
+    .sort((a, b) => a.userId.localeCompare(b.userId))
+    .map((p) => sanitizeStats(p, balance.log, { gameId: report.gameId, userId: p.userId }));
   return db.transaction(async (tx) => {
     const [run] = await tx
       .insert(runs)
       .values({
+        ...(report.runId ? { id: report.runId } : {}),
         mode: 'coop',
         status: 'finished',
         teamKey: players.map((p) => p.userId).join(','),

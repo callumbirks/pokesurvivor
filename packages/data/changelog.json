@@ -1,11 +1,13 @@
 {
   "unreleased": {
-    "prs": [],
+    "prs": [102],
     "entries": {
       "new": [],
       "changed": [],
-      "fixed": [],
-      "behindTheScenes": []
+      "fixed": ["Co-op runs that carried over a server update are credited again."],
+      "behindTheScenes": [
+        "Co-op runs that failed to save after the v17 update can be given back to their players."
+      ]
     }
   },
   "versions": [

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { hurtEnemy } from '../src/enemies.js';
 import { dropPickup, dropXp } from '../src/pickups.js';
 import { simData } from '../src/data.js';
+import { restoreSim, type SimState } from '../src/index.js';
 import { patchTuning, player, quietSim, seconds, spawnDummy, steps } from './helpers.js';
 
 describe('pickups', () => {
@@ -50,6 +51,21 @@ describe('pickups', () => {
     expect(sim.state.team.gems).toBe(2);
     expect(sim.summary().players[0]).toMatchObject({ gems: 2 });
     expect(sim.runSummaryFor(p.id)).toMatchObject({ gems: 2 });
+  });
+
+  it('a state saved before gems (v16) restores with none, and counts the next one', () => {
+    for (const saved of [undefined, null]) {
+      const sim = quietSim();
+      const state = JSON.parse(JSON.stringify(sim.state)) as SimState;
+      // v16 had no `gems`; a NaN count saves as null.
+      (state.team as { gems?: number | null }).gems = saved;
+      const restored = restoreSim(state);
+      const p = player(restored);
+      dropPickup(restored.ctx, 'gem', p.x + 5, p.y, 1);
+      steps(restored, 3);
+      expect(restored.state.team.gems).toBe(1);
+      expect(restored.runSummaryFor(p.id).gems).toBe(1);
+    }
   });
 
   it('regular enemies drop gems at gemDropRate, the same for the same seed', () => {
