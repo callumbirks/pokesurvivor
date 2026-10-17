@@ -112,6 +112,8 @@ export type SimEvent =
   | { type: 'move-upgraded'; playerId: PlayerId; moveId: string; level: number }
   | { type: 'move-evolved'; playerId: PlayerId; moveId: string }
   | { type: 'item-equipped'; playerId: PlayerId; itemId: string }
+  /** Picked the Unique card: the partner takes its form (megas.json `kind`) for the run. */
+  | { type: 'mega-evolved'; playerId: PlayerId; dex: number; kind: string }
   | { type: 'shiny-caught'; dex: number }
   /** For missions/achievements. `playerId` null: counts for every player. */
   | {

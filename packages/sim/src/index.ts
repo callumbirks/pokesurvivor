@@ -11,7 +11,8 @@ export {
   VIEW_W,
   drainTicks,
 } from './constants.js';
-export { MAX_PLAYERS, Sim, createSim, restoreSim } from './sim.js';
+export { MAX_PLAYERS, Sim, createSim, isPaused, restoreSim } from './sim.js';
+export { megaChance } from './mega.js';
 export type { Intent, MoveInput, SimConfig } from './sim.js';
 export type { PlayerConfig } from './players.js';
 export { REVIVE_RANGE, REVIVE_SECONDS, facingOf, isAttacking, moveSpeedOf } from './players.js';

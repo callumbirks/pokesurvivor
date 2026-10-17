@@ -127,6 +127,7 @@ export const balanceRecordSchema = z.strictObject({
       }),
     )
     .max(500),
+  mega: z.strictObject({ t: time, form: id }).optional(),
   wildLegends: z
     .array(
       z.strictObject({

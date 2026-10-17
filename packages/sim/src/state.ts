@@ -10,6 +10,7 @@ import type {
 } from '@pokesurvivor/data';
 import type {
   BalanceDown,
+  BalanceMega,
   BalancePick,
   BalanceRift,
   BalanceSample,
@@ -63,6 +64,12 @@ export interface SimState {
    * Like a pending choice, it pauses everything and the run clock; 0: playing.
    */
   resumeTicks: number;
+  /**
+   * Ticks the game stays paused for a Mega Evolution's animation (tuning `mega.animationSeconds`,
+   * from the pick). Counts down even while choices are pending, so it never adds to their wait.
+   * Absent in saves from before Mega Evolution (restored as 0).
+   */
+  megaTicks: number;
   weather: WeatherState;
   /** Mid-run events (hordes, golden hour, lost Pokémon) and treasure thieves. */
   events: EventsState;
@@ -250,6 +257,11 @@ export interface PlayerState {
   item: string | null;
   /** Regen Leftovers added when equipped (removed again on swap). */
   itemRegen: number;
+  /**
+   * `state.time` the partner Mega Evolved (its form: megas.json by dex; it lasts the whole run),
+   * null: not (yet). Absent in saves from before Mega Evolution (restored as null).
+   */
+  megaAt: number | null;
   /** `state.time` Focus Sash last saved you (null: never). */
   sashAt: number | null;
   /** Shell Bell healing still to be applied. */
@@ -293,6 +305,8 @@ export interface BalanceState {
   timeline: BalanceSample[];
   downs: BalanceDown[];
   rifts: BalanceRift[];
+  /** When the partner Mega Evolved, and into what (absent: it didn't). */
+  mega?: BalanceMega;
   /** Wild legendaries that appeared (`id`: the enemy, until the record is built). */
   wildLegends: (BalanceWildLegend & { id: EntityId })[];
   /** Damage taken so far. */
@@ -650,11 +664,15 @@ export interface SpawnerState {
 
 // ---------------------------------------------------------------- choices
 
-export type CardType = 'new' | 'upgrade' | 'evolution' | 'stat';
+/** `mega`: the Unique card (mega.ts), Mega Evolution for the rest of the run. */
+export type CardType = 'new' | 'upgrade' | 'evolution' | 'stat' | 'mega';
 
 /** A level-up card. Display text comes from the data (move / stat card) on the client. */
 export interface CardOption {
-  /** Unique within an offer: `new:<move>`, `upgrade:<move>`, `evolution:<move>`, `stat:<card>`. */
+  /**
+   * Unique within an offer: `new:<move>`, `upgrade:<move>`, `evolution:<move>`, `stat:<card>`,
+   * `mega:<dex>`.
+   */
   id: string;
   type: CardType;
   moveId?: string;

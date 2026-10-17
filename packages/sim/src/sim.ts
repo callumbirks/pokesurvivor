@@ -6,6 +6,7 @@ import { BIOME_SECONDS, DT, TICK_HZ } from './constants.js';
 import {
   autoResolveFor,
   findChoice,
+  openChoice,
   rerollChoice,
   resolveChoice,
   tickChoices,
@@ -18,7 +19,8 @@ import { rebuildGrid, updateEnemies } from './enemies.js';
 import type { SimEvent } from './events.js';
 import { updateHazards } from './hazards.js';
 import { updateInteract } from './interact.js';
-import { maybeLevelUp } from './levelup.js';
+import { maybeLevelUp, offerCards } from './levelup.js';
+import { megaCard, megaFormOf } from './mega.js';
 import { momentumCap } from './momentum.js';
 import { cycleSlot, setActive } from './moves.js';
 import { updatePaths, type PathField } from './pathing.js';
@@ -202,9 +204,12 @@ export class Sim {
     if (!presentPlayers(this.state).length) this.end('everyone-left');
   }
 
-  /** Paused while any choice is pending (for everyone), or counting down after a rift. */
+  /**
+   * Paused while any choice is pending (for everyone), during a Mega Evolution, or counting down
+   * after a rift.
+   */
   get paused(): boolean {
-    return this.state.pendingChoices.length > 0 || this.state.resumeTicks > 0;
+    return isPaused(this.state);
   }
 
   get ended(): boolean {
@@ -271,6 +276,23 @@ export class Sim {
     p.momentumIdle = 0;
   }
 
+  /**
+   * Debug: a level-up offer with the Unique card for this player now (if their partner can Mega
+   * Evolve and hasn't). False if it can't, or a choice is already open.
+   */
+  debugOfferMega(playerId: PlayerId): boolean {
+    const p = playerById(this.state, playerId);
+    if (!p || p.megaAt != null || !megaFormOf(this.ctx, p) || this.state.pendingChoices.length)
+      return false;
+    openChoice(this.ctx, {
+      kind: 'level-up',
+      playerId: p.id,
+      level: this.state.team.level,
+      options: [...offerCards(this.ctx, p).filter((c) => c.type !== 'mega'), megaCard(p.dex)],
+    });
+    return true;
+  }
+
   /** Debug: start a weather now. */
   debugStartWeather(kind: WeatherId, seconds = 60): void {
     startWeather(this.ctx, kind, seconds);
@@ -282,7 +304,9 @@ export class Sim {
     if (s.ended) return;
     s.tick++;
     tickChoices(ctx);
-    if (s.pendingChoices.length) {
+    // A Mega Evolution's animation: its pause runs alongside any choices still open.
+    if (s.megaTicks > 0) s.megaTicks--;
+    if (s.pendingChoices.length || s.megaTicks > 0) {
       for (const p of s.players) p.input.slot = null;
       return;
     }
@@ -362,6 +386,14 @@ export class Sim {
   }
 }
 
+/**
+ * The game is paused: a choice is pending (for everyone), a Mega Evolution is playing, or the team
+ * is counting down after a rift. Snapshots carry it as their paused flag.
+ */
+export function isPaused(s: SimState): boolean {
+  return s.pendingChoices.length > 0 || s.megaTicks > 0 || s.resumeTicks > 0;
+}
+
 export function createSim(config: SimConfig): Sim {
   const n = config.players.length;
   if (n < 1 || n > MAX_PLAYERS) throw new Error(`a run needs 1–${MAX_PLAYERS} players`);
@@ -403,6 +435,7 @@ export function createSim(config: SimConfig): Sim {
     rift: { checkT: data.tuning.rift.checkEvery, misses: 0, opened: 0, open: null },
     arena: null,
     resumeTicks: 0,
+    megaTicks: 0,
     weather: { current: null, checkT: data.weather.checkEvery, chipT: 0 },
     events: { nextT: 0, current: null, last: null, thiefT: 0, thieves: 0, lost: null },
     ended: null,
@@ -438,6 +471,8 @@ export function restoreSim(state: SimState, data?: GameData): Sim {
   if (!Number.isFinite(state.team.gems)) state.team.gems = 0;
   // Saves from before the rift exit countdown: playing.
   if (!Number.isFinite(state.resumeTicks)) state.resumeTicks = 0;
+  // Saves from before Mega Evolution: no animation pause, nobody evolved.
+  state.megaTicks ??= 0;
   for (const p of state.players) {
     // Saves from before balance records: one from now on (the setup it can't know is left empty).
     p.balance ??= newBalance(
@@ -448,6 +483,7 @@ export function restoreSim(state: SimState, data?: GameData): Sim {
     p.relocationTokens ??= gameTuning.stragglers.burst;
     p.travelVx ??= 0;
     p.travelVy ??= 0;
+    p.megaAt ??= null;
     // Saves from before defence was toughness: damage reduction d takes the same damage as
     // defence d / (1 − d) (Harden's stacks restart under the new rule when they refresh).
     const old = p as PlayerState & { damageReduction?: number };

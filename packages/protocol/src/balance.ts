@@ -28,7 +28,10 @@ export interface BalancePick {
   t: number;
   /** The level the card was for. */
   lv: number;
-  /** Card id: `new:<move>`, `upgrade:<move>`, `evolution:<move>`, `stat:<card>`. */
+  /**
+   * Card id: `new:<move>`, `upgrade:<move>`, `evolution:<move>`, `stat:<card>`, `mega:<dex>` (the
+   * Unique card).
+   */
   card: string;
   /** Stat cards: the rarity tier id. */
   rarity?: string;
@@ -135,6 +138,14 @@ export interface BalanceWildLegend {
   top?: true;
 }
 
+/** The partner Mega Evolved (the Unique level-up card). */
+export interface BalanceMega {
+  /** Run time (s). */
+  t: number;
+  /** The form's sprite key, `{dex}-{kind}` (megas.json): `6-mega`, `382-primal`, `888-crowned`. */
+  form: string;
+}
+
 export interface BalanceRecord {
   v: typeof BALANCE_RECORD_VERSION;
   setup: {
@@ -181,6 +192,8 @@ export interface BalanceRecord {
   timeline: BalanceSample[];
   downs: BalanceDown[];
   rifts: BalanceRift[];
+  /** When the partner Mega Evolved (absent: it didn't, or the record is from before megas). */
+  mega?: BalanceMega;
   /** Wild legendaries that appeared (absent in records from before them). */
   wildLegends?: BalanceWildLegend[];
 }

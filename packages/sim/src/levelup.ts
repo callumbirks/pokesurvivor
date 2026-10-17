@@ -4,8 +4,10 @@
 //   evolution  a max-level move whose required stat card you've taken (always offered when ready)
 //   stat       a permanent stat card for the run, with a rolled rarity (rarity.ts); a card with a
 //              ceiling (`cap`) isn't offered once it's reached
+//   mega       the rare "Unique" card: Mega Evolution for the rest of the run (mega.ts)
 import { openChoice } from './choices.js';
 import { presentPlayers, type Ctx } from './ctx.js';
+import { applyMega, megaCard, megaChance } from './mega.js';
 import { addMove, canLevelUp, evolutionInfo, evolveMove, levelUpMove, moveById } from './moves.js';
 import { addMaxHp, hasMove, healPlayer } from './players.js';
 import { rarityTier, rollRarity, scaledCardEffect } from './rarity.js';
@@ -157,11 +159,21 @@ export function offerCards(ctx: Ctx, p: PlayerState): CardOption[] {
     if (card) picked.splice(first + Math.floor(ctx.rand() * (picked.length - first + 1)), 0, card);
   }
   const rarity = ctx.d.game.levelUp.rarity;
-  return picked.map((c) =>
+  const out = picked.map((c) =>
     c.type === 'stat' && c.statId && ctx.d.statCard(c.statId).rarity !== false
       ? { ...c, rarity: rollRarity(rarity, ctx.s.time / 60, ctx.rand) }
       : c,
   );
+  // At most one Unique card, in the last slot (never the default a deadline picks), unless that
+  // is a ready evolution's. Drawn only for a partner that can still take it, so other runs' RNG
+  // is untouched.
+  const chance = megaChance(ctx, p);
+  if (chance > 0 && ctx.rand() < chance) {
+    const at = out.findLastIndex((c) => c.type !== 'evolution');
+    if (out.length < n || at < 0) out.push(megaCard(p.dex));
+    else out[at] = megaCard(p.dex);
+  }
+  return out;
 }
 
 export function applyCard(ctx: Ctx, p: PlayerState, card: CardOption): void {
@@ -175,6 +187,9 @@ export function applyCard(ctx: Ctx, p: PlayerState, card: CardOption): void {
       return;
     case 'evolution':
       if (m) evolveMove(ctx, p, m);
+      return;
+    case 'mega':
+      applyMega(ctx, p);
       return;
     case 'stat': {
       if (!card.statId) return;

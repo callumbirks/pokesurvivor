@@ -200,6 +200,36 @@ describe('snapshots', () => {
     me.momentum = saved;
   });
 
+  it('carry a Mega Evolution (an optional detail) and pause for its animation, in both formats', () => {
+    const run = createSim({
+      seed: 3,
+      players: [
+        { id: 'a', dex: 6 },
+        { id: 'b', dex: 25 },
+      ],
+      debug: { noSpawns: true },
+    });
+    const [a] = run.state.players;
+    for (const format of ['binary', 'json'] as const) {
+      const enc = new SnapshotEncoder({ viewerId: 'b', format });
+      const dec = new SnapshotDecoder(['a', 'b']);
+      let snap = dec.decode(enc.encode(run.state, [], 1, 0));
+      expect(snap.details.a?.mega).toBeUndefined();
+      expect(snap.paused).toBe(false);
+      a!.megaAt = 1834.56;
+      run.state.megaTicks = 30;
+      const event: SimEvent = { type: 'mega-evolved', playerId: 'a', dex: 6, kind: 'mega' };
+      snap = dec.decode(enc.encode(run.state, [event], 2, 1));
+      expect(snap.details.a?.mega).toBe(1834.6);
+      expect(snap.details.b?.mega).toBeUndefined();
+      expect(snap.paused).toBe(true);
+      // Everyone sees it, not only the player who evolved.
+      expect(snap.events).toContainEqual(event);
+      a!.megaAt = null;
+      run.state.megaTicks = 0;
+    }
+  });
+
   it('send the viewer only its own stats panel, when it changes, at most twice a second', () => {
     const me = sim.state.players[1]!;
     const enc = new SnapshotEncoder({ viewerId: me.id, format: 'json' });
