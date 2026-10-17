@@ -139,6 +139,10 @@ export class GameServer implements PresenceSource, FriendNotifier {
   /** The game loop's lag since the last `server.lag` (sent to players at most once a second). */
   private lag = { late: 0, skipped: 0, worstMs: 0 };
   private lagSentAt = -Infinity;
+  /** The online count everyone was last sent, when, and the pending coalesced broadcast. */
+  private onlineSent = -1;
+  private onlineSentAt = -Infinity;
+  private onlineTimer: NodeJS.Timeout | null = null;
 
   constructor(private readonly opts: GameServerOptions) {
     this.db = opts.db;
@@ -254,6 +258,33 @@ export class GameServer implements PresenceSource, FriendNotifier {
       if (game.phase !== 'running') continue;
       for (const id of game.playerIds) this.sessionOf(id)?.send({ type: 'server.lag', ...lag });
     }
+  }
+
+  // ---------------------------------------------------------------- online count
+
+  /** Players online: one session per logged-in user (only authenticated sockets get one). */
+  get onlineCount(): number {
+    return this.sessions.size;
+  }
+
+  /**
+   * Someone came online or went offline: tells everyone the new count, coalescing bursts (a
+   * deploy's reconnects) into one broadcast every `onlineCountMs`, sent only if it changed.
+   */
+  private onlineChanged(): void {
+    if (this.onlineTimer || this.stopped) return;
+    const wait = Math.max(0, this.onlineSentAt + this.config.onlineCountMs - performance.now());
+    this.onlineTimer = setTimeout(() => this.broadcastOnline(), wait);
+    this.onlineTimer.unref();
+  }
+
+  private broadcastOnline(): void {
+    this.onlineTimer = null;
+    const count = this.onlineCount;
+    if (count === this.onlineSent || this.stopped) return;
+    this.onlineSent = count;
+    this.onlineSentAt = performance.now();
+    for (const session of this.sessions.values()) session.send({ type: 'online', count });
   }
 
   // ---------------------------------------------------------------- presence and friends
@@ -604,6 +635,7 @@ export class GameServer implements PresenceSource, FriendNotifier {
     conn.session = session;
     this.sessions.set(user.id, session);
     this.pendingRoomNotices.delete(user.id);
+    if (!old) this.onlineChanged();
     void this.welcome(session).catch((err: unknown) => {
       this.log.error({ err }, 'could not restore room membership');
       session.close(1011, 'room restore failed');
@@ -623,6 +655,7 @@ export class GameServer implements PresenceSource, FriendNotifier {
         ? { build: this.config.build.id, version: this.config.build.version }
         : {}),
     });
+    session.send({ type: 'online', count: this.onlineCount });
     if (this.draining && this.updateDeadline !== null)
       session.send({ type: 'notice', code: 'server-update', deadline: this.updateDeadline });
     const attached = !this.draining && (await this.adoptFor(session.userId));
@@ -685,6 +718,7 @@ export class GameServer implements PresenceSource, FriendNotifier {
     // Superseded: the new session took over; nothing changes for the room.
     if (this.sessions.get(session.userId) !== session) return;
     this.sessions.delete(session.userId);
+    this.onlineChanged();
     this.pendingRoomNotices.delete(session.userId);
     this.lastUsername.set(session.userId, session.username);
     this.roomOf.get(session.userId)?.disconnected(session.userId);
@@ -1314,6 +1348,8 @@ export class GameServer implements PresenceSource, FriendNotifier {
     this.stopped = true;
     this.ticker.stop();
     clearInterval(this.heartbeat);
+    if (this.onlineTimer) clearTimeout(this.onlineTimer);
+    this.onlineTimer = null;
     for (const room of this.rooms.values()) room.suspend();
     for (const session of [...this.sessions.values()])
       session.close(CloseCode.restarting, 'server restarting');

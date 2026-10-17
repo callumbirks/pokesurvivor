@@ -115,6 +115,7 @@ game already started), `room_full`, `already_member`, `no_invite`, `user_not_fou
 | `game.start {game, resumed}`                                                                       | the game runs (or you resumed it); a full snapshot follows straight away                                                                                                                                                                                                                 |
 | `game.results {results}`                                                                           | the run is over and recorded                                                                                                                                                                                                                                                             |
 | `server.lag {late, skipped, worstMs}`                                                              | the game loop fell behind (in a running game, at most 1/s; see [Server lag](#server-lag))                                                                                                                                                                                                |
+| `online {count}`                                                                                   | after `welcome`, then to everyone when the count changes (at most every 5 s; see [Online count](#online-count))                                                                                                                                                                          |
 | binary frame                                                                                       | a snapshot                                                                                                                                                                                                                                                                               |
 
 `RoomView` is `{id, phase, ownerId, members, invited, maxMembers: 4, blockers, loadingDeadline}`.
@@ -143,6 +144,17 @@ five catch-up ticks it skips ahead. Players in running games then get
 most the loop was behind (ms). It is sent at most once a second, only when something happened,
 and is for diagnostics only (the in-game network stats show "Server: struggling"). It was added
 within protocol 7: older clients ignore unknown message types.
+
+## Online count
+
+`online {count}` is how many players are online: users logged in with the game open, one per
+account (a user's sockets other than the current one, and sockets that haven't authenticated,
+aren't counted), wherever they are (menus, a lobby, a solo or coop run). The server is a single
+instance, so this is everyone. A new session gets it right after `welcome`; after that, joins and
+leaves are coalesced into one `online` to every session at most every 5 seconds, sent only if the
+count changed since the last one (a deploy's burst of reconnects is a message or two, not one per
+player). The menus show it next to the top bar. It was added within protocol 7: older clients
+ignore unknown message types.
 
 ## Friend activity
 

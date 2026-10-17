@@ -468,7 +468,8 @@ button.stage {
 }
 
 /* ---------- top bar, toasts, notices, invites ---------- */
-/* Coins, tickets, the room, the account and the settings: one window of cells. */
+/* Coins, tickets, the room, the account and the settings: one window of cells, with the players
+   online beside it, straight on the field. */
 .topbar {
   position: fixed;
   top: 18px;
@@ -476,8 +477,41 @@ button.stage {
   z-index: 25;
   display: flex;
   align-items: center;
-  padding: 4px;
+  gap: 14px;
   max-width: calc(100% - 28px);
+}
+.topbar .tb-card {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  padding: 4px;
+}
+.online-count {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--title);
+  /* An ink outline and the hard shadow: readable on grass, water and paths alike. */
+  text-shadow:
+    -1px -1px 0 var(--ink),
+    1px -1px 0 var(--ink),
+    -1px 1px 0 var(--ink),
+    1px 1px 0 var(--ink),
+    2px 2px 0 var(--ink);
+  white-space: nowrap;
+}
+.online-dot {
+  width: 8px;
+  height: 8px;
+  background: var(--green);
+  box-shadow:
+    0 0 0 1px var(--ink),
+    2px 2px 0 1px var(--ink);
+}
+.online-short {
+  display: none;
 }
 .topbar .tb-cell {
   appearance: none;
@@ -1957,6 +1991,25 @@ html[data-input='touch'] .back-btn .input-hint {
     padding: 0 8px;
     font-size: 14px;
   }
+  .topbar {
+    gap: 10px;
+  }
+  .online-count {
+    font-size: 14px;
+    gap: 6px;
+  }
+  .online-full {
+    display: none;
+  }
+  .online-short {
+    display: inline;
+  }
+}
+/* Phones in portrait: the window takes the whole row. */
+@media (max-width: 480px) {
+  .online-count {
+    display: none;
+  }
 }
 
 /* ---------- short screens (phones in landscape) ---------- */
@@ -1984,6 +2037,8 @@ html[data-input='touch'] .back-btn .input-hint {
   .topbar {
     top: 6px;
     right: 10px;
+  }
+  .topbar .tb-card {
     padding: 0;
   }
   .topbar .tb-cell {
