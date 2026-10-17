@@ -1,8 +1,10 @@
 {
   "unreleased": {
-    "prs": [102, 103, 105],
+    "prs": [102, 103, 104, 105],
     "entries": {
-      "new": [],
+      "new": [
+        "From 30 minutes, wild legendary Pokémon start appearing: tougher than anything else in the wild."
+      ],
       "changed": [
         "Balance update: over the past few days we've been testing balance changes live, and they're now the defaults.",
         "The first few minutes are gentler.",
