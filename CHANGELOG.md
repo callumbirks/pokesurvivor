@@ -12,6 +12,7 @@ PRs: [#102](https://github.com/callumbirks/pokesurvivor/pull/102), [#103](https:
 
 - From 30 minutes, wild legendary Pokémon start appearing: tougher than anything else in the wild.
 - Coming back from a rift now gives you a 3-2-1 before the action resumes.
+- The menus now show how many players are online.
 
 ### Changed
 

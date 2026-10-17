@@ -652,6 +652,8 @@
     "tickets": "Gacha tickets (×1 and ×10)",
     "gems": "Gems: found in runs, spent on resets and prestige",
     "roomPill": "Room {0}/{1}",
+    "onlineCount": "{0} online",
+    "onlineTitle": "Players online right now",
     "savedInCloud": "Your game is saved in the cloud: log in from any device.",
     "shiny": "Shiny",
     "normal": "Normal",

@@ -101,7 +101,7 @@ export class App {
     private readonly routes: Record<string, Route>,
   ) {
     this.main = h('main', { class: 'screens' });
-    this.topbar = h('header', { class: 'topbar win hidden' });
+    this.topbar = h('header', { class: 'topbar hidden' });
     this.invitePop = h('div', { class: 'box invite-pop hidden', role: 'dialog' });
     root.append(this.main, this.topbar, this.invitePop);
     mountToasts(root);
@@ -278,6 +278,7 @@ export class App {
       this.busy.onRoom();
       this.renderTopbar();
     });
+    on('online', () => this.renderTopbar());
     on('invite', () => this.renderInvite());
     on('invite.revoked', () => this.renderInvite());
     on('invite.declined', (d) => toast(t('app.declinedInvite', { 0: d.username })));
@@ -585,8 +586,11 @@ export class App {
     if (!s || !this.user || this.topbar.classList.contains('hidden')) return;
     const room = this.net?.roomView;
     const state = this.net?.state;
-    replace(
-      this.topbar,
+    // Players online, beside the window: hidden until the server sends a count, and while offline.
+    const online = state === 'open' ? (this.net?.onlineCount ?? null) : null;
+    const card = h(
+      'div',
+      { class: 'tb-card win' },
       h('div', { class: 'tb-cell', title: t('app.coins') }, icon('coin', 18), num(s.coins)),
       h(
         'div',
@@ -625,6 +629,24 @@ export class App {
         },
         icon('gear', 20),
       ),
+    );
+    replace(
+      this.topbar,
+      online === null
+        ? null
+        : h(
+            'div',
+            {
+              class: 'online-count',
+              title: t('app.onlineTitle'),
+              dataset: { testid: 'online-count' },
+            },
+            h('i', { class: 'online-dot', 'aria-hidden': 'true' }),
+            // Narrow windows show just the number (styles.css).
+            h('span', { class: 'online-full' }, t('app.onlineCount', { 0: num(online) })),
+            h('span', { class: 'online-short' }, num(online)),
+          ),
+      card,
     );
   }
 

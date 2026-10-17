@@ -41,6 +41,11 @@ test('shop, moves, settings, solo and login again', async ({ page }) => {
   await expect(page.locator('.topbar img.pix')).toHaveCount(5);
   await expect(page.getByTestId('topbar-gems')).toHaveText('0');
   await expect(page.locator('canvas.backdrop')).toBeVisible();
+  // The players online beside the top bar (at least this one; other tests may be online too).
+  const onlineText = page.getByTestId('online-count').locator('.online-full');
+  await expect(onlineText).toHaveText(/^\d+ online$/);
+  const online = Number((await onlineText.textContent())?.split(' ')[0]);
+  expect(online).toBeGreaterThanOrEqual(1);
 
   // What's new: a new device sees a dot while there's a release (it never opens by itself);
   // opening the screen marks it seen. Before the first release: no dot, an empty state.
