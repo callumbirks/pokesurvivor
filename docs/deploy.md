@@ -395,3 +395,57 @@ the top of `#admin`. Publishing again (or reverting) stores only what applies.
 Overrides replace whole arrays (a curve or the list of stat cards), so an override of an array
 also hides changes a deploy makes to that array's defaults: check the diff against the defaults
 on `#admin` after deploying data changes.
+
+## Re-crediting failed co-op runs
+
+If recording a co-op run fails, every player in it loses that run's credit, because one
+transaction credits the whole team. The server retries 3 times and logs each failure as
+`recording a coop run failed`, with the failed `run_players` insert: every player's stats are
+in `err.params`. v17 hit this with games saved by v16 and restored (gems were NaN, fixed in #102).
+`dist/recredit.js`, in the image, credits those runs from the log lines.
+
+1. **Collect the lines** on the server (the app's container, or `docker service logs <app>`
+   under Swarm). Any other lines are ignored, so a wider grep is fine:
+
+   ```sh
+   docker logs <container> 2>&1 | grep '"recording a coop run failed"' > failed.json
+   ```
+
+2. **Dry run** (the default): it prints, per game, who would get what, and writes nothing.
+
+   ```sh
+   docker exec -i <container> node apps/server/dist/recredit.js < failed.json
+   ```
+
+   It uses the container's `DATABASE_URL` and `LEADERBOARD_TIME_ZONE`. It also reads a file path
+   (`… recredit.js failed.json`, for a file inside the container) or stdin, as above.
+
+3. **Apply** once the output looks right:
+
+   ```sh
+   docker exec -i <container> node apps/server/dist/recredit.js --apply < failed.json
+   ```
+
+It is safe to run again, or on overlapping lines. A game is credited at most once:
+
+- Each game's 3 retry lines (each with its own `run_id`) count as one game, by `gameId`.
+- The re-credited run gets an id derived from the `gameId`. A second run finds it and skips the
+  game (`skipped, re-credited before`).
+- A game is also skipped if its team has a co-op run ending within 10 minutes of the failure, which
+  means a retry was credited after all.
+
+Each game is credited in its own transaction through `recordCoopRun`, the same code the game
+server uses: the run row, `run_players`, coins and tickets through the ledger (`run_reward`),
+shinies and rescues into the collection, stats, missions and achievements. Players whose account
+is gone are left out (`left out: user … has no save`), and the rest of their team is credited.
+
+**What the logs don't have, and what it uses instead:**
+
+- **Gems:** 0, since the real count is unknown (it was NaN).
+- **Duration:** 0. It wasn't in the logged statement. So the runs give no best time, no
+  "survive N minutes" mission progress and no leaderboard time. Players who left early count as
+  having stayed.
+- **Times:** the run starts and ends at the first failure's log `time`. Daily and weekly
+  missions count for the day it is re-credited, not the run's day, so today's missions aren't
+  rolled back.
+- **Config version:** 0 (the defaults). It is only a label on the run.

@@ -37,6 +37,11 @@ export interface RunResult {
 export interface ProgressOptions {
   /** Daily and weekly missions roll over at midnight in this time zone. */
   timeZone: string;
+  /**
+   * When the run counts for missions (default: its end). A run credited long after it ended (a
+   * re-credit) counts for today's missions, rather than rolling them back to its day's.
+   */
+  missionsAt?: Date;
 }
 
 interface AppliedRun {
@@ -93,7 +98,7 @@ function applyRunToSave(
   s.evolutions += p.movesEvolved.length;
   s.riftWins += p.riftWins.length;
 
-  ensureMissions(save, periodsAt(run.endedAt, opts.timeZone));
+  ensureMissions(save, periodsAt(opts.missionsAt ?? run.endedAt, opts.timeZone));
   advanceMissions(data, {
     kind: 'run',
     summary: stats,
@@ -447,6 +452,8 @@ export async function creditTimedOutRuns(
 export interface CoopRunReport {
   /** The game it was (for logs). */
   gameId?: string;
+  /** The run's id (default: a new one). A re-credit sets it, so it can be done once. */
+  runId?: string;
   startedAt: Date;
   endedAt: Date;
   durationS: number;
@@ -485,6 +492,7 @@ export async function recordCoopRun(
     const [run] = await tx
       .insert(runs)
       .values({
+        ...(report.runId ? { id: report.runId } : {}),
         mode: 'coop',
         status: 'finished',
         teamKey: players.map((p) => p.userId).join(','),

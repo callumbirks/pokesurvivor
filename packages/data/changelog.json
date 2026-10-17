@@ -5,7 +5,9 @@
       "new": [],
       "changed": [],
       "fixed": ["Co-op runs that carried over a server update are credited again."],
-      "behindTheScenes": []
+      "behindTheScenes": [
+        "Co-op runs that failed to save after the v17 update can be given back to their players."
+      ]
     }
   },
   "versions": [

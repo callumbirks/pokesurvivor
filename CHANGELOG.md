@@ -12,6 +12,10 @@ PRs: [#102](https://github.com/callumbirks/pokesurvivor/pull/102)
 
 - Co-op runs that carried over a server update are credited again.
 
+### Behind the scenes
+
+- Co-op runs that failed to save after the v17 update can be given back to their players.
+
 ## v17 - 2026-10-17
 
 PRs: [#98](https://github.com/callumbirks/pokesurvivor/pull/98), [#99](https://github.com/callumbirks/pokesurvivor/pull/99), [#100](https://github.com/callumbirks/pokesurvivor/pull/100)
